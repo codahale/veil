@@ -1,3 +1,3 @@
 mod common;
-mod hpke;
+pub mod hpke;
 mod schnorr;
