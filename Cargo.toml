@@ -8,10 +8,3 @@ edition = "2018"
 curve25519-dalek = "3"
 rand_core = "0.5"
 strobe-rs = "0.6"
-
-[dev-dependencies]
-criterion = "0.3"
-
-[[bench]]
-name = "hpke_bench"
-harness = false
