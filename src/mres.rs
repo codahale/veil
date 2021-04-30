@@ -208,7 +208,8 @@ mod tests {
         let d_r = Scalar::random(&mut rng);
         let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
 
-        let mut src = io::Cursor::new(b"this is a thingy");
+        let message = b"this is a thingy";
+        let mut src = io::Cursor::new(message);
         let mut dst = io::Cursor::new(Vec::new());
 
         let ctx_len =
@@ -220,6 +221,6 @@ mod tests {
 
         let ptx_len = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s).expect("decrypt");
         assert_eq!(dst.position(), ptx_len);
-        assert_eq!(b"this is a thingy".to_vec(), dst.into_inner());
+        assert_eq!(message.to_vec(), dst.into_inner());
     }
 }

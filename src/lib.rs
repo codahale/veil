@@ -60,8 +60,8 @@ impl PrivateKey {
         W: io::Write,
     {
         mres::encrypt(
-            reader,
-            writer,
+            &mut io::BufReader::new(reader),
+            &mut io::BufWriter::new(writer),
             &self.d,
             &self.public_key.q,
             recipients.into_iter().map(|pk| &pk.q).collect(),
@@ -79,7 +79,13 @@ impl PrivateKey {
         R: io::Read,
         W: io::Write,
     {
-        mres::decrypt(reader, writer, &self.d, &self.public_key.q, &sender.q)
+        mres::decrypt(
+            &mut io::BufReader::new(reader),
+            &mut io::BufWriter::new(writer),
+            &self.d,
+            &self.public_key.q,
+            &sender.q,
+        )
     }
 
     pub fn sign<R: io::Read>(&self, reader: &mut R) -> io::Result<[u8; 64]> {
