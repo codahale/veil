@@ -7,19 +7,23 @@ use rand::Rng;
 use std::convert::TryInto;
 use strobe_rs::{SecParam, Strobe};
 
-pub struct Signer {
+pub struct Signer<W: io::Write> {
     schnorr: Strobe,
+    writer: W,
 }
 
-impl Signer {
-    pub fn new() -> Signer {
+impl<W> Signer<W>
+where
+    W: io::Write,
+{
+    pub fn new(writer: W) -> Signer<W> {
         let mut schnorr = Strobe::new(b"", SecParam::B256);
         schnorr.send_clr(&[], false);
 
-        Signer { schnorr }
+        Signer { schnorr, writer }
     }
 
-    pub fn sign(mut self, d: &Scalar, q: &RistrettoPoint) -> [u8; 64] {
+    pub fn sign(&mut self, d: &Scalar, q: &RistrettoPoint) -> [u8; 64] {
         self.schnorr.ad(q.compress().as_bytes(), false);
 
         let mut seed = [0u8; 64];
@@ -47,17 +51,24 @@ impl Signer {
         sig[32..].copy_from_slice(s.as_bytes());
         sig
     }
+
+    pub fn direct_write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.writer.write(buf)
+    }
 }
 
-impl io::Write for Signer {
+impl<W> io::Write for Signer<W>
+where
+    W: io::Write,
+{
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.schnorr.send_clr(buf, true);
 
-        Ok(buf.len())
+        self.writer.write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        Ok(())
+        self.writer.flush()
     }
 }
 
@@ -112,6 +123,7 @@ mod tests {
     use crate::schnorr::{Signer, Verifier};
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
     use curve25519_dalek::scalar::Scalar;
+    use std::io;
     use std::io::Write;
 
     #[test]
@@ -120,7 +132,7 @@ mod tests {
         let d = Scalar::random(&mut rng);
         let q = RISTRETTO_BASEPOINT_POINT * d;
 
-        let mut signer = Signer::new();
+        let mut signer = Signer::new(io::sink());
         signer.write(b"this is a message that").unwrap();
         signer.write(b" is in multiple pieces").unwrap();
         signer.flush().unwrap();
@@ -142,7 +154,7 @@ mod tests {
         let d = Scalar::random(&mut rng);
         let q = RISTRETTO_BASEPOINT_POINT * d;
 
-        let mut signer = Signer::new();
+        let mut signer = Signer::new(io::sink());
         signer.write(b"this is a message that").unwrap();
         signer.write(b" is in multiple pieces").unwrap();
         signer.flush().unwrap();
@@ -164,7 +176,7 @@ mod tests {
         let d = Scalar::random(&mut rng);
         let q = RISTRETTO_BASEPOINT_POINT * d;
 
-        let mut signer = Signer::new();
+        let mut signer = Signer::new(io::sink());
         signer.write(b"this is a message that").unwrap();
         signer.write(b" is in multiple pieces").unwrap();
         signer.flush().unwrap();

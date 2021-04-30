@@ -54,7 +54,7 @@ impl PrivateKey {
         writer: &mut W,
         recipients: Vec<PublicKey>,
         fakes: usize,
-        padding: usize,
+        padding: u64,
     ) -> io::Result<u64>
     where
         R: io::Read,
@@ -96,7 +96,7 @@ impl PrivateKey {
     }
 
     pub fn sign<R: io::Read>(&self, reader: &mut R) -> io::Result<[u8; 64]> {
-        let mut signer = schnorr::Signer::new();
+        let mut signer = schnorr::Signer::new(io::sink());
         io::copy(reader, &mut signer)?;
 
         Ok(signer.sign(&self.d, &self.public_key.q))

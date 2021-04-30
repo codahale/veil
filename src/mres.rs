@@ -17,7 +17,7 @@ pub fn encrypt<R, W>(
     d_s: &Scalar,
     q_s: &RistrettoPoint,
     q_rs: Vec<RistrettoPoint>,
-    padding: usize,
+    padding: u64,
 ) -> io::Result<u64>
 where
     R: io::Read,
@@ -25,7 +25,7 @@ where
 {
     let mut written = 0u64;
     let mut rng = rand::thread_rng();
-    let mut signer = schnorr::Signer::new();
+    let mut signer = schnorr::Signer::new(writer);
 
     // Generate an ephemeral key pair.
     let d_e = Scalar::random(&mut rng);
@@ -36,22 +36,19 @@ where
     rng.fill(dek.as_mut());
 
     // Encode the DEK and message offset in a header.
-    let header = encode_header(&dek, q_rs.len());
+    let header = encode_header(&dek, q_rs.len(), padding);
 
     // For each recipient, encrypt a copy of the header.
     for q_r in q_rs {
         let ciphertext = hpke::encrypt(d_s, q_s, &d_e, &q_e, &q_r, &header);
-        written += writer.write(&ciphertext)? as u64;
-
-        // Include encrypted headers in the signature.
-        signer.write(&ciphertext)?;
+        written += signer.write(&ciphertext)? as u64;
     }
 
     // Add random padding to the end of the headers.
-    let mut pad = Vec::with_capacity(padding);
-    rng.fill(pad.as_mut_slice());
-    signer.write(&pad)?;
-    written += writer.write(&pad)? as u64;
+    written += io::copy(
+        &mut RngReader(rand::thread_rng()).take(padding),
+        &mut signer,
+    )?;
 
     // Initialize a protocol and key it with the DEK.
     let mut mres = Strobe::new(b"veil.mres", SecParam::B256);
@@ -70,11 +67,8 @@ where
         // Encrypt the block.
         mres.send_enc(&mut buf[0..n], true);
 
-        // Sign the ciphertext.
-        signer.write(&buf[0..n])?;
-
-        // Write the ciphertext.
-        written += writer.write(&buf[0..n])? as u64;
+        // Write the ciphertext and sign it.
+        written += signer.write(&buf[0..n])? as u64;
     }
 
     // Sign the encrypted headers and ciphertext with the ephemeral key pair.
@@ -84,7 +78,7 @@ where
     mres.send_enc(&mut sig, false);
 
     // Write the encrypted signature.
-    written += writer.write(&sig)? as u64;
+    written += signer.direct_write(&sig)? as u64;
 
     Ok(written)
 }
@@ -119,6 +113,8 @@ where
                 q_e = p;
                 dek.copy_from_slice(&header[..32]);
                 msg_offset = byteorder::LE::read_u64(&header[header.len() - 8..]);
+
+                break;
             }
             None => continue,
         }
@@ -175,14 +171,24 @@ const DEK_LEN: usize = 32;
 const HEADER_LEN: usize = DEK_LEN + 8;
 const ENC_HEADER_LEN: usize = HEADER_LEN + 32 + common::MAC_LEN;
 
-fn encode_header(dek: &[u8; DEK_LEN], r_len: usize) -> Vec<u8> {
-    let msg_offset = (r_len as u64) * ENC_HEADER_LEN as u64;
+fn encode_header(dek: &[u8; DEK_LEN], r_len: usize, padding: u64) -> Vec<u8> {
+    let msg_offset = ((r_len as u64) * ENC_HEADER_LEN as u64) + padding;
 
     let mut header = Vec::with_capacity(HEADER_LEN);
     header.extend_from_slice(dek);
     header.extend_from_slice(&msg_offset.to_le_bytes());
 
     header.to_vec()
+}
+
+struct RngReader<R: rand::Rng>(R);
+
+impl<R: rand::Rng> io::Read for RngReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.0.fill(buf);
+
+        Ok(buf.len())
+    }
 }
 
 #[cfg(test)]
