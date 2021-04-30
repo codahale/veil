@@ -17,7 +17,7 @@ where
     W: io::Write,
 {
     pub fn new(writer: W) -> Signer<W> {
-        let mut schnorr = Strobe::new(b"", SecParam::B256);
+        let mut schnorr = Strobe::new(b"veil.schnorr", SecParam::B256);
         schnorr.send_clr(&[], false);
 
         Signer { schnorr, writer }
@@ -78,7 +78,7 @@ pub struct Verifier {
 
 impl Verifier {
     pub fn new() -> Verifier {
-        let mut schnorr = Strobe::new(b"", SecParam::B256);
+        let mut schnorr = Strobe::new(b"veil.schnorr", SecParam::B256);
         schnorr.recv_clr(&[], false);
 
         Verifier { schnorr }
