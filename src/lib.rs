@@ -63,7 +63,7 @@ impl PrivateKey {
         // Add any fakes and shuffle the recipients list.
         let mut rng = rand::thread_rng();
         let mut q_rs: Vec<RistrettoPoint> = recipients.into_iter().map(|pk| pk.q).collect();
-        q_rs.extend((1..fakes).map(|_| RistrettoPoint::random(&mut rng)));
+        q_rs.extend((0..fakes).map(|_| RistrettoPoint::random(&mut rng)));
         q_rs.shuffle(&mut rng);
 
         mres::encrypt(
