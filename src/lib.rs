@@ -3,7 +3,8 @@ use std::io;
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
-use rand_core::{OsRng, RngCore};
+use rand::seq::SliceRandom;
+use rand::Rng;
 use strobe_rs::{SecParam, Strobe};
 
 mod common;
@@ -17,9 +18,8 @@ pub struct SecretKey {
 
 impl SecretKey {
     pub fn new() -> SecretKey {
-        let mut rng = OsRng::default();
         let mut seed = [0u8; 64];
-        rng.fill_bytes(&mut seed);
+        rand::thread_rng().fill(&mut seed);
 
         SecretKey { seed }
     }
@@ -52,19 +52,26 @@ impl PrivateKey {
         &self,
         reader: &mut R,
         writer: &mut W,
-        recipients: Vec<&PublicKey>,
+        recipients: Vec<PublicKey>,
+        fakes: usize,
         padding: usize,
     ) -> io::Result<u64>
     where
         R: io::Read,
         W: io::Write,
     {
+        // Add any fakes and shuffle the recipients list.
+        let mut rng = rand::thread_rng();
+        let mut q_rs: Vec<RistrettoPoint> = recipients.into_iter().map(|pk| pk.q).collect();
+        q_rs.extend((1..fakes).map(|_| RistrettoPoint::random(&mut rng)));
+        q_rs.shuffle(&mut rng);
+
         mres::encrypt(
             &mut io::BufReader::new(reader),
             &mut io::BufWriter::new(writer),
             &self.d,
             &self.public_key.q,
-            recipients.into_iter().map(|pk| &pk.q).collect(),
+            q_rs,
             padding,
         )
     }

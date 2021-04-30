@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 curve25519-dalek = "3"
+rand = "0.7"
 rand_core = "0.5"
 strobe-rs = "0.6"
 byteorder = "1.4"

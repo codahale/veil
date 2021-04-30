@@ -3,7 +3,7 @@ use std::io;
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
-use rand_core::{OsRng, RngCore};
+use rand::Rng;
 use std::convert::TryInto;
 use strobe_rs::{SecParam, Strobe};
 
@@ -26,8 +26,8 @@ impl Signer {
 
         {
             let mut clone = self.schnorr.clone();
-            let mut rng = OsRng::default();
-            rng.fill_bytes(&mut seed);
+            let mut rng = rand::thread_rng();
+            rng.fill(&mut seed);
             clone.key(&seed, false);
             clone.key(d.as_bytes(), false);
             clone.prf(&mut seed, false);
@@ -112,12 +112,11 @@ mod tests {
     use crate::schnorr::{Signer, Verifier};
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
     use curve25519_dalek::scalar::Scalar;
-    use rand_core::OsRng;
     use std::io::Write;
 
     #[test]
     pub fn sign_and_verify() {
-        let mut rng = OsRng::default();
+        let mut rng = rand::thread_rng();
         let d = Scalar::random(&mut rng);
         let q = RISTRETTO_BASEPOINT_POINT * d;
 
@@ -139,7 +138,7 @@ mod tests {
 
     #[test]
     pub fn bad_message() {
-        let mut rng = OsRng::default();
+        let mut rng = rand::thread_rng();
         let d = Scalar::random(&mut rng);
         let q = RISTRETTO_BASEPOINT_POINT * d;
 
@@ -161,7 +160,7 @@ mod tests {
 
     #[test]
     pub fn bad_key() {
-        let mut rng = OsRng::default();
+        let mut rng = rand::thread_rng();
         let d = Scalar::random(&mut rng);
         let q = RISTRETTO_BASEPOINT_POINT * d;
 

@@ -103,7 +103,6 @@ mod tests {
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
     use curve25519_dalek::ristretto::RistrettoPoint;
     use curve25519_dalek::scalar::Scalar;
-    use rand_core::OsRng;
 
     use crate::hpke::{decrypt, encrypt};
 
@@ -165,7 +164,7 @@ mod tests {
         Scalar,
         RistrettoPoint,
     ) {
-        let mut rng = OsRng::default();
+        let mut rng = rand::thread_rng();
 
         let d_s = Scalar::random(&mut rng);
         let q_s = RISTRETTO_BASEPOINT_POINT * d_s;

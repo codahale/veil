@@ -6,20 +6,17 @@ use byteorder::ByteOrder;
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
-use rand_core::{OsRng, RngCore};
+use rand::Rng;
 use strobe_rs::{SecParam, Strobe};
 
 use crate::{common, hpke, schnorr};
-
-// TODO shuffling
-// TODO fakes
 
 pub fn encrypt<R, W>(
     reader: &mut R,
     writer: &mut W,
     d_s: &Scalar,
     q_s: &RistrettoPoint,
-    q_rs: Vec<&RistrettoPoint>,
+    q_rs: Vec<RistrettoPoint>,
     padding: usize,
 ) -> io::Result<u64>
 where
@@ -27,7 +24,7 @@ where
     W: io::Write,
 {
     let mut written = 0u64;
-    let mut rng = OsRng::default();
+    let mut rng = rand::thread_rng();
     let mut signer = schnorr::Signer::new();
 
     // Generate an ephemeral key pair.
@@ -36,14 +33,14 @@ where
 
     // Generate a data encryption key.
     let mut dek = [0u8; DEK_LEN];
-    rng.fill_bytes(&mut dek);
+    rng.fill(dek.as_mut());
 
     // Encode the DEK and message offset in a header.
     let header = encode_header(&dek, q_rs.len());
 
     // For each recipient, encrypt a copy of the header.
     for q_r in q_rs {
-        let ciphertext = hpke::encrypt(d_s, q_s, &d_e, &q_e, q_r, &header);
+        let ciphertext = hpke::encrypt(d_s, q_s, &d_e, &q_e, &q_r, &header);
         written += writer.write(&ciphertext)? as u64;
 
         // Include encrypted headers in the signature.
@@ -52,7 +49,7 @@ where
 
     // Add random padding to the end of the headers.
     let mut pad = Vec::with_capacity(padding);
-    rng.fill_bytes(&mut pad);
+    rng.fill(pad.as_mut_slice());
     signer.write(&pad)?;
     written += writer.write(&pad)? as u64;
 
@@ -194,13 +191,12 @@ mod tests {
 
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
     use curve25519_dalek::scalar::Scalar;
-    use rand_core::OsRng;
 
     use crate::mres::{decrypt, encrypt};
 
     #[test]
     pub fn round_trip() {
-        let mut rng = OsRng::default();
+        let mut rng = rand::thread_rng();
 
         let d_s = Scalar::random(&mut rng);
         let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
@@ -213,7 +209,7 @@ mod tests {
         let mut dst = io::Cursor::new(Vec::new());
 
         let ctx_len =
-            encrypt(&mut src, &mut dst, &d_s, &q_s, vec![&q_s, &q_r], 123).expect("encrypt");
+            encrypt(&mut src, &mut dst, &d_s, &q_s, vec![q_s, q_r], 123).expect("encrypt");
         assert_eq!(dst.position(), ctx_len);
 
         let mut src = io::Cursor::new(dst.into_inner());
