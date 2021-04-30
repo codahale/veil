@@ -23,6 +23,7 @@ use rand::Rng;
 mod common;
 pub mod hpke;
 pub mod mres;
+mod pbenc;
 pub mod scaldf;
 pub mod schnorr;
 
