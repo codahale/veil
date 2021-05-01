@@ -14,8 +14,9 @@
 
 use std::{cmp, fmt, io};
 
+use base58::{FromBase58, ToBase58};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
-use curve25519_dalek::ristretto::RistrettoPoint;
+use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use rand::seq::SliceRandom;
 use rand::Rng;
@@ -146,11 +147,11 @@ impl PrivateKey {
     }
 
     /// Reads the contents of the reader and returns a Schnorr signature.
-    pub fn sign<R: io::Read>(&self, reader: &mut R) -> io::Result<[u8; 64]> {
+    pub fn sign<R: io::Read>(&self, reader: &mut R) -> io::Result<Signature> {
         let mut signer = schnorr::Signer::new(io::sink());
         io::copy(reader, &mut signer)?;
 
-        Ok(signer.sign(&self.d, &self.public_key.q))
+        Ok(Signature(signer.sign(&self.d, &self.public_key.q)))
     }
 
     /// Derives a private key with the given key ID.
@@ -180,6 +181,30 @@ impl fmt::Debug for PrivateKey {
     }
 }
 
+// A Schnorr signature.
+pub struct Signature([u8; 64]);
+
+impl Signature {
+    /// Converts the signature to a base58 string.
+    pub fn to_ascii(&self) -> String {
+        self.0.to_base58()
+    }
+
+    /// Parses the given base58 string and returns a signature.
+    pub fn from_ascii(s: &str) -> Option<Signature> {
+        s.from_base58().ok().and_then(|b| {
+            if b.len() != 64 {
+                return None;
+            }
+
+            let mut sig = [0u8; 64];
+            sig.copy_from_slice(&b);
+
+            Some(Signature(sig))
+        })
+    }
+}
+
 /// A derived public key, used to verify messages.
 #[derive(Eq, PartialEq, Debug)]
 pub struct PublicKey {
@@ -187,13 +212,26 @@ pub struct PublicKey {
 }
 
 impl PublicKey {
+    /// Converts the public key to a base58 string.
+    pub fn to_ascii(&self) -> String {
+        self.q.compress().to_bytes().to_base58()
+    }
+
+    /// Parses the given base58 string and returns a public key.
+    pub fn from_ascii(s: &str) -> Option<PublicKey> {
+        s.from_base58()
+            .ok()
+            .and_then(|b| CompressedRistretto::from_slice(&b).decompress())
+            .map(|q| PublicKey { q })
+    }
+
     /// Reads the contents of the reader returns true iff the given signature was created by this
     /// public key of the exact contents.
-    pub fn verify<R: io::Read>(&self, reader: &mut R, sig: &[u8; 64]) -> io::Result<bool> {
+    pub fn verify<R: io::Read>(&self, reader: &mut R, sig: &Signature) -> io::Result<bool> {
         let mut verifier = schnorr::Verifier::new();
         io::copy(reader, &mut verifier)?;
 
-        Ok(verifier.verify(&self.q, &sig))
+        Ok(verifier.verify(&self.q, &sig.0))
     }
 
     /// Derives a public key with the given key ID.
