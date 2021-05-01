@@ -41,6 +41,26 @@ impl SecretKey {
         SecretKey { seed }
     }
 
+    /// Encrypts the secret key with the given passphrase and pbenc parameters.
+    pub fn encrypt(&self, passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Vec<u8> {
+        pbenc::encrypt(passphrase, salt, &self.seed, time, space)
+    }
+
+    /// Decrypts the secret key with the given passphrase and pbenc parameters.
+    pub fn decrypt(
+        passphrase: &[u8],
+        salt: &[u8],
+        ciphertext: &[u8],
+        time: u32,
+        space: u32,
+    ) -> Option<SecretKey> {
+        pbenc::decrypt(passphrase, salt, ciphertext, time, space).map(|plaintext| {
+            let mut seed = [0u8; 64];
+            seed.copy_from_slice(&plaintext);
+            SecretKey { seed }
+        })
+    }
+
     /// Derives a private key with the given key ID.
     ///
     /// `key_id` should be slash-separated string (e.g. `/one/two/three`) which define a path of
