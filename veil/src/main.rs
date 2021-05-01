@@ -14,14 +14,18 @@ fn main() -> io::Result<()> {
             SubCommand::with_name("secret-key")
                 .display_order(0)
                 .about("Generate a new secret key")
-                .args_from_usage("<output> 'The output path for the encrypted secret key'"),
+                .args_from_usage(
+                    "
+                <output> 'The output path for the encrypted secret key'",
+                ),
         )
         .subcommand(
             SubCommand::with_name("public-key")
                 .display_order(1)
                 .about("Derive a public key from a secret key")
                 .args_from_usage(
-                    "<secret-key> 'The path to the secret key'
+                    "
+                <secret-key> 'The path to the secret key'
                 <key-id> 'The ID of the public key to generate'
                 <output> 'The output path for the public key'",
                 ),
@@ -31,7 +35,8 @@ fn main() -> io::Result<()> {
                 .display_order(2)
                 .about("Derive a public key from another public key")
                 .args_from_usage(
-                    "<public-key> 'The path to the secret key'
+                    "
+                <public-key> 'The path to the secret key'
                 <sub-key-id> 'The ID of the public key to generate'
                 <output> 'The output path for the public key'",
                 ),
@@ -41,11 +46,12 @@ fn main() -> io::Result<()> {
                 .display_order(3)
                 .about("Encrypt a message for a set of recipients")
                 .args_from_usage(
-                    "<secret-key> 'The path to the secret key'
+                    "
+                <secret-key> 'The path to the secret key'
                 <key-id> 'The ID of the private key to use'
                 <plaintext> 'The path to the plaintext file'
                 <ciphertext> 'The path to the ciphertext file'
-                <recipients...> 'The public keys of the recipients'
+                <recipients>... 'The public keys of the recipients'
                 --fakes=N 'Add N fake recipients'
                 --padding=N 'Add N bytes of padding'",
                 ),
@@ -55,7 +61,8 @@ fn main() -> io::Result<()> {
                 .display_order(4)
                 .about("Decrypt and verify a message")
                 .args_from_usage(
-                    "<secret-key> 'The path to the secret key'
+                    "
+                <secret-key> 'The path to the secret key'
                 <key-id> 'The ID of the private key to use'
                 <ciphertext> 'The path to the ciphertext file'
                 <plaintext> 'The path to the plaintext file'
@@ -67,7 +74,8 @@ fn main() -> io::Result<()> {
                 .display_order(5)
                 .about("Create a signature for a message")
                 .args_from_usage(
-                    "<secret-key> 'The path to the secret key'
+                    "
+                <secret-key> 'The path to the secret key'
                 <key-id> 'The ID of the private key to use'
                 <message> 'The path to the message'
                 <signature> 'The path to the signature'",
@@ -78,7 +86,8 @@ fn main() -> io::Result<()> {
                 .display_order(5)
                 .about("Verify a signature for a message")
                 .args_from_usage(
-                    "<public-key> 'The path to the signer's public key'
+                    "
+                <public-key> 'The path to the signer's public key'
                 <message> 'The path to the message'
                 <signature> 'The path to the signature'",
                 ),
