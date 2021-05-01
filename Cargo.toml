@@ -1,12 +1,6 @@
-[package]
-name = "veil-rs"
-version = "0.1.0"
-authors = ["Coda Hale <coda.hale@gmail.com>"]
-edition = "2018"
+[workspace]
 
-[dependencies]
-curve25519-dalek = "3"
-rand = "0.7"
-rand_core = "0.5"
-strobe-rs = "0.6"
-byteorder = "1.4"
+members = [
+    "veil",
+    "veil-lib",
+]
