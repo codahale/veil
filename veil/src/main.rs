@@ -1,12 +1,13 @@
 use std::io::Write;
 use std::{fs, io};
 
-use clap::{App, SubCommand};
+use clap::{App, AppSettings, SubCommand};
 
 use veil_lib::{PublicKey, SecretKey, Signature};
 
 fn main() -> io::Result<()> {
     let matches = App::new("veil")
+        .setting(AppSettings::SubcommandRequiredElseHelp)
         .version("0.1.0")
         .about("Stupid crypto tricks")
         .subcommand(
