@@ -181,7 +181,7 @@ impl fmt::Debug for PrivateKey {
     }
 }
 
-// A Schnorr signature.
+/// A Schnorr signature.
 pub struct Signature([u8; 64]);
 
 impl Signature {
