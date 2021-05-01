@@ -3,7 +3,7 @@ use std::{fs, io};
 
 use clap::{App, SubCommand};
 
-use veil_lib::{PublicKey, SecretKey};
+use veil_lib::{PublicKey, SecretKey, Signature};
 
 fn main() -> io::Result<()> {
     let matches = App::new("veil")
@@ -102,6 +102,52 @@ fn main() -> io::Result<()> {
                 matches.value_of("output").expect("output required"),
             )?;
         }
+        ("encrypt", Some(matches)) => {
+            encrypt(
+                matches.value_of("secret-key").expect("secret key required"),
+                matches.value_of("key-id").expect("key ID required"),
+                matches.value_of("plaintext").expect("plaintext required"),
+                matches.value_of("ciphertext").expect("ciphertext required"),
+                matches
+                    .values_of("recipients")
+                    .expect("recipients required")
+                    .collect(),
+                matches
+                    .value_of("fakes")
+                    .unwrap_or("0")
+                    .parse()
+                    .expect("invalid fakes"),
+                matches
+                    .value_of("padding")
+                    .unwrap_or("0")
+                    .parse()
+                    .expect("invalid padding"),
+            )?;
+        }
+        ("decrypt", Some(matches)) => {
+            decrypt(
+                matches.value_of("secret-key").expect("secret key required"),
+                matches.value_of("key-id").expect("key ID required"),
+                matches.value_of("ciphertext").expect("ciphertext required"),
+                matches.value_of("plaintext").expect("plaintext required"),
+                matches.value_of("sender").expect("sender required"),
+            )?;
+        }
+        ("sign", Some(matches)) => {
+            sign(
+                matches.value_of("secret-key").expect("secret key required"),
+                matches.value_of("key-id").expect("key ID required"),
+                matches.value_of("message").expect("message required"),
+                matches.value_of("signature").expect("signature required"),
+            )?;
+        }
+        ("verify", Some(matches)) => {
+            verify(
+                matches.value_of("public-key").expect("public key required"),
+                matches.value_of("message").expect("message required"),
+                matches.value_of("signature").expect("signature required"),
+            )?;
+        }
         _ => unreachable!(),
     }
 
@@ -128,6 +174,80 @@ fn derive_key(public_key_path: &str, key_id: &str, output_path: &str) -> io::Res
     let public_key = root.derive(key_id);
     let mut output = open_output(output_path)?;
     output.write(public_key.to_ascii().as_bytes())
+}
+
+fn encrypt(
+    secret_key_path: &str,
+    key_id: &str,
+    plaintext_path: &str,
+    ciphertext_path: &str,
+    recipient_paths: Vec<&str>,
+    fakes: usize,
+    padding: u64,
+) -> io::Result<u64> {
+    let secret_key = open_secret_key(secret_key_path)?;
+    let private_key = secret_key.private_key(key_id);
+    let mut plaintext = open_input(plaintext_path)?;
+    let mut ciphertext = open_output(ciphertext_path)?;
+
+    let mut pks = Vec::with_capacity(recipient_paths.len());
+    for path in recipient_paths {
+        pks.push(decode_public_key(path)?);
+    }
+
+    private_key.encrypt(&mut plaintext, &mut ciphertext, pks, fakes, padding)
+}
+
+fn decrypt(
+    secret_key_path: &str,
+    key_id: &str,
+    ciphertext_path: &str,
+    plaintext_path: &str,
+    sender_path: &str,
+) -> io::Result<u64> {
+    let secret_key = open_secret_key(secret_key_path)?;
+    let private_key = secret_key.private_key(key_id);
+    let mut ciphertext = open_input(ciphertext_path)?;
+    let mut plaintext = open_output(plaintext_path)?;
+    let sender = decode_public_key(sender_path)?;
+
+    private_key.decrypt(&mut ciphertext, &mut plaintext, &sender)
+}
+
+fn sign(
+    secret_key_path: &str,
+    key_id: &str,
+    message_path: &str,
+    signature_path: &str,
+) -> io::Result<usize> {
+    let secret_key = open_secret_key(secret_key_path)?;
+    let private_key = secret_key.private_key(key_id);
+    let mut message = open_input(message_path)?;
+    let mut output = open_output(signature_path)?;
+
+    let sig = private_key.sign(&mut message)?;
+
+    output.write(sig.to_ascii().as_bytes())
+}
+
+fn verify(public_key_path: &str, message_path: &str, signature: &str) -> io::Result<()> {
+    let public_key = decode_public_key(public_key_path)?;
+    let sig = Signature::from_ascii(signature);
+    if sig.is_none() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "invalid signature",
+        ));
+    }
+
+    let mut message = open_input(message_path)?;
+    if !public_key.verify(&mut message, &sig.unwrap())? {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "invalid signature",
+        ));
+    }
+    Ok(())
 }
 
 fn decode_public_key(path_or_key: &str) -> io::Result<PublicKey> {
