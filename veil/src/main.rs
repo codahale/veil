@@ -3,7 +3,7 @@ use std::{fs, io};
 
 use clap::{App, SubCommand};
 
-use veil_lib::SecretKey;
+use veil_lib::{PublicKey, SecretKey};
 
 fn main() -> io::Result<()> {
     let matches = App::new("veil")
@@ -95,6 +95,13 @@ fn main() -> io::Result<()> {
                 matches.value_of("output").expect("output required"),
             )?;
         }
+        ("derive-key", Some(matches)) => {
+            derive_key(
+                matches.value_of("public-key").expect("public key required"),
+                matches.value_of("sub-key-id").expect("sub key ID required"),
+                matches.value_of("output").expect("output required"),
+            )?;
+        }
         _ => unreachable!(),
     }
 
@@ -114,6 +121,27 @@ fn public_key(secret_key_path: &str, key_id: &str, output_path: &str) -> io::Res
     let public_key = secret_key.public_key(key_id);
     let mut output = open_output(output_path)?;
     output.write(public_key.to_ascii().as_bytes())
+}
+
+fn derive_key(public_key_path: &str, key_id: &str, output_path: &str) -> io::Result<usize> {
+    let root = decode_public_key(public_key_path)?;
+    let public_key = root.derive(key_id);
+    let mut output = open_output(output_path)?;
+    output.write(public_key.to_ascii().as_bytes())
+}
+
+fn decode_public_key(path_or_key: &str) -> io::Result<PublicKey> {
+    // Try to decode it from ASCII.
+    let decoded = PublicKey::from_ascii(path_or_key);
+    if decoded.is_some() {
+        return Ok(decoded.unwrap());
+    }
+
+    let s = fs::read_to_string(path_or_key)?;
+    PublicKey::from_ascii(&s).ok_or(io::Error::new(
+        io::ErrorKind::InvalidData,
+        "invalid public key",
+    ))
 }
 
 fn open_input(path: &str) -> io::Result<Box<dyn io::Read>> {
