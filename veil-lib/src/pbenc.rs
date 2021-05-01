@@ -60,43 +60,44 @@
 //!
 
 use byteorder::ByteOrder;
+use rand::Rng;
 use strobe_rs::{SecParam, Strobe};
 
 use crate::common;
 
-pub(crate) fn encrypt(
-    passphrase: &[u8],
-    salt: &[u8],
-    plaintext: &[u8],
-    time: u32,
-    space: u32,
-) -> Vec<u8> {
-    let mut pbenc = init(passphrase, salt, time, space);
+const SALT_LEN: usize = 16;
 
-    let mut out = Vec::with_capacity(plaintext.len() + common::MAC_LEN);
+pub(crate) fn encrypt(passphrase: &[u8], plaintext: &[u8], time: u32, space: u32) -> Vec<u8> {
+    let mut rng = rand::thread_rng();
+    let mut salt = [0u8; SALT_LEN];
+    rng.fill(&mut salt);
+
+    let mut pbenc = init(passphrase, &salt, time, space);
+
+    let mut out = Vec::with_capacity(SALT_LEN + plaintext.len() + common::MAC_LEN + 8);
+    out.extend(&time.to_le_bytes());
+    out.extend(&space.to_le_bytes());
+    out.extend(&salt);
+
     out.extend(plaintext);
-
-    pbenc.send_enc(&mut out, false);
+    pbenc.send_enc(&mut out[8 + SALT_LEN..], false);
 
     out.extend(&[0u8; common::MAC_LEN]);
-    pbenc.send_mac(&mut out[plaintext.len()..], false);
+    pbenc.send_mac(&mut out[8 + SALT_LEN + plaintext.len()..], false);
 
     out
 }
 
-pub(crate) fn decrypt(
-    passphrase: &[u8],
-    salt: &[u8],
-    ciphertext: &[u8],
-    time: u32,
-    space: u32,
-) -> Option<Vec<u8>> {
-    let mut pbenc = init(passphrase, salt, time, space);
+pub(crate) fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Option<Vec<u8>> {
+    let time = byteorder::LE::read_u32(&ciphertext[..4]);
+    let space = byteorder::LE::read_u32(&ciphertext[4..8]);
 
-    let pt_len = ciphertext.len() - common::MAC_LEN;
+    let mut pbenc = init(passphrase, &ciphertext[8..SALT_LEN + 8], time, space);
+
+    let pt_len = ciphertext.len() - common::MAC_LEN - SALT_LEN - 8;
 
     let mut out = Vec::with_capacity(ciphertext.len());
-    out.extend(ciphertext);
+    out.extend(&ciphertext[8 + SALT_LEN..]);
     pbenc.recv_enc(&mut out[..pt_len], false);
 
     if pbenc.recv_mac(&mut out[pt_len..]).is_err() {
@@ -181,10 +182,9 @@ mod tests {
     #[test]
     pub fn round_trip() {
         let passphrase = b"this is a secret";
-        let salt = b"this is not";
         let message = b"this is too";
-        let ciphertext = encrypt(passphrase, salt, message, 5, 3);
-        let plaintext = decrypt(passphrase, salt, &ciphertext, 5, 3);
+        let ciphertext = encrypt(passphrase, message, 5, 3);
+        let plaintext = decrypt(passphrase, &ciphertext);
 
         assert_eq!(Some(message.to_vec()), plaintext);
     }
