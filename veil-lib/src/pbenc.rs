@@ -3,8 +3,9 @@
 //!
 //! # Initialization
 //!
-//! The protocol is initialized as follows, given a passphrase `P`, salt `S`, delta constant `D`,
-//! space parameter `N_space`, time parameter `N_time`, block size `N_block`, and MAC size `N_mac`:
+//! The protocol is initialized as follows, given a passphrase `P`, a 128-bit salt `S`, delta
+//! constant `D`, space parameter `N_space`, time parameter `N_time`, block size `N_block`, and MAC
+//! size `N_mac`:
 //!
 //! ```text
 //! INIT('veil.kdf.balloon', level=256)
@@ -42,18 +43,23 @@
 //! SEND_MAC(T)
 //! ```
 //!
-//! The ciphertext `C` and MAC `T` are returned.
+//! The returned ciphertext contains the following:
+//!
+//! ```text
+//! LE_U32(N_time) || LE_U32(N_space) || S || C || T
+//! ```
 //!
 //! # Decryption
 //!
-//! Decryption of a ciphertext `C` and MAC `T` is as follows:
+//! Decryption of a ciphertext parses `N_time`, `N_space`, `S`, `C` and MAC `T` and performs the
+//! inverse of encryption:
 //!
 //! ```text
-//! RECV_ENC(C)
+//! RECV_ENC(C) -> P
 //! RECV_MAC(T)
 //! ```
 //!
-//! If the `RECV_MAC` call is successful, the plaintext is returned.
+//! If the `RECV_MAC` call is successful, the plaintext `P` is returned.
 //!
 //! It should be noted that there is no standard balloon hashing algorithm, so this protocol is in
 //! the very, very tall grass of cryptography and should never be used.
