@@ -52,8 +52,8 @@ fn main() -> io::Result<()> {
                 <plaintext> 'The path to the plaintext file'
                 <ciphertext> 'The path to the ciphertext file'
                 <recipients>... 'The public keys of the recipients'
-                --fakes=N 'Add N fake recipients'
-                --padding=N 'Add N bytes of padding'",
+                --fakes=<N> 'Add N fake recipients'
+                --padding=<N> 'Add N bytes of padding'",
                 ),
         )
         .subcommand(
