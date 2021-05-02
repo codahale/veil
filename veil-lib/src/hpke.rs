@@ -181,13 +181,10 @@ pub(crate) fn decrypt(
     hpke.recv_enc(&mut q_e_c, false);
 
     // Decode the ephemeral public key.
-    let q_e = CompressedRistretto(q_e_c).decompress();
-    if q_e.is_none() {
-        return None;
-    }
+    let q_e = CompressedRistretto(q_e_c).decompress()?;
 
     // Calculate the ephemeral Diffie-Hellman shared secret and key the protocol with it.
-    let zz_e = d_r * q_e.unwrap();
+    let zz_e = d_r * q_e;
     hpke.key(zz_e.compress().as_bytes(), false);
 
     // Decrypt the plaintext.
@@ -203,7 +200,7 @@ pub(crate) fn decrypt(
     }
 
     // Return the ephemeral public key and the plaintext.
-    Some((q_e.unwrap(), plaintext.to_vec()))
+    Some((q_e, plaintext.to_vec()))
 }
 
 #[cfg(test)]

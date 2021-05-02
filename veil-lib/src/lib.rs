@@ -92,11 +92,10 @@ impl SecretKey {
 
     /// Decrypts the secret key with the given passphrase and pbenc parameters.
     pub fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Option<SecretKey> {
-        pbenc::decrypt(passphrase, ciphertext).map(|plaintext| {
-            let mut seed = [0u8; 64];
-            seed.copy_from_slice(&plaintext);
-            SecretKey { seed }
-        })
+        let plaintext = pbenc::decrypt(passphrase, ciphertext)?;
+        let mut seed = [0u8; 64];
+        seed.copy_from_slice(&plaintext);
+        Some(SecretKey { seed })
     }
 
     /// Derives a private key with the given key ID.
@@ -235,16 +234,14 @@ impl Signature {
 
     /// Parses the given base58 string and returns a signature.
     pub fn from_ascii(s: &str) -> Option<Signature> {
-        s.from_base58().ok().and_then(|b| {
-            if b.len() != 64 {
-                return None;
-            }
+        let b = s.from_base58().ok()?;
+        if b.len() != 64 {
+            return None;
+        }
 
-            let mut sig = [0u8; 64];
-            sig.copy_from_slice(&b);
-
-            Some(Signature(sig))
-        })
+        let mut sig = [0u8; 64];
+        sig.copy_from_slice(&b);
+        Some(Signature(sig))
     }
 }
 
@@ -262,10 +259,9 @@ impl PublicKey {
 
     /// Parses the given base58 string and returns a public key.
     pub fn from_ascii(s: &str) -> Option<PublicKey> {
-        s.from_base58()
-            .ok()
-            .and_then(|b| CompressedRistretto::from_slice(&b).decompress())
-            .map(|q| PublicKey { q })
+        let b = s.from_base58().ok()?;
+        let q = CompressedRistretto::from_slice(&b).decompress()?;
+        Some(PublicKey { q })
     }
 
     /// Reads the contents of the reader returns true iff the given signature was created by this

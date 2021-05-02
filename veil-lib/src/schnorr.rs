@@ -170,17 +170,14 @@ impl Verifier {
         Verifier { schnorr }
     }
 
-    pub fn verify(mut self, q: &RistrettoPoint, sig: &[u8; 64]) -> bool {
-        let c = match Scalar::from_canonical_bytes(sig[..32].try_into().unwrap()) {
-            Some(v) => v,
-            None => return false,
-        };
+    pub fn verify(self, q: &RistrettoPoint, sig: &[u8; 64]) -> bool {
+        self.verify_inner(q, sig).unwrap_or(false)
+    }
 
-        let s = match Scalar::from_canonical_bytes(sig[32..].try_into().unwrap()) {
-            Some(v) => v,
-            None => return false,
-        };
-
+    #[inline]
+    fn verify_inner(mut self, q: &RistrettoPoint, sig: &[u8; 64]) -> Option<bool> {
+        let c = Scalar::from_canonical_bytes(sig[..32].try_into().ok()?)?;
+        let s = Scalar::from_canonical_bytes(sig[32..].try_into().ok()?)?;
         let r_g = (RISTRETTO_BASEPOINT_POINT * s) + (-c * q);
 
         self.schnorr.ad(q.compress().as_bytes(), false);
@@ -189,7 +186,7 @@ impl Verifier {
         let mut seed = [0u8; 64];
         self.schnorr.prf(&mut seed, false);
 
-        Scalar::from_bytes_mod_order_wide(&seed) == c
+        Some(Scalar::from_bytes_mod_order_wide(&seed) == c)
     }
 }
 
