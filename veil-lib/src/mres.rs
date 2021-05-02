@@ -300,33 +300,39 @@ where
     mres.recv_enc(&mut [], false);
 
     // Read through src in 32KiB chunks, keeping the last 64 bytes as the signature.
-    let mut buf = [0u8; 32 * 1024];
+    const BUF_SIZE: usize = 16;
+    let mut input = [0u8; BUF_SIZE];
+    let mut buf = SigBuffer::new();
     let mut sig = [0u8; 64];
-    let mut has_sig = false;
-    while let Ok(mut n) = reader.read(&mut buf) {
+    while let Ok(n) = reader.read(&mut input) {
         // Break if we're at the end of the ciphertext.
         if n == 0 {
             break;
         }
 
-        // If this isn't the first read, process the sig buffer as ciphertext.
-        if has_sig {
-            verifier.write(&sig)?;
-            mres.recv_enc(&mut sig, true);
-            written += writer.write(&sig)? as u64;
+        // Buffer writes until we've definitely got a signature.
+        buf.write(&input[..n])?;
+        if buf.len() < input.len() + 64 {
+            continue;
         }
 
-        // Fill the sig buffer with the last 64 bytes of this read.
-        sig.copy_from_slice(&buf[n - 64..n]);
-        n -= 64;
-
         // Add the ciphertext to the verifier, decrypt the block, and write the plaintext to writer.
-        verifier.write(&buf[0..n])?;
-        mres.recv_enc(&mut buf[0..n], true);
-        written += writer.write(&buf[0..n])? as u64;
-
-        has_sig = true;
+        let n = buf.read(&mut input)?;
+        verifier.write(&input[0..n])?;
+        mres.recv_enc(&mut input[0..n], true);
+        written += writer.write(&input[0..n])? as u64;
     }
+
+    // Handle the final block, if any.
+    if buf.len() > sig.len() {
+        let n = buf.read(&mut input[..buf.len() - sig.len()])?;
+        verifier.write(&input[0..n])?;
+        mres.recv_enc(&mut input[0..n], true);
+        written += writer.write(&input[0..n])? as u64;
+    }
+
+    // Use the last 64 bytes as a signature.
+    buf.read(&mut sig)?;
 
     // Decrypt and verify the signature.
     mres.recv_enc(&mut sig, false);
@@ -364,6 +370,45 @@ impl<R: rand::Rng> io::Read for RngReader<R> {
     }
 }
 
+pub(crate) struct SigBuffer {
+    buf: Vec<u8>,
+    written: usize,
+}
+
+impl SigBuffer {
+    pub fn new() -> SigBuffer {
+        SigBuffer {
+            buf: Vec::new(),
+            written: 0,
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.buf.len()
+    }
+}
+
+impl io::Write for SigBuffer {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.written += buf.len();
+        self.buf.extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+impl io::Read for SigBuffer {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let n = buf.len().min(self.buf.len());
+        buf[..n].copy_from_slice(&self.buf[..n]);
+        self.buf.drain(..n);
+        Ok(n)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::io;
@@ -371,7 +416,8 @@ mod tests {
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
     use curve25519_dalek::scalar::Scalar;
 
-    use crate::mres::{decrypt, encrypt};
+    use crate::mres::{decrypt, encrypt, SigBuffer};
+    use std::io::{Read, Write};
 
     #[test]
     pub fn round_trip() {
@@ -448,5 +494,19 @@ mod tests {
         let ptx_len = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s).expect("decrypt");
         assert_eq!(dst.position(), ptx_len);
         assert_eq!(message.to_vec(), dst.into_inner());
+    }
+
+    #[test]
+    pub fn sig_buffer() {
+        let mut buffer = SigBuffer::new();
+        buffer.write(b"0123456789").expect("write failed");
+
+        let mut input = [0u8; 6];
+
+        let n = buffer.read(&mut input).expect("read failed");
+        assert_eq!(b"012345", &input[..n]);
+
+        let n = buffer.read(&mut input).expect("read failed");
+        assert_eq!(b"6789", &input[..n]);
     }
 }

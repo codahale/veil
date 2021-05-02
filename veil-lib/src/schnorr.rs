@@ -84,13 +84,13 @@
 //! catastrophic randomness failures and differential fault attacks against purely deterministic
 //! signature schemes.
 
+use std::convert::TryInto;
 use std::io;
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use rand::Rng;
-use std::convert::TryInto;
 use strobe_rs::{SecParam, Strobe};
 
 pub(crate) struct Signer<W: io::Write> {
@@ -207,11 +207,13 @@ impl io::Write for Verifier {
 
 #[cfg(test)]
 mod tests {
-    use crate::schnorr::{Signer, Verifier};
-    use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
-    use curve25519_dalek::scalar::Scalar;
     use std::io;
     use std::io::Write;
+
+    use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
+    use curve25519_dalek::scalar::Scalar;
+
+    use crate::schnorr::{Signer, Verifier};
 
     #[test]
     pub fn sign_and_verify() {
