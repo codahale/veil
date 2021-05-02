@@ -192,4 +192,64 @@ mod tests {
 
         assert_eq!(Some(message.to_vec()), plaintext);
     }
+
+    #[test]
+    pub fn bad_time() {
+        let passphrase = b"this is a secret";
+        let message = b"this is too";
+        let mut ciphertext = encrypt(passphrase, message, 5, 3);
+        ciphertext[0] ^= 1;
+
+        let plaintext = decrypt(passphrase, &ciphertext);
+
+        assert_eq!(None, plaintext);
+    }
+
+    #[test]
+    pub fn bad_space() {
+        let passphrase = b"this is a secret";
+        let message = b"this is too";
+        let mut ciphertext = encrypt(passphrase, message, 5, 3);
+        ciphertext[5] ^= 1;
+
+        let plaintext = decrypt(passphrase, &ciphertext);
+
+        assert_eq!(None, plaintext);
+    }
+
+    #[test]
+    pub fn bad_salt() {
+        let passphrase = b"this is a secret";
+        let message = b"this is too";
+        let mut ciphertext = encrypt(passphrase, message, 5, 3);
+        ciphertext[12] ^= 1;
+
+        let plaintext = decrypt(passphrase, &ciphertext);
+
+        assert_eq!(None, plaintext);
+    }
+
+    #[test]
+    pub fn bad_ciphertext() {
+        let passphrase = b"this is a secret";
+        let message = b"this is too";
+        let mut ciphertext = encrypt(passphrase, message, 5, 3);
+        ciphertext[37] ^= 1;
+
+        let plaintext = decrypt(passphrase, &ciphertext);
+
+        assert_eq!(None, plaintext);
+    }
+
+    #[test]
+    pub fn bad_mac() {
+        let passphrase = b"this is a secret";
+        let message = b"this is too";
+        let mut ciphertext = encrypt(passphrase, message, 5, 3);
+        ciphertext[49] ^= 1;
+
+        let plaintext = decrypt(passphrase, &ciphertext);
+
+        assert_eq!(None, plaintext);
+    }
 }
