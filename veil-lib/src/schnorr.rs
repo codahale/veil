@@ -204,6 +204,7 @@ impl io::Write for Verifier {
         Ok(())
     }
 }
+
 #[cfg(test)]
 mod tests {
     use crate::schnorr::{Signer, Verifier};

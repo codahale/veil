@@ -302,10 +302,18 @@ where
     // Read through src in 32KiB chunks, keeping the last 64 bytes as the signature.
     let mut buf = [0u8; 32 * 1024];
     let mut sig = [0u8; 64];
+    let mut has_sig = false;
     while let Ok(mut n) = reader.read(&mut buf) {
         if n < 64 {
             break;
         }
+
+        if has_sig {
+            verifier.write(&sig)?;
+            mres.recv_enc(&mut sig, true);
+            written += writer.write(&sig)? as u64;
+        }
+
         sig.copy_from_slice(&buf[n - 64..n]);
         n -= 64;
 
@@ -313,6 +321,8 @@ where
         verifier.write(&buf[0..n])?;
         mres.recv_enc(&mut buf[0..n], true);
         written += writer.write(&buf[0..n])? as u64;
+
+        has_sig = true;
     }
 
     // Decrypt and verify the signature.
