@@ -300,7 +300,7 @@ where
     mres.recv_enc(&mut [], false);
 
     // Read through src in 32KiB chunks, keeping the last 64 bytes as the signature.
-    const BUF_SIZE: usize = 16;
+    const BUF_SIZE: usize = 32 * 1024;
     let mut input = [0u8; BUF_SIZE];
     let mut buf = SigBuffer::new();
     let mut sig = [0u8; 64];
