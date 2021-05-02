@@ -367,7 +367,6 @@ impl<R: rand::Rng> io::Read for RngReader<R> {
 #[cfg(test)]
 mod tests {
     use std::io;
-    use std::iter;
 
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
     use curve25519_dalek::scalar::Scalar;
