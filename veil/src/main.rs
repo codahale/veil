@@ -51,9 +51,9 @@ fn main() -> io::Result<()> {
                 <key-id> 'The ID of the private key to use'
                 <plaintext> 'The path to the plaintext file'
                 <ciphertext> 'The path to the ciphertext file'
-                <recipients>... 'The public keys of the recipients'
-                --fakes=<N> 'Add N fake recipients'
-                --padding=<N> 'Add N bytes of padding'",
+                -r, --recipient=<KEY>... 'The public keys of the recipients'
+                [--fakes=<N>] 'Add N fake recipients'
+                [--padding=<N>] 'Add N bytes of padding'",
                 ),
         )
         .subcommand(
@@ -119,7 +119,7 @@ fn main() -> io::Result<()> {
                 matches.value_of("plaintext").expect("plaintext required"),
                 matches.value_of("ciphertext").expect("ciphertext required"),
                 matches
-                    .values_of("recipients")
+                    .values_of("recipient")
                     .expect("recipients required")
                     .collect(),
                 matches
