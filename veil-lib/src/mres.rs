@@ -304,16 +304,19 @@ where
     let mut sig = [0u8; 64];
     let mut has_sig = false;
     while let Ok(mut n) = reader.read(&mut buf) {
-        if n < 64 {
+        // Break if we're at the end of the ciphertext.
+        if n == 0 {
             break;
         }
 
+        // If this isn't the first read, process the sig buffer as ciphertext.
         if has_sig {
             verifier.write(&sig)?;
             mres.recv_enc(&mut sig, true);
             written += writer.write(&sig)? as u64;
         }
 
+        // Fill the sig buffer with the last 64 bytes of this read.
         sig.copy_from_slice(&buf[n - 64..n]);
         n -= 64;
 
@@ -364,6 +367,7 @@ impl<R: rand::Rng> io::Read for RngReader<R> {
 #[cfg(test)]
 mod tests {
     use std::io;
+    use std::iter;
 
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
     use curve25519_dalek::scalar::Scalar;
