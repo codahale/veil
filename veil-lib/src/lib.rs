@@ -205,7 +205,7 @@ impl Signature {
 }
 
 /// A derived public key, used to verify messages.
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub struct PublicKey {
     q: RistrettoPoint,
 }
@@ -244,8 +244,12 @@ impl PublicKey {
     }
 }
 
+pub(crate) const MAC_LEN: usize = 16;
+
 #[cfg(test)]
 mod tests {
+    use std::io;
+
     use crate::SecretKey;
 
     #[test]
@@ -267,6 +271,31 @@ mod tests {
 
         assert_eq!(abc, abc_p);
     }
-}
 
-pub(crate) const MAC_LEN: usize = 16;
+    #[test]
+    pub fn round_trip() {
+        let sk_a = SecretKey::new();
+        let priv_a = sk_a.private_key("/one/two");
+
+        let sk_b = SecretKey::new();
+        let priv_b = sk_b.private_key("/a/b");
+
+        let message = b"this is a thingy";
+        let mut src = io::Cursor::new(message);
+        let mut dst = io::Cursor::new(Vec::new());
+
+        let ctx_len = priv_a
+            .encrypt(&mut src, &mut dst, vec![priv_b.public_key], 20, 123)
+            .expect("encrypt");
+        assert_eq!(dst.position(), ctx_len);
+
+        let mut src = io::Cursor::new(dst.into_inner());
+        let mut dst = io::Cursor::new(Vec::new());
+
+        let ptx_len = priv_b
+            .decrypt(&mut src, &mut dst, &priv_a.public_key)
+            .expect("decrypt");
+        assert_eq!(dst.position(), ptx_len);
+        assert_eq!(message.to_vec(), dst.into_inner());
+    }
+}
