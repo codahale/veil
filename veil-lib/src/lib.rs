@@ -21,7 +21,6 @@ use curve25519_dalek::scalar::Scalar;
 use rand::seq::SliceRandom;
 use rand::Rng;
 
-mod common;
 pub mod hpke;
 pub mod mres;
 pub mod pbenc;
@@ -269,3 +268,5 @@ mod tests {
         assert_eq!(abc, abc_p);
     }
 }
+
+pub(crate) const MAC_LEN: usize = 16;

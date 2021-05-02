@@ -69,8 +69,6 @@ use byteorder::ByteOrder;
 use rand::Rng;
 use strobe_rs::{SecParam, Strobe};
 
-use crate::common;
-
 const SALT_LEN: usize = 16;
 
 pub(crate) fn encrypt(passphrase: &[u8], plaintext: &[u8], time: u32, space: u32) -> Vec<u8> {
@@ -80,7 +78,7 @@ pub(crate) fn encrypt(passphrase: &[u8], plaintext: &[u8], time: u32, space: u32
 
     let mut pbenc = init(passphrase, &salt, time, space);
 
-    let mut out = Vec::with_capacity(SALT_LEN + plaintext.len() + common::MAC_LEN + 8);
+    let mut out = Vec::with_capacity(SALT_LEN + plaintext.len() + crate::MAC_LEN + 8);
     out.extend(&time.to_le_bytes());
     out.extend(&space.to_le_bytes());
     out.extend(&salt);
@@ -88,7 +86,7 @@ pub(crate) fn encrypt(passphrase: &[u8], plaintext: &[u8], time: u32, space: u32
     out.extend(plaintext);
     pbenc.send_enc(&mut out[8 + SALT_LEN..], false);
 
-    out.extend(&[0u8; common::MAC_LEN]);
+    out.extend(&[0u8; crate::MAC_LEN]);
     pbenc.send_mac(&mut out[8 + SALT_LEN + plaintext.len()..], false);
 
     out
@@ -100,7 +98,7 @@ pub(crate) fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Option<Vec<u8>> {
 
     let mut pbenc = init(passphrase, &ciphertext[8..SALT_LEN + 8], time, space);
 
-    let pt_len = ciphertext.len() - common::MAC_LEN - SALT_LEN - 8;
+    let pt_len = ciphertext.len() - crate::MAC_LEN - SALT_LEN - 8;
 
     let mut out = Vec::with_capacity(ciphertext.len());
     out.extend(&ciphertext[8 + SALT_LEN..]);
@@ -119,7 +117,7 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
     // Initialize protocol with metadata.
     pbenc.meta_ad(&(DELTA as u32).to_le_bytes(), false);
     pbenc.meta_ad(&(N as u32).to_le_bytes(), false);
-    pbenc.meta_ad(&(common::MAC_LEN as u32).to_le_bytes(), false);
+    pbenc.meta_ad(&(crate::MAC_LEN as u32).to_le_bytes(), false);
     pbenc.meta_ad(&time.to_le_bytes(), false);
     pbenc.meta_ad(&space.to_le_bytes(), false);
 

@@ -169,7 +169,7 @@ use curve25519_dalek::scalar::Scalar;
 use rand::Rng;
 use strobe_rs::{SecParam, Strobe};
 
-use crate::{common, hpke, schnorr};
+use crate::{hpke, schnorr};
 
 pub(crate) fn encrypt<R, W>(
     reader: &mut R,
@@ -329,7 +329,7 @@ where
 
 const DEK_LEN: usize = 32;
 const HEADER_LEN: usize = DEK_LEN + 8;
-const ENC_HEADER_LEN: usize = HEADER_LEN + 32 + common::MAC_LEN;
+const ENC_HEADER_LEN: usize = HEADER_LEN + 32 + crate::MAC_LEN;
 
 fn encode_header(dek: &[u8; DEK_LEN], r_len: usize, padding: u64) -> Vec<u8> {
     let msg_offset = ((r_len as u64) * ENC_HEADER_LEN as u64) + padding;

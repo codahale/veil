@@ -110,7 +110,7 @@ use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use strobe_rs::{SecParam, Strobe};
 
-use crate::common::MAC_LEN;
+use crate::MAC_LEN;
 
 pub(crate) fn encrypt(
     d_s: &Scalar,
