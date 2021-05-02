@@ -303,7 +303,7 @@ fn open_output(path: &str) -> io::Result<Box<dyn io::Write>> {
 }
 
 fn open_secret_key(path: &str) -> io::Result<SecretKey> {
-    let passphrase = rpassword::prompt_password_stderr("Enter passphrase: ")?;
+    let passphrase = rpassword::read_password_from_tty(Some("Enter passphrase: "))?;
     let ciphertext = fs::read(path)?;
     let secret_key = SecretKey::decrypt(passphrase.as_bytes(), &ciphertext);
     secret_key.ok_or(io::Error::new(
