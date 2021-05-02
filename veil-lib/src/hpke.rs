@@ -111,6 +111,7 @@ use curve25519_dalek::scalar::Scalar;
 use strobe_rs::{SecParam, Strobe};
 
 use crate::MAC_LEN;
+use std::convert::TryInto;
 
 pub(crate) fn encrypt(
     d_s: &Scalar,
@@ -120,6 +121,9 @@ pub(crate) fn encrypt(
     q_r: &RistrettoPoint,
     plaintext: &[u8],
 ) -> Vec<u8> {
+    // Allocate a buffer for output.
+    let mut out = vec![0u8; 32 + plaintext.len() + MAC_LEN];
+
     // Initialize the protocol.
     let mut hpke = Strobe::new(b"veil.hpke", SecParam::B256);
     hpke.meta_ad(&(MAC_LEN as u32).to_le_bytes(), false);
@@ -135,25 +139,20 @@ pub(crate) fn encrypt(
     // Encode the ephemeral public key and encrypt it.
     let mut ct_q_e = q_e.compress().as_bytes().to_vec();
     hpke.send_enc(&mut ct_q_e, false);
+    out[..32].copy_from_slice(&ct_q_e);
 
     // Calculate the ephemeral Diffie-Hellman shared secret and key the protocol with it.
     let zz_e = d_e * q_r;
     hpke.key(zz_e.compress().as_bytes(), false);
 
     // Encrypt the plaintext.
-    let mut ct = Vec::from(plaintext);
-    hpke.send_enc(&mut ct, false);
+    out[32..32 + plaintext.len()].copy_from_slice(plaintext);
+    hpke.send_enc(&mut out[32..32 + plaintext.len()], false);
 
     // Calculate a MAC of the entire operation transcript.
-    let mut mac = [0u8; MAC_LEN].to_vec();
-    hpke.send_mac(&mut mac, false);
+    hpke.send_mac(&mut out[32 + plaintext.len()..], false);
 
     // Return the encrypted ephemeral public key, the ciphertext, and the MAC.
-    let mut out = Vec::with_capacity(ct_q_e.len() + ct.len() + mac.len());
-    out.append(&mut ct_q_e);
-    out.append(&mut ct);
-    out.append(&mut mac);
-
     out
 }
 
@@ -163,6 +162,9 @@ pub(crate) fn decrypt(
     q_s: &RistrettoPoint,
     ciphertext: &[u8],
 ) -> Option<(RistrettoPoint, Vec<u8>)> {
+    // Copy the input for modification.
+    let mut out = Vec::from(ciphertext);
+
     // Initialize the protocol.
     let mut hpke = Strobe::new(b"veil.hpke", SecParam::B256);
     hpke.meta_ad(&(MAC_LEN as u32).to_le_bytes(), false);
@@ -176,31 +178,23 @@ pub(crate) fn decrypt(
     hpke.key(zz_s.compress().as_bytes(), false);
 
     // Decrypt the ephemeral public key.
-    let mut q_e_c = [0u8; 32];
-    q_e_c.copy_from_slice(&ciphertext[..32]);
-    hpke.recv_enc(&mut q_e_c, false);
+    hpke.recv_enc(&mut out[..32], false);
 
     // Decode the ephemeral public key.
-    let q_e = CompressedRistretto(q_e_c).decompress()?;
+    let q_e = CompressedRistretto(out[..32].try_into().ok()?).decompress()?;
 
     // Calculate the ephemeral Diffie-Hellman shared secret and key the protocol with it.
     let zz_e = d_r * q_e;
     hpke.key(zz_e.compress().as_bytes(), false);
 
     // Decrypt the plaintext.
-    let mut plaintext = Vec::with_capacity(ciphertext.len() - 32 - MAC_LEN);
-    plaintext.extend_from_slice(&ciphertext[32..ciphertext.len() - MAC_LEN]);
-    hpke.recv_enc(&mut plaintext, false);
+    hpke.recv_enc(&mut out[32..ciphertext.len() - MAC_LEN], false);
 
     // Verify the MAC.
-    let mut mac = Vec::with_capacity(MAC_LEN);
-    mac.extend_from_slice(&ciphertext[ciphertext.len() - MAC_LEN..]);
-    if !hpke.recv_mac(&mut mac).is_ok() {
-        return None;
-    }
+    hpke.recv_mac(&mut out[ciphertext.len() - MAC_LEN..]).ok()?;
 
     // Return the ephemeral public key and the plaintext.
-    Some((q_e, plaintext.to_vec()))
+    Some((q_e, out[32..ciphertext.len() - MAC_LEN].to_vec()))
 }
 
 #[cfg(test)]
