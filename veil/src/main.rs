@@ -3,7 +3,7 @@ use std::{fs, io};
 
 use clap::{App, AppSettings, SubCommand};
 
-use veil_lib::{PublicKey, SecretKey, Signature};
+use veil_lib::{PrivateKey, PublicKey, SecretKey, Signature};
 
 fn main() -> io::Result<()> {
     let matches = App::new("veil")
@@ -214,14 +214,26 @@ fn decrypt(
     ciphertext_path: &str,
     plaintext_path: &str,
     sender_path: &str,
-) -> io::Result<u64> {
+) -> io::Result<()> {
     let secret_key = open_secret_key(secret_key_path)?;
     let private_key = secret_key.private_key(key_id);
-    let mut ciphertext = open_input(ciphertext_path)?;
-    let mut plaintext = open_output(plaintext_path)?;
     let sender = decode_public_key(sender_path)?;
 
-    private_key.decrypt(&mut ciphertext, &mut plaintext, &sender)
+    try_decrypt(&sender, ciphertext_path, private_key, plaintext_path)
+        .or_else(|_| fs::remove_file(plaintext_path))
+}
+
+fn try_decrypt(
+    sender: &PublicKey,
+    ciphertext_path: &str,
+    private_key: PrivateKey,
+    plaintext_path: &str,
+) -> io::Result<()> {
+    let mut ciphertext = open_input(ciphertext_path)?;
+    let mut plaintext = open_output(plaintext_path)?;
+    private_key
+        .decrypt(&mut ciphertext, &mut plaintext, &sender)
+        .and(Ok(()))
 }
 
 fn sign(
