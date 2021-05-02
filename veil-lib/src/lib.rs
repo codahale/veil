@@ -11,6 +11,50 @@
 //! recipients.
 //!
 //! You should not use this.
+//!
+//!
+//! ```
+//! use std::{io, str};
+//! use veil_lib::SecretKey;
+//!
+//! // Alice creates a secret key.
+//! let alice_sk = SecretKey::new();
+//!
+//! // Bea creates a secret key.
+//! let bea_sk = SecretKey::new();
+//!
+//! // Alice derives a private key for messaging with Bea and shares the corresponding public key.
+//! let alice_priv = alice_sk.private_key("/friends/bea");
+//! let alice_pub = alice_priv.public_key;
+//!
+//! // Bea derives a private key for messaging with Alice and shares the corresponding public key.
+//! let bea_priv = bea_sk.private_key("/buddies/cool-ones/alice");
+//! let bea_pub = bea_priv.public_key;
+//!
+//! // Alice encrypts a secret message for Bea.
+//! let mut ciphertext = io::Cursor::new(Vec::new());
+//! alice_priv.encrypt(
+//!   &mut io::Cursor::new("this is a secret message"),
+//!   &mut ciphertext,
+//!   vec![bea_pub],
+//!   20,
+//!   1234,
+//! ).expect("encryption failed");
+//!
+//! // Bea decrypts the message.
+//! let mut plaintext = io::Cursor::new(Vec::new());
+//! bea_priv.decrypt(
+//!   &mut io::Cursor::new(ciphertext.into_inner()),
+//!   &mut plaintext,
+//!   &alice_pub,
+//! ).expect("decryption failed");
+//!
+//! // Having decrypted the message, Bea can read the plaintext.
+//! assert_eq!(
+//!   "this is a secret message",
+//!   str::from_utf8(&plaintext.into_inner()).expect("invalid UTF-8"),
+//! );
+//! ```
 
 use std::{cmp, fmt, io};
 
