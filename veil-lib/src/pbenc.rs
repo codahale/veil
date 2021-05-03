@@ -73,6 +73,8 @@ use strobe_rs::{SecParam, Strobe};
 const SALT_LEN: usize = 16;
 
 pub(crate) fn encrypt(passphrase: &[u8], plaintext: &[u8], time: u32, space: u32) -> Vec<u8> {
+    const CT_OFFSET: usize = 8 + SALT_LEN;
+
     // Generate a random salt.
     let mut rng = rand::thread_rng();
     let mut salt = [0u8; SALT_LEN];
@@ -82,40 +84,41 @@ pub(crate) fn encrypt(passphrase: &[u8], plaintext: &[u8], time: u32, space: u32
     let mut pbenc = init(passphrase, &salt, time, space);
 
     // Allocate an output buffer.
-    let mut out = vec![0u8; SALT_LEN + plaintext.len() + MAC_LEN + 8];
+    let mut out = vec![0u8; CT_OFFSET + plaintext.len() + MAC_LEN];
 
     // Encode the time and space parameters.
     byteorder::LE::write_u32(&mut out[..4], time);
     byteorder::LE::write_u32(&mut out[4..8], space);
 
     // Copy the salt.
-    out[8..8 + SALT_LEN].copy_from_slice(&salt);
+    out[8..CT_OFFSET].copy_from_slice(&salt);
 
     // Copy the plaintext and encrypt it.
-    out[8 + SALT_LEN..8 + SALT_LEN + plaintext.len()].copy_from_slice(plaintext);
-    pbenc.send_enc(
-        &mut out[8 + SALT_LEN..8 + SALT_LEN + plaintext.len()],
-        false,
-    );
+    out[CT_OFFSET..CT_OFFSET + plaintext.len()].copy_from_slice(plaintext);
+    pbenc.send_enc(&mut out[CT_OFFSET..CT_OFFSET + plaintext.len()], false);
 
     // Generate a MAC.
-    pbenc.send_mac(&mut out[8 + SALT_LEN + plaintext.len()..], false);
+    pbenc.send_mac(&mut out[CT_OFFSET + plaintext.len()..], false);
 
     out
 }
 
 pub(crate) fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Option<Vec<u8>> {
+    // Decode the time and space parameters.
     let time = byteorder::LE::read_u32(&ciphertext[..4]);
     let space = byteorder::LE::read_u32(&ciphertext[4..8]);
 
+    // Perform the balloon hashing.
     let mut pbenc = init(passphrase, &ciphertext[8..SALT_LEN + 8], time, space);
 
-    let pt_len = ciphertext.len() - MAC_LEN - SALT_LEN - 8;
+    // Copy the ciphertext and MAC.
+    let mut out = Vec::from(&ciphertext[8 + SALT_LEN..]);
+    let pt_len = out.len() - MAC_LEN;
 
-    let mut out = Vec::with_capacity(ciphertext.len());
-    out.extend(&ciphertext[8 + SALT_LEN..]);
+    // Decrypt the ciphertext.
     pbenc.recv_enc(&mut out[..pt_len], false);
 
+    // Verify the MAC.
     pbenc.recv_mac(&mut out[pt_len..]).ok()?;
 
     Some(out[..pt_len].to_vec())
