@@ -254,16 +254,11 @@ fn sign(
 
 fn verify(public_key_path: &str, message_path: &str, signature: &str) -> io::Result<()> {
     let public_key = decode_public_key(public_key_path)?;
-    let sig = Signature::from_ascii(signature);
-    if sig.is_none() {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "invalid signature",
-        ));
-    }
+    let sig = Signature::from_ascii(signature)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "invalid signature"))?;
 
     let mut message = open_input(message_path)?;
-    if !public_key.verify(&mut message, &sig.unwrap())? {
+    if !public_key.verify(&mut message, &sig)? {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
             "invalid signature",
