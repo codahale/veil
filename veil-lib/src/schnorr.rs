@@ -110,28 +110,41 @@ where
     }
 
     pub(crate) fn sign(&mut self, d: &Scalar, q: &RistrettoPoint) -> [u8; 64] {
+        // Add the signer's public key as associated data.
         self.schnorr.ad(q.compress().as_bytes(), false);
 
         let mut seed = [0u8; 64];
 
-        {
-            let mut clone = self.schnorr.clone();
-            let mut rng = rand::thread_rng();
-            rng.fill(&mut seed);
-            clone.key(&seed, false);
-            clone.key(d.as_bytes(), false);
-            clone.prf(&mut seed, false);
-        }
+        // Clone the protocol.
+        let mut clone = self.schnorr.clone();
 
+        // Key the clone with a random nonce to hedge against deterministic attacks.
+        let mut rng = rand::thread_rng();
+        rng.fill(&mut seed);
+        clone.key(&seed, false);
+
+        // Key the clone with the sender's private key to hedge against RNG failures.
+        clone.key(d.as_bytes(), false);
+
+        // Derive an ephemeral scalar from the clone's state.
+        clone.prf(&mut seed, false);
         let r = Scalar::from_bytes_mod_order_wide(&seed);
-        let r_g = RISTRETTO_BASEPOINT_POINT * r;
 
-        self.schnorr.ad(r_g.compress().as_bytes(), false);
+        // Explicitly drop the clone to prevent reuse.
+        std::mem::drop(clone);
+
+        // Add the ephemeral public key as associated data.
+        self.schnorr
+            .ad((RISTRETTO_BASEPOINT_POINT * r).compress().as_bytes(), false);
+
+        // Derive a challenge scalar from PRF output.
         self.schnorr.prf(&mut seed, false);
-
         let c = Scalar::from_bytes_mod_order_wide(&seed);
+
+        // Calculate a signature scalar.
         let s = d * c + r;
 
+        // Return the challenge and signature scalars.
         let mut sig = [0u8; 64];
         sig[..32].copy_from_slice(c.as_bytes());
         sig[32..].copy_from_slice(s.as_bytes());
@@ -176,17 +189,24 @@ impl Verifier {
 
     #[inline]
     fn verify_inner(mut self, q: &RistrettoPoint, sig: &[u8; 64]) -> Option<bool> {
+        // Add the signer's public key as associated data.
+        self.schnorr.ad(q.compress().as_bytes(), false);
+
+        // Decode the challenge and signature scalars.
         let c = Scalar::from_canonical_bytes(sig[..32].try_into().ok()?)?;
         let s = Scalar::from_canonical_bytes(sig[32..].try_into().ok()?)?;
-        let r_g = (RISTRETTO_BASEPOINT_POINT * s) + (-c * q);
 
-        self.schnorr.ad(q.compress().as_bytes(), false);
+        // Re-calculate the ephemeral public key and add it as associated data.
+        let r_g = (RISTRETTO_BASEPOINT_POINT * s) + (-c * q);
         self.schnorr.ad(r_g.compress().as_bytes(), false);
 
+        // Re-derive the challenge scalar.
         let mut seed = [0u8; 64];
         self.schnorr.prf(&mut seed, false);
+        let c_p = Scalar::from_bytes_mod_order_wide(&seed);
 
-        Some(Scalar::from_bytes_mod_order_wide(&seed) == c)
+        // Return true iff c' == c.
+        Some(c_p == c)
     }
 }
 
