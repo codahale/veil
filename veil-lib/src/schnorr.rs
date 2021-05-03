@@ -234,68 +234,74 @@ mod tests {
     use crate::schnorr::{Signer, Verifier};
 
     #[test]
-    pub fn sign_and_verify() {
+    pub fn sign_and_verify() -> io::Result<()> {
         let mut rng = rand::thread_rng();
         let d = Scalar::random(&mut rng);
         let q = RISTRETTO_BASEPOINT_POINT * d;
 
         let mut signer = Signer::new(io::sink());
-        signer.write(b"this is a message that").unwrap();
-        signer.write(b" is in multiple pieces").unwrap();
-        signer.flush().unwrap();
+        signer.write(b"this is a message that")?;
+        signer.write(b" is in multiple pieces")?;
+        signer.flush()?;
 
         let sig = signer.sign(&d, &q);
 
         let mut verifier = Verifier::new();
-        verifier.write(b"this is a message that").unwrap();
-        verifier.write(b" is in multiple").unwrap();
-        verifier.write(b" pieces").unwrap();
-        verifier.flush().unwrap();
+        verifier.write(b"this is a message that")?;
+        verifier.write(b" is in multiple")?;
+        verifier.write(b" pieces")?;
+        verifier.flush()?;
 
         assert_eq!(true, verifier.verify(&q, &sig));
+
+        Ok(())
     }
 
     #[test]
-    pub fn bad_message() {
+    pub fn bad_message() -> io::Result<()> {
         let mut rng = rand::thread_rng();
         let d = Scalar::random(&mut rng);
         let q = RISTRETTO_BASEPOINT_POINT * d;
 
         let mut signer = Signer::new(io::sink());
-        signer.write(b"this is a message that").unwrap();
-        signer.write(b" is in multiple pieces").unwrap();
-        signer.flush().unwrap();
+        signer.write(b"this is a message that")?;
+        signer.write(b" is in multiple pieces")?;
+        signer.flush()?;
 
         let sig = signer.sign(&d, &q);
 
         let mut verifier = Verifier::new();
-        verifier.write(b"this is NOT a message that").unwrap();
-        verifier.write(b" is in multiple").unwrap();
-        verifier.write(b" pieces").unwrap();
-        verifier.flush().unwrap();
+        verifier.write(b"this is NOT a message that")?;
+        verifier.write(b" is in multiple")?;
+        verifier.write(b" pieces")?;
+        verifier.flush()?;
 
         assert_eq!(false, verifier.verify(&q, &sig));
+
+        Ok(())
     }
 
     #[test]
-    pub fn bad_key() {
+    pub fn bad_key() -> io::Result<()> {
         let mut rng = rand::thread_rng();
         let d = Scalar::random(&mut rng);
         let q = RISTRETTO_BASEPOINT_POINT * d;
 
         let mut signer = Signer::new(io::sink());
-        signer.write(b"this is a message that").unwrap();
-        signer.write(b" is in multiple pieces").unwrap();
-        signer.flush().unwrap();
+        signer.write(b"this is a message that")?;
+        signer.write(b" is in multiple pieces")?;
+        signer.flush()?;
 
         let sig = signer.sign(&d, &q);
 
         let mut verifier = Verifier::new();
-        verifier.write(b"this is a message that").unwrap();
-        verifier.write(b" is in multiple").unwrap();
-        verifier.write(b" pieces").unwrap();
-        verifier.flush().unwrap();
+        verifier.write(b"this is a message that")?;
+        verifier.write(b" is in multiple")?;
+        verifier.write(b" pieces")?;
+        verifier.flush()?;
 
         assert_eq!(false, verifier.verify(&RISTRETTO_BASEPOINT_POINT, &sig));
+
+        Ok(())
     }
 }

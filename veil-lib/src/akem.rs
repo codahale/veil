@@ -207,7 +207,7 @@ mod tests {
         let (d_s, q_s, d_e, q_e, d_r, q_r) = setup();
 
         let ciphertext = encapsulate(&d_s, &q_s, &d_e, &q_e, &q_r, b"this is an example");
-        let (pk, plaintext) = decapsulate(&d_r, &q_r, &q_s, &ciphertext).unwrap();
+        let (pk, plaintext) = decapsulate(&d_r, &q_r, &q_s, &ciphertext).expect("decapsulate");
 
         assert_eq!(q_e, pk);
         assert_eq!(b"this is an example".to_vec(), plaintext);
