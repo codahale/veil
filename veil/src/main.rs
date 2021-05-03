@@ -280,10 +280,8 @@ fn decode_public_key(path_or_key: &str) -> io::Result<PublicKey> {
     }
 
     let s = fs::read_to_string(path_or_key)?;
-    PublicKey::from_ascii(&s).ok_or(io::Error::new(
-        io::ErrorKind::InvalidData,
-        "invalid public key",
-    ))
+    PublicKey::from_ascii(&s)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "invalid public key"))
 }
 
 fn open_input(path: &str) -> io::Result<Box<dyn io::Read>> {
@@ -306,8 +304,5 @@ fn open_secret_key(path: &str) -> io::Result<SecretKey> {
     let passphrase = rpassword::read_password_from_tty(Some("Enter passphrase: "))?;
     let ciphertext = fs::read(path)?;
     let secret_key = SecretKey::decrypt(passphrase.as_bytes(), &ciphertext);
-    secret_key.ok_or(io::Error::new(
-        io::ErrorKind::InvalidData,
-        "invalid passphrase",
-    ))
+    secret_key.ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "invalid passphrase"))
 }
