@@ -134,9 +134,8 @@ pub(crate) fn encapsulate(
     akem.key(zz_s.compress().as_bytes(), false);
 
     // Encode the ephemeral public key and encrypt it.
-    let mut ct_q_e = q_e.compress().as_bytes().to_vec();
-    akem.send_enc(&mut ct_q_e, false);
-    out[..32].copy_from_slice(&ct_q_e);
+    out[..32].copy_from_slice(q_e.compress().as_bytes());
+    akem.send_enc(&mut out[..32], false);
 
     // Calculate the ephemeral Diffie-Hellman shared secret and key the protocol with it.
     let zz_e = d_e * q_r;
