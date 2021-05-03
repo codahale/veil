@@ -109,6 +109,7 @@ where
         Signer { schnorr, writer }
     }
 
+    #[allow(clippy::many_single_char_names)]
     pub(crate) fn sign(&mut self, d: &Scalar, q: &RistrettoPoint) -> [u8; 64] {
         // Add the signer's public key as associated data.
         self.schnorr.ad(q.compress().as_bytes(), false);
