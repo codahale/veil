@@ -337,4 +337,82 @@ mod tests {
         assert_eq!(dst.position(), ptx_len);
         assert_eq!(message.to_vec(), dst.into_inner());
     }
+
+    #[test]
+    pub fn bad_sender_key() {
+        let sk_a = SecretKey::new();
+        let priv_a = sk_a.private_key("/one/two");
+
+        let sk_b = SecretKey::new();
+        let priv_b = sk_b.private_key("/a/b");
+
+        let message = b"this is a thingy";
+        let mut src = io::Cursor::new(message);
+        let mut dst = io::Cursor::new(Vec::new());
+
+        let ctx_len = priv_a
+            .encrypt(&mut src, &mut dst, vec![priv_b.public_key], 20, 123)
+            .expect("encrypt");
+        assert_eq!(dst.position(), ctx_len);
+
+        let mut src = io::Cursor::new(dst.into_inner());
+        let mut dst = io::Cursor::new(Vec::new());
+
+        let ptx_len = priv_b
+            .decrypt(&mut src, &mut dst, &priv_b.public_key);
+        assert_eq!(true, ptx_len.is_err());
+    }
+
+    #[test]
+    pub fn bad_recipient() {
+        let sk_a = SecretKey::new();
+        let priv_a = sk_a.private_key("/one/two");
+
+        let sk_b = SecretKey::new();
+        let priv_b = sk_b.private_key("/a/b");
+
+        let message = b"this is a thingy";
+        let mut src = io::Cursor::new(message);
+        let mut dst = io::Cursor::new(Vec::new());
+
+        let ctx_len = priv_a
+            .encrypt(&mut src, &mut dst, vec![priv_a.public_key], 20, 123)
+            .expect("encrypt");
+        assert_eq!(dst.position(), ctx_len);
+
+        let mut src = io::Cursor::new(dst.into_inner());
+        let mut dst = io::Cursor::new(Vec::new());
+
+        let ptx_len = priv_b
+            .decrypt(&mut src, &mut dst, &priv_a.public_key);
+        assert_eq!(true, ptx_len.is_err());
+    }
+
+    #[test]
+    pub fn bad_ciphertext() {
+        let sk_a = SecretKey::new();
+        let priv_a = sk_a.private_key("/one/two");
+
+        let sk_b = SecretKey::new();
+        let priv_b = sk_b.private_key("/a/b");
+
+        let message = b"this is a thingy";
+        let mut src = io::Cursor::new(message);
+        let mut dst = io::Cursor::new(Vec::new());
+
+        let ctx_len = priv_a
+            .encrypt(&mut src, &mut dst, vec![priv_b.public_key], 20, 123)
+            .expect("encrypt");
+        assert_eq!(dst.position(), ctx_len);
+
+        let mut ciphertext = dst.into_inner();
+        ciphertext[200] ^= 1;
+
+        let mut src = io::Cursor::new(ciphertext);
+        let mut dst = io::Cursor::new(Vec::new());
+
+        let ptx_len = priv_b
+            .decrypt(&mut src, &mut dst, &priv_a.public_key);
+        assert_eq!(true, ptx_len.is_err());
+    }
 }
