@@ -1,16 +1,13 @@
-//! hpke implements Veil's authenticated hybrid public key encryption system.
+//! akem implements Veil's authenticated key encapsulation mechanism.
 //!
-//! Unlike traditional HPKE constructions, this does not have separate KEM/DEM components or a
-//! specific derived DEK.
+//! # Encapsulation
 //!
-//! # Encryption
-//!
-//! Encryption is as follows, given the sender's key pair, `d_s` and `Q_s`, an ephemeral key pair,
-//! `d_e` and `Q_e`, the receiver's public key, `Q_r`, a plaintext message `P`, and MAC size
+//! Encapsulation is as follows, given the sender's key pair, `d_s` and `Q_s`, an ephemeral key
+//! pair, `d_e` and `Q_e`, the receiver's public key, `Q_r`, a plaintext message `P`, and MAC size
 //! `N_mac`:
 //!
 //! ```text
-//! INIT('veil.hpke', level=256)
+//! INIT('veil.akem', level=256)
 //! AD(LE_U32(N_mac), meta=true)
 //! AD(Q_r)
 //! AD(Q_s)
@@ -31,13 +28,13 @@
 //!
 //! The resulting ciphertext is the concatenation of `E`, `C`, and `M`.
 //!
-//! # Decryption
+//! # Decapsulation
 //!
-//! Decryption is then the inverse of encryption, given the recipient's key pair, `d_r` and `Q_r`,
-//! and the sender's public key `Q_s`:
+//! Decapsulation is then the inverse of encryption, given the recipient's key pair, `d_r` and
+//! `Q_r`, and the sender's public key `Q_s`:
 //!
 //! ```text
-//! INIT('veil.hpke', level=256)
+//! INIT('veil.akem', level=256)
 //! AD(LE_U32(N_max), meta=true)
 //! AD(Q_r)
 //! AD(Q_s)
@@ -73,10 +70,10 @@
 //!
 //! # IK-CCA Security
 //!
-//! `veil.hpke` is IK-CCA (per [Bellare](https://iacr.org/archive/asiacrypt2001/22480568.pdf)), in
+//! `veil.akem` is IK-CCA (per [Bellare](https://iacr.org/archive/asiacrypt2001/22480568.pdf)), in
 //! that it is impossible for an attacker in possession of two public keys to determine which of the
 //! two keys a given ciphertext was encrypted with in either chosen-plaintext or chosen-ciphertext
-//! attacks. Informally, veil.hpke ciphertexts consist exclusively of STROBE ciphertext and PRF
+//! attacks. Informally, veil.akem ciphertexts consist exclusively of STROBE ciphertext and PRF
 //! output; an attacker being able to distinguish between ciphertexts based on keying material would
 //! imply STROBE's AEAD construction is not IND-CCA2.
 //!
@@ -95,7 +92,7 @@
 //! This construction is not secure against insider attacks on authenticity, nor is it intended to
 //! be. A recipient can forge ciphertexts which appear to be from a sender by re-using the ephemeral
 //! public key and encrypting an alternate plaintext, but the forgeries will only be decryptable by
-//! the forger. Because this type of forgery is possible, `veil.hpke` ciphertexts are therefore
+//! the forger. Because this type of forgery is possible, `veil.akem` ciphertexts are therefore
 //! repudiable.
 //!
 //! # Randomness Re-Use
@@ -113,7 +110,7 @@ use strobe_rs::{SecParam, Strobe};
 use crate::MAC_LEN;
 use std::convert::TryInto;
 
-pub(crate) fn encrypt(
+pub(crate) fn encapsulate(
     d_s: &Scalar,
     q_s: &RistrettoPoint,
     d_e: &Scalar,
@@ -125,38 +122,38 @@ pub(crate) fn encrypt(
     let mut out = vec![0u8; 32 + plaintext.len() + MAC_LEN];
 
     // Initialize the protocol.
-    let mut hpke = Strobe::new(b"veil.hpke", SecParam::B256);
-    hpke.meta_ad(&(MAC_LEN as u32).to_le_bytes(), false);
+    let mut akem = Strobe::new(b"veil.akem", SecParam::B256);
+    akem.meta_ad(&(MAC_LEN as u32).to_le_bytes(), false);
 
     // Include the sender and receiver as associated data.
-    hpke.ad(q_s.compress().as_bytes(), false);
-    hpke.ad(q_r.compress().as_bytes(), false);
+    akem.ad(q_s.compress().as_bytes(), false);
+    akem.ad(q_r.compress().as_bytes(), false);
 
     // Calculate the static Diffie-Hellman shared secret and key the protocol with it.
     let zz_s = d_s * q_r;
-    hpke.key(zz_s.compress().as_bytes(), false);
+    akem.key(zz_s.compress().as_bytes(), false);
 
     // Encode the ephemeral public key and encrypt it.
     let mut ct_q_e = q_e.compress().as_bytes().to_vec();
-    hpke.send_enc(&mut ct_q_e, false);
+    akem.send_enc(&mut ct_q_e, false);
     out[..32].copy_from_slice(&ct_q_e);
 
     // Calculate the ephemeral Diffie-Hellman shared secret and key the protocol with it.
     let zz_e = d_e * q_r;
-    hpke.key(zz_e.compress().as_bytes(), false);
+    akem.key(zz_e.compress().as_bytes(), false);
 
     // Encrypt the plaintext.
     out[32..32 + plaintext.len()].copy_from_slice(plaintext);
-    hpke.send_enc(&mut out[32..32 + plaintext.len()], false);
+    akem.send_enc(&mut out[32..32 + plaintext.len()], false);
 
     // Calculate a MAC of the entire operation transcript.
-    hpke.send_mac(&mut out[32 + plaintext.len()..], false);
+    akem.send_mac(&mut out[32 + plaintext.len()..], false);
 
     // Return the encrypted ephemeral public key, the ciphertext, and the MAC.
     out
 }
 
-pub(crate) fn decrypt(
+pub(crate) fn decapsulate(
     d_r: &Scalar,
     q_r: &RistrettoPoint,
     q_s: &RistrettoPoint,
@@ -166,32 +163,32 @@ pub(crate) fn decrypt(
     let mut out = Vec::from(ciphertext);
 
     // Initialize the protocol.
-    let mut hpke = Strobe::new(b"veil.hpke", SecParam::B256);
-    hpke.meta_ad(&(MAC_LEN as u32).to_le_bytes(), false);
+    let mut akem = Strobe::new(b"veil.akem", SecParam::B256);
+    akem.meta_ad(&(MAC_LEN as u32).to_le_bytes(), false);
 
     // Include the sender and receiver as associated data.
-    hpke.ad(q_s.compress().as_bytes(), false);
-    hpke.ad(q_r.compress().as_bytes(), false);
+    akem.ad(q_s.compress().as_bytes(), false);
+    akem.ad(q_r.compress().as_bytes(), false);
 
     // Calculate the static Diffie-Hellman shared secret and key the protocol with it.
     let zz_s = d_r * q_s;
-    hpke.key(zz_s.compress().as_bytes(), false);
+    akem.key(zz_s.compress().as_bytes(), false);
 
     // Decrypt the ephemeral public key.
-    hpke.recv_enc(&mut out[..32], false);
+    akem.recv_enc(&mut out[..32], false);
 
     // Decode the ephemeral public key.
     let q_e = CompressedRistretto(out[..32].try_into().ok()?).decompress()?;
 
     // Calculate the ephemeral Diffie-Hellman shared secret and key the protocol with it.
     let zz_e = d_r * q_e;
-    hpke.key(zz_e.compress().as_bytes(), false);
+    akem.key(zz_e.compress().as_bytes(), false);
 
     // Decrypt the plaintext.
-    hpke.recv_enc(&mut out[32..ciphertext.len() - MAC_LEN], false);
+    akem.recv_enc(&mut out[32..ciphertext.len() - MAC_LEN], false);
 
     // Verify the MAC.
-    hpke.recv_mac(&mut out[ciphertext.len() - MAC_LEN..]).ok()?;
+    akem.recv_mac(&mut out[ciphertext.len() - MAC_LEN..]).ok()?;
 
     // Return the ephemeral public key and the plaintext.
     Some((q_e, out[32..ciphertext.len() - MAC_LEN].to_vec()))
@@ -203,14 +200,14 @@ mod tests {
     use curve25519_dalek::ristretto::RistrettoPoint;
     use curve25519_dalek::scalar::Scalar;
 
-    use crate::hpke::{decrypt, encrypt};
+    use crate::akem::{decapsulate, encapsulate};
 
     #[test]
     fn round_trip() {
         let (d_s, q_s, d_e, q_e, d_r, q_r) = setup();
 
-        let ciphertext = encrypt(&d_s, &q_s, &d_e, &q_e, &q_r, b"this is an example");
-        let (pk, plaintext) = decrypt(&d_r, &q_r, &q_s, &ciphertext).unwrap();
+        let ciphertext = encapsulate(&d_s, &q_s, &d_e, &q_e, &q_r, b"this is an example");
+        let (pk, plaintext) = decapsulate(&d_r, &q_r, &q_s, &ciphertext).unwrap();
 
         assert_eq!(q_e, pk);
         assert_eq!(b"this is an example".to_vec(), plaintext);
@@ -220,11 +217,11 @@ mod tests {
     fn bad_ephemeral_public_key() {
         let (d_s, q_s, d_e, q_e, d_r, q_r) = setup();
 
-        let mut ciphertext = encrypt(&d_s, &q_s, &d_e, &q_e, &q_r, b"this is an example");
+        let mut ciphertext = encapsulate(&d_s, &q_s, &d_e, &q_e, &q_r, b"this is an example");
 
         ciphertext[0] ^= 1;
 
-        let output = decrypt(&d_r, &q_r, &q_s, &ciphertext);
+        let output = decapsulate(&d_r, &q_r, &q_s, &ciphertext);
 
         assert_eq!(None, output);
     }
@@ -233,11 +230,11 @@ mod tests {
     fn bad_ciphertext() {
         let (d_s, q_s, d_e, q_e, d_r, q_r) = setup();
 
-        let mut ciphertext = encrypt(&d_s, &q_s, &d_e, &q_e, &q_r, b"this is an example");
+        let mut ciphertext = encapsulate(&d_s, &q_s, &d_e, &q_e, &q_r, b"this is an example");
 
         ciphertext[36] ^= 1;
 
-        let output = decrypt(&d_r, &q_r, &q_s, &ciphertext);
+        let output = decapsulate(&d_r, &q_r, &q_s, &ciphertext);
 
         assert_eq!(None, output);
     }
@@ -246,11 +243,11 @@ mod tests {
     fn bad_mac() {
         let (d_s, q_s, d_e, q_e, d_r, q_r) = setup();
 
-        let mut ciphertext = encrypt(&d_s, &q_s, &d_e, &q_e, &q_r, b"this is an example");
+        let mut ciphertext = encapsulate(&d_s, &q_s, &d_e, &q_e, &q_r, b"this is an example");
 
         ciphertext[64] ^= 1;
 
-        let output = decrypt(&d_r, &q_r, &q_s, &ciphertext);
+        let output = decapsulate(&d_r, &q_r, &q_s, &ciphertext);
 
         assert_eq!(None, output);
     }

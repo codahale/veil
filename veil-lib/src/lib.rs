@@ -67,7 +67,7 @@ use rand::Rng;
 use std::convert::TryInto;
 use zeroize::Zeroize;
 
-pub mod hpke;
+pub mod akem;
 pub mod mres;
 pub mod pbenc;
 pub mod scaldf;

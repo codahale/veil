@@ -29,7 +29,7 @@
 //! ```
 //!
 //! The data encryption key and the message offset are encoded into a fixed-length header and copies
-//! of it are encrypted with `veil.hpke` for each recipient using `d_e` and `Q_e`. Optional random
+//! of it are encrypted with `veil.akem` for each recipient using `d_e` and `Q_e`. Optional random
 //! padding is added to the end, and the resulting block `H` is written:
 //
 //! ```text
@@ -53,7 +53,7 @@
 //! SEND_ENC(S)
 //! ```
 //!
-//! The resulting ciphertext then contains, in order: the `veil.hpke`-encrypted headers, random
+//! The resulting ciphertext then contains, in order: the `veil.akem`-encrypted headers, random
 //! padding, message ciphertext, and a Schnorr signature of the headers, padding, and ciphertext.
 //!
 //! # Decryption
@@ -145,7 +145,7 @@
 //!
 //! # Randomness Re-Use
 //!
-//! The ephemeral key pair, `d_e` and `Q_e`, are used multiple times: once for each `veil.hpke`
+//! The ephemeral key pair, `d_e` and `Q_e`, are used multiple times: once for each `veil.akem`
 //! header and finally once for the end signature. This improves the efficiency of the scheme
 //! without reducing its security, per [Bellare et al.'s treatment of Randomness Reusing
 //! Multi-Recipient Encryption Schemes](http://cseweb.ucsd.edu/~Mihir/papers/bbs.pdf).
@@ -169,7 +169,7 @@ use curve25519_dalek::scalar::Scalar;
 use rand::Rng;
 use strobe_rs::{SecParam, Strobe};
 
-use crate::{hpke, schnorr};
+use crate::{akem, schnorr};
 
 pub(crate) fn encrypt<R, W>(
     reader: &mut R,
@@ -200,7 +200,7 @@ where
 
     // For each recipient, encrypt a copy of the header.
     for q_r in q_rs {
-        let ciphertext = hpke::encrypt(d_s, q_s, &d_e, &q_e, &q_r, &header);
+        let ciphertext = akem::encapsulate(d_s, q_s, &d_e, &q_e, &q_r, &header);
         written += signer.write(&ciphertext)? as u64;
     }
 
@@ -267,7 +267,7 @@ where
     while let Ok(()) = reader.read_exact(&mut buf) {
         hdr_offset += verifier.write(&buf)? as u64;
 
-        match hpke::decrypt(d_r, q_r, q_s, &buf) {
+        match akem::decapsulate(d_r, q_r, q_s, &buf) {
             Some((p, header)) => {
                 // Recover the ephemeral public key, the DEK, and the message offset.
                 q_e = p;
