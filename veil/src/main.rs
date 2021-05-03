@@ -274,9 +274,8 @@ fn verify(public_key_path: &str, message_path: &str, signature: &str) -> io::Res
 
 fn decode_public_key(path_or_key: &str) -> io::Result<PublicKey> {
     // Try to decode it from ASCII.
-    let decoded = PublicKey::from_ascii(path_or_key);
-    if decoded.is_some() {
-        return Ok(decoded.unwrap());
+    if let Some(decoded) = PublicKey::from_ascii(path_or_key) {
+        return Ok(decoded);
     }
 
     let s = fs::read_to_string(path_or_key)?;
