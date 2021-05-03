@@ -65,6 +65,7 @@
 //! the very, very tall grass of cryptography and should never be used.
 //!
 
+use crate::MAC_LEN;
 use byteorder::ByteOrder;
 use rand::Rng;
 use strobe_rs::{SecParam, Strobe};
@@ -72,21 +73,32 @@ use strobe_rs::{SecParam, Strobe};
 const SALT_LEN: usize = 16;
 
 pub(crate) fn encrypt(passphrase: &[u8], plaintext: &[u8], time: u32, space: u32) -> Vec<u8> {
+    // Generate a random salt.
     let mut rng = rand::thread_rng();
     let mut salt = [0u8; SALT_LEN];
     rng.fill(&mut salt);
 
+    // Perform the balloon hashing.
     let mut pbenc = init(passphrase, &salt, time, space);
 
-    let mut out = Vec::with_capacity(SALT_LEN + plaintext.len() + crate::MAC_LEN + 8);
-    out.extend(&time.to_le_bytes());
-    out.extend(&space.to_le_bytes());
-    out.extend(&salt);
+    // Allocate an output buffer.
+    let mut out = vec![0u8; SALT_LEN + plaintext.len() + MAC_LEN + 8];
 
-    out.extend(plaintext);
-    pbenc.send_enc(&mut out[8 + SALT_LEN..], false);
+    // Encode the time and space parameters.
+    byteorder::LE::write_u32(&mut out[..4], time);
+    byteorder::LE::write_u32(&mut out[4..8], space);
 
-    out.extend(&[0u8; crate::MAC_LEN]);
+    // Copy the salt.
+    out[8..8 + SALT_LEN].copy_from_slice(&salt);
+
+    // Copy the plaintext and encrypt it.
+    out[8 + SALT_LEN..8 + SALT_LEN + plaintext.len()].copy_from_slice(plaintext);
+    pbenc.send_enc(
+        &mut out[8 + SALT_LEN..8 + SALT_LEN + plaintext.len()],
+        false,
+    );
+
+    // Generate a MAC.
     pbenc.send_mac(&mut out[8 + SALT_LEN + plaintext.len()..], false);
 
     out
@@ -98,15 +110,13 @@ pub(crate) fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Option<Vec<u8>> {
 
     let mut pbenc = init(passphrase, &ciphertext[8..SALT_LEN + 8], time, space);
 
-    let pt_len = ciphertext.len() - crate::MAC_LEN - SALT_LEN - 8;
+    let pt_len = ciphertext.len() - MAC_LEN - SALT_LEN - 8;
 
     let mut out = Vec::with_capacity(ciphertext.len());
     out.extend(&ciphertext[8 + SALT_LEN..]);
     pbenc.recv_enc(&mut out[..pt_len], false);
 
-    if pbenc.recv_mac(&mut out[pt_len..]).is_err() {
-        return None;
-    }
+    pbenc.recv_mac(&mut out[pt_len..]).ok()?;
 
     Some(out[..pt_len].to_vec())
 }
@@ -117,7 +127,7 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
     // Initialize protocol with metadata.
     pbenc.meta_ad(&(DELTA as u32).to_le_bytes(), false);
     pbenc.meta_ad(&(N as u32).to_le_bytes(), false);
-    pbenc.meta_ad(&(crate::MAC_LEN as u32).to_le_bytes(), false);
+    pbenc.meta_ad(&(MAC_LEN as u32).to_le_bytes(), false);
     pbenc.meta_ad(&time.to_le_bytes(), false);
     pbenc.meta_ad(&space.to_le_bytes(), false);
 
