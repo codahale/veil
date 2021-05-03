@@ -65,6 +65,7 @@ use curve25519_dalek::scalar::Scalar;
 use rand::seq::SliceRandom;
 use rand::Rng;
 use std::convert::TryInto;
+use zeroize::Zeroize;
 
 pub mod hpke;
 pub mod mres;
@@ -118,6 +119,12 @@ impl SecretKey {
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     pub fn public_key(&self, key_id: &str) -> PublicKey {
         self.private_key(key_id).public_key
+    }
+}
+
+impl Drop for SecretKey {
+    fn drop(&mut self) {
+        self.seed.zeroize();
     }
 }
 
