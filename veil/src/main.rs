@@ -3,9 +3,11 @@ use std::{error, fs, io};
 
 use clap::{App, AppSettings, SubCommand};
 
-use veil_lib::{PrivateKey, PublicKey, SecretKey, Signature, VeilError};
+use veil_lib::{PublicKey, SecretKey, Signature, VeilError};
 
-fn main() -> Result<(), Box<dyn error::Error>> {
+type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
+
+fn main() -> Result<()> {
     let matches = App::new("veil")
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .version("0.1.0")
@@ -164,26 +166,29 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     Ok(())
 }
 
-fn secret_key(output_path: &str) -> io::Result<usize> {
+fn secret_key(output_path: &str) -> Result<()> {
     let secret_key = SecretKey::new();
     let mut f = open_output(output_path)?;
     let passphrase = rpassword::prompt_password_stderr("Enter passphrase: ")?;
     let ciphertext = secret_key.encrypt(passphrase.as_bytes(), 1 << 7, 1 << 10);
-    f.write(&ciphertext)
+    f.write(&ciphertext)?;
+    Ok(())
 }
 
-fn public_key(secret_key_path: &str, key_id: &str, output_path: &str) -> io::Result<usize> {
+fn public_key(secret_key_path: &str, key_id: &str, output_path: &str) -> Result<()> {
     let secret_key = open_secret_key(secret_key_path)?;
     let public_key = secret_key.public_key(key_id);
     let mut output = open_output(output_path)?;
-    output.write(public_key.to_ascii().as_bytes())
+    output.write(public_key.to_ascii().as_bytes())?;
+    Ok(())
 }
 
-fn derive_key(public_key_path: &str, key_id: &str, output_path: &str) -> io::Result<usize> {
+fn derive_key(public_key_path: &str, key_id: &str, output_path: &str) -> Result<()> {
     let root = decode_public_key(public_key_path)?;
     let public_key = root.derive(key_id);
     let mut output = open_output(output_path)?;
-    output.write(public_key.to_ascii().as_bytes())
+    output.write(public_key.to_ascii().as_bytes())?;
+    Ok(())
 }
 
 fn encrypt(
@@ -194,7 +199,7 @@ fn encrypt(
     recipient_paths: Vec<&str>,
     fakes: usize,
     padding: u64,
-) -> io::Result<u64> {
+) -> Result<()> {
     let secret_key = open_secret_key(secret_key_path)?;
     let private_key = secret_key.private_key(key_id);
     let mut plaintext = open_input(plaintext_path)?;
@@ -205,7 +210,8 @@ fn encrypt(
         pks.push(decode_public_key(path)?);
     }
 
-    private_key.encrypt(&mut plaintext, &mut ciphertext, pks, fakes, padding)
+    private_key.encrypt(&mut plaintext, &mut ciphertext, pks, fakes, padding)?;
+    Ok(())
 }
 
 fn decrypt(
@@ -214,26 +220,19 @@ fn decrypt(
     ciphertext_path: &str,
     plaintext_path: &str,
     sender_path: &str,
-) -> io::Result<()> {
+) -> Result<()> {
     let secret_key = open_secret_key(secret_key_path)?;
     let private_key = secret_key.private_key(key_id);
     let sender = decode_public_key(sender_path)?;
-
-    try_decrypt(&sender, ciphertext_path, private_key, plaintext_path)
-        .or_else(|_| fs::remove_file(plaintext_path))
-}
-
-fn try_decrypt(
-    sender: &PublicKey,
-    ciphertext_path: &str,
-    private_key: PrivateKey,
-    plaintext_path: &str,
-) -> Result<(), Box<dyn error::Error>> {
     let mut ciphertext = open_input(ciphertext_path)?;
     let mut plaintext = open_output(plaintext_path)?;
-    private_key
-        .decrypt(&mut ciphertext, &mut plaintext, &sender)
-        .and(Ok(()))
+
+    if let Err(e) = private_key.decrypt(&mut ciphertext, &mut plaintext, &sender) {
+        fs::remove_file(plaintext_path)?;
+        return Err(e);
+    }
+
+    Ok(())
 }
 
 fn sign(
@@ -241,7 +240,7 @@ fn sign(
     key_id: &str,
     message_path: &str,
     signature_path: &str,
-) -> io::Result<usize> {
+) -> Result<()> {
     let secret_key = open_secret_key(secret_key_path)?;
     let private_key = secret_key.private_key(key_id);
     let mut message = open_input(message_path)?;
@@ -249,17 +248,14 @@ fn sign(
 
     let sig = private_key.sign(&mut message)?;
 
-    output.write(sig.to_ascii().as_bytes())
+    output.write(sig.to_ascii().as_bytes())?;
+
+    Ok(())
 }
 
-fn verify(
-    public_key_path: &str,
-    message_path: &str,
-    signature: &str,
-) -> Result<(), Box<dyn error::Error>> {
+fn verify(public_key_path: &str, message_path: &str, signature: &str) -> Result<()> {
     let public_key = decode_public_key(public_key_path)?;
-    let sig = Signature::from_ascii(signature)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "invalid signature"))?;
+    let sig = Signature::from_ascii(signature).ok_or(VeilError::InvalidSignature())?;
 
     let mut message = open_input(message_path)?;
     if !public_key.verify(&mut message, &sig)? {
@@ -268,15 +264,15 @@ fn verify(
     Ok(())
 }
 
-fn decode_public_key(path_or_key: &str) -> io::Result<PublicKey> {
+fn decode_public_key(path_or_key: &str) -> Result<PublicKey> {
     // Try to decode it from ASCII.
     if let Some(decoded) = PublicKey::from_ascii(path_or_key) {
         return Ok(decoded);
     }
 
     let s = fs::read_to_string(path_or_key)?;
-    PublicKey::from_ascii(&s)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "invalid public key"))
+    let pk = PublicKey::from_ascii(&s).ok_or(VeilError::InvalidPublicKey())?;
+    Ok(pk)
 }
 
 fn open_input(path: &str) -> io::Result<Box<dyn io::Read>> {
