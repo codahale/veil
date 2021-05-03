@@ -128,7 +128,7 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
     // Allocate buffers.
     let mut ctr = 0u64;
     let mut idx = [0u8; N];
-    let mut buf: Vec<[u8; N]> = (0..space).map(|_| [0u8; N]).collect();
+    let mut buf = vec![[0u8; N]; space as usize];
 
     // Step 1: Expand input into buffer.
     buf[0] = hash_counter(&mut pbenc, &mut ctr, passphrase, salt);
