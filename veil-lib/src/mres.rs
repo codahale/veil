@@ -347,12 +347,7 @@ const ENC_HEADER_LEN: usize = HEADER_LEN + 32 + MAC_LEN;
 
 fn encode_header(dek: &[u8; DEK_LEN], r_len: usize, padding: u64) -> Vec<u8> {
     let msg_offset = ((r_len as u64) * ENC_HEADER_LEN as u64) + padding;
-
-    let mut header = Vec::with_capacity(HEADER_LEN);
-    header.extend_from_slice(dek);
-    header.extend_from_slice(&msg_offset.to_le_bytes());
-
-    header.to_vec()
+    vec![dek.to_vec(), (&msg_offset.to_le_bytes()).to_vec()].concat()
 }
 
 struct RngReader<R: rand::Rng>(R);
