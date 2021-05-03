@@ -134,14 +134,14 @@ where
         std::mem::drop(clone);
 
         // Add the ephemeral public key as associated data.
-        self.schnorr
-            .ad((RISTRETTO_BASEPOINT_POINT * r).compress().as_bytes(), false);
+        let r_g = RISTRETTO_BASEPOINT_POINT * r;
+        self.schnorr.ad(r_g.compress().as_bytes(), false);
 
         // Derive a challenge scalar from PRF output.
         self.schnorr.prf(&mut seed, false);
         let c = Scalar::from_bytes_mod_order_wide(&seed);
 
-        // Calculate a signature scalar.
+        // Calculate the signature scalar.
         let s = d * c + r;
 
         // Return the challenge and signature scalars.
