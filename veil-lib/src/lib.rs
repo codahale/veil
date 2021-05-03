@@ -122,6 +122,12 @@ impl SecretKey {
     }
 }
 
+impl Default for SecretKey {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Drop for SecretKey {
     fn drop(&mut self) {
         self.seed.zeroize();
