@@ -358,8 +358,7 @@ mod tests {
         let mut src = io::Cursor::new(dst.into_inner());
         let mut dst = io::Cursor::new(Vec::new());
 
-        let ptx_len = priv_b
-            .decrypt(&mut src, &mut dst, &priv_b.public_key);
+        let ptx_len = priv_b.decrypt(&mut src, &mut dst, &priv_b.public_key);
         assert_eq!(true, ptx_len.is_err());
     }
 
@@ -383,8 +382,7 @@ mod tests {
         let mut src = io::Cursor::new(dst.into_inner());
         let mut dst = io::Cursor::new(Vec::new());
 
-        let ptx_len = priv_b
-            .decrypt(&mut src, &mut dst, &priv_a.public_key);
+        let ptx_len = priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key);
         assert_eq!(true, ptx_len.is_err());
     }
 
@@ -411,8 +409,7 @@ mod tests {
         let mut src = io::Cursor::new(ciphertext);
         let mut dst = io::Cursor::new(Vec::new());
 
-        let ptx_len = priv_b
-            .decrypt(&mut src, &mut dst, &priv_a.public_key);
+        let ptx_len = priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key);
         assert_eq!(true, ptx_len.is_err());
     }
 }

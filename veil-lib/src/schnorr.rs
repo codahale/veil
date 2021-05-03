@@ -151,8 +151,8 @@ where
         sig
     }
 
-    pub(crate) fn direct_write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.writer.write(buf)
+    pub(crate) fn direct_write_all(&mut self, buf: &[u8]) -> io::Result<()> {
+        self.writer.write_all(buf)
     }
 }
 

@@ -201,7 +201,8 @@ where
     // For each recipient, encrypt a copy of the header.
     for q_r in q_rs {
         let ciphertext = akem::encapsulate(d_s, q_s, &d_e, &q_e, &q_r, &header);
-        written += signer.write(&ciphertext)? as u64;
+        signer.write_all(&ciphertext)?;
+        written += ciphertext.len() as u64;
     }
 
     // Add random padding to the end of the headers.
@@ -228,7 +229,8 @@ where
         mres.send_enc(&mut buf[0..n], true);
 
         // Write the ciphertext and sign it.
-        written += signer.write(&buf[0..n])? as u64;
+        signer.write_all(&buf[0..n])?;
+        written += n as u64;
     }
 
     // Sign the encrypted headers and ciphertext with the ephemeral key pair.
@@ -238,7 +240,8 @@ where
     mres.send_enc(&mut sig, false);
 
     // Write the encrypted signature.
-    written += signer.direct_write(&sig)? as u64;
+    signer.direct_write_all(&sig)?;
+    written += sig.len() as u64;
 
     Ok(written)
 }
@@ -265,7 +268,8 @@ where
 
     // Iterate through blocks, looking for an encrypted header that can be decrypted.
     while let Ok(()) = reader.read_exact(&mut buf) {
-        hdr_offset += verifier.write(&buf)? as u64;
+        verifier.write_all(&buf)?;
+        hdr_offset += buf.len() as u64;
 
         match akem::decapsulate(d_r, q_r, q_s, &buf) {
             Some((p, header)) => {
@@ -314,9 +318,10 @@ where
             let mut block: Vec<u8> = buf.drain(..n - 64).collect();
 
             // Verify the ciphertext, decrypt it, and write the plaintext.
-            verifier.write(&block)?;
+            verifier.write_all(&block)?;
             mres.recv_enc(&mut block, true);
-            written += writer.write(&block)? as u64;
+            writer.write_all(&block)?;
+            written += block.len() as u64;
         }
 
         // If our last read returned zero bytes, we're at the end of the ciphertext.
