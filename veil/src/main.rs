@@ -168,7 +168,7 @@ fn secret_key(output_path: &str) -> io::Result<usize> {
     let secret_key = SecretKey::new();
     let mut f = open_output(output_path)?;
     let passphrase = rpassword::prompt_password_stderr("Enter passphrase: ")?;
-    let ciphertext = secret_key.encrypt(passphrase.as_bytes(), 10, 10);
+    let ciphertext = secret_key.encrypt(passphrase.as_bytes(), 1 << 7, 1 << 10);
     f.write(&ciphertext)
 }
 
