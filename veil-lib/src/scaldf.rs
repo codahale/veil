@@ -30,7 +30,7 @@ pub(crate) fn derive_root(seed: &[u8; 64]) -> Scalar {
 
 pub(crate) fn derive_scalar(d: &Scalar, key_id: &str) -> Scalar {
     let mut seed = [0u8; 64];
-    let mut d_p = d.clone();
+    let mut d_p = *d;
 
     for label in key_id_parts(key_id) {
         let mut root_df = Strobe::new(b"veil.scaldf.label", SecParam::B256);
