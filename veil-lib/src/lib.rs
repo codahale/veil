@@ -242,7 +242,7 @@ impl Signature {
     /// Parses the given base58 string and returns a signature.
     pub fn from_ascii(s: &str) -> Option<Signature> {
         let sig: [u8; 64] = s.from_base58().ok()?.try_into().ok()?;
-        return Some(Signature(sig));
+        Some(Signature(sig))
     }
 }
 
