@@ -56,7 +56,8 @@
 //! );
 //! ```
 
-use std::{cmp, fmt, io, iter};
+use std::convert::TryInto;
+use std::{cmp, error, fmt, io, iter};
 
 use base58::{FromBase58, ToBase58};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
@@ -64,7 +65,6 @@ use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use rand::seq::SliceRandom;
 use rand::Rng;
-use std::convert::TryInto;
 use zeroize::Zeroize;
 
 pub mod akem;
@@ -72,6 +72,29 @@ pub mod mres;
 pub mod pbenc;
 pub mod scaldf;
 pub mod schnorr;
+
+/// The full set of Veil errors.
+#[derive(Debug)]
+pub enum VeilError {
+    /// Returned when a ciphertext can't be decrypted.
+    InvalidCiphertext(),
+    /// Returned when a signature is invalid.
+    InvalidSignature(),
+    /// Returned when a public key is invalid.
+    InvalidPublicKey(),
+}
+
+impl fmt::Display for VeilError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            VeilError::InvalidCiphertext() => f.write_str("invalid ciphertext"),
+            VeilError::InvalidSignature() => f.write_str("invalid signature"),
+            VeilError::InvalidPublicKey() => f.write_str("invalid public key"),
+        }
+    }
+}
+
+impl error::Error for VeilError {}
 
 /// A 512-bit secret from which multiple private keys can be derived.
 pub struct SecretKey([u8; 64]);
@@ -183,7 +206,7 @@ impl PrivateKey {
         reader: &mut R,
         writer: &mut W,
         sender: &PublicKey,
-    ) -> io::Result<u64>
+    ) -> Result<u64, Box<dyn error::Error>>
     where
         R: io::Read,
         W: io::Write,

@@ -1,11 +1,11 @@
 use std::io::Write;
-use std::{fs, io};
+use std::{error, fs, io};
 
 use clap::{App, AppSettings, SubCommand};
 
-use veil_lib::{PrivateKey, PublicKey, SecretKey, Signature};
+use veil_lib::{PrivateKey, PublicKey, SecretKey, Signature, VeilError};
 
-fn main() -> io::Result<()> {
+fn main() -> Result<(), Box<dyn error::Error>> {
     let matches = App::new("veil")
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .version("0.1.0")
@@ -228,7 +228,7 @@ fn try_decrypt(
     ciphertext_path: &str,
     private_key: PrivateKey,
     plaintext_path: &str,
-) -> io::Result<()> {
+) -> Result<(), Box<dyn error::Error>> {
     let mut ciphertext = open_input(ciphertext_path)?;
     let mut plaintext = open_output(plaintext_path)?;
     private_key
@@ -252,17 +252,18 @@ fn sign(
     output.write(sig.to_ascii().as_bytes())
 }
 
-fn verify(public_key_path: &str, message_path: &str, signature: &str) -> io::Result<()> {
+fn verify(
+    public_key_path: &str,
+    message_path: &str,
+    signature: &str,
+) -> Result<(), Box<dyn error::Error>> {
     let public_key = decode_public_key(public_key_path)?;
     let sig = Signature::from_ascii(signature)
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "invalid signature"))?;
 
     let mut message = open_input(message_path)?;
     if !public_key.verify(&mut message, &sig)? {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "invalid signature",
-        ));
+        return Err(Box::new(VeilError::InvalidPublicKey()));
     }
     Ok(())
 }
