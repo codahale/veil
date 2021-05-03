@@ -56,7 +56,7 @@
 //! );
 //! ```
 
-use std::{cmp, fmt, io};
+use std::{cmp, fmt, io, iter};
 
 use base58::{FromBase58, ToBase58};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
@@ -64,6 +64,7 @@ use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use rand::seq::SliceRandom;
 use rand::Rng;
+use std::convert::TryInto;
 
 pub mod hpke;
 pub mod mres;
@@ -93,8 +94,7 @@ impl SecretKey {
     /// Decrypts the secret key with the given passphrase and pbenc parameters.
     pub fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Option<SecretKey> {
         let plaintext = pbenc::decrypt(passphrase, ciphertext)?;
-        let mut seed = [0u8; 64];
-        seed.copy_from_slice(&plaintext);
+        let seed: [u8; 64] = plaintext.try_into().ok()?;
         Some(SecretKey { seed })
     }
 
@@ -105,7 +105,6 @@ impl SecretKey {
     pub fn private_key(&self, key_id: &str) -> PrivateKey {
         let d = scaldf::derive_root(&self.seed);
         let q = RISTRETTO_BASEPOINT_POINT * d;
-
         PrivateKey {
             d,
             public_key: PublicKey { q },
@@ -150,8 +149,11 @@ impl PrivateKey {
     {
         // Add any fakes and shuffle the recipients list.
         let mut rng = rand::thread_rng();
-        let mut q_rs: Vec<RistrettoPoint> = recipients.into_iter().map(|pk| pk.q).collect();
-        q_rs.extend((0..fakes).map(|_| RistrettoPoint::random(&mut rng)));
+        let mut q_rs: Vec<RistrettoPoint> = recipients
+            .into_iter()
+            .map(|pk| pk.q)
+            .chain(iter::from_fn(|| Some(RistrettoPoint::random(&mut rng))).take(fakes))
+            .collect();
         q_rs.shuffle(&mut rng);
 
         // Finally, encrypt.
@@ -192,7 +194,6 @@ impl PrivateKey {
     pub fn sign<R: io::Read>(&self, reader: &mut R) -> io::Result<Signature> {
         let mut signer = schnorr::Signer::new(io::sink());
         io::copy(reader, &mut signer)?;
-
         Ok(Signature(signer.sign(&self.d, &self.public_key.q)))
     }
 
@@ -203,7 +204,6 @@ impl PrivateKey {
     pub fn derive(&self, key_id: &str) -> PrivateKey {
         let d = scaldf::derive_scalar(&self.d, key_id);
         let q = RISTRETTO_BASEPOINT_POINT * d;
-
         PrivateKey {
             d,
             public_key: PublicKey { q },
@@ -234,14 +234,8 @@ impl Signature {
 
     /// Parses the given base58 string and returns a signature.
     pub fn from_ascii(s: &str) -> Option<Signature> {
-        let b = s.from_base58().ok()?;
-        if b.len() != 64 {
-            return None;
-        }
-
-        let mut sig = [0u8; 64];
-        sig.copy_from_slice(&b);
-        Some(Signature(sig))
+        let sig: [u8; 64] = s.from_base58().ok()?.try_into().ok()?;
+        return Some(Signature(sig));
     }
 }
 
@@ -269,7 +263,6 @@ impl PublicKey {
     pub fn verify<R: io::Read>(&self, reader: &mut R, sig: &Signature) -> io::Result<bool> {
         let mut verifier = schnorr::Verifier::new();
         io::copy(reader, &mut verifier)?;
-
         Ok(verifier.verify(&self.q, &sig.0))
     }
 
@@ -279,7 +272,6 @@ impl PublicKey {
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     pub fn derive(&self, key_id: &str) -> PublicKey {
         let q = scaldf::derive_point(&self.q, key_id);
-
         PublicKey { q }
     }
 }
