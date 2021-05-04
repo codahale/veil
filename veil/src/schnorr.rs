@@ -1,4 +1,4 @@
-//! schnorr provides the underlying STROBE protocol for Veil's Schnorr signatures.
+//! schnorr implements Veil's Schnorr signatures.
 //!
 //! # Signing A Message
 //!

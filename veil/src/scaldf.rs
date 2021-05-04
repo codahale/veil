@@ -1,5 +1,5 @@
-//! scaldf provides the underlying STROBE protocols for Veil's scalar derivation functions, which
-//! derive ristretto255 scalars from other pieces of data.
+//! scaldf implements Veil's scalar derivation functions, which derive ristretto255 scalars from
+//! other pieces of data.
 //!
 //! Scalars are generated as follows, given a protocol name `P` and datum `D`:
 //!
