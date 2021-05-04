@@ -85,7 +85,7 @@
 //! signature schemes.
 
 use std::convert::TryInto;
-use std::{io, mem};
+use std::io;
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::RistrettoPoint;
@@ -116,23 +116,25 @@ where
 
         let mut seed = [0u8; 64];
 
-        // Clone the protocol.
-        let mut clone = self.schnorr.clone();
+        // Generate a random scalar.
+        let r: Scalar;
+        {
+            // Clone the protocol.
+            let mut clone = self.schnorr.clone();
 
-        // Key the clone with a random nonce to hedge against deterministic attacks.
-        let mut rng = rand::thread_rng();
-        rng.fill(&mut seed);
-        clone.key(&seed, false);
+            // Key the clone with a random nonce to hedge against deterministic attacks.
+            let mut rng = rand::thread_rng();
+            rng.fill(&mut seed);
+            clone.key(&seed, false);
 
-        // Key the clone with the sender's private key to hedge against RNG failures.
-        clone.key(d.as_bytes(), false);
+            // Key the clone with the sender's private key to hedge against RNG failures.
+            clone.key(d.as_bytes(), false);
 
-        // Derive an ephemeral scalar from the clone's state.
-        clone.prf(&mut seed, false);
-        let r = Scalar::from_bytes_mod_order_wide(&seed);
+            // Derive an ephemeral scalar from the clone's state.
+            clone.prf(&mut seed, false);
 
-        // Explicitly drop the clone to prevent reuse.
-        mem::drop(clone);
+            r = Scalar::from_bytes_mod_order_wide(&seed);
+        }
 
         // Add the ephemeral public key as associated data.
         let r_g = RISTRETTO_BASEPOINT_POINT * r;
