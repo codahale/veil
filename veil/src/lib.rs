@@ -61,6 +61,7 @@ pub mod mres;
 pub mod pbenc;
 pub mod scaldf;
 pub mod schnorr;
+mod support;
 mod veil;
 
 pub use self::veil::*;

@@ -2,7 +2,7 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt::Debug;
 use std::{cmp, error, fmt, io, iter, result};
 
-use crate::{mres, pbenc, scaldf, schnorr};
+use crate::{mres, pbenc, scaldf, schnorr, support};
 use base58::{FromBase58, ToBase58};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
@@ -129,13 +129,15 @@ impl PrivateKey {
         R: io::Read,
         W: io::Write,
     {
-        // Add any fakes and shuffle the recipients list.
-        let mut rng = rand::thread_rng();
+        // Add fakes.
         let mut q_rs: Vec<RistrettoPoint> = recipients
             .into_iter()
             .map(|pk| pk.0)
-            .chain(iter::from_fn(|| Some(RistrettoPoint::random(&mut rng))).take(fakes))
+            .chain(iter::from_fn(|| Some(support::rand_point())).take(fakes))
             .collect();
+
+        // Shuffle the recipients list.
+        let mut rng = rand::thread_rng();
         q_rs.shuffle(&mut rng);
 
         // Finally, encrypt.

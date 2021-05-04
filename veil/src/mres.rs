@@ -169,7 +169,7 @@ use curve25519_dalek::scalar::Scalar;
 use rand::Rng;
 use strobe_rs::{SecParam, Strobe};
 
-use crate::{akem, schnorr, VeilError, MAC_LEN};
+use crate::{akem, schnorr, support, VeilError, MAC_LEN};
 
 pub(crate) fn encrypt<R, W>(
     reader: &mut R,
@@ -188,7 +188,7 @@ where
     let mut signer = schnorr::Signer::new(writer);
 
     // Generate an ephemeral key pair.
-    let d_e = Scalar::random(&mut rng);
+    let d_e = support::rand_scalar();
     let q_e = RISTRETTO_BASEPOINT_POINT * d_e;
 
     // Generate a data encryption key.
@@ -364,18 +364,16 @@ mod tests {
     use std::io;
 
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
-    use curve25519_dalek::scalar::Scalar;
 
     use crate::mres::{decrypt, encrypt};
+    use crate::support;
 
     #[test]
     pub fn round_trip() {
-        let mut rng = rand::thread_rng();
-
-        let d_s = Scalar::random(&mut rng);
+        let d_s = support::rand_scalar();
         let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
 
-        let d_r = Scalar::random(&mut rng);
+        let d_r = support::rand_scalar();
         let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
 
         let message = b"this is a thingy";
@@ -396,12 +394,10 @@ mod tests {
 
     #[test]
     pub fn multi_block_message() {
-        let mut rng = rand::thread_rng();
-
-        let d_s = Scalar::random(&mut rng);
+        let d_s = support::rand_scalar();
         let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
 
-        let d_r = Scalar::random(&mut rng);
+        let d_r = support::rand_scalar();
         let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
 
         let message = [69u8; 65 * 1024];
@@ -422,12 +418,10 @@ mod tests {
 
     #[test]
     pub fn split_sig() {
-        let mut rng = rand::thread_rng();
-
-        let d_s = Scalar::random(&mut rng);
+        let d_s = support::rand_scalar();
         let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
 
-        let d_r = Scalar::random(&mut rng);
+        let d_r = support::rand_scalar();
         let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
 
         let message = [69u8; 32 * 1024 - 37];
