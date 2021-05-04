@@ -86,6 +86,8 @@ pub enum VeilError {
     InvalidSignature(),
     /// Returned when a public key is invalid.
     InvalidPublicKey(),
+    /// Returned when a secret key can't be decrypted.
+    InvalidSecretKey(),
     /// Returned when an underlying IO error occured.
     IoError(io::Error),
 }
@@ -96,6 +98,7 @@ impl fmt::Display for VeilError {
             VeilError::InvalidCiphertext() => f.write_str("invalid ciphertext"),
             VeilError::InvalidSignature() => f.write_str("invalid signature"),
             VeilError::InvalidPublicKey() => f.write_str("invalid public key"),
+            VeilError::InvalidSecretKey() => f.write_str("invalid secret key"),
             VeilError::IoError(e) => std::fmt::Display::fmt(&e, f),
         }
     }
@@ -123,10 +126,11 @@ impl SecretKey {
     /// Decrypts the secret key with the given passphrase and pbenc parameters.
     pub fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Result<SecretKey> {
         pbenc::decrypt(passphrase, ciphertext)
-            .ok_or(VeilError::InvalidCiphertext())
+            .ok_or(VeilError::InvalidSecretKey())
             .and_then(|plaintext| {
-                let seed: Option<[u8; 64]> = plaintext.try_into().ok();
-                seed.ok_or(VeilError::InvalidCiphertext())
+                plaintext
+                    .try_into()
+                    .map_err(|_| VeilError::InvalidSecretKey())
             })
             .map(SecretKey)
     }
