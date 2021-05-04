@@ -171,7 +171,7 @@ fn secret_key(output_path: &str) -> Result<()> {
     let mut f = open_output(output_path)?;
     let passphrase = rpassword::prompt_password_stderr("Enter passphrase: ")?;
     let ciphertext = secret_key.encrypt(passphrase.as_bytes(), 1 << 7, 1 << 10);
-    f.write(&ciphertext)?;
+    f.write_all(&ciphertext)?;
     Ok(())
 }
 
@@ -179,7 +179,7 @@ fn public_key(secret_key_path: &str, key_id: &str, output_path: &str) -> Result<
     let secret_key = open_secret_key(secret_key_path)?;
     let public_key = secret_key.public_key(key_id);
     let mut output = open_output(output_path)?;
-    output.write(public_key.to_ascii().as_bytes())?;
+    output.write_all(public_key.to_ascii().as_bytes())?;
     Ok(())
 }
 
@@ -187,7 +187,7 @@ fn derive_key(public_key_path: &str, key_id: &str, output_path: &str) -> Result<
     let root = decode_public_key(public_key_path)?;
     let public_key = root.derive(key_id);
     let mut output = open_output(output_path)?;
-    output.write(public_key.to_ascii().as_bytes())?;
+    output.write_all(public_key.to_ascii().as_bytes())?;
     Ok(())
 }
 
@@ -248,7 +248,7 @@ fn sign(
 
     let sig = private_key.sign(&mut message)?;
 
-    output.write(sig.to_ascii().as_bytes())?;
+    output.write_all(sig.to_ascii().as_bytes())?;
 
     Ok(())
 }
