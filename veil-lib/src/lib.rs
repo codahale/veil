@@ -81,13 +81,13 @@ pub type Result<T> = std::result::Result<T, VeilError>;
 #[derive(Debug)]
 pub enum VeilError {
     /// Returned when a ciphertext can't be decrypted.
-    InvalidCiphertext(),
+    InvalidCiphertext,
     /// Returned when a signature is invalid.
-    InvalidSignature(),
+    InvalidSignature,
     /// Returned when a public key is invalid.
-    InvalidPublicKey(),
+    InvalidPublicKey,
     /// Returned when a secret key can't be decrypted.
-    InvalidSecretKey(),
+    InvalidSecretKey,
     /// Returned when an underlying IO error occured.
     IoError(io::Error),
 }
@@ -95,10 +95,10 @@ pub enum VeilError {
 impl fmt::Display for VeilError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            VeilError::InvalidCiphertext() => f.write_str("invalid ciphertext"),
-            VeilError::InvalidSignature() => f.write_str("invalid signature"),
-            VeilError::InvalidPublicKey() => f.write_str("invalid public key"),
-            VeilError::InvalidSecretKey() => f.write_str("invalid secret key"),
+            VeilError::InvalidCiphertext => f.write_str("invalid ciphertext"),
+            VeilError::InvalidSignature => f.write_str("invalid signature"),
+            VeilError::InvalidPublicKey => f.write_str("invalid public key"),
+            VeilError::InvalidSecretKey => f.write_str("invalid secret key"),
             VeilError::IoError(e) => std::fmt::Display::fmt(&e, f),
         }
     }
@@ -126,11 +126,11 @@ impl SecretKey {
     /// Decrypts the secret key with the given passphrase and pbenc parameters.
     pub fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Result<SecretKey> {
         pbenc::decrypt(passphrase, ciphertext)
-            .ok_or(VeilError::InvalidSecretKey())
+            .ok_or(VeilError::InvalidSecretKey)
             .and_then(|plaintext| {
                 plaintext
                     .try_into()
-                    .map_err(|_| VeilError::InvalidSecretKey())
+                    .map_err(|_| VeilError::InvalidSecretKey)
             })
             .map(SecretKey)
     }
@@ -230,7 +230,7 @@ impl PrivateKey {
             &sender.0,
         )
         .map_err(VeilError::IoError)
-        .and_then(|o| o.ok_or(VeilError::InvalidCiphertext()))
+        .and_then(|o| o.ok_or(VeilError::InvalidCiphertext))
     }
 
     /// Reads the contents of the reader and returns a Schnorr signature.
@@ -283,7 +283,7 @@ impl TryFrom<&str> for Signature {
     type Error = VeilError;
 
     fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
-        Signature::from_ascii(value).ok_or(VeilError::InvalidSignature())
+        Signature::from_ascii(value).ok_or(VeilError::InvalidSignature)
     }
 }
 
@@ -312,7 +312,7 @@ impl PublicKey {
         if verifier.verify(&self.0, &sig.0) {
             Ok(())
         } else {
-            Err(VeilError::InvalidSignature())
+            Err(VeilError::InvalidSignature)
         }
     }
 
@@ -329,7 +329,7 @@ impl TryFrom<&str> for PublicKey {
     type Error = VeilError;
 
     fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
-        PublicKey::from_ascii(value).ok_or(VeilError::InvalidPublicKey())
+        PublicKey::from_ascii(value).ok_or(VeilError::InvalidPublicKey)
     }
 }
 
