@@ -3,6 +3,7 @@ use std::{error, fs, io};
 
 use clap::{App, AppSettings, SubCommand};
 
+use std::convert::TryInto;
 use veil_lib::{PublicKey, SecretKey, Signature, VeilError};
 
 type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
@@ -255,8 +256,7 @@ fn sign(
 
 fn verify(public_key_path: &str, message_path: &str, signature: &str) -> Result<()> {
     let public_key = decode_public_key(public_key_path)?;
-    let sig = Signature::from_ascii(signature).ok_or(VeilError::InvalidSignature())?;
-
+    let sig: Signature = signature.try_into()?;
     let mut message = open_input(message_path)?;
     if !public_key.verify(&mut message, &sig)? {
         return Err(Box::new(VeilError::InvalidPublicKey()));
@@ -271,7 +271,7 @@ fn decode_public_key(path_or_key: &str) -> Result<PublicKey> {
     }
 
     let s = fs::read_to_string(path_or_key)?;
-    let pk = PublicKey::from_ascii(&s).ok_or(VeilError::InvalidPublicKey())?;
+    let pk: PublicKey = s.as_str().try_into()?;
     Ok(pk)
 }
 

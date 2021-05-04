@@ -56,7 +56,7 @@
 //! );
 //! ```
 
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 use std::{cmp, error, fmt, io, iter};
 
 use base58::{FromBase58, ToBase58};
@@ -266,6 +266,14 @@ impl Signature {
     }
 }
 
+impl TryFrom<&str> for Signature {
+    type Error = VeilError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Signature::from_ascii(value).ok_or(VeilError::InvalidSignature())
+    }
+}
+
 /// A derived public key, used to verify messages.
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub struct PublicKey(RistrettoPoint);
@@ -297,6 +305,14 @@ impl PublicKey {
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     pub fn derive(&self, key_id: &str) -> PublicKey {
         PublicKey(scaldf::derive_point(&self.0, key_id))
+    }
+}
+
+impl TryFrom<&str> for PublicKey {
+    type Error = VeilError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        PublicKey::from_ascii(value).ok_or(VeilError::InvalidPublicKey())
     }
 }
 
