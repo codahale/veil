@@ -158,9 +158,9 @@
 //! deterministic encryption schemes.
 //!
 
+use std::io;
 use std::io::Read;
 use std::io::Write;
-use std::{error, io};
 
 use byteorder::ByteOrder;
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
@@ -169,7 +169,7 @@ use curve25519_dalek::scalar::Scalar;
 use rand::Rng;
 use strobe_rs::{SecParam, Strobe};
 
-use crate::{akem, schnorr, VeilError, MAC_LEN};
+use crate::{akem, schnorr, MAC_LEN};
 
 pub(crate) fn encrypt<R, W>(
     reader: &mut R,
@@ -252,7 +252,7 @@ pub(crate) fn decrypt<R, W>(
     d_r: &Scalar,
     q_r: &RistrettoPoint,
     q_s: &RistrettoPoint,
-) -> Result<u64, Box<dyn error::Error>>
+) -> io::Result<Option<u64>>
 where
     R: io::Read,
     W: io::Write,
@@ -286,7 +286,7 @@ where
 
     // If no header was found, return an error.
     if msg_offset == 0 {
-        return Err(Box::new(VeilError::InvalidCiphertext()));
+        return Ok(None);
     }
 
     // Read the remainder of the headers and padding and write them to the verifier.
@@ -334,10 +334,10 @@ where
     // Decrypt and verify the signature.
     mres.recv_enc(&mut sig, false);
     if !verifier.verify(&q_e, &sig) {
-        return Err(Box::new(VeilError::InvalidCiphertext()));
+        return Ok(None);
     }
 
-    Ok(written)
+    Ok(Some(written))
 }
 
 const DEK_LEN: usize = 32;
@@ -390,7 +390,7 @@ mod tests {
         let mut dst = io::Cursor::new(Vec::new());
 
         let ptx_len = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s).expect("decrypt");
-        assert_eq!(dst.position(), ptx_len);
+        assert_eq!(Some(dst.position()), ptx_len);
         assert_eq!(message.to_vec(), dst.into_inner());
     }
 
@@ -416,7 +416,7 @@ mod tests {
         let mut dst = io::Cursor::new(Vec::new());
 
         let ptx_len = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s).expect("decrypt");
-        assert_eq!(dst.position(), ptx_len);
+        assert_eq!(Some(dst.position()), ptx_len);
         assert_eq!(message.to_vec(), dst.into_inner());
     }
 
@@ -441,7 +441,7 @@ mod tests {
         let mut dst = io::Cursor::new(Vec::new());
 
         let ptx_len = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s).expect("decrypt");
-        assert_eq!(dst.position(), ptx_len);
+        assert_eq!(Some(dst.position()), ptx_len);
         assert_eq!(message.to_vec(), dst.into_inner());
     }
 }

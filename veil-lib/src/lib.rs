@@ -57,6 +57,7 @@
 //! ```
 
 use std::convert::{TryFrom, TryInto};
+use std::fmt::Debug;
 use std::{cmp, error, fmt, io, iter};
 
 use base58::{FromBase58, ToBase58};
@@ -73,6 +74,9 @@ pub mod pbenc;
 pub mod scaldf;
 pub mod schnorr;
 
+/// Veil's custom result type.
+pub type Result<T> = std::result::Result<T, VeilError>;
+
 /// The full set of Veil errors.
 #[derive(Debug)]
 pub enum VeilError {
@@ -82,6 +86,8 @@ pub enum VeilError {
     InvalidSignature(),
     /// Returned when a public key is invalid.
     InvalidPublicKey(),
+    /// Returned when an underlying IO error occured.
+    IoError(io::Error),
 }
 
 impl fmt::Display for VeilError {
@@ -90,6 +96,7 @@ impl fmt::Display for VeilError {
             VeilError::InvalidCiphertext() => f.write_str("invalid ciphertext"),
             VeilError::InvalidSignature() => f.write_str("invalid signature"),
             VeilError::InvalidPublicKey() => f.write_str("invalid public key"),
+            VeilError::IoError(e) => std::fmt::Display::fmt(&e, f),
         }
     }
 }
@@ -172,7 +179,7 @@ impl PrivateKey {
         recipients: Vec<PublicKey>,
         fakes: usize,
         padding: u64,
-    ) -> io::Result<u64>
+    ) -> Result<u64>
     where
         R: io::Read,
         W: io::Write,
@@ -195,18 +202,14 @@ impl PrivateKey {
             q_rs,
             padding,
         )
+        .map_err(VeilError::IoError)
     }
 
     /// Decrypts the contents of the reader, if possible, and writes the plaintext to the writer.
     ///
     /// If the ciphertext has been modified, was not sent by the sender, or was not encrypted for
     /// this private key, will return an error.
-    pub fn decrypt<R, W>(
-        &self,
-        reader: &mut R,
-        writer: &mut W,
-        sender: &PublicKey,
-    ) -> Result<u64, Box<dyn error::Error>>
+    pub fn decrypt<R, W>(&self, reader: &mut R, writer: &mut W, sender: &PublicKey) -> Result<u64>
     where
         R: io::Read,
         W: io::Write,
@@ -218,12 +221,14 @@ impl PrivateKey {
             &self.1 .0,
             &sender.0,
         )
+        .map_err(VeilError::IoError)
+        .and_then(|o| o.ok_or(VeilError::InvalidCiphertext()))
     }
 
     /// Reads the contents of the reader and returns a Schnorr signature.
-    pub fn sign<R: io::Read>(&self, reader: &mut R) -> io::Result<Signature> {
+    pub fn sign<R: io::Read>(&self, reader: &mut R) -> Result<Signature> {
         let mut signer = schnorr::Signer::new(io::sink());
-        io::copy(reader, &mut signer)?;
+        io::copy(reader, &mut signer).map_err(VeilError::IoError)?;
         Ok(Signature(signer.sign(&self.0, &self.1 .0)))
     }
 
@@ -269,7 +274,7 @@ impl Signature {
 impl TryFrom<&str> for Signature {
     type Error = VeilError;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
         Signature::from_ascii(value).ok_or(VeilError::InvalidSignature())
     }
 }
@@ -291,12 +296,16 @@ impl PublicKey {
         Some(PublicKey(q))
     }
 
-    /// Reads the contents of the reader returns true iff the given signature was created by this
+    /// Reads the contents of the reader returns () iff the given signature was created by this
     /// public key of the exact contents.
-    pub fn verify<R: io::Read>(&self, reader: &mut R, sig: &Signature) -> io::Result<bool> {
+    pub fn verify<R: io::Read>(&self, reader: &mut R, sig: &Signature) -> Result<()> {
         let mut verifier = schnorr::Verifier::new();
-        io::copy(reader, &mut verifier)?;
-        Ok(verifier.verify(&self.0, &sig.0))
+        io::copy(reader, &mut verifier).map_err(VeilError::IoError)?;
+        if verifier.verify(&self.0, &sig.0) {
+            Ok(())
+        } else {
+            Err(VeilError::InvalidSignature())
+        }
     }
 
     /// Derives a public key with the given key ID.
@@ -311,7 +320,7 @@ impl PublicKey {
 impl TryFrom<&str> for PublicKey {
     type Error = VeilError;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
         PublicKey::from_ascii(value).ok_or(VeilError::InvalidPublicKey())
     }
 }

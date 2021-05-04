@@ -4,7 +4,7 @@ use std::{error, fs, io};
 use clap::{App, AppSettings, SubCommand};
 
 use std::convert::TryInto;
-use veil_lib::{PublicKey, SecretKey, Signature, VeilError};
+use veil_lib::{PublicKey, SecretKey, Signature};
 
 type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
 
@@ -230,7 +230,7 @@ fn decrypt(
 
     if let Err(e) = private_key.decrypt(&mut ciphertext, &mut plaintext, &sender) {
         fs::remove_file(plaintext_path)?;
-        return Err(e);
+        return Err(Box::new(e));
     }
 
     Ok(())
@@ -258,9 +258,7 @@ fn verify(public_key_path: &str, message_path: &str, signature: &str) -> Result<
     let public_key = decode_public_key(public_key_path)?;
     let sig: Signature = signature.try_into()?;
     let mut message = open_input(message_path)?;
-    if !public_key.verify(&mut message, &sig)? {
-        return Err(Box::new(VeilError::InvalidPublicKey()));
-    }
+    public_key.verify(&mut message, &sig)?;
     Ok(())
 }
 
