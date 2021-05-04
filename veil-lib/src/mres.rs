@@ -252,7 +252,7 @@ pub(crate) fn decrypt<R, W>(
     d_r: &Scalar,
     q_r: &RistrettoPoint,
     q_s: &RistrettoPoint,
-) -> io::Result<Option<u64>>
+) -> io::Result<(u64, bool)>
 where
     R: io::Read,
     W: io::Write,
@@ -286,7 +286,7 @@ where
 
     // If no header was found, return an error.
     if msg_offset == 0 {
-        return Ok(None);
+        return Ok((0, false));
     }
 
     // Read the remainder of the headers and padding and write them to the verifier.
@@ -333,11 +333,7 @@ where
 
     // Decrypt and verify the signature.
     mres.recv_enc(&mut sig, false);
-    if !verifier.verify(&q_e, &sig) {
-        return Ok(None);
-    }
-
-    Ok(Some(written))
+    Ok((written, verifier.verify(&q_e, &sig)))
 }
 
 const DEK_LEN: usize = 32;
@@ -390,7 +386,7 @@ mod tests {
         let mut dst = io::Cursor::new(Vec::new());
 
         let ptx_len = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s).expect("decrypt");
-        assert_eq!(Some(dst.position()), ptx_len);
+        assert_eq!((dst.position(), true), ptx_len);
         assert_eq!(message.to_vec(), dst.into_inner());
     }
 
@@ -416,7 +412,7 @@ mod tests {
         let mut dst = io::Cursor::new(Vec::new());
 
         let ptx_len = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s).expect("decrypt");
-        assert_eq!(Some(dst.position()), ptx_len);
+        assert_eq!((dst.position(), true), ptx_len);
         assert_eq!(message.to_vec(), dst.into_inner());
     }
 
@@ -441,7 +437,7 @@ mod tests {
         let mut dst = io::Cursor::new(Vec::new());
 
         let ptx_len = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s).expect("decrypt");
-        assert_eq!(Some(dst.position()), ptx_len);
+        assert_eq!((dst.position(), true), ptx_len);
         assert_eq!(message.to_vec(), dst.into_inner());
     }
 }
