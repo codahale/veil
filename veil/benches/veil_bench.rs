@@ -2,7 +2,7 @@ use std::io;
 
 use criterion::{black_box, criterion_group, criterion_main, Bencher, Criterion};
 
-use veil_lib::SecretKey;
+use veil::SecretKey;
 
 fn criterion_encrypt(c: &mut Criterion) {
     let mut encrypt = c.benchmark_group("encrypt");

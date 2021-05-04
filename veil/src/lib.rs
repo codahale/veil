@@ -15,7 +15,7 @@
 //!
 //! ```
 //! use std::{io, str};
-//! use veil_lib::SecretKey;
+//! use veil::SecretKey;
 //!
 //! // Alice creates a secret key.
 //! let alice_sk = SecretKey::new();

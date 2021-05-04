@@ -4,7 +4,7 @@ use std::{error, fs, io, result};
 use clap::{App, AppSettings, SubCommand};
 
 use std::convert::TryInto;
-use veil_lib::{PublicKey, SecretKey, Signature};
+use veil::{PublicKey, SecretKey, Signature};
 
 type Result<T> = result::Result<T, Box<dyn error::Error>>;
 
