@@ -12,3 +12,11 @@ rand = "0.7"
 rand_core = "0.5"
 strobe-rs = "0.6"
 zeroize = "1"
+
+
+[dev-dependencies]
+criterion = { version = "0.3", features = ["html_reports"] }
+
+[[bench]]
+name = "veil_bench"
+harness = false
