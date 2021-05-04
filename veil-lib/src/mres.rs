@@ -169,7 +169,7 @@ use curve25519_dalek::scalar::Scalar;
 use rand::Rng;
 use strobe_rs::{SecParam, Strobe};
 
-use crate::{akem, schnorr, MAC_LEN};
+use crate::{akem, schnorr, VeilError, MAC_LEN};
 
 pub(crate) fn encrypt<R, W>(
     reader: &mut R,
@@ -252,7 +252,7 @@ pub(crate) fn decrypt<R, W>(
     d_r: &Scalar,
     q_r: &RistrettoPoint,
     q_s: &RistrettoPoint,
-) -> io::Result<(u64, bool)>
+) -> crate::Result<u64>
 where
     R: io::Read,
     W: io::Write,
@@ -268,7 +268,7 @@ where
 
     // Iterate through blocks, looking for an encrypted header that can be decrypted.
     while let Ok(()) = reader.read_exact(&mut buf) {
-        verifier.write_all(&buf)?;
+        verifier.write_all(&buf).map_err(VeilError::IoError)?;
         hdr_offset += buf.len() as u64;
 
         match akem::decapsulate(d_r, q_r, q_s, &buf) {
@@ -286,12 +286,12 @@ where
 
     // If no header was found, return an error.
     if msg_offset == 0 {
-        return Ok((0, false));
+        return Err(VeilError::InvalidCiphertext);
     }
 
     // Read the remainder of the headers and padding and write them to the verifier.
     let mut remainder = reader.take(msg_offset - hdr_offset);
-    io::copy(&mut remainder, &mut verifier)?;
+    io::copy(&mut remainder, &mut verifier).map_err(VeilError::IoError)?;
 
     // Initialize a protocol and key it with the DEK.
     let mut mres = Strobe::new(b"veil.mres", SecParam::B256);
@@ -305,7 +305,7 @@ where
     let mut input = [0u8; BUF_SIZE];
     let mut buf = Vec::with_capacity(BUF_SIZE + 64);
     loop {
-        let n = reader.read(&mut input)?;
+        let n = reader.read(&mut input).map_err(VeilError::IoError)?;
         buf.extend_from_slice(&input[..n]);
 
         // Process the data if we have at least a signature's worth.
@@ -315,9 +315,9 @@ where
             let mut block: Vec<u8> = buf.drain(..n - 64).collect();
 
             // Verify the ciphertext, decrypt it, and write the plaintext.
-            verifier.write_all(&block)?;
+            verifier.write_all(&block).map_err(VeilError::IoError)?;
             mres.recv_enc(&mut block, true);
-            writer.write_all(&block)?;
+            writer.write_all(&block).map_err(VeilError::IoError)?;
             written += block.len() as u64;
         }
 
@@ -333,7 +333,11 @@ where
 
     // Decrypt and verify the signature.
     mres.recv_enc(&mut sig, false);
-    Ok((written, verifier.verify(&q_e, &sig)))
+    if !verifier.verify(&q_e, &sig) {
+        return Err(VeilError::InvalidCiphertext);
+    }
+
+    Ok(written)
 }
 
 const DEK_LEN: usize = 32;
@@ -386,7 +390,7 @@ mod tests {
         let mut dst = io::Cursor::new(Vec::new());
 
         let ptx_len = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s).expect("decrypt");
-        assert_eq!((dst.position(), true), ptx_len);
+        assert_eq!(dst.position(), ptx_len);
         assert_eq!(message.to_vec(), dst.into_inner());
     }
 
@@ -412,7 +416,7 @@ mod tests {
         let mut dst = io::Cursor::new(Vec::new());
 
         let ptx_len = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s).expect("decrypt");
-        assert_eq!((dst.position(), true), ptx_len);
+        assert_eq!(dst.position(), ptx_len);
         assert_eq!(message.to_vec(), dst.into_inner());
     }
 
@@ -437,7 +441,7 @@ mod tests {
         let mut dst = io::Cursor::new(Vec::new());
 
         let ptx_len = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s).expect("decrypt");
-        assert_eq!((dst.position(), true), ptx_len);
+        assert_eq!(dst.position(), ptx_len);
         assert_eq!(message.to_vec(), dst.into_inner());
     }
 }

@@ -229,14 +229,6 @@ impl PrivateKey {
             &self.1 .0,
             &sender.0,
         )
-        .map_err(VeilError::IoError)
-        .and_then(|(n, ok)| {
-            if ok {
-                Ok(n)
-            } else {
-                Err(VeilError::InvalidCiphertext)
-            }
-        })
     }
 
     /// Reads the contents of the reader and returns a Schnorr signature.
