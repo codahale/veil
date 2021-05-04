@@ -169,7 +169,7 @@ use curve25519_dalek::scalar::Scalar;
 use rand::Rng;
 use strobe_rs::{SecParam, Strobe};
 
-use crate::{akem, schnorr, support, VeilError, MAC_LEN};
+use crate::{akem, schnorr, VeilError, MAC_LEN};
 
 pub(crate) fn encrypt<R, W>(
     reader: &mut R,
@@ -183,22 +183,16 @@ where
     R: io::Read,
     W: io::Write,
 {
+    let mut written = 0u64;
+    let mut signer = schnorr::Signer::new(writer);
+
     // Initialize a protocol and add the MAC length and sender's public key as associated data.
     let mut mres = Strobe::new(b"veil.mres", SecParam::B256);
     mres.meta_ad(&(MAC_LEN as u32).to_le_bytes(), false);
     mres.ad(q_s.compress().as_bytes(), false);
 
-    let mut written = 0u64;
-    let mut rng = rand::thread_rng();
-    let mut signer = schnorr::Signer::new(writer);
-
-    // Generate an ephemeral key pair.
-    let d_e = support::rand_scalar();
-    let q_e = RISTRETTO_BASEPOINT_POINT * d_e;
-
-    // Generate a data encryption key.
-    let mut dek = [0u8; DEK_LEN];
-    rng.fill(dek.as_mut());
+    // Generate a random key pair and DEK using a cloned protocol.
+    let (d_e, q_e, dek) = hedge_key_pair_and_dek(&mut mres.clone(), d_s);
 
     // Encode the DEK and message offset in a header.
     let header = encode_header(&dek, q_rs.len(), padding);
@@ -216,7 +210,7 @@ where
         &mut signer,
     )?;
 
-    // Initialize a protocol and key it with the DEK.
+    // Key the protocol with the DEK.
     mres.key(&dek, false);
 
     // Prep for streaming encryption.
@@ -248,6 +242,28 @@ where
     written += sig.len() as u64;
 
     Ok(written)
+}
+
+fn hedge_key_pair_and_dek(clone: &mut Strobe, d_s: &Scalar) -> (Scalar, RistrettoPoint, [u8; 32]) {
+    let mut seed = [0u8; 64];
+
+    // Key with the sender's private key.
+    clone.key(d_s.as_bytes(), false);
+
+    // Key with a random nonce.
+    let mut rng = rand::thread_rng();
+    rng.fill(&mut seed);
+
+    // Generate a random scalar.
+    clone.prf(&mut seed, false);
+    let d_e = Scalar::from_bytes_mod_order_wide(&seed);
+    let q_e = RISTRETTO_BASEPOINT_POINT * d_e;
+
+    // Generate a random DEK.
+    let mut dek = [0u8; 32];
+    clone.prf(&mut dek, false);
+
+    (d_e, q_e, dek)
 }
 
 pub(crate) fn decrypt<R, W>(
