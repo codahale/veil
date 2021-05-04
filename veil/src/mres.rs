@@ -183,6 +183,11 @@ where
     R: io::Read,
     W: io::Write,
 {
+    // Initialize a protocol and add the MAC length and sender's public key as associated data.
+    let mut mres = Strobe::new(b"veil.mres", SecParam::B256);
+    mres.meta_ad(&(MAC_LEN as u32).to_le_bytes(), false);
+    mres.ad(q_s.compress().as_bytes(), false);
+
     let mut written = 0u64;
     let mut rng = rand::thread_rng();
     let mut signer = schnorr::Signer::new(writer);
@@ -212,7 +217,6 @@ where
     )?;
 
     // Initialize a protocol and key it with the DEK.
-    let mut mres = Strobe::new(b"veil.mres", SecParam::B256);
     mres.key(&dek, false);
 
     // Prep for streaming encryption.
@@ -293,8 +297,12 @@ where
     let mut remainder = reader.take(msg_offset - hdr_offset);
     io::copy(&mut remainder, &mut verifier).map_err(VeilError::IoError)?;
 
-    // Initialize a protocol and key it with the DEK.
+    // Initialize a protocol and add the MAC length and sender's public key as associated data.
     let mut mres = Strobe::new(b"veil.mres", SecParam::B256);
+    mres.meta_ad(&(MAC_LEN as u32).to_le_bytes(), false);
+    mres.ad(q_s.compress().as_bytes(), false);
+
+    // Key the protocol with the DEK.
     mres.key(&dek, false);
 
     // Prep for streaming decryption.
