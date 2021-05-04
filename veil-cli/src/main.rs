@@ -1,5 +1,5 @@
 use std::io::Write;
-use std::{error, fs, io, result};
+use std::{error, fs, io, mem, result};
 
 use clap::{App, AppSettings, SubCommand};
 
@@ -229,6 +229,7 @@ fn decrypt(
     let mut plaintext = open_output(plaintext_path)?;
 
     if let Err(e) = private_key.decrypt(&mut ciphertext, &mut plaintext, &sender) {
+        mem::drop(plaintext);
         fs::remove_file(plaintext_path)?;
         return Err(Box::new(e));
     }
