@@ -205,13 +205,13 @@ fn encrypt(
     let private_key = secret_key.private_key(key_id);
     let mut plaintext = open_input(plaintext_path)?;
     let mut ciphertext = open_output(ciphertext_path)?;
-
-    let mut pks = Vec::with_capacity(recipient_paths.len());
-    for path in recipient_paths {
-        pks.push(decode_public_key(path)?);
-    }
+    let pks = recipient_paths
+        .into_iter()
+        .map(decode_public_key)
+        .collect::<Result<Vec<PublicKey>>>()?;
 
     private_key.encrypt(&mut plaintext, &mut ciphertext, pks, fakes, padding)?;
+
     Ok(())
 }
 
