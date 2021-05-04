@@ -121,10 +121,14 @@ impl SecretKey {
     }
 
     /// Decrypts the secret key with the given passphrase and pbenc parameters.
-    pub fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Option<SecretKey> {
-        let plaintext = pbenc::decrypt(passphrase, ciphertext)?;
-        let seed: [u8; 64] = plaintext.try_into().ok()?;
-        Some(SecretKey(seed))
+    pub fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Result<SecretKey> {
+        pbenc::decrypt(passphrase, ciphertext)
+            .ok_or(VeilError::InvalidCiphertext())
+            .and_then(|plaintext| {
+                let seed: Option<[u8; 64]> = plaintext.try_into().ok();
+                seed.ok_or(VeilError::InvalidCiphertext())
+            })
+            .map(SecretKey)
     }
 
     /// Derives a private key with the given key ID.

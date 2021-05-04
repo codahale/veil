@@ -273,7 +273,7 @@ fn decode_public_key(path_or_key: &str) -> Result<PublicKey> {
     Ok(pk)
 }
 
-fn open_input(path: &str) -> io::Result<Box<dyn io::Read>> {
+fn open_input(path: &str) -> Result<Box<dyn io::Read>> {
     let output: Box<dyn io::Read> = match path {
         "-" => Box::new(io::stdin()),
         path => Box::new(fs::File::open(path)?),
@@ -281,7 +281,7 @@ fn open_input(path: &str) -> io::Result<Box<dyn io::Read>> {
     Ok(output)
 }
 
-fn open_output(path: &str) -> io::Result<Box<dyn io::Write>> {
+fn open_output(path: &str) -> Result<Box<dyn io::Write>> {
     let output: Box<dyn io::Write> = match path {
         "-" => Box::new(io::stdout()),
         path => Box::new(fs::File::create(path)?),
@@ -289,9 +289,9 @@ fn open_output(path: &str) -> io::Result<Box<dyn io::Write>> {
     Ok(output)
 }
 
-fn open_secret_key(path: &str) -> io::Result<SecretKey> {
+fn open_secret_key(path: &str) -> Result<SecretKey> {
     let passphrase = rpassword::read_password_from_tty(Some("Enter passphrase: "))?;
     let ciphertext = fs::read(path)?;
-    let secret_key = SecretKey::decrypt(passphrase.as_bytes(), &ciphertext);
-    secret_key.ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "invalid passphrase"))
+    let sk = SecretKey::decrypt(passphrase.as_bytes(), &ciphertext)?;
+    Ok(sk)
 }
