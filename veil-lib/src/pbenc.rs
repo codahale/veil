@@ -65,10 +65,11 @@
 //! the very, very tall grass of cryptography and should never be used.
 //!
 
-use crate::MAC_LEN;
 use byteorder::ByteOrder;
 use rand::Rng;
 use strobe_rs::{SecParam, Strobe};
+
+use crate::MAC_LEN;
 
 const SALT_LEN: usize = 16;
 
@@ -159,9 +160,9 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
             // Step 2b: Hash in pseudo-randomly chosen blocks.
             for i in 0..DELTA {
                 // Map indexes to a block and hash it and the salt.
-                byteorder::LE::write_u32(&mut idx[0..4], t as u32);
-                byteorder::LE::write_u32(&mut idx[0..4], m as u32);
-                byteorder::LE::write_u32(&mut idx[0..4], i as u32);
+                byteorder::LE::write_u64(&mut idx[0..8], t as u64);
+                byteorder::LE::write_u64(&mut idx[8..16], m as u64);
+                byteorder::LE::write_u64(&mut idx[16..24], i as u64);
                 idx = hash_counter(&mut pbenc, &mut ctr, salt, &idx);
 
                 // Map the hashed index block back to an index and hash that block.
