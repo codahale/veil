@@ -85,7 +85,7 @@
 //! signature schemes.
 
 use std::convert::TryInto;
-use std::io;
+use std::{io, mem};
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::RistrettoPoint;
@@ -132,7 +132,7 @@ where
         let r = Scalar::from_bytes_mod_order_wide(&seed);
 
         // Explicitly drop the clone to prevent reuse.
-        std::mem::drop(clone);
+        mem::drop(clone);
 
         // Add the ephemeral public key as associated data.
         let r_g = RISTRETTO_BASEPOINT_POINT * r;

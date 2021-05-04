@@ -58,7 +58,7 @@
 
 use std::convert::{TryFrom, TryInto};
 use std::fmt::Debug;
-use std::{cmp, error, fmt, io, iter};
+use std::{cmp, error, fmt, io, iter, result};
 
 use base58::{FromBase58, ToBase58};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
@@ -75,7 +75,7 @@ pub mod scaldf;
 pub mod schnorr;
 
 /// Veil's custom result type.
-pub type Result<T> = std::result::Result<T, VeilError>;
+pub type Result<T> = result::Result<T, VeilError>;
 
 /// The full set of Veil errors.
 #[derive(Debug)]
@@ -99,7 +99,7 @@ impl fmt::Display for VeilError {
             VeilError::InvalidSignature => f.write_str("invalid signature"),
             VeilError::InvalidPublicKey => f.write_str("invalid public key"),
             VeilError::InvalidSecretKey => f.write_str("invalid secret key"),
-            VeilError::IoError(e) => std::fmt::Display::fmt(&e, f),
+            VeilError::IoError(e) => fmt::Display::fmt(&e, f),
         }
     }
 }
@@ -282,7 +282,7 @@ impl Signature {
 impl TryFrom<&str> for Signature {
     type Error = VeilError;
 
-    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: &str) -> result::Result<Self, Self::Error> {
         Signature::from_ascii(value).ok_or(VeilError::InvalidSignature)
     }
 }
@@ -328,7 +328,7 @@ impl PublicKey {
 impl TryFrom<&str> for PublicKey {
     type Error = VeilError;
 
-    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: &str) -> result::Result<Self, Self::Error> {
         PublicKey::from_ascii(value).ok_or(VeilError::InvalidPublicKey)
     }
 }

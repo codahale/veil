@@ -1,12 +1,12 @@
 use std::io::Write;
-use std::{error, fs, io};
+use std::{error, fs, io, result};
 
 use clap::{App, AppSettings, SubCommand};
 
 use std::convert::TryInto;
 use veil_lib::{PublicKey, SecretKey, Signature};
 
-type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
+type Result<T> = result::Result<T, Box<dyn error::Error>>;
 
 fn main() -> Result<()> {
     let matches = App::new("veil")
