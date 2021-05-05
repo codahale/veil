@@ -168,6 +168,7 @@ use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use strobe_rs::{SecParam, Strobe};
 
+use crate::schnorr::Verifier;
 use crate::util::StrobeExt;
 use crate::{akem, schnorr, VeilError, MAC_LEN};
 use std::convert::TryInto;
@@ -325,16 +326,15 @@ const DEK_LEN: usize = 32;
 const HEADER_LEN: usize = DEK_LEN + 8;
 const ENC_HEADER_LEN: usize = HEADER_LEN + 32 + MAC_LEN;
 
-fn decrypt_header<R, W>(
+fn decrypt_header<R>(
     reader: &mut R,
-    verifier: &mut W,
+    verifier: &mut Verifier,
     d_r: &Scalar,
     q_r: &RistrettoPoint,
     q_s: &RistrettoPoint,
 ) -> crate::Result<([u8; DEK_LEN], RistrettoPoint)>
 where
     R: io::Read,
-    W: io::Write,
 {
     let mut buf = [0u8; ENC_HEADER_LEN];
     let mut hdr_offset = 0u64;
