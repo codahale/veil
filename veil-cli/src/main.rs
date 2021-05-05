@@ -8,7 +8,7 @@ use veil::{PublicKey, SecretKey, Signature};
 
 type Result<T> = result::Result<T, Box<dyn error::Error>>;
 
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() -> Result<()> {
     let matches = App::new("veil-cli")
