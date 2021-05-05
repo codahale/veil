@@ -115,20 +115,9 @@ where
         // Add the signer's public key as associated data.
         self.schnorr.ad(q.compress().as_bytes(), false);
 
-        // Generate a random scalar.
-        let r = {
-            // Clone the protocol.
-            let mut clone = self.schnorr.clone();
-
-            // Key the clone with a random nonce to hedge against deterministic attacks.
-            clone.key_rand();
-
-            // Key the clone with the sender's private key to hedge against RNG failures.
-            clone.key(d.as_bytes(), false);
-
-            // Derive an ephemeral scalar from the clone's state.
-            clone.prf_scalar()
-        };
+        // Derive an ephemeral scalar from the protocol's current state, the signer's private key,
+        // and a random nonce.
+        let r = self.schnorr.hedge(d.as_bytes(), StrobeExt::prf_scalar);
 
         // Add the ephemeral public key as associated data.
         let r_g = RISTRETTO_BASEPOINT_POINT * r;

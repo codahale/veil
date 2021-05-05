@@ -191,8 +191,19 @@ where
     mres.meta_ad(&(MAC_LEN as u32).to_le_bytes(), false);
     mres.ad(q_s.compress().as_bytes(), false);
 
-    // Generate a random key pair and DEK using a cloned protocol.
-    let (d_e, q_e, dek) = hedge_key_pair_and_dek(&mut mres.clone(), d_s);
+    // Derive a random ephemeral key pair and DEK from the protocol's current state, the sender's
+    // private key, and a random nonce.
+    let (d_e, q_e, dek) = mres.hedge(d_s.as_bytes(), |clone| {
+        // Generate an ephemeral key pair.
+        let d_e = clone.prf_scalar();
+        let q_e = RISTRETTO_BASEPOINT_POINT * d_e;
+
+        // Generate a DEK.
+        let mut dek = [0u8; 32];
+        clone.prf(&mut dek, false);
+
+        (d_e, q_e, dek)
+    });
 
     // Encode the DEK and message offset in a header.
     let header = encode_header(&dek, q_rs.len(), padding);
@@ -353,24 +364,6 @@ const ENC_HEADER_LEN: usize = HEADER_LEN + 32 + MAC_LEN;
 fn encode_header(dek: &[u8; DEK_LEN], r_len: usize, padding: u64) -> Vec<u8> {
     let msg_offset = ((r_len as u64) * ENC_HEADER_LEN as u64) + padding;
     vec![dek.to_vec(), (&msg_offset.to_le_bytes()).to_vec()].concat()
-}
-
-fn hedge_key_pair_and_dek(clone: &mut Strobe, d_s: &Scalar) -> (Scalar, RistrettoPoint, [u8; 32]) {
-    // Key with the sender's private key.
-    clone.key(d_s.as_bytes(), false);
-
-    // Key with a random nonce.
-    clone.key_rand();
-
-    // Generate a random scalar.
-    let d_e = clone.prf_scalar();
-    let q_e = RISTRETTO_BASEPOINT_POINT * d_e;
-
-    // Generate a random DEK.
-    let mut dek = [0u8; 32];
-    clone.prf(&mut dek, false);
-
-    (d_e, q_e, dek)
 }
 
 struct RngReader<R: rand::Rng>(R);
