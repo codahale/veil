@@ -29,26 +29,18 @@ pub(crate) fn derive_root(seed: &[u8; 64]) -> Scalar {
 }
 
 pub(crate) fn derive_scalar(d: &Scalar, key_id: &str) -> Scalar {
-    let mut seed = [0u8; 64];
-    let mut d_p = *d;
-
-    for label in key_id_parts(key_id) {
+    key_id_parts(key_id).iter().fold(*d, |d_p, &label| {
+        let mut seed = [0u8; 64];
         let mut root_df = Strobe::new(b"veil.scaldf.label", SecParam::B256);
         root_df.key(label.as_bytes(), false);
         root_df.prf(&mut seed, false);
 
-        let r = Scalar::from_bytes_mod_order_wide(&seed);
-
-        d_p += &r;
-    }
-
-    d_p
+        d_p + Scalar::from_bytes_mod_order_wide(&seed)
+    })
 }
 
 pub(crate) fn derive_point(q: &RistrettoPoint, key_id: &str) -> RistrettoPoint {
-    let r = RISTRETTO_BASEPOINT_POINT * derive_scalar(&Scalar::zero(), key_id);
-
-    q + r
+    q + (RISTRETTO_BASEPOINT_POINT * derive_scalar(&Scalar::zero(), key_id))
 }
 
 fn key_id_parts(key_id: &str) -> Vec<&str> {
