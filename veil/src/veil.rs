@@ -81,10 +81,11 @@ impl SecretKey {
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     pub fn private_key(&self, key_id: &str) -> PrivateKey {
         let d = scaldf::derive_root(&self.r);
-        let q = RISTRETTO_BASEPOINT_POINT * d;
         PrivateKey {
             d,
-            pk: PublicKey { q },
+            pk: PublicKey {
+                q: RISTRETTO_BASEPOINT_POINT * d,
+            },
         }
         .derive(key_id)
     }
@@ -195,10 +196,11 @@ impl PrivateKey {
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     pub fn derive(&self, key_id: &str) -> PrivateKey {
         let d = scaldf::derive_scalar(&self.d, key_id);
-        let q = RISTRETTO_BASEPOINT_POINT * d;
         PrivateKey {
             d,
-            pk: PublicKey { q },
+            pk: PublicKey {
+                q: RISTRETTO_BASEPOINT_POINT * d,
+            },
         }
     }
 }
@@ -228,8 +230,9 @@ impl Signature {
 
     /// Parses the given base58 string and returns a signature.
     pub fn from_ascii(s: &str) -> Option<Signature> {
-        let sig: [u8; 64] = s.from_base58().ok()?.try_into().ok()?;
-        Some(Signature { sig })
+        Some(Signature {
+            sig: s.from_base58().ok()?.try_into().ok()?,
+        })
     }
 }
 
