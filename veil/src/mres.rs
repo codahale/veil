@@ -244,28 +244,6 @@ where
     Ok(written)
 }
 
-fn hedge_key_pair_and_dek(clone: &mut Strobe, d_s: &Scalar) -> (Scalar, RistrettoPoint, [u8; 32]) {
-    let mut seed = [0u8; 64];
-
-    // Key with the sender's private key.
-    clone.key(d_s.as_bytes(), false);
-
-    // Key with a random nonce.
-    let mut rng = rand::thread_rng();
-    rng.fill(&mut seed);
-
-    // Generate a random scalar.
-    clone.prf(&mut seed, false);
-    let d_e = Scalar::from_bytes_mod_order_wide(&seed);
-    let q_e = RISTRETTO_BASEPOINT_POINT * d_e;
-
-    // Generate a random DEK.
-    let mut dek = [0u8; 32];
-    clone.prf(&mut dek, false);
-
-    (d_e, q_e, dek)
-}
-
 pub(crate) fn decrypt<R, W>(
     reader: &mut R,
     writer: &mut W,
@@ -291,16 +269,16 @@ where
         verifier.write_all(&buf).map_err(VeilError::IoError)?;
         hdr_offset += buf.len() as u64;
 
-        match akem::decapsulate(d_r, q_r, q_s, &buf) {
-            Some((p, header)) => {
-                // Recover the ephemeral public key, the DEK, and the message offset.
-                q_e = p;
-                dek.copy_from_slice(&header[..32]);
-                msg_offset = byteorder::LE::read_u64(&header[header.len() - 8..]);
+        if let Some((p, header)) = akem::decapsulate(d_r, q_r, q_s, &buf) {
+            // Recover the ephemeral public key, the DEK, and the message offset.
+            q_e = p;
+            dek.copy_from_slice(&header[..32]);
+            msg_offset = byteorder::LE::read_u64(&header[header.len() - 8..]);
 
-                break;
-            }
-            None => continue,
+            // Jump to decryption.
+            break;
+        } else {
+            continue;
         }
     }
 
@@ -329,20 +307,25 @@ where
     let mut input = [0u8; BUF_SIZE];
     let mut buf = Vec::with_capacity(BUF_SIZE + 64);
     loop {
+        // Read a block of ciphertext and copy it to the buffer.
         let n = reader.read(&mut input).map_err(VeilError::IoError)?;
         buf.extend_from_slice(&input[..n]);
 
         // Process the data if we have at least a signature's worth.
         if buf.len() > 64 {
             // Pop the first N-64 bytes off the buffer.
-            let n = buf.len();
-            let mut block: Vec<u8> = buf.drain(..n - 64).collect();
+            let n = buf.len() - 64;
+            let mut block: Vec<u8> = buf.drain(..n).collect();
 
-            // Verify the ciphertext, decrypt it, and write the plaintext.
+            // Verify the ciphertext.
             verifier.write_all(&block).map_err(VeilError::IoError)?;
+
+            // Decrypt the ciphertext.
             mres.recv_enc(&mut block, true);
+
+            // Write the plaintext.
             writer.write_all(&block).map_err(VeilError::IoError)?;
-            written += block.len() as u64;
+            written += n as u64;
         }
 
         // If our last read returned zero bytes, we're at the end of the ciphertext.
@@ -357,11 +340,10 @@ where
 
     // Decrypt and verify the signature.
     mres.recv_enc(&mut sig, false);
-    if !verifier.verify(&q_e, &sig) {
-        return Err(VeilError::InvalidCiphertext);
-    }
-
-    Ok(written)
+    verifier
+        .verify(&q_e, &sig)
+        .then(|| written)
+        .ok_or(VeilError::InvalidCiphertext)
 }
 
 const DEK_LEN: usize = 32;
@@ -371,6 +353,28 @@ const ENC_HEADER_LEN: usize = HEADER_LEN + 32 + MAC_LEN;
 fn encode_header(dek: &[u8; DEK_LEN], r_len: usize, padding: u64) -> Vec<u8> {
     let msg_offset = ((r_len as u64) * ENC_HEADER_LEN as u64) + padding;
     vec![dek.to_vec(), (&msg_offset.to_le_bytes()).to_vec()].concat()
+}
+
+fn hedge_key_pair_and_dek(clone: &mut Strobe, d_s: &Scalar) -> (Scalar, RistrettoPoint, [u8; 32]) {
+    let mut seed = [0u8; 64];
+
+    // Key with the sender's private key.
+    clone.key(d_s.as_bytes(), false);
+
+    // Key with a random nonce.
+    let mut rng = rand::thread_rng();
+    rng.fill(&mut seed);
+
+    // Generate a random scalar.
+    clone.prf(&mut seed, false);
+    let d_e = Scalar::from_bytes_mod_order_wide(&seed);
+    let q_e = RISTRETTO_BASEPOINT_POINT * d_e;
+
+    // Generate a random DEK.
+    let mut dek = [0u8; 32];
+    clone.prf(&mut dek, false);
+
+    (d_e, q_e, dek)
 }
 
 struct RngReader<R: rand::Rng>(R);
