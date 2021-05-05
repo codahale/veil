@@ -50,7 +50,21 @@ fn bench_sign(b: &mut Bencher, n: &u64) {
     b.iter(|| pk_a.sign(&mut Zero(*n)).unwrap());
 }
 
-criterion_group!(benches, criterion_encrypt, criterion_sign);
+fn criterion_pbenc(c: &mut Criterion) {
+    let sk = SecretKey::new();
+
+    c.bench_function("SecretKey/encrypt", |b| {
+        b.iter(|| {
+            sk.encrypt(
+                black_box("passphrase".as_bytes()),
+                black_box(10),
+                black_box(10),
+            )
+        })
+    });
+}
+
+criterion_group!(benches, criterion_encrypt, criterion_sign, criterion_pbenc);
 criterion_main!(benches);
 
 struct Zero(u64);
