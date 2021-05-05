@@ -6,11 +6,10 @@ use base58::{FromBase58, ToBase58};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
-use rand::seq::SliceRandom;
-use rand::Rng;
 use zeroize::Zeroize;
 
 use crate::{mres, pbenc, scaldf, schnorr};
+use byteorder::ByteOrder;
 
 /// Veil's custom result type.
 pub type Result<T> = result::Result<T, VeilError>;
@@ -53,7 +52,7 @@ impl SecretKey {
     /// Returns a randomly generated secret key.
     pub fn new() -> SecretKey {
         let mut r = [0u8; 64];
-        rand::thread_rng().fill(&mut r);
+        getrandom::getrandom(&mut r).expect("rng failure");
 
         SecretKey { r }
     }
@@ -148,8 +147,7 @@ impl PrivateKey {
             .collect();
 
         // Shuffle the recipients list.
-        let mut rng = rand::thread_rng();
-        q_rs.shuffle(&mut rng);
+        shuffle(&mut q_rs);
 
         // Finally, encrypt.
         mres::encrypt(
@@ -298,10 +296,28 @@ pub(crate) const MAC_LEN: usize = 16;
 
 fn rand_point() -> RistrettoPoint {
     let mut seed = [0u8; 64];
-    let mut rng = rand::thread_rng();
-    rng.fill(&mut seed);
+    getrandom::getrandom(&mut seed).expect("rng failure");
 
     RistrettoPoint::from_uniform_bytes(&seed)
+}
+
+fn shuffle(pks: &mut Vec<RistrettoPoint>) {
+    // Fisher-Yates shuffle with cryptographically generated numbers
+    assert!(pks.len() < u32::MAX as usize);
+    let mut buf = [0u8; 4];
+    for i in (1..pks.len()).rev() {
+        let max = ((1 << 31) - 1 - (1 << 31) % (i + 1)) as usize;
+        loop {
+            getrandom::getrandom(&mut buf).expect("rng failure");
+            let n = byteorder::LE::read_u32(&buf) as usize;
+            if n > max {
+                continue;
+            }
+
+            pks.swap(i, n % (i + 1));
+            break;
+        }
+    }
 }
 
 #[cfg(test)]

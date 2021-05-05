@@ -216,10 +216,7 @@ where
     }
 
     // Add random padding to the end of the headers.
-    written += io::copy(
-        &mut RngReader(rand::thread_rng()).take(padding),
-        &mut signer,
-    )?;
+    written += io::copy(&mut RngReader.take(padding), &mut signer)?;
 
     // Key the protocol with the DEK.
     mres.key(&dek, false);
@@ -366,11 +363,11 @@ fn encode_header(dek: &[u8; DEK_LEN], r_len: usize, padding: u64) -> Vec<u8> {
     vec![dek.to_vec(), (&msg_offset.to_le_bytes()).to_vec()].concat()
 }
 
-struct RngReader<R: rand::Rng>(R);
+struct RngReader;
 
-impl<R: rand::Rng> io::Read for RngReader<R> {
+impl io::Read for RngReader {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.0.fill(buf);
+        getrandom::getrandom(buf).expect("rng failure");
 
         Ok(buf.len())
     }

@@ -66,7 +66,6 @@
 //!
 
 use byteorder::ByteOrder;
-use rand::Rng;
 use strobe_rs::{SecParam, Strobe};
 
 use crate::MAC_LEN;
@@ -77,9 +76,8 @@ pub(crate) fn encrypt(passphrase: &[u8], plaintext: &[u8], time: u32, space: u32
     const CT_OFFSET: usize = 8 + SALT_LEN;
 
     // Generate a random salt.
-    let mut rng = rand::thread_rng();
     let mut salt = [0u8; SALT_LEN];
-    rng.fill(&mut salt);
+    getrandom::getrandom(&mut salt).expect("rng failure");
 
     // Perform the balloon hashing.
     let mut pbenc = init(passphrase, &salt, time, space);

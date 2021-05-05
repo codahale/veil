@@ -1,5 +1,4 @@
 use curve25519_dalek::scalar::Scalar;
-use rand::Rng;
 use strobe_rs::Strobe;
 
 pub(crate) trait StrobeExt {
@@ -28,8 +27,7 @@ impl StrobeExt for Strobe {
 
         // Key with a random value.
         let mut seed = [0u8; 64];
-        let mut rng = rand::thread_rng();
-        rng.fill(&mut seed);
+        getrandom::getrandom(&mut seed).expect("rng failure");
         clone.key(&seed, false);
 
         // Call the given function with the clone.
