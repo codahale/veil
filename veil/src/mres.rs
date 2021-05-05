@@ -390,14 +390,14 @@ mod tests {
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 
     use crate::mres::{decrypt, encrypt};
-    use crate::support;
+    use crate::test_helpers::rand_scalar;
 
     #[test]
     pub fn round_trip() {
-        let d_s = support::rand_scalar();
+        let d_s = rand_scalar();
         let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
 
-        let d_r = support::rand_scalar();
+        let d_r = rand_scalar();
         let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
 
         let message = b"this is a thingy";
@@ -418,10 +418,10 @@ mod tests {
 
     #[test]
     pub fn multi_block_message() {
-        let d_s = support::rand_scalar();
+        let d_s = rand_scalar();
         let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
 
-        let d_r = support::rand_scalar();
+        let d_r = rand_scalar();
         let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
 
         let message = [69u8; 65 * 1024];
@@ -442,10 +442,10 @@ mod tests {
 
     #[test]
     pub fn split_sig() {
-        let d_s = support::rand_scalar();
+        let d_s = rand_scalar();
         let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
 
-        let d_r = support::rand_scalar();
+        let d_r = rand_scalar();
         let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
 
         let message = [69u8; 32 * 1024 - 37];

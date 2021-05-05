@@ -233,11 +233,11 @@ mod tests {
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 
     use crate::schnorr::{Signer, Verifier};
-    use crate::support;
+    use crate::test_helpers::rand_scalar;
 
     #[test]
     pub fn sign_and_verify() -> io::Result<()> {
-        let d = support::rand_scalar();
+        let d = rand_scalar();
         let q = RISTRETTO_BASEPOINT_POINT * d;
 
         let mut signer = Signer::new(io::sink());
@@ -260,7 +260,7 @@ mod tests {
 
     #[test]
     pub fn bad_message() -> io::Result<()> {
-        let d = support::rand_scalar();
+        let d = rand_scalar();
         let q = RISTRETTO_BASEPOINT_POINT * d;
 
         let mut signer = Signer::new(io::sink());
@@ -283,7 +283,7 @@ mod tests {
 
     #[test]
     pub fn bad_key() -> io::Result<()> {
-        let d = support::rand_scalar();
+        let d = rand_scalar();
         let q = RISTRETTO_BASEPOINT_POINT * d;
 
         let mut signer = Signer::new(io::sink());
