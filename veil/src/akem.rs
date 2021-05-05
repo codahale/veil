@@ -177,7 +177,7 @@ pub(crate) fn decapsulate(
     akem.recv_enc(&mut out[..32], false);
 
     // Decode the ephemeral public key.
-    let q_e = CompressedRistretto(out[..32].try_into().ok()?).decompress()?;
+    let q_e = CompressedRistretto(out[..32].try_into().expect("short q_e")).decompress()?;
 
     // Calculate the ephemeral Diffie-Hellman shared secret and key the protocol with it.
     let zz_e = d_r * q_e;
