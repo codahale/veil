@@ -312,11 +312,8 @@ where
         }
     }
 
-    // Use the last 64 bytes as a signature.
-    let mut sig = [0u8; 64];
-    sig.copy_from_slice(&buf);
-
     // Decrypt and verify the signature.
+    let mut sig: [u8; 64] = buf.try_into().expect("short signature");
     mres.recv_enc(&mut sig, false);
     verifier
         .verify(&q_e, &sig)
