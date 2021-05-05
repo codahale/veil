@@ -158,6 +158,7 @@
 //! deterministic encryption schemes.
 //!
 
+use std::convert::TryInto;
 use std::io;
 use std::io::Read;
 use std::io::Write;
@@ -171,7 +172,6 @@ use strobe_rs::{SecParam, Strobe};
 use crate::schnorr::Verifier;
 use crate::util::StrobeExt;
 use crate::{akem, schnorr, VeilError, MAC_LEN};
-use std::convert::TryInto;
 
 pub(crate) fn encrypt<R, W>(
     reader: &mut R,
@@ -282,10 +282,35 @@ where
     // Prep for streaming decryption.
     mres.recv_enc(&mut [], false);
 
-    // Read through src in 32KiB chunks, keeping the last 64 bytes as the signature.
+    // Decrypt the message and get the signature.
+    let (written, sig) = decrypt_message(reader, writer, &mut verifier, &mut mres)?;
+
+    // Verify the signature and return either the bytes written or an invalid ciphertext errpr.
+    verifier
+        .verify(&q_e, &sig)
+        .then(|| written)
+        .ok_or(VeilError::InvalidCiphertext)
+}
+
+const DEK_LEN: usize = 32;
+const HEADER_LEN: usize = DEK_LEN + 8;
+const ENC_HEADER_LEN: usize = HEADER_LEN + 32 + MAC_LEN;
+
+fn decrypt_message<R, W>(
+    reader: &mut R,
+    writer: &mut W,
+    verifier: &mut Verifier,
+    mres: &mut Strobe,
+) -> crate::Result<(u64, [u8; 64])>
+where
+    R: io::Read,
+    W: io::Write,
+{
     let mut written = 0u64;
     let mut input = [0u8; 32 * 1024];
     let mut buf = Vec::with_capacity(input.len() + 64);
+
+    // Read through src in 32KiB chunks, keeping the last 64 bytes as the signature.
     loop {
         // Read a block of ciphertext and copy it to the buffer.
         let n = reader.read(&mut input).map_err(VeilError::IoError)?;
@@ -313,18 +338,13 @@ where
         }
     }
 
-    // Decrypt and verify the signature.
+    // Keep the last 64 bytes as the encrypted signature.
     let mut sig: [u8; 64] = buf.try_into().expect("short signature");
     mres.recv_enc(&mut sig, false);
-    verifier
-        .verify(&q_e, &sig)
-        .then(|| written)
-        .ok_or(VeilError::InvalidCiphertext)
-}
 
-const DEK_LEN: usize = 32;
-const HEADER_LEN: usize = DEK_LEN + 8;
-const ENC_HEADER_LEN: usize = HEADER_LEN + 32 + MAC_LEN;
+    // Return the bytes written and the decrypted signature.
+    Ok((written, sig))
+}
 
 fn decrypt_header<R>(
     reader: &mut R,
