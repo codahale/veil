@@ -140,10 +140,10 @@ impl PrivateKey {
         W: io::Write,
     {
         // Add fakes.
-        let mut q_rs: Vec<RistrettoPoint> = recipients
+        let mut q_rs = recipients
             .into_iter()
             .map(|pk| pk.q)
-            .chain(iter::from_fn(|| Some(rand_point())).take(fakes))
+            .chain(iter::repeat_with(rand_point).take(fakes))
             .collect();
 
         // Shuffle the recipients list.
