@@ -9,7 +9,7 @@ use veil::{PublicKey, SecretKey, Signature};
 type Result<T> = result::Result<T, Box<dyn error::Error>>;
 
 fn main() -> Result<()> {
-    let matches = App::new("veil")
+    let matches = App::new("veil-cli")
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .version("0.1.0")
         .about("Stupid crypto tricks")
