@@ -90,8 +90,9 @@ use std::io;
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
-use rand::Rng;
 use strobe_rs::{SecParam, Strobe};
+
+use crate::util::StrobeExt;
 
 pub(crate) struct Signer<W: io::Write> {
     schnorr: Strobe,
@@ -114,35 +115,27 @@ where
         // Add the signer's public key as associated data.
         self.schnorr.ad(q.compress().as_bytes(), false);
 
-        let mut seed = [0u8; 64];
-
         // Generate a random scalar.
-        let r: Scalar;
-        {
+        let r = {
             // Clone the protocol.
             let mut clone = self.schnorr.clone();
 
             // Key the clone with a random nonce to hedge against deterministic attacks.
-            let mut rng = rand::thread_rng();
-            rng.fill(&mut seed);
-            clone.key(&seed, false);
+            clone.key_rand();
 
             // Key the clone with the sender's private key to hedge against RNG failures.
             clone.key(d.as_bytes(), false);
 
             // Derive an ephemeral scalar from the clone's state.
-            clone.prf(&mut seed, false);
-
-            r = Scalar::from_bytes_mod_order_wide(&seed);
-        }
+            clone.prf_scalar()
+        };
 
         // Add the ephemeral public key as associated data.
         let r_g = RISTRETTO_BASEPOINT_POINT * r;
         self.schnorr.ad(r_g.compress().as_bytes(), false);
 
         // Derive a challenge scalar from PRF output.
-        self.schnorr.prf(&mut seed, false);
-        let c = Scalar::from_bytes_mod_order_wide(&seed);
+        let c = self.schnorr.prf_scalar();
 
         // Calculate the signature scalar.
         let s = d * c + r;
@@ -204,9 +197,7 @@ impl Verifier {
         self.schnorr.ad(r_g.compress().as_bytes(), false);
 
         // Re-derive the challenge scalar.
-        let mut seed = [0u8; 64];
-        self.schnorr.prf(&mut seed, false);
-        let c_p = Scalar::from_bytes_mod_order_wide(&seed);
+        let c_p = self.schnorr.prf_scalar();
 
         // Return true iff c' == c.
         Some(c_p == c)

@@ -166,9 +166,9 @@ use byteorder::ByteOrder;
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
-use rand::Rng;
 use strobe_rs::{SecParam, Strobe};
 
+use crate::util::StrobeExt;
 use crate::{akem, schnorr, VeilError, MAC_LEN};
 
 pub(crate) fn encrypt<R, W>(
@@ -356,18 +356,14 @@ fn encode_header(dek: &[u8; DEK_LEN], r_len: usize, padding: u64) -> Vec<u8> {
 }
 
 fn hedge_key_pair_and_dek(clone: &mut Strobe, d_s: &Scalar) -> (Scalar, RistrettoPoint, [u8; 32]) {
-    let mut seed = [0u8; 64];
-
     // Key with the sender's private key.
     clone.key(d_s.as_bytes(), false);
 
     // Key with a random nonce.
-    let mut rng = rand::thread_rng();
-    rng.fill(&mut seed);
+    clone.key_rand();
 
     // Generate a random scalar.
-    clone.prf(&mut seed, false);
-    let d_e = Scalar::from_bytes_mod_order_wide(&seed);
+    let d_e = clone.prf_scalar();
     let q_e = RISTRETTO_BASEPOINT_POINT * d_e;
 
     // Generate a random DEK.

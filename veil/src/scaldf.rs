@@ -22,7 +22,7 @@ pub(crate) fn derive_root(seed: &[u8; 64]) -> Scalar {
     let mut out = [0u8; 64];
 
     let mut root_df = Strobe::new(b"veil.scaldf.root", SecParam::B256);
-    root_df.key(&seed.to_vec(), false);
+    root_df.key(seed, false);
     root_df.prf(&mut out, false);
 
     Scalar::from_bytes_mod_order_wide(&out)
