@@ -2,7 +2,6 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt::Debug;
 use std::{cmp, error, fmt, io, iter, result};
 
-use crate::{mres, pbenc, scaldf, schnorr};
 use base58::{FromBase58, ToBase58};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
@@ -10,6 +9,8 @@ use curve25519_dalek::scalar::Scalar;
 use rand::seq::SliceRandom;
 use rand::Rng;
 use zeroize::Zeroize;
+
+use crate::{mres, pbenc, scaldf, schnorr};
 
 /// Veil's custom result type.
 pub type Result<T> = result::Result<T, VeilError>;
@@ -44,20 +45,22 @@ impl fmt::Display for VeilError {
 impl error::Error for VeilError {}
 
 /// A 512-bit secret from which multiple private keys can be derived.
-pub struct SecretKey([u8; 64]);
+pub struct SecretKey {
+    r: [u8; 64],
+}
 
 impl SecretKey {
     /// Returns a randomly generated secret key.
     pub fn new() -> SecretKey {
-        let mut seed = [0u8; 64];
-        rand::thread_rng().fill(&mut seed);
+        let mut r = [0u8; 64];
+        rand::thread_rng().fill(&mut r);
 
-        SecretKey(seed)
+        SecretKey { r }
     }
 
     /// Encrypts the secret key with the given passphrase and pbenc parameters.
     pub fn encrypt(&self, passphrase: &[u8], time: u32, space: u32) -> Vec<u8> {
-        pbenc::encrypt(passphrase, &self.0, time, space)
+        pbenc::encrypt(passphrase, &self.r, time, space)
     }
 
     /// Decrypts the secret key with the given passphrase and pbenc parameters.
@@ -69,7 +72,7 @@ impl SecretKey {
                     .try_into()
                     .map_err(|_| VeilError::InvalidSecretKey)
             })
-            .map(SecretKey)
+            .map(|r| SecretKey { r })
     }
 
     /// Derives a private key with the given key ID.
@@ -77,9 +80,13 @@ impl SecretKey {
     /// `key_id` should be slash-separated string (e.g. `/one/two/three`) which define a path of
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     pub fn private_key(&self, key_id: &str) -> PrivateKey {
-        let d = scaldf::derive_root(&self.0);
+        let d = scaldf::derive_root(&self.r);
         let q = RISTRETTO_BASEPOINT_POINT * d;
-        PrivateKey(d, PublicKey(q)).derive(key_id)
+        PrivateKey {
+            d,
+            pk: PublicKey { q },
+        }
+        .derive(key_id)
     }
 
     /// Derives a public key with the given key ID.
@@ -87,7 +94,7 @@ impl SecretKey {
     /// `key_id` should be slash-separated string (e.g. `/one/two/three`) which define a path of
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     pub fn public_key(&self, key_id: &str) -> PublicKey {
-        self.private_key(key_id).1
+        self.private_key(key_id).pk
     }
 }
 
@@ -99,17 +106,20 @@ impl Default for SecretKey {
 
 impl Drop for SecretKey {
     fn drop(&mut self) {
-        self.0.zeroize();
+        self.r.zeroize();
     }
 }
 
 /// A derived private key, used to encrypt, decrypt, and sign messages.
-pub struct PrivateKey(Scalar, PublicKey);
+pub struct PrivateKey {
+    d: Scalar,
+    pk: PublicKey,
+}
 
 impl PrivateKey {
     /// Returns the corresponding public key.
     pub fn public_key(&self) -> PublicKey {
-        self.1
+        self.pk
     }
 
     /// Encrypts the contents of the reader such that any of the recipients will be able to decrypt
@@ -132,7 +142,7 @@ impl PrivateKey {
         // Add fakes.
         let mut q_rs: Vec<RistrettoPoint> = recipients
             .into_iter()
-            .map(|pk| pk.0)
+            .map(|pk| pk.q)
             .chain(iter::from_fn(|| Some(rand_point())).take(fakes))
             .collect();
 
@@ -144,8 +154,8 @@ impl PrivateKey {
         mres::encrypt(
             &mut io::BufReader::new(reader),
             &mut io::BufWriter::new(writer),
-            &self.0,
-            &self.1 .0,
+            &self.d,
+            &self.pk.q,
             q_rs,
             padding,
         )
@@ -164,9 +174,9 @@ impl PrivateKey {
         mres::decrypt(
             &mut io::BufReader::new(reader),
             &mut io::BufWriter::new(writer),
-            &self.0,
-            &self.1 .0,
-            &sender.0,
+            &self.d,
+            &self.pk.q,
+            &sender.q,
         )
     }
 
@@ -174,7 +184,9 @@ impl PrivateKey {
     pub fn sign<R: io::Read>(&self, reader: &mut R) -> Result<Signature> {
         let mut signer = schnorr::Signer::new(io::sink());
         io::copy(reader, &mut signer).map_err(VeilError::IoError)?;
-        Ok(Signature(signer.sign(&self.0, &self.1 .0)))
+        Ok(Signature {
+            sig: signer.sign(&self.d, &self.pk.q),
+        })
     }
 
     /// Derives a private key with the given key ID.
@@ -182,37 +194,42 @@ impl PrivateKey {
     /// `key_id` should be slash-separated string (e.g. `/one/two/three`) which define a path of
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     pub fn derive(&self, key_id: &str) -> PrivateKey {
-        let d = scaldf::derive_scalar(&self.0, key_id);
+        let d = scaldf::derive_scalar(&self.d, key_id);
         let q = RISTRETTO_BASEPOINT_POINT * d;
-        PrivateKey(d, PublicKey(q))
+        PrivateKey {
+            d,
+            pk: PublicKey { q },
+        }
     }
 }
 
 impl cmp::PartialEq for PrivateKey {
     fn eq(&self, other: &Self) -> bool {
-        self.1 == other.1
+        self.pk == other.pk
     }
 }
 
 impl fmt::Debug for PrivateKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.1.fmt(f)
+        self.d.fmt(f)
     }
 }
 
 /// A Schnorr signature.
-pub struct Signature([u8; 64]);
+pub struct Signature {
+    sig: [u8; 64],
+}
 
 impl Signature {
     /// Converts the signature to a base58 string.
     pub fn to_ascii(&self) -> String {
-        self.0.to_base58()
+        self.sig.to_base58()
     }
 
     /// Parses the given base58 string and returns a signature.
     pub fn from_ascii(s: &str) -> Option<Signature> {
         let sig: [u8; 64] = s.from_base58().ok()?.try_into().ok()?;
-        Some(Signature(sig))
+        Some(Signature { sig })
     }
 }
 
@@ -226,19 +243,21 @@ impl TryFrom<&str> for Signature {
 
 /// A derived public key, used to verify messages.
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
-pub struct PublicKey(RistrettoPoint);
+pub struct PublicKey {
+    q: RistrettoPoint,
+}
 
 impl PublicKey {
     /// Converts the public key to a base58 string.
     pub fn to_ascii(&self) -> String {
-        self.0.compress().to_bytes().to_base58()
+        self.q.compress().to_bytes().to_base58()
     }
 
     /// Parses the given base58 string and returns a public key.
     pub fn from_ascii(s: &str) -> Option<PublicKey> {
         let b = s.from_base58().ok()?;
         let q = CompressedRistretto::from_slice(&b).decompress()?;
-        Some(PublicKey(q))
+        Some(PublicKey { q })
     }
 
     /// Reads the contents of the reader returns () iff the given signature was created by this
@@ -246,7 +265,7 @@ impl PublicKey {
     pub fn verify<R: io::Read>(&self, reader: &mut R, sig: &Signature) -> Result<()> {
         let mut verifier = schnorr::Verifier::new();
         io::copy(reader, &mut verifier).map_err(VeilError::IoError)?;
-        if verifier.verify(&self.0, &sig.0) {
+        if verifier.verify(&self.q, &sig.sig) {
             Ok(())
         } else {
             Err(VeilError::InvalidSignature)
@@ -258,7 +277,9 @@ impl PublicKey {
     /// `key_id` should be slash-separated string (e.g. `/one/two/three`) which define a path of
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     pub fn derive(&self, key_id: &str) -> PublicKey {
-        PublicKey(scaldf::derive_point(&self.0, key_id))
+        PublicKey {
+            q: scaldf::derive_point(&self.q, key_id),
+        }
     }
 }
 
