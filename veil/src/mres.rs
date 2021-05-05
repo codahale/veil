@@ -279,9 +279,6 @@ where
     // Key the protocol with the DEK.
     mres.key(&dek, false);
 
-    // Prep for streaming decryption.
-    mres.recv_enc(&mut [], false);
-
     // Decrypt the message and get the signature.
     let (written, sig) = decrypt_message(reader, writer, &mut verifier, &mut mres)?;
 
@@ -309,6 +306,9 @@ where
     let mut written = 0u64;
     let mut input = [0u8; 32 * 1024];
     let mut buf = Vec::with_capacity(input.len() + 64);
+
+    // Prep for streaming decryption.
+    mres.recv_enc(&mut [], false);
 
     // Read through src in 32KiB chunks, keeping the last 64 bytes as the signature.
     loop {
