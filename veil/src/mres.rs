@@ -170,6 +170,7 @@ use strobe_rs::{SecParam, Strobe};
 
 use crate::util::StrobeExt;
 use crate::{akem, schnorr, VeilError, MAC_LEN};
+use std::convert::TryInto;
 
 pub(crate) fn encrypt<R, W>(
     reader: &mut R,
@@ -263,41 +264,11 @@ where
     R: io::Read,
     W: io::Write,
 {
-    let mut written = 0u64;
+    // Initialize a verifier for the entire ciphertext.
     let mut verifier = schnorr::Verifier::new();
 
-    let mut buf = [0u8; ENC_HEADER_LEN];
-    let mut dek = [0u8; DEK_LEN];
-    let mut msg_offset = 0u64;
-    let mut hdr_offset = 0u64;
-    let mut q_e = RISTRETTO_BASEPOINT_POINT;
-
-    // Iterate through blocks, looking for an encrypted header that can be decrypted.
-    while let Ok(()) = reader.read_exact(&mut buf) {
-        verifier.write_all(&buf).map_err(VeilError::IoError)?;
-        hdr_offset += buf.len() as u64;
-
-        if let Some((p, header)) = akem::decapsulate(d_r, q_r, q_s, &buf) {
-            // Recover the ephemeral public key, the DEK, and the message offset.
-            q_e = p;
-            dek.copy_from_slice(&header[..32]);
-            msg_offset = byteorder::LE::read_u64(&header[header.len() - 8..]);
-
-            // Jump to decryption.
-            break;
-        } else {
-            continue;
-        }
-    }
-
-    // If no header was found, return an error.
-    if msg_offset == 0 {
-        return Err(VeilError::InvalidCiphertext);
-    }
-
-    // Read the remainder of the headers and padding and write them to the verifier.
-    let mut remainder = reader.take(msg_offset - hdr_offset);
-    io::copy(&mut remainder, &mut verifier).map_err(VeilError::IoError)?;
+    // Find a header, decrypt it, and write the entirety of the headers and padding to the verifier.
+    let (dek, q_e) = decrypt_header(reader, &mut verifier, d_r, q_r, q_s)?;
 
     // Initialize a protocol and add the MAC length and sender's public key as associated data.
     let mut mres = Strobe::new(b"veil.mres", SecParam::B256);
@@ -311,9 +282,9 @@ where
     mres.recv_enc(&mut [], false);
 
     // Read through src in 32KiB chunks, keeping the last 64 bytes as the signature.
-    const BUF_SIZE: usize = 32 * 1024;
-    let mut input = [0u8; BUF_SIZE];
-    let mut buf = Vec::with_capacity(BUF_SIZE + 64);
+    let mut written = 0u64;
+    let mut input = [0u8; 32 * 1024];
+    let mut buf = Vec::with_capacity(input.len() + 64);
     loop {
         // Read a block of ciphertext and copy it to the buffer.
         let n = reader.read(&mut input).map_err(VeilError::IoError)?;
@@ -322,8 +293,7 @@ where
         // Process the data if we have at least a signature's worth.
         if buf.len() > 64 {
             // Pop the first N-64 bytes off the buffer.
-            let n = buf.len() - 64;
-            let mut block: Vec<u8> = buf.drain(..n).collect();
+            let mut block: Vec<u8> = buf.drain(..buf.len() - 64).collect();
 
             // Verify the ciphertext.
             verifier.write_all(&block).map_err(VeilError::IoError)?;
@@ -333,7 +303,7 @@ where
 
             // Write the plaintext.
             writer.write_all(&block).map_err(VeilError::IoError)?;
-            written += n as u64;
+            written += block.len() as u64;
         }
 
         // If our last read returned zero bytes, we're at the end of the ciphertext.
@@ -357,6 +327,43 @@ where
 const DEK_LEN: usize = 32;
 const HEADER_LEN: usize = DEK_LEN + 8;
 const ENC_HEADER_LEN: usize = HEADER_LEN + 32 + MAC_LEN;
+
+fn decrypt_header<R, W>(
+    reader: &mut R,
+    verifier: &mut W,
+    d_r: &Scalar,
+    q_r: &RistrettoPoint,
+    q_s: &RistrettoPoint,
+) -> crate::Result<([u8; DEK_LEN], RistrettoPoint)>
+where
+    R: io::Read,
+    W: io::Write,
+{
+    let mut buf = [0u8; ENC_HEADER_LEN];
+    let mut hdr_offset = 0u64;
+
+    // Iterate through blocks, looking for an encrypted header that can be decrypted.
+    while let Ok(()) = reader.read_exact(&mut buf) {
+        verifier.write_all(&buf).map_err(VeilError::IoError)?;
+        hdr_offset += buf.len() as u64;
+
+        if let Some((p, header)) = akem::decapsulate(d_r, q_r, q_s, &buf) {
+            // Recover the ephemeral public key, the DEK, and the message offset.
+            let dek: [u8; DEK_LEN] = header[..32].try_into().expect("undersized header");
+            let msg_offset = byteorder::LE::read_u64(&header[header.len() - 8..]);
+
+            // Read the remainder of the headers and padding and write them to the verifier.
+            let mut remainder = reader.take(msg_offset - hdr_offset);
+            io::copy(&mut remainder, verifier).map_err(VeilError::IoError)?;
+
+            // Return the DEK and ephemeral public key.
+            return Ok((dek, p));
+        }
+    }
+
+    // If no header was found, return an error.
+    Err(VeilError::InvalidCiphertext)
+}
 
 fn encode_header(dek: &[u8; DEK_LEN], r_len: usize, padding: u64) -> Vec<u8> {
     let msg_offset = ((r_len as u64) * ENC_HEADER_LEN as u64) + padding;
