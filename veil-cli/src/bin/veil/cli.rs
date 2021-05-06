@@ -3,7 +3,13 @@ use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "veil", about = "Stupid crypto tricks.")]
-pub enum Opts {
+pub struct Opts {
+    #[structopt(subcommand)]
+    pub cmd: Command,
+}
+
+#[derive(StructOpt, Debug)]
+pub enum Command {
     #[structopt(about = "Generate a new secret key", display_order = 0)]
     SecretKey {
         #[structopt(help = "The output path for the encrypted secret key")]

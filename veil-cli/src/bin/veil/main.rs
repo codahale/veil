@@ -7,20 +7,20 @@ use structopt::StructOpt;
 
 use veil::{PublicKey, SecretKey, Signature};
 
-use crate::cli::Opts;
+use crate::cli::{Command, Opts};
 
 mod cli;
 
 fn main() -> Result<()> {
     let cli = Opts::from_args();
-    match cli {
-        Opts::SecretKey { output } => secret_key(&output),
-        Opts::PublicKey { secret_key, key_id } => public_key(&secret_key, &key_id),
-        Opts::DeriveKey {
+    match cli.cmd {
+        Command::SecretKey { output } => secret_key(&output),
+        Command::PublicKey { secret_key, key_id } => public_key(&secret_key, &key_id),
+        Command::DeriveKey {
             public_key,
             sub_key_id,
         } => derive_key(&public_key, &sub_key_id),
-        Opts::Encrypt {
+        Command::Encrypt {
             secret_key,
             key_id,
             plaintext,
@@ -37,19 +37,19 @@ fn main() -> Result<()> {
             fakes,
             padding,
         ),
-        Opts::Decrypt {
+        Command::Decrypt {
             secret_key,
             key_id,
             ciphertext,
             plaintext,
             sender,
         } => decrypt(&secret_key, &key_id, &ciphertext, &plaintext, &sender),
-        Opts::Sign {
+        Command::Sign {
             secret_key,
             key_id,
             message,
         } => sign(&secret_key, &key_id, &message),
-        Opts::Verify {
+        Command::Verify {
             public_key,
             message,
             signature,
