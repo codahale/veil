@@ -1,18 +1,39 @@
+use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use strobe_rs::Strobe;
 
 pub(crate) trait StrobeExt {
+    fn meta_ad_u32(&mut self, n: u32);
+    fn key_point(&mut self, zz: RistrettoPoint);
+    fn ad_point(&mut self, q: &RistrettoPoint);
     fn prf_scalar(&mut self) -> Scalar;
+    fn prf_array<const N: usize>(&mut self) -> [u8; N];
     fn hedge<R, F>(&self, secret: &[u8], f: F) -> R
     where
         F: FnOnce(&mut Strobe) -> R;
 }
 
 impl StrobeExt for Strobe {
+    fn meta_ad_u32(&mut self, n: u32) {
+        self.meta_ad(&n.to_le_bytes(), false);
+    }
+
+    fn key_point(&mut self, zz: RistrettoPoint) {
+        self.key(zz.compress().as_bytes(), false);
+    }
+
+    fn ad_point(&mut self, q: &RistrettoPoint) {
+        self.ad(q.compress().as_bytes(), false);
+    }
+
     fn prf_scalar(&mut self) -> Scalar {
-        let mut seed = [0u8; 64];
-        self.prf(&mut seed, false);
-        Scalar::from_bytes_mod_order_wide(&seed)
+        Scalar::from_bytes_mod_order_wide(&self.prf_array())
+    }
+
+    fn prf_array<const N: usize>(&mut self) -> [u8; N] {
+        let mut out = [0u8; N];
+        self.prf(&mut out, false);
+        out
     }
 
     fn hedge<R, F>(&self, secret: &[u8], f: F) -> R

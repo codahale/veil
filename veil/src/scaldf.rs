@@ -17,25 +17,20 @@ use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use strobe_rs::{SecParam, Strobe};
+use crate::util::StrobeExt;
 
 pub(crate) fn derive_root(seed: &[u8; 64]) -> Scalar {
-    let mut out = [0u8; 64];
-
     let mut root_df = Strobe::new(b"veil.scaldf.root", SecParam::B256);
     root_df.key(seed, false);
-    root_df.prf(&mut out, false);
-
-    Scalar::from_bytes_mod_order_wide(&out)
+    root_df.prf_scalar()
 }
 
 pub(crate) fn derive_scalar(d: &Scalar, key_id: &str) -> Scalar {
     key_id_parts(key_id).iter().fold(*d, |d_p, &label| {
-        let mut seed = [0u8; 64];
-        let mut root_df = Strobe::new(b"veil.scaldf.label", SecParam::B256);
-        root_df.key(label.as_bytes(), false);
-        root_df.prf(&mut seed, false);
+        let mut label_df = Strobe::new(b"veil.scaldf.label", SecParam::B256);
+        label_df.key(label.as_bytes(), false);
 
-        d_p + Scalar::from_bytes_mod_order_wide(&seed)
+        d_p + label_df.prf_scalar()
     })
 }
 

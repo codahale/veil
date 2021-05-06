@@ -113,7 +113,7 @@ where
     #[allow(clippy::many_single_char_names)]
     pub(crate) fn sign(&mut self, d: &Scalar, q: &RistrettoPoint) -> [u8; 64] {
         // Add the signer's public key as associated data.
-        self.schnorr.ad(q.compress().as_bytes(), false);
+        self.schnorr.ad_point(q);
 
         // Derive an ephemeral scalar from the protocol's current state, the signer's private key,
         // and a random nonce.
@@ -121,7 +121,7 @@ where
 
         // Add the ephemeral public key as associated data.
         let r_g = RISTRETTO_BASEPOINT_POINT * r;
-        self.schnorr.ad(r_g.compress().as_bytes(), false);
+        self.schnorr.ad_point(&r_g);
 
         // Derive a challenge scalar from PRF output.
         let c = self.schnorr.prf_scalar();
@@ -175,7 +175,7 @@ impl Verifier {
     #[inline]
     fn verify_inner(mut self, q: &RistrettoPoint, sig: &[u8; 64]) -> Option<bool> {
         // Add the signer's public key as associated data.
-        self.schnorr.ad(q.compress().as_bytes(), false);
+        self.schnorr.ad_point(q);
 
         // Decode the challenge and signature scalars.
         let c = Scalar::from_canonical_bytes(sig[..32].try_into().expect("short sig A"))?;
@@ -183,7 +183,7 @@ impl Verifier {
 
         // Re-calculate the ephemeral public key and add it as associated data.
         let r_g = (RISTRETTO_BASEPOINT_POINT * s) + (-c * q);
-        self.schnorr.ad(r_g.compress().as_bytes(), false);
+        self.schnorr.ad_point(&r_g);
 
         // Re-derive the challenge scalar.
         let c_p = self.schnorr.prf_scalar();

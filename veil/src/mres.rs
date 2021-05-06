@@ -190,8 +190,8 @@ where
 
     // Initialize a protocol and add the MAC length and sender's public key as associated data.
     let mut mres = Strobe::new(b"veil.mres", SecParam::B256);
-    mres.meta_ad(&(MAC_LEN as u32).to_le_bytes(), false);
-    mres.ad(q_s.compress().as_bytes(), false);
+    mres.meta_ad_u32(MAC_LEN as u32);
+    mres.ad_point(q_s);
 
     // Derive a random ephemeral key pair and DEK from the protocol's current state, the sender's
     // private key, and a random nonce.
@@ -200,11 +200,8 @@ where
         let d_e = clone.prf_scalar();
         let q_e = RISTRETTO_BASEPOINT_POINT * d_e;
 
-        // Generate a DEK.
-        let mut dek = [0u8; 32];
-        clone.prf(&mut dek, false);
-
-        (d_e, q_e, dek)
+        // Return the key pair and a DEK.
+        (d_e, q_e, clone.prf_array())
     });
 
     // Encode the DEK and message offset in a header.
@@ -273,8 +270,8 @@ where
 
     // Initialize a protocol and add the MAC length and sender's public key as associated data.
     let mut mres = Strobe::new(b"veil.mres", SecParam::B256);
-    mres.meta_ad(&(MAC_LEN as u32).to_le_bytes(), false);
-    mres.ad(q_s.compress().as_bytes(), false);
+    mres.meta_ad_u32(MAC_LEN as u32);
+    mres.ad_point(q_s);
 
     // Key the protocol with the DEK.
     mres.key(&dek, false);

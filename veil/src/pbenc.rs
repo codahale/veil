@@ -68,6 +68,7 @@
 use byteorder::ByteOrder;
 use strobe_rs::{SecParam, Strobe};
 
+use crate::util::StrobeExt;
 use crate::MAC_LEN;
 
 const SALT_LEN: usize = 16;
@@ -127,11 +128,11 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
     let mut pbenc = Strobe::new(b"", SecParam::B256);
 
     // Initialize protocol with metadata.
-    pbenc.meta_ad(&(DELTA as u32).to_le_bytes(), false);
-    pbenc.meta_ad(&(N as u32).to_le_bytes(), false);
-    pbenc.meta_ad(&(MAC_LEN as u32).to_le_bytes(), false);
-    pbenc.meta_ad(&time.to_le_bytes(), false);
-    pbenc.meta_ad(&space.to_le_bytes(), false);
+    pbenc.meta_ad_u32(DELTA as u32);
+    pbenc.meta_ad_u32(N as u32);
+    pbenc.meta_ad_u32(MAC_LEN as u32);
+    pbenc.meta_ad_u32(time);
+    pbenc.meta_ad_u32(space);
 
     // Key with the passphrase and include the salt as associated data.
     pbenc.key(passphrase, false);
@@ -183,9 +184,7 @@ fn hash_counter(pbenc: &mut Strobe, ctr: &mut u64, left: &[u8], right: &[u8]) ->
     pbenc.ad(left, false);
     pbenc.ad(right, false);
 
-    let mut out = [0u8; N];
-    pbenc.prf(&mut out, false);
-    out
+    pbenc.prf_array()
 }
 
 const N: usize = 32;
