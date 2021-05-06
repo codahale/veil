@@ -219,8 +219,10 @@ fn decrypt(
     let mut plaintext = open_output(plaintext_path)?;
 
     if let Err(e) = private_key.decrypt(&mut ciphertext, &mut plaintext, &sender) {
-        mem::drop(plaintext);
-        fs::remove_file(plaintext_path)?;
+        if plaintext_path != Path::new("-") {
+            mem::drop(plaintext);
+            fs::remove_file(plaintext_path)?;
+        }
         return Err(anyhow::Error::from(e));
     }
 
