@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use std::os::raw::c_int;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -7,6 +8,12 @@ use structopt::StructOpt;
 pub struct Opts {
     #[structopt(subcommand)]
     pub cmd: Command,
+
+    #[structopt(
+        long = "passphrase-fd",
+        help = "The file descriptor from which the passphrase should be read"
+    )]
+    pub passphrase_fd: Option<c_int>,
 }
 
 #[derive(StructOpt, Debug)]
