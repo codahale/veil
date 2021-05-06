@@ -219,6 +219,7 @@ impl fmt::Debug for PrivateKey {
 }
 
 /// A Schnorr signature.
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub struct Signature {
     sig: [u8; 64],
 }
@@ -325,10 +326,12 @@ fn shuffle(pks: &mut Vec<RistrettoPoint>) {
 mod tests {
     use std::io;
 
-    use crate::SecretKey;
+    use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
+
+    use crate::{PublicKey, SecretKey, Signature};
 
     #[test]
-    pub fn private_keys() {
+    pub fn private_key_derivation() {
         let sk = SecretKey::new();
 
         let abc = sk.private_key("/a/b/c");
@@ -338,13 +341,46 @@ mod tests {
     }
 
     #[test]
-    pub fn public_keys() {
+    pub fn public_key_derivation() {
         let sk = SecretKey::new();
 
         let abc = sk.private_key("/a/b/c").public_key();
         let abc_p = sk.public_key("/a").derive("b").derive("c");
 
         assert_eq!(abc, abc_p);
+    }
+
+    #[test]
+    pub fn public_key_encoding() {
+        let base = PublicKey {
+            q: RISTRETTO_BASEPOINT_POINT,
+        };
+
+        assert_eq!(
+            "GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3",
+            base.to_string()
+        );
+
+        let decoded = "GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3"
+            .parse()
+            .expect("decoding error");
+        assert_eq!(base, decoded);
+
+        let invalid = "woot woot".parse::<PublicKey>();
+        assert_eq!(true, invalid.is_err());
+    }
+
+    #[test]
+    pub fn signature_encoding() {
+        let sig = Signature { sig: [69u8; 64] };
+
+        assert_eq!("2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC", sig.to_string());
+
+        let decoded = "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC".parse().expect("error decoding");
+        assert_eq!(sig, decoded);
+
+        let invalid = "woot woot".parse::<Signature>();
+        assert_eq!(true, invalid.is_err());
     }
 
     #[test]
