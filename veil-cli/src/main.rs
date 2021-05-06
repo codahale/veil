@@ -14,6 +14,9 @@ enum Cli {
     SecretKey {
         #[structopt(help = "The output path for the encrypted secret key")]
         output: PathBuf,
+
+        #[structopt(long = "passphrase-file", help = "The path to the passphrase file")]
+        passphrase_file: Option<PathBuf>,
     },
 
     #[structopt(about = "Derive a public key from a secret key", display_order = 1)]
@@ -26,6 +29,9 @@ enum Cli {
 
         #[structopt(help = "The output path for the public key")]
         output: PathBuf,
+
+        #[structopt(long = "passphrase-file", help = "The path to the passphrase file")]
+        passphrase_file: Option<PathBuf>,
     },
 
     #[structopt(
@@ -74,6 +80,9 @@ enum Cli {
             help = "Add bytes of random padding"
         )]
         padding: u64,
+
+        #[structopt(long = "passphrase-file", help = "The path to the passphrase file")]
+        passphrase_file: Option<PathBuf>,
     },
 
     #[structopt(about = "Decrypt and verify a message", display_order = 4)]
@@ -92,6 +101,9 @@ enum Cli {
 
         #[structopt(help = "The sender's public key")]
         sender: PathBuf,
+
+        #[structopt(long = "passphrase-file", help = "The path to the passphrase file")]
+        passphrase_file: Option<PathBuf>,
     },
 
     #[structopt(about = "Sign a message", display_order = 5)]
@@ -104,6 +116,9 @@ enum Cli {
 
         #[structopt(help = "The path to the message")]
         message: PathBuf,
+
+        #[structopt(long = "passphrase-file", help = "The path to the passphrase file")]
+        passphrase_file: Option<PathBuf>,
     },
 
     #[structopt(about = "Verify a signature", display_order = 6)]
@@ -122,12 +137,16 @@ enum Cli {
 fn main() -> Result<()> {
     let cli = Cli::from_args();
     match cli {
-        Cli::SecretKey { output } => secret_key(&output),
+        Cli::SecretKey {
+            output,
+            passphrase_file,
+        } => secret_key(&output, passphrase_file),
         Cli::PublicKey {
             secret_key,
             key_id,
             output,
-        } => public_key(&secret_key, &key_id, &output),
+            passphrase_file,
+        } => public_key(&secret_key, &key_id, &output, passphrase_file),
         Cli::DeriveKey {
             public_key,
             sub_key_id,
@@ -141,6 +160,7 @@ fn main() -> Result<()> {
             recipients,
             fakes,
             padding,
+            passphrase_file,
         } => encrypt(
             &secret_key,
             &key_id,
@@ -149,6 +169,7 @@ fn main() -> Result<()> {
             recipients,
             fakes,
             padding,
+            passphrase_file,
         ),
         Cli::Decrypt {
             secret_key,
@@ -156,12 +177,21 @@ fn main() -> Result<()> {
             ciphertext,
             plaintext,
             sender,
-        } => decrypt(&secret_key, &key_id, &ciphertext, &plaintext, &sender),
+            passphrase_file,
+        } => decrypt(
+            &secret_key,
+            &key_id,
+            &ciphertext,
+            &plaintext,
+            &sender,
+            passphrase_file,
+        ),
         Cli::Sign {
             secret_key,
             key_id,
             message,
-        } => sign(&secret_key, &key_id, &message),
+            passphrase_file,
+        } => sign(&secret_key, &key_id, &message, passphrase_file),
         Cli::Verify {
             public_key,
             message,
@@ -170,17 +200,22 @@ fn main() -> Result<()> {
     }
 }
 
-fn secret_key(output_path: &Path) -> Result<()> {
+fn secret_key(output_path: &Path, passphrase_file: Option<PathBuf>) -> Result<()> {
     let secret_key = SecretKey::new();
     let mut f = open_output(output_path)?;
-    let passphrase = rpassword::read_password_from_tty(Some("Enter passphrase: "))?;
+    let passphrase = read_passphrase(passphrase_file)?;
     let ciphertext = secret_key.encrypt(passphrase.as_bytes(), 1 << 7, 1 << 10);
     f.write_all(&ciphertext)?;
     Ok(())
 }
 
-fn public_key(secret_key_path: &Path, key_id: &str, output_path: &Path) -> Result<()> {
-    let secret_key = open_secret_key(secret_key_path)?;
+fn public_key(
+    secret_key_path: &Path,
+    key_id: &str,
+    output_path: &Path,
+    passphrase_file: Option<PathBuf>,
+) -> Result<()> {
+    let secret_key = open_secret_key(secret_key_path, passphrase_file)?;
     let public_key = secret_key.public_key(key_id);
     let mut output = open_output(output_path)?;
     write!(output, "{}", public_key)?;
@@ -195,6 +230,7 @@ fn derive_key(public_key_path: &Path, key_id: &str, output_path: &Path) -> Resul
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn encrypt(
     secret_key_path: &Path,
     key_id: &str,
@@ -203,8 +239,9 @@ fn encrypt(
     recipient_paths: Vec<PathBuf>,
     fakes: usize,
     padding: u64,
+    passphrase_file: Option<PathBuf>,
 ) -> Result<()> {
-    let secret_key = open_secret_key(secret_key_path)?;
+    let secret_key = open_secret_key(secret_key_path, passphrase_file)?;
     let private_key = secret_key.private_key(key_id);
     let mut plaintext = open_input(plaintext_path)?;
     let mut ciphertext = open_output(ciphertext_path)?;
@@ -212,9 +249,7 @@ fn encrypt(
         .into_iter()
         .map(|s| decode_public_key(&s))
         .collect::<Result<Vec<PublicKey>>>()?;
-
     private_key.encrypt(&mut plaintext, &mut ciphertext, pks, fakes, padding)?;
-
     Ok(())
 }
 
@@ -224,8 +259,9 @@ fn decrypt(
     ciphertext_path: &Path,
     plaintext_path: &Path,
     sender_path: &Path,
+    passphrase_file: Option<PathBuf>,
 ) -> Result<()> {
-    let secret_key = open_secret_key(secret_key_path)?;
+    let secret_key = open_secret_key(secret_key_path, passphrase_file)?;
     let private_key = secret_key.private_key(key_id);
     let sender = decode_public_key(sender_path)?;
     let mut ciphertext = open_input(ciphertext_path)?;
@@ -240,8 +276,13 @@ fn decrypt(
     Ok(())
 }
 
-fn sign(secret_key_path: &Path, key_id: &str, message_path: &Path) -> Result<()> {
-    let secret_key = open_secret_key(secret_key_path)?;
+fn sign(
+    secret_key_path: &Path,
+    key_id: &str,
+    message_path: &Path,
+    passphrase_file: Option<PathBuf>,
+) -> Result<()> {
+    let secret_key = open_secret_key(secret_key_path, passphrase_file)?;
     let private_key = secret_key.private_key(key_id);
     let mut message = open_input(message_path)?;
 
@@ -287,9 +328,17 @@ fn open_output(path: &Path) -> Result<Box<dyn io::Write>> {
     Ok(Box::new(fs::File::create(path)?))
 }
 
-fn open_secret_key(path: &Path) -> Result<SecretKey> {
-    let passphrase = rpassword::read_password_from_tty(Some("Enter passphrase: "))?;
+fn open_secret_key(path: &Path, passphrase_file: Option<PathBuf>) -> Result<SecretKey> {
+    let passphrase = read_passphrase(passphrase_file)?;
     let ciphertext = fs::read(path)?;
     let sk = SecretKey::decrypt(passphrase.as_bytes(), &ciphertext)?;
     Ok(sk)
+}
+
+fn read_passphrase(passphrase_file: Option<PathBuf>) -> Result<String> {
+    match passphrase_file {
+        Some(p) => fs::read_to_string(p),
+        None => rpassword::read_password_from_tty(Some("Enter passphrase: ")),
+    }
+    .map_err(anyhow::Error::from)
 }
