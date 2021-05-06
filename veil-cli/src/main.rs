@@ -3,169 +3,175 @@ use std::io::Write;
 use std::{fs, io, mem};
 
 use anyhow::Result;
-use clap::{App, AppSettings, SubCommand};
+use structopt::StructOpt;
 
 use veil::{PublicKey, SecretKey, Signature};
 
-const VERSION: &str = env!("CARGO_PKG_VERSION");
+#[derive(StructOpt, Debug)]
+#[structopt(name = "veil-cli", about = "Stupid crypto tricks.")]
+enum Cli {
+    #[structopt(about = "Generate a new secret key", display_order = 0)]
+    SecretKey {
+        #[structopt(help = "The output path for the encrypted secret key")]
+        output: String,
+    },
+
+    #[structopt(about = "Derive a public key from a secret key", display_order = 1)]
+    PublicKey {
+        #[structopt(help = "The path to the secret key")]
+        secret_key: String,
+
+        #[structopt(help = "The ID of the public key to generate")]
+        key_id: String,
+
+        #[structopt(help = "The output path for the public key")]
+        output: String,
+    },
+
+    #[structopt(
+        about = "Derive a public key from another public key",
+        display_order = 2
+    )]
+    DeriveKey {
+        #[structopt(help = "The path to the public key")]
+        public_key: String,
+
+        #[structopt(help = "The ID of the public key to generate")]
+        sub_key_id: String,
+
+        #[structopt(help = "The output path for the public key")]
+        output: String,
+    },
+
+    #[structopt(about = "Encrypt a message for a set of recipients", display_order = 3)]
+    Encrypt {
+        #[structopt(help = "The path to the secret key")]
+        secret_key: String,
+
+        #[structopt(help = "The ID of the private key to use")]
+        key_id: String,
+
+        #[structopt(help = "The path to the plaintext file")]
+        plaintext: String,
+
+        #[structopt(help = "The path to the ciphertext file")]
+        ciphertext: String,
+
+        #[structopt(
+            required = true,
+            short = "r",
+            long = "--recipient",
+            help = "The recipients' public keys"
+        )]
+        recipients: Vec<String>,
+
+        #[structopt(long = "fakes", default_value = "0", help = "Add fake recipients")]
+        fakes: usize,
+
+        #[structopt(
+            long = "padding",
+            default_value = "0",
+            help = "Add bytes of random padding"
+        )]
+        padding: u64,
+    },
+
+    #[structopt(about = "Decrypt and verify a message", display_order = 4)]
+    Decrypt {
+        #[structopt(help = "The path to the secret key")]
+        secret_key: String,
+
+        #[structopt(help = "The ID of the private key to use")]
+        key_id: String,
+
+        #[structopt(help = "The path to the ciphertext file")]
+        ciphertext: String,
+
+        #[structopt(help = "The path to the plaintext file")]
+        plaintext: String,
+
+        #[structopt(help = "The sender's public key")]
+        sender: String,
+    },
+
+    #[structopt(about = "Sign a message", display_order = 5)]
+    Sign {
+        #[structopt(help = "The path to the secret key")]
+        secret_key: String,
+
+        #[structopt(help = "The ID of the private key to use")]
+        key_id: String,
+
+        #[structopt(help = "The path to the message")]
+        message: String,
+
+        #[structopt(help = "The path to the signature")]
+        signature: String,
+    },
+
+    #[structopt(about = "Verify a signature", display_order = 6)]
+    Verify {
+        #[structopt(help = "The path to the public key")]
+        public_key: String,
+
+        #[structopt(help = "The path to the message")]
+        message: String,
+
+        #[structopt(help = "The signature")]
+        signature: String,
+    },
+}
 
 fn main() -> Result<()> {
-    let matches = App::new("veil-cli")
-        .setting(AppSettings::SubcommandRequiredElseHelp)
-        .version(VERSION)
-        .about("Stupid crypto tricks")
-        .subcommand(
-            SubCommand::with_name("secret-key")
-                .display_order(0)
-                .about("Generate a new secret key")
-                .args_from_usage(
-                    "
-                <output> 'The output path for the encrypted secret key'",
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("public-key")
-                .display_order(1)
-                .about("Derive a public key from a secret key")
-                .args_from_usage(
-                    "
-                <secret-key> 'The path to the secret key'
-                <key-id> 'The ID of the public key to generate'
-                <output> 'The output path for the public key'",
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("derive-key")
-                .display_order(2)
-                .about("Derive a public key from another public key")
-                .args_from_usage(
-                    "
-                <public-key> 'The path to the secret key'
-                <sub-key-id> 'The ID of the public key to generate'
-                <output> 'The output path for the public key'",
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("encrypt")
-                .display_order(3)
-                .about("Encrypt a message for a set of recipients")
-                .args_from_usage(
-                    "
-                <secret-key> 'The path to the secret key'
-                <key-id> 'The ID of the private key to use'
-                <plaintext> 'The path to the plaintext file'
-                <ciphertext> 'The path to the ciphertext file'
-                -r, --recipient=<KEY>... 'The public keys of the recipients'
-                [--fakes=<N>] 'Add N fake recipients'
-                [--padding=<N>] 'Add N bytes of padding'",
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("decrypt")
-                .display_order(4)
-                .about("Decrypt and verify a message")
-                .args_from_usage(
-                    "
-                <secret-key> 'The path to the secret key'
-                <key-id> 'The ID of the private key to use'
-                <ciphertext> 'The path to the ciphertext file'
-                <plaintext> 'The path to the plaintext file'
-                <sender> 'The public key of the sender'",
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("sign")
-                .display_order(5)
-                .about("Create a signature for a message")
-                .args_from_usage(
-                    "
-                <secret-key> 'The path to the secret key'
-                <key-id> 'The ID of the private key to use'
-                <message> 'The path to the message'
-                <signature> 'The path to the signature'",
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("verify")
-                .display_order(5)
-                .about("Verify a signature for a message")
-                .args_from_usage(
-                    "
-                <public-key> 'The path to the signer's public key'
-                <message> 'The path to the message'
-                <signature> 'The path to the signature'",
-                ),
-        )
-        .get_matches();
-
-    match matches.subcommand() {
-        ("secret-key", Some(matches)) => {
-            secret_key(matches.value_of("output").expect("output required"))?;
-        }
-        ("public-key", Some(matches)) => {
-            public_key(
-                matches.value_of("secret-key").expect("secret key required"),
-                matches.value_of("key-id").expect("key ID required"),
-                matches.value_of("output").expect("output required"),
-            )?;
-        }
-        ("derive-key", Some(matches)) => {
-            derive_key(
-                matches.value_of("public-key").expect("public key required"),
-                matches.value_of("sub-key-id").expect("sub key ID required"),
-                matches.value_of("output").expect("output required"),
-            )?;
-        }
-        ("encrypt", Some(matches)) => {
-            encrypt(
-                matches.value_of("secret-key").expect("secret key required"),
-                matches.value_of("key-id").expect("key ID required"),
-                matches.value_of("plaintext").expect("plaintext required"),
-                matches.value_of("ciphertext").expect("ciphertext required"),
-                matches
-                    .values_of("recipient")
-                    .expect("recipients required")
-                    .collect(),
-                matches
-                    .value_of("fakes")
-                    .unwrap_or("0")
-                    .parse()
-                    .expect("invalid fakes"),
-                matches
-                    .value_of("padding")
-                    .unwrap_or("0")
-                    .parse()
-                    .expect("invalid padding"),
-            )?;
-        }
-        ("decrypt", Some(matches)) => {
-            decrypt(
-                matches.value_of("secret-key").expect("secret key required"),
-                matches.value_of("key-id").expect("key ID required"),
-                matches.value_of("ciphertext").expect("ciphertext required"),
-                matches.value_of("plaintext").expect("plaintext required"),
-                matches.value_of("sender").expect("sender required"),
-            )?;
-        }
-        ("sign", Some(matches)) => {
-            sign(
-                matches.value_of("secret-key").expect("secret key required"),
-                matches.value_of("key-id").expect("key ID required"),
-                matches.value_of("message").expect("message required"),
-                matches.value_of("signature").expect("signature required"),
-            )?;
-        }
-        ("verify", Some(matches)) => {
-            verify(
-                matches.value_of("public-key").expect("public key required"),
-                matches.value_of("message").expect("message required"),
-                matches.value_of("signature").expect("signature required"),
-            )?;
-        }
-        _ => unreachable!(),
+    let cli = Cli::from_args();
+    match cli {
+        Cli::SecretKey { output } => secret_key(&output),
+        Cli::PublicKey {
+            secret_key,
+            key_id,
+            output,
+        } => public_key(&secret_key, &key_id, &output),
+        Cli::DeriveKey {
+            public_key,
+            sub_key_id,
+            output,
+        } => derive_key(&public_key, &sub_key_id, &output),
+        Cli::Encrypt {
+            secret_key,
+            key_id,
+            plaintext,
+            ciphertext,
+            recipients,
+            fakes,
+            padding,
+        } => encrypt(
+            &secret_key,
+            &key_id,
+            &plaintext,
+            &ciphertext,
+            recipients,
+            fakes,
+            padding,
+        ),
+        Cli::Decrypt {
+            secret_key,
+            key_id,
+            ciphertext,
+            plaintext,
+            sender,
+        } => decrypt(&secret_key, &key_id, &ciphertext, &plaintext, &sender),
+        Cli::Sign {
+            secret_key,
+            key_id,
+            message,
+            signature,
+        } => sign(&secret_key, &key_id, &message, &signature),
+        Cli::Verify {
+            public_key,
+            message,
+            signature,
+        } => verify(&public_key, &message, &signature),
     }
-
-    Ok(())
 }
 
 fn secret_key(output_path: &str) -> Result<()> {
@@ -198,7 +204,7 @@ fn encrypt(
     key_id: &str,
     plaintext_path: &str,
     ciphertext_path: &str,
-    recipient_paths: Vec<&str>,
+    recipient_paths: Vec<String>,
     fakes: usize,
     padding: u64,
 ) -> Result<()> {
@@ -208,7 +214,7 @@ fn encrypt(
     let mut ciphertext = open_output(ciphertext_path)?;
     let pks = recipient_paths
         .into_iter()
-        .map(decode_public_key)
+        .map(|s| decode_public_key(&s))
         .collect::<Result<Vec<PublicKey>>>()?;
 
     private_key.encrypt(&mut plaintext, &mut ciphertext, pks, fakes, padding)?;
