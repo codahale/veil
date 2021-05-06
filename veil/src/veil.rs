@@ -1,47 +1,49 @@
 use std::convert::{TryFrom, TryInto};
 use std::fmt::Debug;
-use std::{cmp, error, fmt, io, iter, result};
+use std::{cmp, fmt, io, iter, result};
 
 use base58::{FromBase58, ToBase58};
+use byteorder::ByteOrder;
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
+use thiserror::Error;
 use zeroize::Zeroize;
 
+use crate::VeilError::IoError;
 use crate::{mres, pbenc, scaldf, schnorr};
-use byteorder::ByteOrder;
 
 /// Veil's custom result type.
 pub type Result<T> = result::Result<T, VeilError>;
 
 /// The full set of Veil errors.
-#[derive(Debug)]
+#[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum VeilError {
     /// Returned when a ciphertext can't be decrypted.
+    #[error("invalid ciphertext")]
     InvalidCiphertext,
     /// Returned when a signature is invalid.
+    #[error("invalid signature")]
     InvalidSignature,
     /// Returned when a public key is invalid.
+    #[error("invalid public key")]
     InvalidPublicKey,
     /// Returned when a secret key can't be decrypted.
+    #[error("invalid secret key/passphrase")]
     InvalidSecretKey,
     /// Returned when an underlying IO error occured.
-    IoError(io::Error),
+    #[error("io error: {source:?}")]
+    IoError {
+        /// The source of the IO error.
+        #[from]
+        source: io::Error,
+    },
 }
 
-impl fmt::Display for VeilError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            VeilError::InvalidCiphertext => f.write_str("invalid ciphertext"),
-            VeilError::InvalidSignature => f.write_str("invalid signature"),
-            VeilError::InvalidPublicKey => f.write_str("invalid public key"),
-            VeilError::InvalidSecretKey => f.write_str("invalid secret key"),
-            VeilError::IoError(e) => fmt::Display::fmt(&e, f),
-        }
-    }
+pub(crate) fn io_error(source: io::Error) -> VeilError {
+    IoError { source }
 }
-
-impl error::Error for VeilError {}
 
 /// A 512-bit secret from which multiple private keys can be derived.
 pub struct SecretKey {
@@ -158,7 +160,7 @@ impl PrivateKey {
             q_rs,
             padding,
         )
-        .map_err(VeilError::IoError)
+        .map_err(io_error)
     }
 
     /// Decrypts the contents of the reader, if possible, and writes the plaintext to the writer.
@@ -182,7 +184,7 @@ impl PrivateKey {
     /// Reads the contents of the reader and returns a Schnorr signature.
     pub fn sign<R: io::Read>(&self, reader: &mut R) -> Result<Signature> {
         let mut signer = schnorr::Signer::new(io::sink());
-        io::copy(reader, &mut signer).map_err(VeilError::IoError)?;
+        io::copy(reader, &mut signer).map_err(io_error)?;
         Ok(Signature {
             sig: signer.sign(&self.d, &self.pk.q),
         })
@@ -265,7 +267,7 @@ impl PublicKey {
     /// public key of the exact contents.
     pub fn verify<R: io::Read>(&self, reader: &mut R, sig: &Signature) -> Result<()> {
         let mut verifier = schnorr::Verifier::new();
-        io::copy(reader, &mut verifier).map_err(VeilError::IoError)?;
+        io::copy(reader, &mut verifier).map_err(io_error)?;
         if verifier.verify(&self.q, &sig.sig) {
             Ok(())
         } else {

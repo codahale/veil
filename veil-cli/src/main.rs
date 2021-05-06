@@ -1,12 +1,10 @@
 use std::io::Write;
-use std::{error, fs, io, mem, result};
+use std::{fs, io, mem};
 
+use anyhow::Result;
 use clap::{App, AppSettings, SubCommand};
-
 use std::convert::TryInto;
 use veil::{PublicKey, SecretKey, Signature};
-
-type Result<T> = result::Result<T, Box<dyn error::Error>>;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -233,7 +231,7 @@ fn decrypt(
     if let Err(e) = private_key.decrypt(&mut ciphertext, &mut plaintext, &sender) {
         mem::drop(plaintext);
         fs::remove_file(plaintext_path)?;
-        return Err(Box::new(e));
+        return Err(anyhow::Error::from(e));
     }
 
     Ok(())

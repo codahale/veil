@@ -171,7 +171,7 @@ use strobe_rs::{SecParam, Strobe};
 
 use crate::schnorr::Verifier;
 use crate::util::StrobeExt;
-use crate::{akem, schnorr, VeilError, MAC_LEN};
+use crate::{akem, io_error, schnorr, VeilError, MAC_LEN};
 
 pub(crate) fn encrypt<R, W>(
     reader: &mut R,
@@ -313,7 +313,7 @@ where
     // Read through src in 32KiB chunks, keeping the last 64 bytes as the signature.
     loop {
         // Read a block of ciphertext and copy it to the buffer.
-        let n = reader.read(&mut input).map_err(VeilError::IoError)?;
+        let n = reader.read(&mut input).map_err(io_error)?;
         buf.extend_from_slice(&input[..n]);
 
         // Process the data if we have at least a signature's worth.
@@ -322,13 +322,13 @@ where
             let mut block: Vec<u8> = buf.drain(..buf.len() - 64).collect();
 
             // Verify the ciphertext.
-            verifier.write_all(&block).map_err(VeilError::IoError)?;
+            verifier.write_all(&block).map_err(io_error)?;
 
             // Decrypt the ciphertext.
             mres.recv_enc(&mut block, true);
 
             // Write the plaintext.
-            writer.write_all(&block).map_err(VeilError::IoError)?;
+            writer.write_all(&block).map_err(io_error)?;
             written += block.len() as u64;
         }
 
@@ -361,7 +361,7 @@ where
 
     // Iterate through blocks, looking for an encrypted header that can be decrypted.
     while let Ok(()) = reader.read_exact(&mut buf) {
-        verifier.write_all(&buf).map_err(VeilError::IoError)?;
+        verifier.write_all(&buf).map_err(io_error)?;
         hdr_offset += buf.len() as u64;
 
         if let Some((p, header)) = akem::decapsulate(d_r, q_r, q_s, &buf) {
@@ -371,7 +371,7 @@ where
 
             // Read the remainder of the headers and padding and write them to the verifier.
             let mut remainder = reader.take(msg_offset - hdr_offset);
-            io::copy(&mut remainder, verifier).map_err(VeilError::IoError)?;
+            io::copy(&mut remainder, verifier).map_err(io_error)?;
 
             // Return the DEK and ephemeral public key.
             return Ok((dek, p));

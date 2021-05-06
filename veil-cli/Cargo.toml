@@ -5,6 +5,7 @@ authors = ["Coda Hale <coda.hale@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+anyhow = "1"
 clap = "2"
 rand = "0.7"
 rand_core = "0.5"

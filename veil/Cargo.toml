@@ -10,6 +10,7 @@ byteorder = "1.4"
 curve25519-dalek = "3"
 getrandom = "0.2"
 strobe-rs = "0.6"
+thiserror = "1"
 zeroize = "1"
 
 [dev-dependencies]

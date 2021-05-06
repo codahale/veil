@@ -103,12 +103,13 @@
 //! [Randomness Reusing Multi-Recipient Encryption Schemes](http://cseweb.ucsd.edu/~Mihir/papers/bbs.pdf).
 //!
 
+use std::convert::TryInto;
+
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use strobe_rs::{SecParam, Strobe};
 
 use crate::MAC_LEN;
-use std::convert::TryInto;
 
 pub(crate) fn encapsulate(
     d_s: &Scalar,
