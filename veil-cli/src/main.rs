@@ -1,11 +1,12 @@
 use std::convert::TryInto;
 use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::{fs, io, mem};
 
 use anyhow::Result;
 use structopt::StructOpt;
 
-use veil::{PublicKey, SecretKey, Signature};
+use veil::{PublicKey, SecretKey, Signature, VeilError};
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "veil-cli", about = "Stupid crypto tricks.")]
@@ -13,19 +14,19 @@ enum Cli {
     #[structopt(about = "Generate a new secret key", display_order = 0)]
     SecretKey {
         #[structopt(help = "The output path for the encrypted secret key")]
-        output: String,
+        output: PathBuf,
     },
 
     #[structopt(about = "Derive a public key from a secret key", display_order = 1)]
     PublicKey {
         #[structopt(help = "The path to the secret key")]
-        secret_key: String,
+        secret_key: PathBuf,
 
         #[structopt(help = "The ID of the public key to generate")]
         key_id: String,
 
         #[structopt(help = "The output path for the public key")]
-        output: String,
+        output: PathBuf,
     },
 
     #[structopt(
@@ -34,28 +35,28 @@ enum Cli {
     )]
     DeriveKey {
         #[structopt(help = "The path to the public key")]
-        public_key: String,
+        public_key: PathBuf,
 
         #[structopt(help = "The ID of the public key to generate")]
         sub_key_id: String,
 
         #[structopt(help = "The output path for the public key")]
-        output: String,
+        output: PathBuf,
     },
 
     #[structopt(about = "Encrypt a message for a set of recipients", display_order = 3)]
     Encrypt {
         #[structopt(help = "The path to the secret key")]
-        secret_key: String,
+        secret_key: PathBuf,
 
         #[structopt(help = "The ID of the private key to use")]
         key_id: String,
 
         #[structopt(help = "The path to the plaintext file")]
-        plaintext: String,
+        plaintext: PathBuf,
 
         #[structopt(help = "The path to the ciphertext file")]
-        ciphertext: String,
+        ciphertext: PathBuf,
 
         #[structopt(
             required = true,
@@ -63,7 +64,7 @@ enum Cli {
             long = "--recipient",
             help = "The recipients' public keys"
         )]
-        recipients: Vec<String>,
+        recipients: Vec<PathBuf>,
 
         #[structopt(long = "fakes", default_value = "0", help = "Add fake recipients")]
         fakes: usize,
@@ -79,43 +80,40 @@ enum Cli {
     #[structopt(about = "Decrypt and verify a message", display_order = 4)]
     Decrypt {
         #[structopt(help = "The path to the secret key")]
-        secret_key: String,
+        secret_key: PathBuf,
 
         #[structopt(help = "The ID of the private key to use")]
         key_id: String,
 
         #[structopt(help = "The path to the ciphertext file")]
-        ciphertext: String,
+        ciphertext: PathBuf,
 
         #[structopt(help = "The path to the plaintext file")]
-        plaintext: String,
+        plaintext: PathBuf,
 
         #[structopt(help = "The sender's public key")]
-        sender: String,
+        sender: PathBuf,
     },
 
     #[structopt(about = "Sign a message", display_order = 5)]
     Sign {
         #[structopt(help = "The path to the secret key")]
-        secret_key: String,
+        secret_key: PathBuf,
 
         #[structopt(help = "The ID of the private key to use")]
         key_id: String,
 
         #[structopt(help = "The path to the message")]
-        message: String,
-
-        #[structopt(help = "The path to the signature")]
-        signature: String,
+        message: PathBuf,
     },
 
     #[structopt(about = "Verify a signature", display_order = 6)]
     Verify {
         #[structopt(help = "The path to the public key")]
-        public_key: String,
+        public_key: PathBuf,
 
         #[structopt(help = "The path to the message")]
-        message: String,
+        message: PathBuf,
 
         #[structopt(help = "The signature")]
         signature: String,
@@ -164,8 +162,7 @@ fn main() -> Result<()> {
             secret_key,
             key_id,
             message,
-            signature,
-        } => sign(&secret_key, &key_id, &message, &signature),
+        } => sign(&secret_key, &key_id, &message),
         Cli::Verify {
             public_key,
             message,
@@ -174,16 +171,16 @@ fn main() -> Result<()> {
     }
 }
 
-fn secret_key(output_path: &str) -> Result<()> {
+fn secret_key(output_path: &Path) -> Result<()> {
     let secret_key = SecretKey::new();
     let mut f = open_output(output_path)?;
-    let passphrase = rpassword::prompt_password_stderr("Enter passphrase: ")?;
+    let passphrase = rpassword::read_password_from_tty(Some("Enter passphrase: "))?;
     let ciphertext = secret_key.encrypt(passphrase.as_bytes(), 1 << 7, 1 << 10);
     f.write_all(&ciphertext)?;
     Ok(())
 }
 
-fn public_key(secret_key_path: &str, key_id: &str, output_path: &str) -> Result<()> {
+fn public_key(secret_key_path: &Path, key_id: &str, output_path: &Path) -> Result<()> {
     let secret_key = open_secret_key(secret_key_path)?;
     let public_key = secret_key.public_key(key_id);
     let mut output = open_output(output_path)?;
@@ -191,7 +188,7 @@ fn public_key(secret_key_path: &str, key_id: &str, output_path: &str) -> Result<
     Ok(())
 }
 
-fn derive_key(public_key_path: &str, key_id: &str, output_path: &str) -> Result<()> {
+fn derive_key(public_key_path: &Path, key_id: &str, output_path: &Path) -> Result<()> {
     let root = decode_public_key(public_key_path)?;
     let public_key = root.derive(key_id);
     let mut output = open_output(output_path)?;
@@ -200,11 +197,11 @@ fn derive_key(public_key_path: &str, key_id: &str, output_path: &str) -> Result<
 }
 
 fn encrypt(
-    secret_key_path: &str,
+    secret_key_path: &Path,
     key_id: &str,
-    plaintext_path: &str,
-    ciphertext_path: &str,
-    recipient_paths: Vec<String>,
+    plaintext_path: &Path,
+    ciphertext_path: &Path,
+    recipient_paths: Vec<PathBuf>,
     fakes: usize,
     padding: u64,
 ) -> Result<()> {
@@ -223,11 +220,11 @@ fn encrypt(
 }
 
 fn decrypt(
-    secret_key_path: &str,
+    secret_key_path: &Path,
     key_id: &str,
-    ciphertext_path: &str,
-    plaintext_path: &str,
-    sender_path: &str,
+    ciphertext_path: &Path,
+    plaintext_path: &Path,
+    sender_path: &Path,
 ) -> Result<()> {
     let secret_key = open_secret_key(secret_key_path)?;
     let private_key = secret_key.private_key(key_id);
@@ -244,25 +241,18 @@ fn decrypt(
     Ok(())
 }
 
-fn sign(
-    secret_key_path: &str,
-    key_id: &str,
-    message_path: &str,
-    signature_path: &str,
-) -> Result<()> {
+fn sign(secret_key_path: &Path, key_id: &str, message_path: &Path) -> Result<()> {
     let secret_key = open_secret_key(secret_key_path)?;
     let private_key = secret_key.private_key(key_id);
     let mut message = open_input(message_path)?;
-    let mut output = open_output(signature_path)?;
 
     let sig = private_key.sign(&mut message)?;
-
-    output.write_all(sig.to_ascii().as_bytes())?;
+    println!("{}", sig.to_ascii());
 
     Ok(())
 }
 
-fn verify(public_key_path: &str, message_path: &str, signature: &str) -> Result<()> {
+fn verify(public_key_path: &Path, message_path: &Path, signature: &str) -> Result<()> {
     let public_key = decode_public_key(public_key_path)?;
     let sig: Signature = signature.try_into()?;
     let mut message = open_input(message_path)?;
@@ -270,34 +260,35 @@ fn verify(public_key_path: &str, message_path: &str, signature: &str) -> Result<
     Ok(())
 }
 
-fn decode_public_key(path_or_key: &str) -> Result<PublicKey> {
-    // Try to decode it from ASCII.
-    if let Some(decoded) = PublicKey::from_ascii(path_or_key) {
-        return Ok(decoded);
+fn decode_public_key(path_or_key: &Path) -> Result<PublicKey> {
+    path_or_key
+        .to_str()
+        .and_then(PublicKey::from_ascii)
+        .ok_or(VeilError::InvalidPublicKey)
+        .or_else(|_| {
+            let s = fs::read_to_string(path_or_key)?;
+            s.as_str().try_into()
+        })
+        .map_err(anyhow::Error::from)
+}
+
+fn open_input(path: &Path) -> Result<Box<dyn io::Read>> {
+    if path == Path::new("-") {
+        return Ok(Box::new(io::stdin()));
     }
 
-    let s = fs::read_to_string(path_or_key)?;
-    let pk: PublicKey = s.as_str().try_into()?;
-    Ok(pk)
+    Ok(Box::new(fs::File::open(path)?))
 }
 
-fn open_input(path: &str) -> Result<Box<dyn io::Read>> {
-    let output: Box<dyn io::Read> = match path {
-        "-" => Box::new(io::stdin()),
-        path => Box::new(fs::File::open(path)?),
-    };
-    Ok(output)
+fn open_output(path: &Path) -> Result<Box<dyn io::Write>> {
+    if path == Path::new("-") {
+        return Ok(Box::new(io::stdout()));
+    }
+
+    Ok(Box::new(fs::File::create(path)?))
 }
 
-fn open_output(path: &str) -> Result<Box<dyn io::Write>> {
-    let output: Box<dyn io::Write> = match path {
-        "-" => Box::new(io::stdout()),
-        path => Box::new(fs::File::create(path)?),
-    };
-    Ok(output)
-}
-
-fn open_secret_key(path: &str) -> Result<SecretKey> {
+fn open_secret_key(path: &Path) -> Result<SecretKey> {
     let passphrase = rpassword::read_password_from_tty(Some("Enter passphrase: "))?;
     let ciphertext = fs::read(path)?;
     let sk = SecretKey::decrypt(passphrase.as_bytes(), &ciphertext)?;
