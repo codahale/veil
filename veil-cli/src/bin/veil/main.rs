@@ -86,8 +86,8 @@ fn public_key(secret_key: SecretKey, key_id: &str) -> Result<()> {
     Ok(())
 }
 
-fn derive_key(public_key_ascii: &str, key_id: &str) -> Result<()> {
-    let root = public_key_ascii.parse::<PublicKey>()?;
+fn derive_key(public_key: &str, key_id: &str) -> Result<()> {
+    let root = public_key.parse::<PublicKey>()?;
     let public_key = root.derive(key_id);
     println!("{}", public_key);
     Ok(())
@@ -96,15 +96,15 @@ fn derive_key(public_key_ascii: &str, key_id: &str) -> Result<()> {
 fn encrypt(
     secret_key: SecretKey,
     key_id: &str,
-    plaintext_path: &Path,
-    ciphertext_path: &Path,
+    plaintext: &Path,
+    ciphertext: &Path,
     recipients: Vec<String>,
     fakes: usize,
     padding: u64,
 ) -> Result<()> {
     let private_key = secret_key.private_key(key_id);
-    let mut plaintext = open_input(plaintext_path)?;
-    let mut ciphertext = open_output(ciphertext_path)?;
+    let mut plaintext = open_input(plaintext)?;
+    let mut ciphertext = open_output(ciphertext)?;
     let pks = recipients
         .into_iter()
         .map(|s| s.parse::<PublicKey>().map_err(anyhow::Error::from))
@@ -118,13 +118,13 @@ fn encrypt(
 fn decrypt(
     secret_key: SecretKey,
     key_id: &str,
-    ciphertext_path: &Path,
+    ciphertext: &Path,
     plaintext_path: &Path,
     sender_ascii: &str,
 ) -> Result<()> {
     let private_key = secret_key.private_key(key_id);
     let sender = sender_ascii.parse::<PublicKey>()?;
-    let mut ciphertext = open_input(ciphertext_path)?;
+    let mut ciphertext = open_input(ciphertext)?;
     let mut plaintext = open_output(plaintext_path)?;
 
     if let Err(e) = private_key.decrypt(&mut ciphertext, &mut plaintext, &sender) {
@@ -138,9 +138,9 @@ fn decrypt(
     Ok(())
 }
 
-fn sign(secret_key: SecretKey, key_id: &str, message_path: &Path) -> Result<()> {
+fn sign(secret_key: SecretKey, key_id: &str, message: &Path) -> Result<()> {
     let private_key = secret_key.private_key(key_id);
-    let mut message = open_input(message_path)?;
+    let mut message = open_input(message)?;
 
     let sig = private_key.sign(&mut message)?;
     println!("{}", sig);
@@ -148,10 +148,10 @@ fn sign(secret_key: SecretKey, key_id: &str, message_path: &Path) -> Result<()> 
     Ok(())
 }
 
-fn verify(signer_ascii: &str, message_path: &Path, signature_ascii: &str) -> Result<()> {
-    let signer = signer_ascii.parse::<PublicKey>()?;
-    let sig: Signature = signature_ascii.parse()?;
-    let mut message = open_input(message_path)?;
+fn verify(signer: &str, message: &Path, signature: &str) -> Result<()> {
+    let signer = signer.parse::<PublicKey>()?;
+    let sig: Signature = signature.parse()?;
+    let mut message = open_input(message)?;
     signer.verify(&mut message, &sig)?;
     Ok(())
 }
