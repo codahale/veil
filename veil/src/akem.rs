@@ -198,7 +198,7 @@ mod tests {
     use curve25519_dalek::scalar::Scalar;
 
     use crate::akem::{decapsulate, encapsulate};
-    use crate::test_helpers::rand_scalar;
+    use crate::util;
 
     #[test]
     fn round_trip() {
@@ -258,13 +258,13 @@ mod tests {
         Scalar,
         RistrettoPoint,
     ) {
-        let d_s = rand_scalar();
+        let d_s = Scalar::from_bytes_mod_order_wide(&util::rand_array());
         let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
 
-        let d_e = rand_scalar();
+        let d_e = Scalar::from_bytes_mod_order_wide(&util::rand_array());
         let q_e = RISTRETTO_BASEPOINT_POINT * d_e;
 
-        let d_r = rand_scalar();
+        let d_r = Scalar::from_bytes_mod_order_wide(&util::rand_array());
         let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
 
         (d_s, q_s, d_e, q_e, d_r, q_r)

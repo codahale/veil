@@ -2,6 +2,12 @@ use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use strobe_rs::Strobe;
 
+pub(crate) fn rand_array<const N: usize>() -> [u8; N] {
+    let mut out = [0u8; N];
+    getrandom::getrandom(&mut out).expect("rng failure");
+    out
+}
+
 pub(crate) trait StrobeExt {
     fn meta_ad_u32(&mut self, n: u32);
     fn key_point(&mut self, zz: RistrettoPoint);
@@ -47,9 +53,8 @@ impl StrobeExt for Strobe {
         clone.key(secret, false);
 
         // Key with a random value.
-        let mut seed = [0u8; 64];
-        getrandom::getrandom(&mut seed).expect("rng failure");
-        clone.key(&seed, false);
+        let r: [u8; 64] = rand_array();
+        clone.key(&r, false);
 
         // Call the given function with the clone.
         f(&mut clone)

@@ -65,15 +65,3 @@ pub mod scaldf;
 pub mod schnorr;
 mod util;
 mod veil;
-
-#[cfg(test)]
-mod test_helpers {
-    use curve25519_dalek::scalar::Scalar;
-
-    pub fn rand_scalar() -> Scalar {
-        let mut seed = [0u8; 64];
-        getrandom::getrandom(&mut seed).expect("rng failure");
-
-        Scalar::from_bytes_mod_order_wide(&seed)
-    }
-}

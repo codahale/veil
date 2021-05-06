@@ -12,7 +12,7 @@ use thiserror::Error;
 use zeroize::Zeroize;
 
 use crate::VeilError::IoError;
-use crate::{mres, pbenc, scaldf, schnorr};
+use crate::{mres, pbenc, scaldf, schnorr, util};
 
 /// Veil's custom result type.
 pub type Result<T> = result::Result<T, VeilError>;
@@ -146,7 +146,10 @@ impl PrivateKey {
         let mut q_rs = recipients
             .into_iter()
             .map(|pk| pk.q)
-            .chain(iter::repeat_with(rand_point).take(fakes))
+            .chain(
+                iter::repeat_with(|| RistrettoPoint::from_uniform_bytes(&util::rand_array()))
+                    .take(fakes),
+            )
             .collect();
 
         // Shuffle the recipients list.
@@ -296,21 +299,13 @@ impl str::FromStr for PublicKey {
 
 pub(crate) const MAC_LEN: usize = 16;
 
-fn rand_point() -> RistrettoPoint {
-    let mut seed = [0u8; 64];
-    getrandom::getrandom(&mut seed).expect("rng failure");
-
-    RistrettoPoint::from_uniform_bytes(&seed)
-}
-
 fn shuffle(pks: &mut Vec<RistrettoPoint>) {
     // Fisher-Yates shuffle with cryptographically generated numbers
     assert!(pks.len() < u32::MAX as usize);
-    let mut buf = [0u8; 4];
     for i in (1..pks.len()).rev() {
         let max = ((1 << 31) - 1 - (1 << 31) % (i + 1)) as usize;
         loop {
-            getrandom::getrandom(&mut buf).expect("rng failure");
+            let buf: [u8; 4] = util::rand_array();
             let n = byteorder::LE::read_u32(&buf) as usize;
             if n > max {
                 continue;
