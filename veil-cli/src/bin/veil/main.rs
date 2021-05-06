@@ -247,19 +247,19 @@ fn verify(signer_ascii: &str, message_path: &Path, signature_ascii: &str) -> Res
 }
 
 fn open_input(path: &Path) -> Result<Box<dyn io::Read>> {
-    if path == Path::new("-") {
-        return Ok(Box::new(io::stdin()));
-    }
-
-    Ok(Box::new(fs::File::open(path)?))
+    Ok(if path == Path::new("-") {
+        Box::new(io::stdin())
+    } else {
+        Box::new(fs::File::open(path)?)
+    })
 }
 
 fn open_output(path: &Path) -> Result<Box<dyn io::Write>> {
-    if path == Path::new("-") {
-        return Ok(Box::new(io::stdout()));
-    }
-
-    Ok(Box::new(fs::File::create(path)?))
+    Ok(if path == Path::new("-") {
+        Box::new(io::stdout())
+    } else {
+        Box::new(fs::File::create(path)?)
+    })
 }
 
 fn open_secret_key(path: &Path) -> Result<SecretKey> {
