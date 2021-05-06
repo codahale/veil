@@ -1,5 +1,6 @@
-use std::convert::{TryFrom, TryInto};
-use std::fmt::Debug;
+use std::convert::TryInto;
+use std::fmt::{Debug, Formatter};
+use std::str;
 use std::{cmp, fmt, io, iter, result};
 
 use base58::{FromBase58, ToBase58};
@@ -222,25 +223,21 @@ pub struct Signature {
     sig: [u8; 64],
 }
 
-impl Signature {
-    /// Converts the signature to a base58 string.
-    pub fn to_ascii(&self) -> String {
-        self.sig.to_base58()
-    }
+impl str::FromStr for Signature {
+    type Err = VeilError;
 
-    /// Parses the given base58 string and returns a signature.
-    pub fn from_ascii(s: &str) -> Option<Signature> {
-        Some(Signature {
-            sig: s.from_base58().ok()?.try_into().ok()?,
-        })
+    fn from_str(s: &str) -> result::Result<Self, Self::Err> {
+        s.from_base58()
+            .ok()
+            .and_then(|b| b.try_into().ok())
+            .map(|sig| Signature { sig })
+            .ok_or(VeilError::InvalidSignature)
     }
 }
 
-impl TryFrom<&str> for Signature {
-    type Error = VeilError;
-
-    fn try_from(value: &str) -> result::Result<Self, Self::Error> {
-        Signature::from_ascii(value).ok_or(VeilError::InvalidSignature)
+impl fmt::Display for Signature {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.sig.to_base58())
     }
 }
 
@@ -251,18 +248,6 @@ pub struct PublicKey {
 }
 
 impl PublicKey {
-    /// Converts the public key to a base58 string.
-    pub fn to_ascii(&self) -> String {
-        self.q.compress().to_bytes().to_base58()
-    }
-
-    /// Parses the given base58 string and returns a public key.
-    pub fn from_ascii(s: &str) -> Option<PublicKey> {
-        let b = s.from_base58().ok()?;
-        let q = CompressedRistretto::from_slice(&b).decompress()?;
-        Some(PublicKey { q })
-    }
-
     /// Reads the contents of the reader returns () iff the given signature was created by this
     /// public key of the exact contents.
     pub fn verify<R: io::Read>(&self, reader: &mut R, sig: &Signature) -> Result<()> {
@@ -286,11 +271,25 @@ impl PublicKey {
     }
 }
 
-impl TryFrom<&str> for PublicKey {
-    type Error = VeilError;
+impl fmt::Display for PublicKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.q.compress().as_bytes().to_base58())
+    }
+}
 
-    fn try_from(value: &str) -> result::Result<Self, Self::Error> {
-        PublicKey::from_ascii(value).ok_or(VeilError::InvalidPublicKey)
+impl str::FromStr for PublicKey {
+    type Err = VeilError;
+
+    fn from_str(s: &str) -> result::Result<Self, Self::Err> {
+        let b = s.from_base58().map_err(|_| VeilError::InvalidPublicKey)?;
+        if b.len() != 32 {
+            return Err(VeilError::InvalidPublicKey);
+        }
+
+        let cp = CompressedRistretto::from_slice(&b);
+        cp.decompress()
+            .map(|q| PublicKey { q })
+            .ok_or(VeilError::InvalidPublicKey)
     }
 }
 

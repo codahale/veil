@@ -1,4 +1,3 @@
-use std::convert::TryInto;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::{fs, io, mem};
@@ -184,7 +183,7 @@ fn public_key(secret_key_path: &Path, key_id: &str, output_path: &Path) -> Resul
     let secret_key = open_secret_key(secret_key_path)?;
     let public_key = secret_key.public_key(key_id);
     let mut output = open_output(output_path)?;
-    output.write_all(public_key.to_ascii().as_bytes())?;
+    write!(output, "{}", public_key)?;
     Ok(())
 }
 
@@ -192,7 +191,7 @@ fn derive_key(public_key_path: &Path, key_id: &str, output_path: &Path) -> Resul
     let root = decode_public_key(public_key_path)?;
     let public_key = root.derive(key_id);
     let mut output = open_output(output_path)?;
-    output.write_all(public_key.to_ascii().as_bytes())?;
+    write!(output, "{}", public_key)?;
     Ok(())
 }
 
@@ -247,14 +246,14 @@ fn sign(secret_key_path: &Path, key_id: &str, message_path: &Path) -> Result<()>
     let mut message = open_input(message_path)?;
 
     let sig = private_key.sign(&mut message)?;
-    println!("{}", sig.to_ascii());
+    println!("{}", sig);
 
     Ok(())
 }
 
 fn verify(public_key_path: &Path, message_path: &Path, signature: &str) -> Result<()> {
     let public_key = decode_public_key(public_key_path)?;
-    let sig: Signature = signature.try_into()?;
+    let sig: Signature = signature.parse()?;
     let mut message = open_input(message_path)?;
     public_key.verify(&mut message, &sig)?;
     Ok(())
@@ -263,11 +262,11 @@ fn verify(public_key_path: &Path, message_path: &Path, signature: &str) -> Resul
 fn decode_public_key(path_or_key: &Path) -> Result<PublicKey> {
     path_or_key
         .to_str()
-        .and_then(PublicKey::from_ascii)
+        .and_then(|s| s.parse().ok())
         .ok_or(VeilError::InvalidPublicKey)
         .or_else(|_| {
             let s = fs::read_to_string(path_or_key)?;
-            s.as_str().try_into()
+            s.parse()
         })
         .map_err(anyhow::Error::from)
 }
