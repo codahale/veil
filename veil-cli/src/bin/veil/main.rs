@@ -8,7 +8,7 @@ use structopt::StructOpt;
 use veil::{PublicKey, SecretKey, Signature, VeilError};
 
 #[derive(StructOpt, Debug)]
-#[structopt(name = "veil-cli", about = "Stupid crypto tricks.")]
+#[structopt(name = "veil", about = "Stupid crypto tricks.")]
 enum Cli {
     #[structopt(about = "Generate a new secret key", display_order = 0)]
     SecretKey {
