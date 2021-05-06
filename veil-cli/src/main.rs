@@ -1,9 +1,10 @@
+use std::convert::TryInto;
 use std::io::Write;
 use std::{fs, io, mem};
 
 use anyhow::Result;
 use clap::{App, AppSettings, SubCommand};
-use std::convert::TryInto;
+
 use veil::{PublicKey, SecretKey, Signature};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
