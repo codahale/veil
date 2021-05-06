@@ -484,4 +484,19 @@ mod tests {
         let ptx_len = priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key());
         assert_eq!(true, ptx_len.is_err());
     }
+
+    #[test]
+    pub fn sign_and_verify() {
+        let sk = SecretKey::new();
+        let priv_a = sk.private_key("/one/two");
+        let pub_a = priv_a.public_key();
+
+        let message = b"this is a thingy";
+        let mut src = io::Cursor::new(message);
+
+        let sig = priv_a.sign(&mut src).expect("signing error");
+
+        let mut src = io::Cursor::new(message);
+        assert_eq!(true, pub_a.verify(&mut src, &sig).is_ok());
+    }
 }
