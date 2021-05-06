@@ -17,6 +17,7 @@ use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use strobe_rs::{SecParam, Strobe};
+
 use crate::util::StrobeExt;
 
 pub(crate) fn derive_root(seed: &[u8; 64]) -> Scalar {
