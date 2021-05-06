@@ -103,8 +103,6 @@
 //! [Randomness Reusing Multi-Recipient Encryption Schemes](http://cseweb.ucsd.edu/~Mihir/papers/bbs.pdf).
 //!
 
-use std::convert::TryInto;
-
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use strobe_rs::{SecParam, Strobe};
@@ -120,8 +118,10 @@ pub(crate) fn encapsulate(
     q_r: &RistrettoPoint,
     plaintext: &[u8],
 ) -> Vec<u8> {
-    // Allocate a buffer for output.
+    // Allocate a buffer for output and fill it with plaintext.
     let mut out = vec![0u8; 32 + plaintext.len() + MAC_LEN];
+    out[..32].copy_from_slice(q_e.compress().as_bytes());
+    out[32..32 + plaintext.len()].copy_from_slice(plaintext);
 
     // Initialize the protocol.
     let mut akem = Strobe::new(b"veil.akem", SecParam::B256);
@@ -134,15 +134,13 @@ pub(crate) fn encapsulate(
     // Calculate the static Diffie-Hellman shared secret and key the protocol with it.
     akem.key_point(d_s * q_r);
 
-    // Encode the ephemeral public key and encrypt it.
-    out[..32].copy_from_slice(q_e.compress().as_bytes());
+    // Encrypt the ephemeral public key.
     akem.send_enc(&mut out[..32], false);
 
     // Calculate the ephemeral Diffie-Hellman shared secret and key the protocol with it.
     akem.key_point(d_e * q_r);
 
     // Encrypt the plaintext.
-    out[32..32 + plaintext.len()].copy_from_slice(plaintext);
     akem.send_enc(&mut out[32..32 + plaintext.len()], false);
 
     // Calculate a MAC of the entire operation transcript.
@@ -158,6 +156,10 @@ pub(crate) fn decapsulate(
     q_s: &RistrettoPoint,
     ciphertext: &[u8],
 ) -> Option<(RistrettoPoint, Vec<u8>)> {
+    if ciphertext.len() < 32 + MAC_LEN {
+        return None;
+    }
+
     // Copy the input for modification.
     let mut out = Vec::from(ciphertext);
 
@@ -176,7 +178,7 @@ pub(crate) fn decapsulate(
     akem.recv_enc(&mut out[..32], false);
 
     // Decode the ephemeral public key.
-    let q_e = CompressedRistretto(out[..32].try_into().expect("short q_e")).decompress()?;
+    let q_e = CompressedRistretto::from_slice(&out[..32]).decompress()?;
 
     // Calculate the ephemeral Diffie-Hellman shared secret and key the protocol with it.
     akem.key_point(d_r * q_e);
