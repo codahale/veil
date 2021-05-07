@@ -65,7 +65,7 @@
 //! the very, very tall grass of cryptography and should never be used.
 //!
 
-use byteorder::ByteOrder;
+use byteorder::{ByteOrder, LittleEndian};
 use strobe_rs::{SecParam, Strobe};
 
 use crate::util;
@@ -86,8 +86,8 @@ pub(crate) fn encrypt(passphrase: &[u8], plaintext: &[u8], time: u32, space: u32
     let mut out = vec![0u8; CT_OFFSET + plaintext.len() + MAC_LEN];
 
     // Encode the time and space parameters.
-    byteorder::LE::write_u32(&mut out[..4], time);
-    byteorder::LE::write_u32(&mut out[4..8], space);
+    LittleEndian::write_u32(&mut out[..4], time);
+    LittleEndian::write_u32(&mut out[4..8], space);
 
     // Copy the salt.
     out[8..CT_OFFSET].copy_from_slice(&salt);
@@ -104,8 +104,8 @@ pub(crate) fn encrypt(passphrase: &[u8], plaintext: &[u8], time: u32, space: u32
 
 pub(crate) fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Option<Vec<u8>> {
     // Decode the time and space parameters.
-    let time = byteorder::LE::read_u32(&ciphertext[..4]);
-    let space = byteorder::LE::read_u32(&ciphertext[4..8]);
+    let time = LittleEndian::read_u32(&ciphertext[..4]);
+    let space = LittleEndian::read_u32(&ciphertext[4..8]);
 
     // Perform the balloon hashing.
     let mut pbenc = init(passphrase, &ciphertext[8..SALT_LEN + 8], time, space);
@@ -158,13 +158,13 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
             // Step 2b: Hash in pseudo-randomly chosen blocks.
             for i in 0..DELTA {
                 // Map indexes to a block and hash it and the salt.
-                byteorder::LE::write_u64(&mut idx[0..8], t as u64);
-                byteorder::LE::write_u64(&mut idx[8..16], m as u64);
-                byteorder::LE::write_u64(&mut idx[16..24], i as u64);
+                LittleEndian::write_u64(&mut idx[0..8], t as u64);
+                LittleEndian::write_u64(&mut idx[8..16], m as u64);
+                LittleEndian::write_u64(&mut idx[16..24], i as u64);
                 idx = hash_counter(&mut pbenc, &mut ctr, salt, &idx);
 
                 // Map the hashed index block back to an index and hash that block.
-                let other = (byteorder::LE::read_u64(&idx) % space as u64) as usize;
+                let other = (LittleEndian::read_u64(&idx) % space as u64) as usize;
                 buf[m] = hash_counter(&mut pbenc, &mut ctr, &buf[other], &[]);
             }
         }

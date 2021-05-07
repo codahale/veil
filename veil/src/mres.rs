@@ -163,7 +163,7 @@ use std::io;
 use std::io::Read;
 use std::io::Write;
 
-use byteorder::ByteOrder;
+use byteorder::{ByteOrder, LittleEndian};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
@@ -365,7 +365,7 @@ where
         if let Some((p, header)) = akem::decapsulate(d_r, q_r, q_s, &buf) {
             // Recover the ephemeral public key, the DEK, and the message offset.
             let dek: [u8; DEK_LEN] = header[..DEK_LEN].try_into().expect("undersized header");
-            let msg_offset = byteorder::LE::read_u64(&header[header.len() - 8..]);
+            let msg_offset = LittleEndian::read_u64(&header[header.len() - 8..]);
 
             // Read the remainder of the headers and padding and write them to the verifier.
             let mut remainder = reader.take(msg_offset - hdr_offset);
