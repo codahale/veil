@@ -246,7 +246,7 @@ where
     mres.send_enc(&mut sig, false);
 
     // Write the encrypted signature.
-    signer.direct_write_all(&sig)?;
+    signer.into_inner().write_all(&sig)?;
     written += sig.len() as u64;
 
     Ok(written)

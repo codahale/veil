@@ -139,8 +139,8 @@ where
         sig
     }
 
-    pub(crate) fn direct_write_all(&mut self, buf: &[u8]) -> io::Result<()> {
-        self.writer.write_all(buf)
+    pub(crate) fn into_inner(self) -> W {
+        self.writer
     }
 }
 
