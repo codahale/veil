@@ -2,6 +2,7 @@ use std::io;
 
 use criterion::{black_box, criterion_group, criterion_main, Bencher, Criterion};
 
+use std::io::Read;
 use veil::SecretKey;
 
 fn criterion_encrypt(c: &mut Criterion) {
@@ -23,8 +24,8 @@ fn bench_encrypt(b: &mut Bencher, n: &u64) {
 
     b.iter(|| {
         pk_a.encrypt(
-            &mut Zero(*n),
-            &mut Discard,
+            &mut io::repeat(0).take(*n),
+            &mut io::sink(),
             vec![pk_b.public_key()],
             black_box(0),
             black_box(0),
@@ -47,7 +48,7 @@ fn bench_sign(b: &mut Bencher, n: &u64) {
     let sk_a = SecretKey::new();
     let pk_a = sk_a.private_key("/one/two");
 
-    b.iter(|| pk_a.sign(&mut Zero(*n)).unwrap());
+    b.iter(|| pk_a.sign(&mut io::repeat(0).take(*n)).unwrap());
 }
 
 fn criterion_pbenc(c: &mut Criterion) {
@@ -66,31 +67,3 @@ fn criterion_pbenc(c: &mut Criterion) {
 
 criterion_group!(benches, criterion_encrypt, criterion_sign, criterion_pbenc);
 criterion_main!(benches);
-
-struct Zero(u64);
-
-impl io::Read for Zero {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        if self.0 == 0 {
-            Ok(0)
-        } else if buf.len() as u64 > self.0 {
-            self.0 = 0;
-            Ok(buf.len())
-        } else {
-            self.0 -= buf.len() as u64;
-            Ok(buf.len())
-        }
-    }
-}
-
-struct Discard;
-
-impl io::Write for Discard {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
-    }
-}
