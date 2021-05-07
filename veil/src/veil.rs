@@ -303,19 +303,13 @@ impl str::FromStr for PublicKey {
 
 fn shuffle(pks: &mut Vec<RistrettoPoint>) {
     // Fisher-Yates shuffle with cryptographically generated numbers
-    assert!(pks.len() < u32::MAX as usize);
     for i in (1..pks.len()).rev() {
-        let max = ((1 << 31) - 1 - (1 << 31) % (i + 1)) as usize;
-        loop {
-            let buf: [u8; 4] = util::rand_array();
-            let n = byteorder::LE::read_u32(&buf) as usize;
-            if n > max {
-                continue;
-            }
-
-            pks.swap(i, n % (i + 1));
-            break;
+        let max = (usize::MAX - (usize::MAX % (i + 1))) as u64;
+        let mut n = max;
+        while n >= max {
+            n = byteorder::LE::read_u64(&util::rand_array::<8>());
         }
+        pks.swap(i, (n % (i as u64 + 1)) as usize);
     }
 }
 
