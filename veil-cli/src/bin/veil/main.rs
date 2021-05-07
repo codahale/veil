@@ -9,9 +9,9 @@ use structopt::StructOpt;
 
 use veil::{PublicKey, SecretKey, Signature};
 
-use crate::cli::{Command, Opts};
+use crate::opts::{Command, Opts};
 
-mod cli;
+mod opts;
 
 fn main() -> Result<()> {
     let cli = Opts::from_args();
