@@ -84,24 +84,20 @@ impl SecretKey {
     /// Derives a private key with the given key ID.
     ///
     /// `key_id` should be slash-separated string (e.g. `/one/two/three`) which define a path of
-    /// derived keys (e.g. root -> `one` -> `two` -> `three`).
+    /// derived keys (e.g. `/` -> `one` -> `two` -> `three`).
     pub fn private_key(&self, key_id: &str) -> PrivateKey {
         let d = scaldf::derive_root(&self.r);
-        PrivateKey {
-            d,
-            pk: PublicKey {
-                q: RISTRETTO_BASEPOINT_POINT * d,
-            },
-        }
-        .derive(key_id)
+        let q = RISTRETTO_BASEPOINT_POINT * d;
+        let pk = PublicKey { q };
+        PrivateKey { d, pk }.derive(key_id)
     }
 
     /// Derives a public key with the given key ID.
     ///
     /// `key_id` should be slash-separated string (e.g. `/one/two/three`) which define a path of
-    /// derived keys (e.g. root -> `one` -> `two` -> `three`).
+    /// derived keys (e.g. `/` -> `one` -> `two` -> `three`).
     pub fn public_key(&self, key_id: &str) -> PublicKey {
-        self.private_key(key_id).pk
+        self.private_key(key_id).public_key()
     }
 }
 
