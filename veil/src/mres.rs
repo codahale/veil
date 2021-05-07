@@ -169,7 +169,7 @@ use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use strobe_rs::{SecParam, Strobe};
 
-use crate::schnorr::Verifier;
+use crate::schnorr::{Verifier, SIGNATURE_LEN};
 use crate::util::{StrobeExt, MAC_LEN};
 use crate::{akem, schnorr};
 
@@ -288,21 +288,21 @@ where
 
 const DEK_LEN: usize = 32;
 const HEADER_LEN: usize = DEK_LEN + 8;
-const ENC_HEADER_LEN: usize = HEADER_LEN + 32 + MAC_LEN;
+const ENC_HEADER_LEN: usize = HEADER_LEN + akem::OVERHEAD;
 
 fn decrypt_message<R, W>(
     reader: &mut R,
     writer: &mut W,
     verifier: &mut Verifier,
     mres: &mut Strobe,
-) -> io::Result<(u64, [u8; 64])>
+) -> io::Result<(u64, [u8; SIGNATURE_LEN])>
 where
     R: io::Read,
     W: io::Write,
 {
     let mut written = 0u64;
     let mut input = [0u8; 32 * 1024];
-    let mut buf = Vec::with_capacity(input.len() + 64);
+    let mut buf = Vec::with_capacity(input.len() + SIGNATURE_LEN);
 
     // Prep for streaming decryption.
     mres.recv_enc(&mut [], false);
@@ -314,9 +314,9 @@ where
         buf.extend_from_slice(&input[..n]);
 
         // Process the data if we have at least a signature's worth.
-        if buf.len() > 64 {
+        if buf.len() > SIGNATURE_LEN {
             // Pop the first N-64 bytes off the buffer.
-            let mut block: Vec<u8> = buf.drain(..buf.len() - 64).collect();
+            let mut block: Vec<u8> = buf.drain(..buf.len() - SIGNATURE_LEN).collect();
 
             // Verify the ciphertext.
             verifier.write_all(&block)?;
@@ -336,7 +336,7 @@ where
     }
 
     // Keep the last 64 bytes as the encrypted signature.
-    let mut sig: [u8; 64] = buf.try_into().expect("short signature");
+    let mut sig: [u8; SIGNATURE_LEN] = buf.try_into().expect("short signature");
     mres.recv_enc(&mut sig, false);
 
     // Return the bytes written and the decrypted signature.
@@ -363,7 +363,7 @@ where
 
         if let Some((p, header)) = akem::decapsulate(d_r, q_r, q_s, &buf) {
             // Recover the ephemeral public key, the DEK, and the message offset.
-            let dek: [u8; DEK_LEN] = header[..32].try_into().expect("undersized header");
+            let dek: [u8; DEK_LEN] = header[..DEK_LEN].try_into().expect("undersized header");
             let msg_offset = byteorder::LE::read_u64(&header[header.len() - 8..]);
 
             // Read the remainder of the headers and padding and write them to the verifier.

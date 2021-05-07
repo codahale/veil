@@ -9,6 +9,7 @@ pub(crate) fn rand_array<const N: usize>() -> [u8; N] {
 }
 
 pub(crate) const MAC_LEN: usize = 16;
+pub(crate) const POINT_LEN: usize = 32;
 
 pub(crate) trait StrobeExt {
     fn meta_ad_u32(&mut self, n: u32);

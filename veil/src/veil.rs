@@ -11,6 +11,8 @@ use curve25519_dalek::scalar::Scalar;
 use thiserror::Error;
 use zeroize::Zeroize;
 
+use crate::schnorr::SIGNATURE_LEN;
+use crate::util::POINT_LEN;
 use crate::VeilError::IoError;
 use crate::{mres, pbenc, scaldf, schnorr, util};
 
@@ -228,7 +230,7 @@ impl fmt::Debug for PrivateKey {
 /// A Schnorr signature.
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub struct Signature {
-    sig: [u8; 64],
+    sig: [u8; SIGNATURE_LEN],
 }
 
 impl str::FromStr for Signature {
@@ -290,7 +292,7 @@ impl str::FromStr for PublicKey {
 
     fn from_str(s: &str) -> result::Result<Self, Self::Err> {
         let b = s.from_base58().map_err(|_| VeilError::InvalidPublicKey)?;
-        if b.len() != 32 {
+        if b.len() != POINT_LEN {
             return Err(VeilError::InvalidPublicKey);
         }
 
@@ -369,7 +371,9 @@ mod tests {
 
     #[test]
     pub fn signature_encoding() {
-        let sig = Signature { sig: [69u8; 64] };
+        let sig = Signature {
+            sig: [69u8; SIGNATURE_LEN],
+        };
 
         assert_eq!("2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC", sig.to_string());
 

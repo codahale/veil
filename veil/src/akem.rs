@@ -107,8 +107,10 @@ use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use strobe_rs::{SecParam, Strobe};
 
-use crate::util::StrobeExt;
 use crate::util::MAC_LEN;
+use crate::util::{StrobeExt, POINT_LEN};
+
+pub(crate) const OVERHEAD: usize = POINT_LEN + MAC_LEN;
 
 pub(crate) fn encapsulate(
     d_s: &Scalar,
@@ -119,9 +121,9 @@ pub(crate) fn encapsulate(
     plaintext: &[u8],
 ) -> Vec<u8> {
     // Allocate a buffer for output and fill it with plaintext.
-    let mut out = vec![0u8; 32 + plaintext.len() + MAC_LEN];
-    out[..32].copy_from_slice(q_e.compress().as_bytes());
-    out[32..32 + plaintext.len()].copy_from_slice(plaintext);
+    let mut out = vec![0u8; POINT_LEN + plaintext.len() + MAC_LEN];
+    out[..POINT_LEN].copy_from_slice(q_e.compress().as_bytes());
+    out[POINT_LEN..POINT_LEN + plaintext.len()].copy_from_slice(plaintext);
 
     // Initialize the protocol.
     let mut akem = Strobe::new(b"veil.akem", SecParam::B256);
@@ -135,16 +137,16 @@ pub(crate) fn encapsulate(
     akem.key_point(d_s * q_r);
 
     // Encrypt the ephemeral public key.
-    akem.send_enc(&mut out[..32], false);
+    akem.send_enc(&mut out[..POINT_LEN], false);
 
     // Calculate the ephemeral Diffie-Hellman shared secret and key the protocol with it.
     akem.key_point(d_e * q_r);
 
     // Encrypt the plaintext.
-    akem.send_enc(&mut out[32..32 + plaintext.len()], false);
+    akem.send_enc(&mut out[POINT_LEN..POINT_LEN + plaintext.len()], false);
 
     // Calculate a MAC of the entire operation transcript.
-    akem.send_mac(&mut out[32 + plaintext.len()..], false);
+    akem.send_mac(&mut out[POINT_LEN + plaintext.len()..], false);
 
     // Return the encrypted ephemeral public key, the ciphertext, and the MAC.
     out
@@ -156,7 +158,7 @@ pub(crate) fn decapsulate(
     q_s: &RistrettoPoint,
     ciphertext: &[u8],
 ) -> Option<(RistrettoPoint, Vec<u8>)> {
-    if ciphertext.len() < 32 + MAC_LEN {
+    if ciphertext.len() < POINT_LEN + MAC_LEN {
         return None;
     }
 
@@ -175,22 +177,22 @@ pub(crate) fn decapsulate(
     akem.key_point(d_r * q_s);
 
     // Decrypt the ephemeral public key.
-    akem.recv_enc(&mut out[..32], false);
+    akem.recv_enc(&mut out[..POINT_LEN], false);
 
     // Decode the ephemeral public key.
-    let q_e = CompressedRistretto::from_slice(&out[..32]).decompress()?;
+    let q_e = CompressedRistretto::from_slice(&out[..POINT_LEN]).decompress()?;
 
     // Calculate the ephemeral Diffie-Hellman shared secret and key the protocol with it.
     akem.key_point(d_r * q_e);
 
     // Decrypt the plaintext.
-    akem.recv_enc(&mut out[32..ciphertext.len() - MAC_LEN], false);
+    akem.recv_enc(&mut out[POINT_LEN..ciphertext.len() - MAC_LEN], false);
 
     // Verify the MAC.
     akem.recv_mac(&mut out[ciphertext.len() - MAC_LEN..]).ok()?;
 
     // Return the ephemeral public key and the plaintext.
-    Some((q_e, out[32..ciphertext.len() - MAC_LEN].to_vec()))
+    Some((q_e, out[POINT_LEN..ciphertext.len() - MAC_LEN].to_vec()))
 }
 
 #[cfg(test)]

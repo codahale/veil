@@ -94,6 +94,9 @@ use strobe_rs::{SecParam, Strobe};
 
 use crate::util::StrobeExt;
 
+pub(crate) const SIGNATURE_LEN: usize = SCALAR_LEN * 2;
+const SCALAR_LEN: usize = 32;
+
 pub(crate) struct Signer<W: io::Write> {
     schnorr: Strobe,
     writer: W,
@@ -111,7 +114,7 @@ where
     }
 
     #[allow(clippy::many_single_char_names)]
-    pub(crate) fn sign(&mut self, d: &Scalar, q: &RistrettoPoint) -> [u8; 64] {
+    pub(crate) fn sign(&mut self, d: &Scalar, q: &RistrettoPoint) -> [u8; SIGNATURE_LEN] {
         // Add the signer's public key as associated data.
         self.schnorr.ad_point(q);
 
@@ -130,9 +133,9 @@ where
         let s = d * c + r;
 
         // Return the challenge and signature scalars.
-        let mut sig = [0u8; 64];
-        sig[..32].copy_from_slice(c.as_bytes());
-        sig[32..].copy_from_slice(s.as_bytes());
+        let mut sig = [0u8; SIGNATURE_LEN];
+        sig[..SCALAR_LEN].copy_from_slice(c.as_bytes());
+        sig[SCALAR_LEN..].copy_from_slice(s.as_bytes());
         sig
     }
 
@@ -168,18 +171,18 @@ impl Verifier {
         Verifier { schnorr }
     }
 
-    pub fn verify(self, q: &RistrettoPoint, sig: &[u8; 64]) -> bool {
+    pub fn verify(self, q: &RistrettoPoint, sig: &[u8; SIGNATURE_LEN]) -> bool {
         self.verify_inner(q, sig).unwrap_or(false)
     }
 
     #[inline]
-    fn verify_inner(mut self, q: &RistrettoPoint, sig: &[u8; 64]) -> Option<bool> {
+    fn verify_inner(mut self, q: &RistrettoPoint, sig: &[u8; SIGNATURE_LEN]) -> Option<bool> {
         // Add the signer's public key as associated data.
         self.schnorr.ad_point(q);
 
         // Decode the challenge and signature scalars.
-        let c = Scalar::from_canonical_bytes(sig[..32].try_into().expect("short sig A"))?;
-        let s = Scalar::from_canonical_bytes(sig[32..].try_into().expect("short sig B"))?;
+        let c = Scalar::from_canonical_bytes(sig[..SCALAR_LEN].try_into().expect("short sig c"))?;
+        let s = Scalar::from_canonical_bytes(sig[SCALAR_LEN..].try_into().expect("short sig s"))?;
 
         // Re-calculate the ephemeral public key and add it as associated data.
         let r_g = (RISTRETTO_BASEPOINT_POINT * s) + (-c * q);
