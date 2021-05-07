@@ -301,16 +301,27 @@ impl str::FromStr for PublicKey {
     }
 }
 
+/// Fisher-Yates shuffle with cryptographically generated random numbers.
 fn shuffle(pks: &mut Vec<RistrettoPoint>) {
-    // Fisher-Yates shuffle with cryptographically generated numbers
     for i in (1..pks.len()).rev() {
-        let max = (usize::MAX - (usize::MAX % (i + 1))) as u64;
-        let mut n = max;
-        while n >= max {
-            n = byteorder::LE::read_u64(&util::rand_array::<8>());
-        }
-        pks.swap(i, (n % (i as u64 + 1)) as usize);
+        pks.swap(i, rand_usize(i + 1));
     }
+}
+
+/// Generates a random `usize` in `[0..n)` using rejection sampling.
+#[inline]
+fn rand_usize(n: usize) -> usize {
+    // Find the biggest u64 which == 0 mod n.
+    let max = (usize::MAX - (usize::MAX % n)) as u64;
+
+    // Generate random u64s until we get one that's in [0..max).
+    let mut v = max;
+    while v >= max {
+        v = byteorder::LE::read_u64(&util::rand_array::<8>());
+    }
+
+    // Reduce to [0..n) via modulo.
+    (v % n as u64) as usize
 }
 
 #[cfg(test)]
