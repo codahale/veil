@@ -191,7 +191,7 @@ const DELTA: usize = 3;
 
 #[cfg(test)]
 mod tests {
-    use crate::pbenc::{decrypt, encrypt};
+    use super::*;
 
     #[test]
     pub fn round_trip() {

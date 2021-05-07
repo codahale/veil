@@ -401,8 +401,9 @@ mod tests {
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
     use curve25519_dalek::scalar::Scalar;
 
-    use crate::mres::{decrypt, encrypt};
     use crate::util;
+
+    use super::*;
 
     #[test]
     pub fn round_trip() {

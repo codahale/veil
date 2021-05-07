@@ -325,7 +325,7 @@ mod tests {
 
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 
-    use crate::{PublicKey, SecretKey, Signature};
+    use super::*;
 
     #[test]
     pub fn private_key_derivation() {

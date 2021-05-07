@@ -48,7 +48,7 @@ fn key_id_parts(key_id: &str) -> Vec<&str> {
 
 #[cfg(test)]
 mod tests {
-    use crate::scaldf::key_id_parts;
+    use super::*;
 
     #[test]
     pub fn key_id_splitting() {
