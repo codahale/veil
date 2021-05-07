@@ -201,7 +201,7 @@ impl PrivateKey {
     /// `key_id` should be slash-separated string (e.g. `/one/two/three`) which define a path of
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     pub fn derive(&self, key_id: &str) -> PrivateKey {
-        let d = scaldf::derive_scalar(&self.d, key_id);
+        let d = scaldf::derive_scalar(self.d, key_id);
         PrivateKey {
             d,
             pk: PublicKey {

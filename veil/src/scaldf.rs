@@ -26,8 +26,8 @@ pub(crate) fn derive_root(seed: &[u8; 64]) -> Scalar {
     root_df.prf_scalar()
 }
 
-pub(crate) fn derive_scalar(d: &Scalar, key_id: &str) -> Scalar {
-    key_id_parts(key_id).iter().fold(*d, |d_p, &label| {
+pub(crate) fn derive_scalar(d: Scalar, key_id: &str) -> Scalar {
+    key_id_parts(key_id).iter().fold(d, |d_p, &label| {
         let mut label_df = Strobe::new(b"veil.scaldf.label", SecParam::B256);
         label_df.key(label.as_bytes(), false);
 
@@ -36,7 +36,7 @@ pub(crate) fn derive_scalar(d: &Scalar, key_id: &str) -> Scalar {
 }
 
 pub(crate) fn derive_point(q: &RistrettoPoint, key_id: &str) -> RistrettoPoint {
-    q + (RISTRETTO_BASEPOINT_POINT * derive_scalar(&Scalar::zero(), key_id))
+    q + (RISTRETTO_BASEPOINT_POINT * derive_scalar(Scalar::zero(), key_id))
 }
 
 fn key_id_parts(key_id: &str) -> Vec<&str> {
