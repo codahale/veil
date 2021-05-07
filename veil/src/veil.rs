@@ -294,8 +294,8 @@ impl str::FromStr for PublicKey {
             return Err(VeilError::InvalidPublicKey);
         }
 
-        let cp = CompressedRistretto::from_slice(&b);
-        cp.decompress()
+        CompressedRistretto::from_slice(&b)
+            .decompress()
             .map(|q| PublicKey { q })
             .ok_or(VeilError::InvalidPublicKey)
     }
