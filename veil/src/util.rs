@@ -8,6 +8,8 @@ pub(crate) fn rand_array<const N: usize>() -> [u8; N] {
     out
 }
 
+pub(crate) const MAC_LEN: usize = 16;
+
 pub(crate) trait StrobeExt {
     fn meta_ad_u32(&mut self, n: u32);
     fn key_point(&mut self, zz: RistrettoPoint);

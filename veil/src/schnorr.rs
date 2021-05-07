@@ -211,10 +211,10 @@ mod tests {
     use std::io::Write;
 
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
+    use curve25519_dalek::scalar::Scalar;
 
     use crate::schnorr::{Signer, Verifier};
     use crate::util;
-    use curve25519_dalek::scalar::Scalar;
 
     #[test]
     pub fn sign_and_verify() -> io::Result<()> {

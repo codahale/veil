@@ -179,6 +179,14 @@ impl PrivateKey {
             &self.pk.q,
             &sender.q,
         )
+        .map_err(io_error)
+        .and_then(|(verified, written)| {
+            if verified {
+                Ok(written)
+            } else {
+                Err(VeilError::InvalidCiphertext)
+            }
+        })
     }
 
     /// Reads the contents of the reader and returns a Schnorr signature.
@@ -292,8 +300,6 @@ impl str::FromStr for PublicKey {
             .ok_or(VeilError::InvalidPublicKey)
     }
 }
-
-pub(crate) const MAC_LEN: usize = 16;
 
 fn shuffle(pks: &mut Vec<RistrettoPoint>) {
     // Fisher-Yates shuffle with cryptographically generated numbers

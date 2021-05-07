@@ -108,7 +108,7 @@ use curve25519_dalek::scalar::Scalar;
 use strobe_rs::{SecParam, Strobe};
 
 use crate::util::StrobeExt;
-use crate::MAC_LEN;
+use crate::util::MAC_LEN;
 
 pub(crate) fn encapsulate(
     d_s: &Scalar,
