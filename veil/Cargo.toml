@@ -11,7 +11,7 @@ curve25519-dalek = "3"
 getrandom = "0.2"
 strobe-rs = "0.6"
 thiserror = "1"
-zeroize = "1"
+zeroize = {version = "1", features = ["zeroize_derive"]}
 
 [dev-dependencies]
 criterion = { version = "0.3", features = ["html_reports"] }

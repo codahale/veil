@@ -47,6 +47,8 @@ pub(crate) fn io_error(source: io::Error) -> VeilError {
 }
 
 /// A 512-bit secret from which multiple private keys can be derived.
+#[derive(Zeroize)]
+#[zeroize(drop)]
 pub struct SecretKey {
     r: [u8; 64],
 }
@@ -104,12 +106,6 @@ impl SecretKey {
 impl Default for SecretKey {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl Drop for SecretKey {
-    fn drop(&mut self) {
-        self.r.zeroize();
     }
 }
 
