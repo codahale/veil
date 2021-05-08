@@ -22,10 +22,10 @@ fn main() -> Result<()> {
         Command::SecretKey(cmd) => secret_key(cmd),
         Command::PublicKey(cmd) => public_key(cmd, cli.passphrase_fd),
         Command::DeriveKey(cmd) => derive_key(cmd),
-        Command::Encrypt(cmd) => encrypt(cmd, cli.passphrase_fd),
-        Command::Decrypt(cmd) => decrypt(cmd, cli.passphrase_fd),
-        Command::Sign(cmd) => sign(cmd, cli.passphrase_fd),
-        Command::Verify(cmd) => verify(cmd),
+        Command::Encrypt(mut cmd) => encrypt(&mut cmd, cli.passphrase_fd),
+        Command::Decrypt(mut cmd) => decrypt(&mut cmd, cli.passphrase_fd),
+        Command::Sign(mut cmd) => sign(&mut cmd, cli.passphrase_fd),
+        Command::Verify(mut cmd) => verify(&mut cmd),
     }
 }
 
@@ -50,45 +50,38 @@ fn derive_key(cmd: DeriveKeyCmd) -> Result<()> {
     Ok(())
 }
 
-fn encrypt(cmd: EncryptCmd, fd: Option<c_int>) -> Result<()> {
+fn encrypt(cmd: &mut EncryptCmd, fd: Option<c_int>) -> Result<()> {
     let secret_key = open_secret_key(&cmd.secret_key, fd)?;
     let private_key = secret_key.private_key(&cmd.key_id);
     let pks = cmd
         .recipients
-        .into_iter()
+        .iter()
         .map(|s| s.parse::<PublicKey>().map_err(anyhow::Error::from))
         .collect::<Result<Vec<PublicKey>>>()?;
-
-    let mut plaintext = cmd.plaintext;
-    let mut ciphertext = cmd.ciphertext;
-    private_key.encrypt(&mut plaintext, &mut ciphertext, pks, cmd.fakes, cmd.padding)?;
+    private_key.encrypt(&mut cmd.plaintext, &mut cmd.ciphertext, pks, cmd.fakes, cmd.padding)?;
     Ok(())
 }
 
-fn decrypt(cmd: DecryptCmd, fd: Option<c_int>) -> Result<()> {
+fn decrypt(cmd: &mut DecryptCmd, fd: Option<c_int>) -> Result<()> {
     let secret_key = open_secret_key(&cmd.secret_key, fd)?;
     let private_key = secret_key.private_key(&cmd.key_id);
     let sender = cmd.sender.parse::<PublicKey>()?;
-    let mut ciphertext = cmd.ciphertext;
-    let mut plaintext = cmd.plaintext;
-    private_key.decrypt(&mut ciphertext, &mut plaintext, &sender)?;
+    private_key.decrypt(&mut cmd.ciphertext, &mut cmd.plaintext, &sender)?;
     Ok(())
 }
 
-fn sign(cmd: SignCmd, fd: Option<c_int>) -> Result<()> {
+fn sign(cmd: &mut SignCmd, fd: Option<c_int>) -> Result<()> {
     let secret_key = open_secret_key(&cmd.secret_key, fd)?;
     let private_key = secret_key.private_key(&cmd.key_id);
-    let mut message = cmd.message;
-    let sig = private_key.sign(&mut message)?;
+    let sig = private_key.sign(&mut cmd.message)?;
     println!("{}", sig);
     Ok(())
 }
 
-fn verify(cmd: VerifyCmd) -> Result<()> {
+fn verify(cmd: &mut VerifyCmd) -> Result<()> {
     let signer = cmd.public_key.parse::<PublicKey>()?;
     let sig: Signature = cmd.signature.parse()?;
-    let mut message = cmd.message;
-    signer.verify(&mut message, &sig)?;
+    signer.verify(&mut cmd.message, &sig)?;
     Ok(())
 }
 
