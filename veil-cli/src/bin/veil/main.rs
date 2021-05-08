@@ -58,7 +58,13 @@ fn encrypt(cmd: &mut EncryptCmd, fd: Option<c_int>) -> Result<()> {
         .iter()
         .map(|s| s.parse::<PublicKey>().map_err(anyhow::Error::from))
         .collect::<Result<Vec<PublicKey>>>()?;
-    private_key.encrypt(&mut cmd.plaintext, &mut cmd.ciphertext, pks, cmd.fakes, cmd.padding)?;
+    private_key.encrypt(
+        &mut cmd.plaintext,
+        &mut cmd.ciphertext,
+        pks,
+        cmd.fakes,
+        cmd.padding,
+    )?;
     Ok(())
 }
 
