@@ -32,11 +32,7 @@ trait Cmd {
 
 #[derive(Clap)]
 #[clap(name = "veil", about = "Stupid crypto tricks.")]
-#[clap(setting = AppSettings::ColoredHelp)]
 #[clap(setting = AppSettings::DeriveDisplayOrder)]
-#[clap(setting = AppSettings::HelpRequired)]
-#[clap(setting = AppSettings::SubcommandRequiredElseHelp)]
-#[clap(setting = AppSettings::UnifiedHelpMessage)]
 struct Opts {
     #[clap(subcommand)]
     cmd: Command,
@@ -105,9 +101,6 @@ enum Command {
 }
 
 #[derive(Clap)]
-#[clap(setting = AppSettings::ColoredHelp)]
-#[clap(setting = AppSettings::HelpRequired)]
-#[clap(setting = AppSettings::UnifiedHelpMessage)]
 struct SecretKeyCmd {
     #[clap(
         about = "The output path for the encrypted secret key",
@@ -127,9 +120,6 @@ impl Cmd for SecretKeyCmd {
 }
 
 #[derive(Clap)]
-#[clap(setting = AppSettings::ColoredHelp)]
-#[clap(setting = AppSettings::HelpRequired)]
-#[clap(setting = AppSettings::UnifiedHelpMessage)]
 struct PublicKeyCmd {
     #[clap(about = "The path to the secret key", parse(from_os_str))]
     secret_key: PathBuf,
@@ -148,9 +138,6 @@ impl Cmd for PublicKeyCmd {
 }
 
 #[derive(Clap)]
-#[clap(setting = AppSettings::ColoredHelp)]
-#[clap(setting = AppSettings::HelpRequired)]
-#[clap(setting = AppSettings::UnifiedHelpMessage)]
 struct DeriveKeyCmd {
     #[clap(about = "The public key")]
     public_key: String,
@@ -169,9 +156,6 @@ impl Cmd for DeriveKeyCmd {
 }
 
 #[derive(Clap)]
-#[clap(setting = AppSettings::ColoredHelp)]
-#[clap(setting = AppSettings::HelpRequired)]
-#[clap(setting = AppSettings::UnifiedHelpMessage)]
 struct EncryptCmd {
     #[clap(about = "The path to the secret key", parse(from_os_str))]
     secret_key: PathBuf,
@@ -222,9 +206,6 @@ impl Cmd for EncryptCmd {
 }
 
 #[derive(Clap)]
-#[clap(setting = AppSettings::ColoredHelp)]
-#[clap(setting = AppSettings::HelpRequired)]
-#[clap(setting = AppSettings::UnifiedHelpMessage)]
 pub struct DecryptCmd {
     #[clap(about = "The path to the secret key", parse(from_os_str))]
     secret_key: PathBuf,
@@ -259,9 +240,6 @@ impl Cmd for DecryptCmd {
 }
 
 #[derive(Clap)]
-#[clap(setting = AppSettings::ColoredHelp)]
-#[clap(setting = AppSettings::HelpRequired)]
-#[clap(setting = AppSettings::UnifiedHelpMessage)]
 struct SignCmd {
     #[clap(about = "The path to the secret key", parse(from_os_str))]
     secret_key: PathBuf,
@@ -287,9 +265,6 @@ impl Cmd for SignCmd {
 }
 
 #[derive(Clap)]
-#[clap(setting = AppSettings::ColoredHelp)]
-#[clap(setting = AppSettings::HelpRequired)]
-#[clap(setting = AppSettings::UnifiedHelpMessage)]
 struct VerifyCmd {
     #[clap(about = "The signer's public key")]
     public_key: String,
@@ -314,9 +289,6 @@ impl Cmd for VerifyCmd {
 }
 
 #[derive(Clap)]
-#[clap(setting = AppSettings::ColoredHelp)]
-#[clap(setting = AppSettings::HelpRequired)]
-#[clap(setting = AppSettings::UnifiedHelpMessage)]
 struct GenerateCmd {
     #[clap(arg_enum, about = "The type of shell to generate auto-completion for")]
     shell: ShellType,
