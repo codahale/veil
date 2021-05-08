@@ -1,7 +1,7 @@
 use std::fs;
 use std::io::Read;
 use std::os::raw::c_int;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use filedescriptor::FileDescriptor;
@@ -9,83 +9,248 @@ use structopt::StructOpt;
 
 use veil::{PublicKey, SecretKey, Signature};
 
-use crate::opts::*;
-
-mod opts;
-
 fn main() -> Result<()> {
     let cli = Opts::from_args();
     match cli.cmd {
-        Command::SecretKey(cmd) => secret_key(cmd, cli.passphrase_fd),
-        Command::PublicKey(cmd) => public_key(cmd, cli.passphrase_fd),
-        Command::DeriveKey(cmd) => derive_key(cmd),
-        Command::Encrypt(mut cmd) => encrypt(&mut cmd, cli.passphrase_fd),
-        Command::Decrypt(mut cmd) => decrypt(&mut cmd, cli.passphrase_fd),
-        Command::Sign(mut cmd) => sign(&mut cmd, cli.passphrase_fd),
-        Command::Verify(mut cmd) => verify(&mut cmd),
+        Command::SecretKey(cmd) => cmd.run(cli.passphrase_fd),
+        Command::PublicKey(cmd) => cmd.run(cli.passphrase_fd),
+        Command::DeriveKey(cmd) => cmd.run(),
+        Command::Encrypt(mut cmd) => cmd.run(cli.passphrase_fd),
+        Command::Decrypt(mut cmd) => cmd.run(cli.passphrase_fd),
+        Command::Sign(mut cmd) => cmd.run(cli.passphrase_fd),
+        Command::Verify(mut cmd) => cmd.run(),
     }
 }
 
-fn secret_key(cmd: SecretKeyCmd, fd: Option<c_int>) -> Result<()> {
-    let secret_key = SecretKey::new();
-    let passphrase = read_passphrase(fd)?;
-    let ciphertext = secret_key.encrypt(passphrase.as_bytes(), 1 << 7, 1 << 10);
-    fs::write(cmd.output, ciphertext).map_err(anyhow::Error::from)
+#[derive(StructOpt, Debug)]
+#[structopt(name = "veil", about = "Stupid crypto tricks.")]
+struct Opts {
+    #[structopt(subcommand)]
+    cmd: Command,
+
+    #[structopt(
+        long = "passphrase-fd",
+        help = "The file descriptor from which the passphrase should be read"
+    )]
+    passphrase_fd: Option<c_int>,
 }
 
-fn public_key(cmd: PublicKeyCmd, fd: Option<c_int>) -> Result<()> {
-    let secret_key = open_secret_key(&cmd.secret_key, fd)?;
-    let public_key = secret_key.public_key(&cmd.key_id);
-    println!("{}", public_key);
-    Ok(())
+#[derive(StructOpt, Debug)]
+enum Command {
+    #[structopt(about = "Generate a new secret key", display_order = 0)]
+    SecretKey(SecretKeyCmd),
+
+    #[structopt(about = "Derive a public key from a secret key", display_order = 1)]
+    PublicKey(PublicKeyCmd),
+
+    #[structopt(
+        about = "Derive a public key from another public key",
+        display_order = 2
+    )]
+    DeriveKey(DeriveKeyCmd),
+
+    #[structopt(about = "Encrypt a message for a set of recipients", display_order = 3)]
+    Encrypt(EncryptCmd),
+
+    #[structopt(about = "Decrypt and verify a message", display_order = 4)]
+    Decrypt(DecryptCmd),
+
+    #[structopt(about = "Sign a message", display_order = 5)]
+    Sign(SignCmd),
+
+    #[structopt(about = "Verify a signature", display_order = 6)]
+    Verify(VerifyCmd),
 }
 
-fn derive_key(cmd: DeriveKeyCmd) -> Result<()> {
-    let root = cmd.public_key.parse::<PublicKey>()?;
-    let public_key = root.derive(&cmd.sub_key_id);
-    println!("{}", public_key);
-    Ok(())
+#[derive(Debug, StructOpt)]
+struct SecretKeyCmd {
+    #[structopt(
+        help = "The output path for the encrypted secret key",
+        parse(from_os_str)
+    )]
+    output: PathBuf,
 }
 
-fn encrypt(cmd: &mut EncryptCmd, fd: Option<c_int>) -> Result<()> {
-    let secret_key = open_secret_key(&cmd.secret_key, fd)?;
-    let private_key = secret_key.private_key(&cmd.key_id);
-    let pks = cmd
-        .recipients
-        .iter()
-        .map(|s| s.parse::<PublicKey>().map_err(anyhow::Error::from))
-        .collect::<Result<Vec<PublicKey>>>()?;
-    private_key.encrypt(
-        &mut cmd.plaintext,
-        &mut cmd.ciphertext,
-        pks,
-        cmd.fakes,
-        cmd.padding,
-    )?;
-    Ok(())
+impl SecretKeyCmd {
+    fn run(self, fd: Option<c_int>) -> Result<()> {
+        let secret_key = SecretKey::new();
+        let passphrase = read_passphrase(fd)?;
+        let ciphertext = secret_key.encrypt(passphrase.as_bytes(), 1 << 7, 1 << 10);
+        fs::write(self.output, ciphertext).map_err(anyhow::Error::from)
+    }
 }
 
-fn decrypt(cmd: &mut DecryptCmd, fd: Option<c_int>) -> Result<()> {
-    let secret_key = open_secret_key(&cmd.secret_key, fd)?;
-    let private_key = secret_key.private_key(&cmd.key_id);
-    let sender = cmd.sender.parse::<PublicKey>()?;
-    private_key.decrypt(&mut cmd.ciphertext, &mut cmd.plaintext, &sender)?;
-    Ok(())
+#[derive(Debug, StructOpt)]
+struct PublicKeyCmd {
+    #[structopt(help = "The path to the secret key", parse(from_os_str))]
+    secret_key: PathBuf,
+
+    #[structopt(help = "The ID of the public key to generate")]
+    key_id: String,
 }
 
-fn sign(cmd: &mut SignCmd, fd: Option<c_int>) -> Result<()> {
-    let secret_key = open_secret_key(&cmd.secret_key, fd)?;
-    let private_key = secret_key.private_key(&cmd.key_id);
-    let sig = private_key.sign(&mut cmd.message)?;
-    println!("{}", sig);
-    Ok(())
+impl PublicKeyCmd {
+    fn run(self, fd: Option<c_int>) -> Result<()> {
+        let secret_key = open_secret_key(&self.secret_key, fd)?;
+        let public_key = secret_key.public_key(&self.key_id);
+        println!("{}", public_key);
+        Ok(())
+    }
 }
 
-fn verify(cmd: &mut VerifyCmd) -> Result<()> {
-    let signer = cmd.public_key.parse::<PublicKey>()?;
-    let sig: Signature = cmd.signature.parse()?;
-    signer.verify(&mut cmd.message, &sig)?;
-    Ok(())
+#[derive(Debug, StructOpt)]
+struct DeriveKeyCmd {
+    #[structopt(help = "The public key")]
+    public_key: String,
+
+    #[structopt(help = "The ID of the public key to generate")]
+    sub_key_id: String,
+}
+
+impl DeriveKeyCmd {
+    fn run(self) -> Result<()> {
+        let root = self.public_key.parse::<PublicKey>()?;
+        let public_key = root.derive(&self.sub_key_id);
+        println!("{}", public_key);
+        Ok(())
+    }
+}
+
+#[derive(Debug, StructOpt)]
+struct EncryptCmd {
+    #[structopt(help = "The path to the secret key", parse(from_os_str))]
+    secret_key: PathBuf,
+
+    #[structopt(help = "The ID of the private key to use")]
+    key_id: String,
+
+    #[structopt(
+        help = "The path to the plaintext file or '-' for STDIN",
+        parse(try_from_os_str = clio::Input::try_from_os_str)
+    )]
+    plaintext: clio::Input,
+
+    #[structopt(
+        help = "The path to the ciphertext file or '-' for STDOUT",
+        parse(try_from_os_str = clio::Output::try_from_os_str)
+    )]
+    ciphertext: clio::Output,
+
+    #[structopt(required = true, help = "The recipients' public keys")]
+    recipients: Vec<String>,
+
+    #[structopt(long = "fakes", default_value = "0", help = "Add fake recipients")]
+    fakes: usize,
+
+    #[structopt(
+        long = "padding",
+        default_value = "0",
+        help = "Add bytes of random padding"
+    )]
+    padding: u64,
+}
+
+impl EncryptCmd {
+    fn run(&mut self, fd: Option<c_int>) -> Result<()> {
+        let secret_key = open_secret_key(&self.secret_key, fd)?;
+        let private_key = secret_key.private_key(&self.key_id);
+        let pks = self
+            .recipients
+            .iter()
+            .map(|s| s.parse::<PublicKey>().map_err(anyhow::Error::from))
+            .collect::<Result<Vec<PublicKey>>>()?;
+        private_key.encrypt(
+            &mut self.plaintext,
+            &mut self.ciphertext,
+            pks,
+            self.fakes,
+            self.padding,
+        )?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, StructOpt)]
+pub struct DecryptCmd {
+    #[structopt(help = "The path to the secret key", parse(from_os_str))]
+    secret_key: PathBuf,
+
+    #[structopt(help = "The ID of the private key to use")]
+    key_id: String,
+
+    #[structopt(
+        help = "The path to the ciphertext file or '-' for STDIN",
+        parse(try_from_os_str = clio::Input::try_from_os_str)
+    )]
+    ciphertext: clio::Input,
+
+    #[structopt(
+        help = "The path to the plaintext file or '-' for STDOUT",
+        parse(try_from_os_str = clio::Output::try_from_os_str)
+    )]
+    plaintext: clio::Output,
+
+    #[structopt(help = "The sender's public key")]
+    sender: String,
+}
+
+impl DecryptCmd {
+    fn run(&mut self, fd: Option<c_int>) -> Result<()> {
+        let secret_key = open_secret_key(&self.secret_key, fd)?;
+        let private_key = secret_key.private_key(&self.key_id);
+        let sender = self.sender.parse::<PublicKey>()?;
+        private_key.decrypt(&mut self.ciphertext, &mut self.plaintext, &sender)?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, StructOpt)]
+struct SignCmd {
+    #[structopt(help = "The path to the secret key", parse(from_os_str))]
+    secret_key: PathBuf,
+
+    #[structopt(help = "The ID of the private key to use")]
+    key_id: String,
+
+    #[structopt(
+        help = "The path to the message or '-' for STDIN",
+        parse(try_from_os_str = clio::Input::try_from_os_str)
+    )]
+    message: clio::Input,
+}
+
+impl SignCmd {
+    fn run(&mut self, fd: Option<c_int>) -> Result<()> {
+        let secret_key = open_secret_key(&self.secret_key, fd)?;
+        let private_key = secret_key.private_key(&self.key_id);
+        let sig = private_key.sign(&mut self.message)?;
+        println!("{}", sig);
+        Ok(())
+    }
+}
+
+#[derive(Debug, StructOpt)]
+struct VerifyCmd {
+    #[structopt(help = "The signer's public key")]
+    public_key: String,
+
+    #[structopt(
+        help = "The path to the message or '-' for STDIN",
+        parse(try_from_os_str = clio::Input::try_from_os_str)
+    )]
+    message: clio::Input,
+
+    #[structopt(help = "The signature")]
+    signature: String,
+}
+
+impl VerifyCmd {
+    fn run(&mut self) -> Result<()> {
+        let signer = self.public_key.parse::<PublicKey>()?;
+        let sig: Signature = self.signature.parse()?;
+        signer.verify(&mut self.message, &sig)?;
+        Ok(())
+    }
 }
 
 fn open_secret_key(path: &Path, passphrase_fd: Option<c_int>) -> Result<SecretKey> {
