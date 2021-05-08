@@ -1,7 +1,7 @@
-use std::io::{Read, Write};
+use std::io::Read;
 use std::os::raw::c_int;
 use std::path::Path;
-use std::{fs, io, mem};
+use std::{fs, io};
 
 use anyhow::Result;
 use filedescriptor::FileDescriptor;
@@ -9,14 +9,14 @@ use structopt::StructOpt;
 
 use veil::{PublicKey, SecretKey, Signature};
 
-use crate::opts::{Command, Opts};
+use crate::opts::{Command, Input, Opts, Output};
 
 mod opts;
 
 fn main() -> Result<()> {
     let cli = Opts::from_args();
     match cli.cmd {
-        Command::SecretKey { output } => secret_key(&output),
+        Command::SecretKey { output } => secret_key(&mut fs::File::create(output)?),
         Command::PublicKey { secret_key, key_id } => {
             let secret_key = open_secret_key(&secret_key, cli.passphrase_fd)?;
             public_key(secret_key, &key_id)
@@ -35,15 +35,44 @@ fn main() -> Result<()> {
             padding,
         } => {
             let secret_key = open_secret_key(&secret_key, cli.passphrase_fd)?;
-            encrypt(
-                secret_key,
-                &key_id,
-                &plaintext,
-                &ciphertext,
-                recipients,
-                fakes,
-                padding,
-            )
+            match (plaintext, ciphertext) {
+                (Input::StdIn, Output::StdOut) => encrypt(
+                    secret_key,
+                    &key_id,
+                    &mut io::stdin(),
+                    &mut io::stdout(),
+                    recipients,
+                    fakes,
+                    padding,
+                ),
+                (Input::Path(input), Output::StdOut) => encrypt(
+                    secret_key,
+                    &key_id,
+                    &mut fs::File::open(input)?,
+                    &mut io::stdout(),
+                    recipients,
+                    fakes,
+                    padding,
+                ),
+                (Input::StdIn, Output::Path(output)) => encrypt(
+                    secret_key,
+                    &key_id,
+                    &mut io::stdin(),
+                    &mut fs::File::create(output)?,
+                    recipients,
+                    fakes,
+                    padding,
+                ),
+                (Input::Path(input), Output::Path(output)) => encrypt(
+                    secret_key,
+                    &key_id,
+                    &mut fs::File::open(input)?,
+                    &mut fs::File::create(output)?,
+                    recipients,
+                    fakes,
+                    padding,
+                ),
+            }
         }
         Command::Decrypt {
             secret_key,
@@ -53,7 +82,36 @@ fn main() -> Result<()> {
             sender,
         } => {
             let secret_key = open_secret_key(&secret_key, cli.passphrase_fd)?;
-            decrypt(secret_key, &key_id, &ciphertext, &plaintext, &sender)
+            match (ciphertext, plaintext) {
+                (Input::StdIn, Output::StdOut) => decrypt(
+                    secret_key,
+                    &key_id,
+                    &mut io::stdin(),
+                    &mut io::stdout(),
+                    &sender,
+                ),
+                (Input::Path(input), Output::StdOut) => decrypt(
+                    secret_key,
+                    &key_id,
+                    &mut fs::File::open(input)?,
+                    &mut io::stdout(),
+                    &sender,
+                ),
+                (Input::StdIn, Output::Path(output)) => decrypt(
+                    secret_key,
+                    &key_id,
+                    &mut io::stdin(),
+                    &mut fs::File::create(output)?,
+                    &sender,
+                ),
+                (Input::Path(input), Output::Path(output)) => decrypt(
+                    secret_key,
+                    &key_id,
+                    &mut fs::File::open(input)?,
+                    &mut fs::File::create(output)?,
+                    &sender,
+                ),
+            }
         }
         Command::Sign {
             secret_key,
@@ -61,22 +119,30 @@ fn main() -> Result<()> {
             message,
         } => {
             let secret_key = open_secret_key(&secret_key, cli.passphrase_fd)?;
-            sign(secret_key, &key_id, &message)
+            match message {
+                Input::StdIn => sign(secret_key, &key_id, &mut io::stdin()),
+                Input::Path(p) => sign(secret_key, &key_id, &mut fs::File::open(p)?),
+            }
         }
         Command::Verify {
             public_key,
             message,
             signature,
-        } => verify(&public_key, &message, &signature),
+        } => match message {
+            Input::StdIn => verify(&public_key, &mut io::stdin(), &signature),
+            Input::Path(p) => verify(&public_key, &mut fs::File::open(p)?, &signature),
+        },
     }
 }
 
-fn secret_key(output_path: &Path) -> Result<()> {
+fn secret_key<W>(output: &mut W) -> Result<()>
+where
+    W: io::Write,
+{
     let secret_key = SecretKey::new();
-    let mut f = open_output(output_path)?;
     let passphrase = rpassword::read_password_from_tty(Some("Enter passphrase: "))?;
     let ciphertext = secret_key.encrypt(passphrase.as_bytes(), 1 << 7, 1 << 10);
-    f.write_all(&ciphertext)?;
+    output.write_all(&ciphertext)?;
     Ok(())
 }
 
@@ -93,83 +159,65 @@ fn derive_key(public_key: &str, key_id: &str) -> Result<()> {
     Ok(())
 }
 
-fn encrypt(
+fn encrypt<R, W>(
     secret_key: SecretKey,
     key_id: &str,
-    plaintext: &Path,
-    ciphertext: &Path,
+    plaintext: &mut R,
+    ciphertext: &mut W,
     recipients: Vec<String>,
     fakes: usize,
     padding: u64,
-) -> Result<()> {
+) -> Result<()>
+where
+    R: io::Read,
+    W: io::Write,
+{
     let private_key = secret_key.private_key(key_id);
-    let mut plaintext = open_input(plaintext)?;
-    let mut ciphertext = open_output(ciphertext)?;
     let pks = recipients
         .into_iter()
         .map(|s| s.parse::<PublicKey>().map_err(anyhow::Error::from))
         .collect::<Result<Vec<PublicKey>>>()?;
 
-    private_key.encrypt(&mut plaintext, &mut ciphertext, pks, fakes, padding)?;
+    private_key.encrypt(plaintext, ciphertext, pks, fakes, padding)?;
 
     Ok(())
 }
 
-fn decrypt(
+fn decrypt<R, W>(
     secret_key: SecretKey,
     key_id: &str,
-    ciphertext: &Path,
-    plaintext_path: &Path,
+    ciphertext: &mut R,
+    plaintext: &mut W,
     sender_ascii: &str,
-) -> Result<()> {
+) -> Result<()>
+where
+    R: io::Read,
+    W: io::Write,
+{
     let private_key = secret_key.private_key(key_id);
     let sender = sender_ascii.parse::<PublicKey>()?;
-    let mut ciphertext = open_input(ciphertext)?;
-    let mut plaintext = open_output(plaintext_path)?;
-
-    if let Err(e) = private_key.decrypt(&mut ciphertext, &mut plaintext, &sender) {
-        if plaintext_path != Path::new("-") {
-            mem::drop(plaintext);
-            fs::remove_file(plaintext_path)?;
-        }
-        return Err(anyhow::Error::from(e));
-    }
-
+    private_key.decrypt(ciphertext, plaintext, &sender)?;
     Ok(())
 }
 
-fn sign(secret_key: SecretKey, key_id: &str, message: &Path) -> Result<()> {
+fn sign<R>(secret_key: SecretKey, key_id: &str, message: &mut R) -> Result<()>
+where
+    R: io::Read,
+{
     let private_key = secret_key.private_key(key_id);
-    let mut message = open_input(message)?;
-
-    let sig = private_key.sign(&mut message)?;
+    let sig = private_key.sign(message)?;
     println!("{}", sig);
-
     Ok(())
 }
 
-fn verify(signer: &str, message: &Path, signature: &str) -> Result<()> {
+fn verify<R>(signer: &str, message: &mut R, signature: &str) -> Result<()>
+where
+    R: io::Read,
+{
     let signer = signer.parse::<PublicKey>()?;
     let sig: Signature = signature.parse()?;
-    let mut message = open_input(message)?;
-    signer.verify(&mut message, &sig)?;
+    signer.verify(message, &sig)?;
     Ok(())
-}
-
-fn open_input(path: &Path) -> Result<Box<dyn io::Read>> {
-    Ok(if path == Path::new("-") {
-        Box::new(io::stdin())
-    } else {
-        Box::new(fs::File::open(path)?)
-    })
-}
-
-fn open_output(path: &Path) -> Result<Box<dyn io::Write>> {
-    Ok(if path == Path::new("-") {
-        Box::new(io::stdout())
-    } else {
-        Box::new(fs::File::create(path)?)
-    })
 }
 
 fn open_secret_key(path: &Path, passphrase_fd: Option<c_int>) -> Result<SecretKey> {
