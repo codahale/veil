@@ -12,14 +12,18 @@ use veil::{PublicKey, SecretKey, Signature};
 fn main() -> Result<()> {
     let cli = Opts::from_args();
     match cli.cmd {
-        Command::SecretKey(cmd) => cmd.run(cli.passphrase_fd),
-        Command::PublicKey(cmd) => cmd.run(cli.passphrase_fd),
-        Command::DeriveKey(cmd) => cmd.run(),
+        Command::SecretKey(mut cmd) => cmd.run(cli.passphrase_fd),
+        Command::PublicKey(mut cmd) => cmd.run(cli.passphrase_fd),
+        Command::DeriveKey(mut cmd) => cmd.run(None),
         Command::Encrypt(mut cmd) => cmd.run(cli.passphrase_fd),
         Command::Decrypt(mut cmd) => cmd.run(cli.passphrase_fd),
         Command::Sign(mut cmd) => cmd.run(cli.passphrase_fd),
-        Command::Verify(mut cmd) => cmd.run(),
+        Command::Verify(mut cmd) => cmd.run(None),
     }
+}
+
+trait Cmd {
+    fn run(&mut self, fd: Option<c_int>) -> Result<()>;
 }
 
 #[derive(StructOpt, Debug)]
@@ -71,12 +75,12 @@ struct SecretKeyCmd {
     output: PathBuf,
 }
 
-impl SecretKeyCmd {
-    fn run(self, fd: Option<c_int>) -> Result<()> {
+impl Cmd for SecretKeyCmd {
+    fn run(&mut self, fd: Option<c_int>) -> Result<()> {
         let secret_key = SecretKey::new();
         let passphrase = read_passphrase(fd)?;
         let ciphertext = secret_key.encrypt(passphrase.as_bytes(), 1 << 7, 1 << 10);
-        fs::write(self.output, ciphertext).map_err(anyhow::Error::from)
+        fs::write(&mut self.output, ciphertext).map_err(anyhow::Error::from)
     }
 }
 
@@ -89,8 +93,8 @@ struct PublicKeyCmd {
     key_id: String,
 }
 
-impl PublicKeyCmd {
-    fn run(self, fd: Option<c_int>) -> Result<()> {
+impl Cmd for PublicKeyCmd {
+    fn run(&mut self, fd: Option<c_int>) -> Result<()> {
         let secret_key = open_secret_key(&self.secret_key, fd)?;
         let public_key = secret_key.public_key(&self.key_id);
         println!("{}", public_key);
@@ -107,8 +111,8 @@ struct DeriveKeyCmd {
     sub_key_id: String,
 }
 
-impl DeriveKeyCmd {
-    fn run(self) -> Result<()> {
+impl Cmd for DeriveKeyCmd {
+    fn run(&mut self, _fd: Option<c_int>) -> Result<()> {
         let root = self.public_key.parse::<PublicKey>()?;
         let public_key = root.derive(&self.sub_key_id);
         println!("{}", public_key);
@@ -150,7 +154,7 @@ struct EncryptCmd {
     padding: u64,
 }
 
-impl EncryptCmd {
+impl Cmd for EncryptCmd {
     fn run(&mut self, fd: Option<c_int>) -> Result<()> {
         let secret_key = open_secret_key(&self.secret_key, fd)?;
         let private_key = secret_key.private_key(&self.key_id);
@@ -194,7 +198,7 @@ pub struct DecryptCmd {
     sender: String,
 }
 
-impl DecryptCmd {
+impl Cmd for DecryptCmd {
     fn run(&mut self, fd: Option<c_int>) -> Result<()> {
         let secret_key = open_secret_key(&self.secret_key, fd)?;
         let private_key = secret_key.private_key(&self.key_id);
@@ -219,7 +223,7 @@ struct SignCmd {
     message: clio::Input,
 }
 
-impl SignCmd {
+impl Cmd for SignCmd {
     fn run(&mut self, fd: Option<c_int>) -> Result<()> {
         let secret_key = open_secret_key(&self.secret_key, fd)?;
         let private_key = secret_key.private_key(&self.key_id);
@@ -244,8 +248,8 @@ struct VerifyCmd {
     signature: String,
 }
 
-impl VerifyCmd {
-    fn run(&mut self) -> Result<()> {
+impl Cmd for VerifyCmd {
+    fn run(&mut self, _fd: Option<c_int>) -> Result<()> {
         let signer = self.public_key.parse::<PublicKey>()?;
         let sig: Signature = self.signature.parse()?;
         signer.verify(&mut self.message, &sig)?;
