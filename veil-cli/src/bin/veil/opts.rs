@@ -19,32 +19,32 @@ pub struct Opts {
 #[derive(StructOpt, Debug)]
 pub enum Command {
     #[structopt(about = "Generate a new secret key", display_order = 0)]
-    SecretKey(SecretKey),
+    SecretKey(SecretKeyCmd),
 
     #[structopt(about = "Derive a public key from a secret key", display_order = 1)]
-    PublicKey(PublicKey),
+    PublicKey(PublicKeyCmd),
 
     #[structopt(
         about = "Derive a public key from another public key",
         display_order = 2
     )]
-    DeriveKey(DeriveKey),
+    DeriveKey(DeriveKeyCmd),
 
     #[structopt(about = "Encrypt a message for a set of recipients", display_order = 3)]
-    Encrypt(Encrypt),
+    Encrypt(EncryptCmd),
 
     #[structopt(about = "Decrypt and verify a message", display_order = 4)]
-    Decrypt(Decrypt),
+    Decrypt(DecryptCmd),
 
     #[structopt(about = "Sign a message", display_order = 5)]
-    Sign(Sign),
+    Sign(SignCmd),
 
     #[structopt(about = "Verify a signature", display_order = 6)]
-    Verify(Verify),
+    Verify(VerifyCmd),
 }
 
 #[derive(Debug, StructOpt)]
-pub struct SecretKey {
+pub struct SecretKeyCmd {
     #[structopt(
         help = "The output path for the encrypted secret key",
         parse(from_os_str)
@@ -53,7 +53,7 @@ pub struct SecretKey {
 }
 
 #[derive(Debug, StructOpt)]
-pub struct PublicKey {
+pub struct PublicKeyCmd {
     #[structopt(help = "The path to the secret key", parse(from_os_str))]
     pub secret_key: PathBuf,
 
@@ -62,7 +62,7 @@ pub struct PublicKey {
 }
 
 #[derive(Debug, StructOpt)]
-pub struct DeriveKey {
+pub struct DeriveKeyCmd {
     #[structopt(help = "The public key")]
     pub public_key: String,
 
@@ -71,7 +71,7 @@ pub struct DeriveKey {
 }
 
 #[derive(Debug, StructOpt)]
-pub struct Encrypt {
+pub struct EncryptCmd {
     #[structopt(help = "The path to the secret key", parse(from_os_str))]
     pub secret_key: PathBuf,
 
@@ -105,7 +105,7 @@ pub struct Encrypt {
 }
 
 #[derive(Debug, StructOpt)]
-pub struct Decrypt {
+pub struct DecryptCmd {
     #[structopt(help = "The path to the secret key", parse(from_os_str))]
     pub secret_key: PathBuf,
 
@@ -129,7 +129,7 @@ pub struct Decrypt {
 }
 
 #[derive(Debug, StructOpt)]
-pub struct Sign {
+pub struct SignCmd {
     #[structopt(help = "The path to the secret key", parse(from_os_str))]
     pub secret_key: PathBuf,
 
@@ -144,7 +144,7 @@ pub struct Sign {
 }
 
 #[derive(Debug, StructOpt)]
-pub struct Verify {
+pub struct VerifyCmd {
     #[structopt(help = "The signer's public key")]
     pub public_key: String,
 

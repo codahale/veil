@@ -1,7 +1,7 @@
+use std::fs;
 use std::io::Read;
 use std::os::raw::c_int;
 use std::path::Path;
-use std::{fs, io};
 
 use anyhow::Result;
 use filedescriptor::FileDescriptor;
@@ -9,131 +9,86 @@ use structopt::StructOpt;
 
 use veil::{PublicKey, SecretKey, Signature};
 
-use crate::opts::{Command, Opts};
+use crate::opts::{
+    Command, DecryptCmd, DeriveKeyCmd, EncryptCmd, Opts, PublicKeyCmd, SecretKeyCmd, SignCmd,
+    VerifyCmd,
+};
 
 mod opts;
 
 fn main() -> Result<()> {
     let cli = Opts::from_args();
     match cli.cmd {
-        Command::SecretKey(cmd) => secret_key(&mut fs::File::create(cmd.output)?),
-        Command::PublicKey(cmd) => {
-            let secret_key = open_secret_key(&cmd.secret_key, cli.passphrase_fd)?;
-            public_key(secret_key, &cmd.key_id)
-        }
-        Command::DeriveKey(cmd) => derive_key(&cmd.public_key, &cmd.sub_key_id),
-        Command::Encrypt(mut cmd) => {
-            let secret_key = open_secret_key(&cmd.secret_key, cli.passphrase_fd)?;
-            encrypt(
-                secret_key,
-                &cmd.key_id,
-                &mut cmd.plaintext,
-                &mut cmd.ciphertext,
-                cmd.recipients,
-                cmd.fakes,
-                cmd.padding,
-            )
-        }
-        Command::Decrypt(mut cmd) => {
-            let secret_key = open_secret_key(&cmd.secret_key, cli.passphrase_fd)?;
-            decrypt(
-                secret_key,
-                &cmd.key_id,
-                &mut cmd.ciphertext,
-                &mut cmd.plaintext,
-                &cmd.sender,
-            )
-        }
-        Command::Sign(mut cmd) => {
-            let secret_key = open_secret_key(&cmd.secret_key, cli.passphrase_fd)?;
-            sign(secret_key, &cmd.key_id, &mut cmd.message)
-        }
-        Command::Verify(mut cmd) => verify(&cmd.public_key, &mut cmd.message, &cmd.signature),
+        Command::SecretKey(cmd) => secret_key(cmd),
+        Command::PublicKey(cmd) => public_key(cmd, cli.passphrase_fd),
+        Command::DeriveKey(cmd) => derive_key(cmd),
+        Command::Encrypt(cmd) => encrypt(cmd, cli.passphrase_fd),
+        Command::Decrypt(cmd) => decrypt(cmd, cli.passphrase_fd),
+        Command::Sign(cmd) => sign(cmd, cli.passphrase_fd),
+        Command::Verify(cmd) => verify(cmd),
     }
 }
 
-fn secret_key<W>(output: &mut W) -> Result<()>
-where
-    W: io::Write,
-{
+fn secret_key(cmd: SecretKeyCmd) -> Result<()> {
     let secret_key = SecretKey::new();
     let passphrase = rpassword::read_password_from_tty(Some("Enter passphrase: "))?;
     let ciphertext = secret_key.encrypt(passphrase.as_bytes(), 1 << 7, 1 << 10);
-    output.write_all(&ciphertext)?;
-    Ok(())
+    fs::write(cmd.output, ciphertext).map_err(anyhow::Error::from)
 }
 
-fn public_key(secret_key: SecretKey, key_id: &str) -> Result<()> {
-    let public_key = secret_key.public_key(key_id);
+fn public_key(cmd: PublicKeyCmd, fd: Option<c_int>) -> Result<()> {
+    let secret_key = open_secret_key(&cmd.secret_key, fd)?;
+    let public_key = secret_key.public_key(&cmd.key_id);
     println!("{}", public_key);
     Ok(())
 }
 
-fn derive_key(public_key: &str, key_id: &str) -> Result<()> {
-    let root = public_key.parse::<PublicKey>()?;
-    let public_key = root.derive(key_id);
+fn derive_key(cmd: DeriveKeyCmd) -> Result<()> {
+    let root = cmd.public_key.parse::<PublicKey>()?;
+    let public_key = root.derive(&cmd.sub_key_id);
     println!("{}", public_key);
     Ok(())
 }
 
-fn encrypt<R, W>(
-    secret_key: SecretKey,
-    key_id: &str,
-    plaintext: &mut R,
-    ciphertext: &mut W,
-    recipients: Vec<String>,
-    fakes: usize,
-    padding: u64,
-) -> Result<()>
-where
-    R: io::Read,
-    W: io::Write,
-{
-    let private_key = secret_key.private_key(key_id);
-    let pks = recipients
+fn encrypt(cmd: EncryptCmd, fd: Option<c_int>) -> Result<()> {
+    let secret_key = open_secret_key(&cmd.secret_key, fd)?;
+    let private_key = secret_key.private_key(&cmd.key_id);
+    let pks = cmd
+        .recipients
         .into_iter()
         .map(|s| s.parse::<PublicKey>().map_err(anyhow::Error::from))
         .collect::<Result<Vec<PublicKey>>>()?;
 
-    private_key.encrypt(plaintext, ciphertext, pks, fakes, padding)?;
-
+    let mut plaintext = cmd.plaintext;
+    let mut ciphertext = cmd.ciphertext;
+    private_key.encrypt(&mut plaintext, &mut ciphertext, pks, cmd.fakes, cmd.padding)?;
     Ok(())
 }
 
-fn decrypt<R, W>(
-    secret_key: SecretKey,
-    key_id: &str,
-    ciphertext: &mut R,
-    plaintext: &mut W,
-    sender_ascii: &str,
-) -> Result<()>
-where
-    R: io::Read,
-    W: io::Write,
-{
-    let private_key = secret_key.private_key(key_id);
-    let sender = sender_ascii.parse::<PublicKey>()?;
-    private_key.decrypt(ciphertext, plaintext, &sender)?;
+fn decrypt(cmd: DecryptCmd, fd: Option<c_int>) -> Result<()> {
+    let secret_key = open_secret_key(&cmd.secret_key, fd)?;
+    let private_key = secret_key.private_key(&cmd.key_id);
+    let sender = cmd.sender.parse::<PublicKey>()?;
+    let mut ciphertext = cmd.ciphertext;
+    let mut plaintext = cmd.plaintext;
+    private_key.decrypt(&mut ciphertext, &mut plaintext, &sender)?;
     Ok(())
 }
 
-fn sign<R>(secret_key: SecretKey, key_id: &str, message: &mut R) -> Result<()>
-where
-    R: io::Read,
-{
-    let private_key = secret_key.private_key(key_id);
-    let sig = private_key.sign(message)?;
+fn sign(cmd: SignCmd, fd: Option<c_int>) -> Result<()> {
+    let secret_key = open_secret_key(&cmd.secret_key, fd)?;
+    let private_key = secret_key.private_key(&cmd.key_id);
+    let mut message = cmd.message;
+    let sig = private_key.sign(&mut message)?;
     println!("{}", sig);
     Ok(())
 }
 
-fn verify<R>(signer: &str, message: &mut R, signature: &str) -> Result<()>
-where
-    R: io::Read,
-{
-    let signer = signer.parse::<PublicKey>()?;
-    let sig: Signature = signature.parse()?;
-    signer.verify(message, &sig)?;
+fn verify(cmd: VerifyCmd) -> Result<()> {
+    let signer = cmd.public_key.parse::<PublicKey>()?;
+    let sig: Signature = cmd.signature.parse()?;
+    let mut message = cmd.message;
+    signer.verify(&mut message, &sig)?;
     Ok(())
 }
 
