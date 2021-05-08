@@ -9,10 +9,7 @@ use structopt::StructOpt;
 
 use veil::{PublicKey, SecretKey, Signature};
 
-use crate::opts::{
-    Command, DecryptCmd, DeriveKeyCmd, EncryptCmd, Opts, PublicKeyCmd, SecretKeyCmd, SignCmd,
-    VerifyCmd,
-};
+use crate::opts::*;
 
 mod opts;
 
