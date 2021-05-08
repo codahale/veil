@@ -16,72 +16,39 @@ mod opts;
 fn main() -> Result<()> {
     let cli = Opts::from_args();
     match cli.cmd {
-        Command::SecretKey { output } => secret_key(&mut fs::File::create(output)?),
-        Command::PublicKey { secret_key, key_id } => {
-            let secret_key = open_secret_key(&secret_key, cli.passphrase_fd)?;
-            public_key(secret_key, &key_id)
+        Command::SecretKey(cmd) => secret_key(&mut fs::File::create(cmd.output)?),
+        Command::PublicKey(cmd) => {
+            let secret_key = open_secret_key(&cmd.secret_key, cli.passphrase_fd)?;
+            public_key(secret_key, &cmd.key_id)
         }
-        Command::DeriveKey {
-            public_key,
-            sub_key_id,
-        } => derive_key(&public_key, &sub_key_id),
-        Command::Encrypt {
-            secret_key,
-            key_id,
-            plaintext,
-            ciphertext,
-            recipients,
-            fakes,
-            padding,
-        } => {
-            let secret_key = open_secret_key(&secret_key, cli.passphrase_fd)?;
-            let mut plaintext = plaintext;
-            let mut ciphertext = ciphertext;
+        Command::DeriveKey(cmd) => derive_key(&cmd.public_key, &cmd.sub_key_id),
+        Command::Encrypt(mut cmd) => {
+            let secret_key = open_secret_key(&cmd.secret_key, cli.passphrase_fd)?;
             encrypt(
                 secret_key,
-                &key_id,
-                &mut plaintext,
-                &mut ciphertext,
-                recipients,
-                fakes,
-                padding,
+                &cmd.key_id,
+                &mut cmd.plaintext,
+                &mut cmd.ciphertext,
+                cmd.recipients,
+                cmd.fakes,
+                cmd.padding,
             )
         }
-        Command::Decrypt {
-            secret_key,
-            key_id,
-            ciphertext,
-            plaintext,
-            sender,
-        } => {
-            let secret_key = open_secret_key(&secret_key, cli.passphrase_fd)?;
-            let mut ciphertext = ciphertext;
-            let mut plaintext = plaintext;
+        Command::Decrypt(mut cmd) => {
+            let secret_key = open_secret_key(&cmd.secret_key, cli.passphrase_fd)?;
             decrypt(
                 secret_key,
-                &key_id,
-                &mut ciphertext,
-                &mut plaintext,
-                &sender,
+                &cmd.key_id,
+                &mut cmd.ciphertext,
+                &mut cmd.plaintext,
+                &cmd.sender,
             )
         }
-        Command::Sign {
-            secret_key,
-            key_id,
-            message,
-        } => {
-            let secret_key = open_secret_key(&secret_key, cli.passphrase_fd)?;
-            let mut message = message;
-            sign(secret_key, &key_id, &mut message)
+        Command::Sign(mut cmd) => {
+            let secret_key = open_secret_key(&cmd.secret_key, cli.passphrase_fd)?;
+            sign(secret_key, &cmd.key_id, &mut cmd.message)
         }
-        Command::Verify {
-            public_key,
-            message,
-            signature,
-        } => {
-            let mut message = message;
-            verify(&public_key, &mut message, &signature)
-        }
+        Command::Verify(mut cmd) => verify(&cmd.public_key, &mut cmd.message, &cmd.signature),
     }
 }
 

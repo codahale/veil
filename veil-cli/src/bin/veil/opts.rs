@@ -19,120 +19,141 @@ pub struct Opts {
 #[derive(StructOpt, Debug)]
 pub enum Command {
     #[structopt(about = "Generate a new secret key", display_order = 0)]
-    SecretKey {
-        #[structopt(
-            help = "The output path for the encrypted secret key",
-            parse(from_os_str)
-        )]
-        output: PathBuf,
-    },
+    SecretKey(SecretKey),
 
     #[structopt(about = "Derive a public key from a secret key", display_order = 1)]
-    PublicKey {
-        #[structopt(help = "The path to the secret key", parse(from_os_str))]
-        secret_key: PathBuf,
-
-        #[structopt(help = "The ID of the public key to generate")]
-        key_id: String,
-    },
+    PublicKey(PublicKey),
 
     #[structopt(
         about = "Derive a public key from another public key",
         display_order = 2
     )]
-    DeriveKey {
-        #[structopt(help = "The public key")]
-        public_key: String,
-
-        #[structopt(help = "The ID of the public key to generate")]
-        sub_key_id: String,
-    },
+    DeriveKey(DeriveKey),
 
     #[structopt(about = "Encrypt a message for a set of recipients", display_order = 3)]
-    Encrypt {
-        #[structopt(help = "The path to the secret key", parse(from_os_str))]
-        secret_key: PathBuf,
-
-        #[structopt(help = "The ID of the private key to use")]
-        key_id: String,
-
-        #[structopt(
-            help = "The path to the plaintext file or '-' for STDIN",
-            parse(try_from_os_str = clio::Input::try_from_os_str)
-        )]
-        plaintext: clio::Input,
-
-        #[structopt(
-            help = "The path to the ciphertext file or '-' for STDOUT",
-            parse(try_from_os_str = clio::Output::try_from_os_str)
-        )]
-        ciphertext: clio::Output,
-
-        #[structopt(required = true, help = "The recipients' public keys")]
-        recipients: Vec<String>,
-
-        #[structopt(long = "fakes", default_value = "0", help = "Add fake recipients")]
-        fakes: usize,
-
-        #[structopt(
-            long = "padding",
-            default_value = "0",
-            help = "Add bytes of random padding"
-        )]
-        padding: u64,
-    },
+    Encrypt(Encrypt),
 
     #[structopt(about = "Decrypt and verify a message", display_order = 4)]
-    Decrypt {
-        #[structopt(help = "The path to the secret key", parse(from_os_str))]
-        secret_key: PathBuf,
-
-        #[structopt(help = "The ID of the private key to use")]
-        key_id: String,
-
-        #[structopt(
-            help = "The path to the ciphertext file or '-' for STDIN",
-            parse(try_from_os_str = clio::Input::try_from_os_str)
-        )]
-        ciphertext: clio::Input,
-
-        #[structopt(
-            help = "The path to the plaintext file or '-' for STDOUT",
-            parse(try_from_os_str = clio::Output::try_from_os_str)
-        )]
-        plaintext: clio::Output,
-
-        #[structopt(help = "The sender's public key")]
-        sender: String,
-    },
+    Decrypt(Decrypt),
 
     #[structopt(about = "Sign a message", display_order = 5)]
-    Sign {
-        #[structopt(help = "The path to the secret key", parse(from_os_str))]
-        secret_key: PathBuf,
-
-        #[structopt(help = "The ID of the private key to use")]
-        key_id: String,
-
-        #[structopt(
-            help = "The path to the message or '-' for STDIN",
-            parse(try_from_os_str = clio::Input::try_from_os_str)
-        )]
-        message: clio::Input,
-    },
+    Sign(Sign),
 
     #[structopt(about = "Verify a signature", display_order = 6)]
-    Verify {
-        #[structopt(help = "The signer's public key")]
-        public_key: String,
+    Verify(Verify),
+}
 
-        #[structopt(
-            help = "The path to the message or '-' for STDIN",
-            parse(try_from_os_str = clio::Input::try_from_os_str)
-        )]
-        message: clio::Input,
+#[derive(Debug, StructOpt)]
+pub struct SecretKey {
+    #[structopt(
+        help = "The output path for the encrypted secret key",
+        parse(from_os_str)
+    )]
+    pub output: PathBuf,
+}
 
-        #[structopt(help = "The signature")]
-        signature: String,
-    },
+#[derive(Debug, StructOpt)]
+pub struct PublicKey {
+    #[structopt(help = "The path to the secret key", parse(from_os_str))]
+    pub secret_key: PathBuf,
+
+    #[structopt(help = "The ID of the public key to generate")]
+    pub key_id: String,
+}
+
+#[derive(Debug, StructOpt)]
+pub struct DeriveKey {
+    #[structopt(help = "The public key")]
+    pub public_key: String,
+
+    #[structopt(help = "The ID of the public key to generate")]
+    pub sub_key_id: String,
+}
+
+#[derive(Debug, StructOpt)]
+pub struct Encrypt {
+    #[structopt(help = "The path to the secret key", parse(from_os_str))]
+    pub secret_key: PathBuf,
+
+    #[structopt(help = "The ID of the private key to use")]
+    pub key_id: String,
+
+    #[structopt(
+        help = "The path to the plaintext file or '-' for STDIN",
+        parse(try_from_os_str = clio::Input::try_from_os_str)
+    )]
+    pub plaintext: clio::Input,
+
+    #[structopt(
+        help = "The path to the ciphertext file or '-' for STDOUT",
+        parse(try_from_os_str = clio::Output::try_from_os_str)
+    )]
+    pub ciphertext: clio::Output,
+
+    #[structopt(required = true, help = "The recipients' public keys")]
+    pub recipients: Vec<String>,
+
+    #[structopt(long = "fakes", default_value = "0", help = "Add fake recipients")]
+    pub fakes: usize,
+
+    #[structopt(
+        long = "padding",
+        default_value = "0",
+        help = "Add bytes of random padding"
+    )]
+    pub padding: u64,
+}
+
+#[derive(Debug, StructOpt)]
+pub struct Decrypt {
+    #[structopt(help = "The path to the secret key", parse(from_os_str))]
+    pub secret_key: PathBuf,
+
+    #[structopt(help = "The ID of the private key to use")]
+    pub key_id: String,
+
+    #[structopt(
+        help = "The path to the ciphertext file or '-' for STDIN",
+        parse(try_from_os_str = clio::Input::try_from_os_str)
+    )]
+    pub ciphertext: clio::Input,
+
+    #[structopt(
+        help = "The path to the plaintext file or '-' for STDOUT",
+        parse(try_from_os_str = clio::Output::try_from_os_str)
+    )]
+    pub plaintext: clio::Output,
+
+    #[structopt(help = "The sender's public key")]
+    pub sender: String,
+}
+
+#[derive(Debug, StructOpt)]
+pub struct Sign {
+    #[structopt(help = "The path to the secret key", parse(from_os_str))]
+    pub secret_key: PathBuf,
+
+    #[structopt(help = "The ID of the private key to use")]
+    pub key_id: String,
+
+    #[structopt(
+        help = "The path to the message or '-' for STDIN",
+        parse(try_from_os_str = clio::Input::try_from_os_str)
+    )]
+    pub message: clio::Input,
+}
+
+#[derive(Debug, StructOpt)]
+pub struct Verify {
+    #[structopt(help = "The signer's public key")]
+    pub public_key: String,
+
+    #[structopt(
+        help = "The path to the message or '-' for STDIN",
+        parse(try_from_os_str = clio::Input::try_from_os_str)
+    )]
+    pub message: clio::Input,
+
+    #[structopt(help = "The signature")]
+    pub signature: String,
 }
