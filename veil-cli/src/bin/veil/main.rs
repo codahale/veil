@@ -16,7 +16,7 @@ mod opts;
 fn main() -> Result<()> {
     let cli = Opts::from_args();
     match cli.cmd {
-        Command::SecretKey(cmd) => secret_key(cmd),
+        Command::SecretKey(cmd) => secret_key(cmd, cli.passphrase_fd),
         Command::PublicKey(cmd) => public_key(cmd, cli.passphrase_fd),
         Command::DeriveKey(cmd) => derive_key(cmd),
         Command::Encrypt(mut cmd) => encrypt(&mut cmd, cli.passphrase_fd),
@@ -26,9 +26,9 @@ fn main() -> Result<()> {
     }
 }
 
-fn secret_key(cmd: SecretKeyCmd) -> Result<()> {
+fn secret_key(cmd: SecretKeyCmd, fd: Option<c_int>) -> Result<()> {
     let secret_key = SecretKey::new();
-    let passphrase = rpassword::read_password_from_tty(Some("Enter passphrase: "))?;
+    let passphrase = read_passphrase(fd)?;
     let ciphertext = secret_key.encrypt(passphrase.as_bytes(), 1 << 7, 1 << 10);
     fs::write(cmd.output, ciphertext).map_err(anyhow::Error::from)
 }
@@ -89,16 +89,22 @@ fn verify(cmd: &mut VerifyCmd) -> Result<()> {
 }
 
 fn open_secret_key(path: &Path, passphrase_fd: Option<c_int>) -> Result<SecretKey> {
-    let passphrase = match passphrase_fd {
+    let passphrase = read_passphrase(passphrase_fd)?;
+    let ciphertext = fs::read(path)?;
+    let sk = SecretKey::decrypt(passphrase.as_bytes(), &ciphertext)?;
+    Ok(sk)
+}
+
+fn read_passphrase(passphrase_fd: Option<i32>) -> Result<String> {
+    match passphrase_fd {
         Some(fd) => {
             let mut buffer = String::new();
             let mut input = FileDescriptor::new(fd);
             input.read_to_string(&mut buffer)?;
-            buffer
+            Ok(buffer)
         }
-        None => rpassword::read_password_from_tty(Some("Enter passphrase: "))?,
-    };
-    let ciphertext = fs::read(path)?;
-    let sk = SecretKey::decrypt(passphrase.as_bytes(), &ciphertext)?;
-    Ok(sk)
+        None => Ok(rpassword::read_password_from_tty(Some(
+            "Enter passphrase: ",
+        ))?),
+    }
 }
