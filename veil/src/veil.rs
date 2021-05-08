@@ -1,7 +1,6 @@
 use std::convert::TryInto;
 use std::fmt::{Debug, Formatter};
-use std::str;
-use std::{cmp, fmt, io, iter, result};
+use std::{cmp, fmt, io, iter, result, str};
 
 use base58::{FromBase58, ToBase58};
 use byteorder::{ByteOrder, LittleEndian};
@@ -13,7 +12,6 @@ use zeroize::Zeroize;
 
 use crate::schnorr::SIGNATURE_LEN;
 use crate::util::POINT_LEN;
-use crate::VeilError::IoError;
 use crate::{mres, pbenc, scaldf, schnorr, util};
 
 /// Veil's custom result type.
@@ -45,7 +43,7 @@ pub enum VeilError {
 }
 
 pub(crate) fn io_error(source: io::Error) -> VeilError {
-    IoError { source }
+    VeilError::IoError { source }
 }
 
 /// A 512-bit secret from which multiple private keys can be derived.

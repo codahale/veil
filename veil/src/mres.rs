@@ -159,9 +159,7 @@
 //!
 
 use std::convert::TryInto;
-use std::io;
-use std::io::Read;
-use std::io::Write;
+use std::io::{self, Read, Write};
 
 use byteorder::{ByteOrder, LittleEndian};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;

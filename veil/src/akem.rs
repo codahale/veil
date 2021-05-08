@@ -107,8 +107,7 @@ use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use strobe_rs::{SecParam, Strobe};
 
-use crate::util::MAC_LEN;
-use crate::util::{StrobeExt, POINT_LEN};
+use crate::util::{StrobeExt, MAC_LEN, POINT_LEN};
 
 pub(crate) const OVERHEAD: usize = POINT_LEN + MAC_LEN;
 

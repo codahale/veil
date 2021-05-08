@@ -68,8 +68,7 @@
 use byteorder::{ByteOrder, LittleEndian};
 use strobe_rs::{SecParam, Strobe};
 
-use crate::util;
-use crate::util::{StrobeExt, MAC_LEN};
+use crate::util::{self, StrobeExt, MAC_LEN};
 
 const SALT_LEN: usize = 16;
 
