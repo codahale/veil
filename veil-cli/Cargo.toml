@@ -6,11 +6,8 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1"
-clap = "2"
+clap = "3.0.0-beta.2"
 clio = "0.1"
 filedescriptor = "0.7"
-rand = "0.7"
-rand_core = "0.5"
 rpassword = "5"
-structopt = "0.3"
 veil = { path = "../veil" }

@@ -4,13 +4,13 @@ use std::os::raw::c_int;
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
+use clap::{AppSettings, Clap};
 use filedescriptor::FileDescriptor;
-use structopt::StructOpt;
 
 use veil::{PublicKey, SecretKey, Signature};
 
 fn main() -> Result<()> {
-    let cli = Opts::from_args();
+    let cli = Opts::parse();
     match cli.cmd {
         Command::SecretKey(mut cmd) => cmd.run(cli.passphrase_fd),
         Command::PublicKey(mut cmd) => cmd.run(cli.passphrase_fd),
@@ -26,50 +26,55 @@ trait Cmd {
     fn run(&mut self, fd: Option<c_int>) -> Result<()>;
 }
 
-#[derive(StructOpt, Debug)]
-#[structopt(name = "veil", about = "Stupid crypto tricks.")]
+#[derive(Clap)]
+#[clap(name = "veil", about = "Stupid crypto tricks.")]
+#[clap(setting = AppSettings::ColoredHelp)]
+#[clap(setting = AppSettings::DeriveDisplayOrder)]
+#[clap(setting = AppSettings::HelpRequired)]
+#[clap(setting = AppSettings::SubcommandRequiredElseHelp)]
+#[clap(setting = AppSettings::UnifiedHelpMessage)]
 struct Opts {
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     cmd: Command,
 
-    #[structopt(
-        long = "passphrase-fd",
-        help = "The file descriptor from which the passphrase should be read"
+    #[clap(
+        long,
+        about = "The file descriptor from which the passphrase should be read"
     )]
     passphrase_fd: Option<c_int>,
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Clap)]
 enum Command {
-    #[structopt(about = "Generate a new secret key", display_order = 0)]
+    #[clap(about = "Generate a new secret key")]
     SecretKey(SecretKeyCmd),
 
-    #[structopt(about = "Derive a public key from a secret key", display_order = 1)]
+    #[clap(about = "Derive a public key from a secret key")]
     PublicKey(PublicKeyCmd),
 
-    #[structopt(
-        about = "Derive a public key from another public key",
-        display_order = 2
-    )]
+    #[clap(about = "Derive a public key from another public key")]
     DeriveKey(DeriveKeyCmd),
 
-    #[structopt(about = "Encrypt a message for a set of recipients", display_order = 3)]
+    #[clap(about = "Encrypt a message for a set of recipients")]
     Encrypt(EncryptCmd),
 
-    #[structopt(about = "Decrypt and verify a message", display_order = 4)]
+    #[clap(about = "Decrypt and verify a message")]
     Decrypt(DecryptCmd),
 
-    #[structopt(about = "Sign a message", display_order = 5)]
+    #[clap(about = "Sign a message")]
     Sign(SignCmd),
 
-    #[structopt(about = "Verify a signature", display_order = 6)]
+    #[clap(about = "Verify a signature")]
     Verify(VerifyCmd),
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Clap)]
+#[clap(setting = AppSettings::ColoredHelp)]
+#[clap(setting = AppSettings::HelpRequired)]
+#[clap(setting = AppSettings::UnifiedHelpMessage)]
 struct SecretKeyCmd {
-    #[structopt(
-        help = "The output path for the encrypted secret key",
+    #[clap(
+        about = "The output path for the encrypted secret key",
         parse(from_os_str)
     )]
     output: PathBuf,
@@ -84,12 +89,15 @@ impl Cmd for SecretKeyCmd {
     }
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Clap)]
+#[clap(setting = AppSettings::ColoredHelp)]
+#[clap(setting = AppSettings::HelpRequired)]
+#[clap(setting = AppSettings::UnifiedHelpMessage)]
 struct PublicKeyCmd {
-    #[structopt(help = "The path to the secret key", parse(from_os_str))]
+    #[clap(about = "The path to the secret key", parse(from_os_str))]
     secret_key: PathBuf,
 
-    #[structopt(help = "The ID of the public key to generate")]
+    #[clap(about = "The ID of the public key to generate")]
     key_id: String,
 }
 
@@ -102,12 +110,15 @@ impl Cmd for PublicKeyCmd {
     }
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Clap)]
+#[clap(setting = AppSettings::ColoredHelp)]
+#[clap(setting = AppSettings::HelpRequired)]
+#[clap(setting = AppSettings::UnifiedHelpMessage)]
 struct DeriveKeyCmd {
-    #[structopt(help = "The public key")]
+    #[clap(about = "The public key")]
     public_key: String,
 
-    #[structopt(help = "The ID of the public key to generate")]
+    #[clap(about = "The ID of the public key to generate")]
     sub_key_id: String,
 }
 
@@ -120,36 +131,39 @@ impl Cmd for DeriveKeyCmd {
     }
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Clap)]
+#[clap(setting = AppSettings::ColoredHelp)]
+#[clap(setting = AppSettings::HelpRequired)]
+#[clap(setting = AppSettings::UnifiedHelpMessage)]
 struct EncryptCmd {
-    #[structopt(help = "The path to the secret key", parse(from_os_str))]
+    #[clap(about = "The path to the secret key", parse(from_os_str))]
     secret_key: PathBuf,
 
-    #[structopt(help = "The ID of the private key to use")]
+    #[clap(about = "The ID of the private key to use")]
     key_id: String,
 
-    #[structopt(
-        help = "The path to the plaintext file or '-' for STDIN",
-        parse(try_from_os_str = clio::Input::try_from_os_str)
+    #[clap(
+        about = "The path to the plaintext file or '-' for STDIN",
+        parse(try_from_str = clio::Input::new)
     )]
     plaintext: clio::Input,
 
-    #[structopt(
-        help = "The path to the ciphertext file or '-' for STDOUT",
-        parse(try_from_os_str = clio::Output::try_from_os_str)
+    #[clap(
+        about = "The path to the ciphertext file or '-' for STDOUT",
+        parse(try_from_str = clio::Output::new)
     )]
     ciphertext: clio::Output,
 
-    #[structopt(required = true, help = "The recipients' public keys")]
+    #[clap(required = true, about = "The recipients' public keys")]
     recipients: Vec<String>,
 
-    #[structopt(long = "fakes", default_value = "0", help = "Add fake recipients")]
+    #[clap(long = "fakes", default_value = "0", about = "Add fake recipients")]
     fakes: usize,
 
-    #[structopt(
+    #[clap(
         long = "padding",
         default_value = "0",
-        help = "Add bytes of random padding"
+        about = "Add bytes of random padding"
     )]
     padding: u64,
 }
@@ -174,27 +188,30 @@ impl Cmd for EncryptCmd {
     }
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Clap)]
+#[clap(setting = AppSettings::ColoredHelp)]
+#[clap(setting = AppSettings::HelpRequired)]
+#[clap(setting = AppSettings::UnifiedHelpMessage)]
 pub struct DecryptCmd {
-    #[structopt(help = "The path to the secret key", parse(from_os_str))]
+    #[clap(about = "The path to the secret key", parse(from_os_str))]
     secret_key: PathBuf,
 
-    #[structopt(help = "The ID of the private key to use")]
+    #[clap(about = "The ID of the private key to use")]
     key_id: String,
 
-    #[structopt(
-        help = "The path to the ciphertext file or '-' for STDIN",
-        parse(try_from_os_str = clio::Input::try_from_os_str)
+    #[clap(
+        about = "The path to the ciphertext file or '-' for STDIN",
+        parse(try_from_str = clio::Input::new)
     )]
     ciphertext: clio::Input,
 
-    #[structopt(
-        help = "The path to the plaintext file or '-' for STDOUT",
-        parse(try_from_os_str = clio::Output::try_from_os_str)
+    #[clap(
+        about = "The path to the plaintext file or '-' for STDOUT",
+        parse(try_from_str = clio::Output::new)
     )]
     plaintext: clio::Output,
 
-    #[structopt(help = "The sender's public key")]
+    #[clap(about = "The sender's public key")]
     sender: String,
 }
 
@@ -208,17 +225,20 @@ impl Cmd for DecryptCmd {
     }
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Clap)]
+#[clap(setting = AppSettings::ColoredHelp)]
+#[clap(setting = AppSettings::HelpRequired)]
+#[clap(setting = AppSettings::UnifiedHelpMessage)]
 struct SignCmd {
-    #[structopt(help = "The path to the secret key", parse(from_os_str))]
+    #[clap(about = "The path to the secret key", parse(from_os_str))]
     secret_key: PathBuf,
 
-    #[structopt(help = "The ID of the private key to use")]
+    #[clap(about = "The ID of the private key to use")]
     key_id: String,
 
-    #[structopt(
-        help = "The path to the message or '-' for STDIN",
-        parse(try_from_os_str = clio::Input::try_from_os_str)
+    #[clap(
+        about = "The path to the message or '-' for STDIN",
+        parse(try_from_str = clio::Input::new)
     )]
     message: clio::Input,
 }
@@ -233,18 +253,21 @@ impl Cmd for SignCmd {
     }
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Clap)]
+#[clap(setting = AppSettings::ColoredHelp)]
+#[clap(setting = AppSettings::HelpRequired)]
+#[clap(setting = AppSettings::UnifiedHelpMessage)]
 struct VerifyCmd {
-    #[structopt(help = "The signer's public key")]
+    #[clap(about = "The signer's public key")]
     public_key: String,
 
-    #[structopt(
-        help = "The path to the message or '-' for STDIN",
-        parse(try_from_os_str = clio::Input::try_from_os_str)
+    #[clap(
+        about = "The path to the message or '-' for STDIN",
+        parse(try_from_str = clio::Input::new)
     )]
     message: clio::Input,
 
-    #[structopt(help = "The signature")]
+    #[clap(about = "The signature")]
     signature: String,
 }
 
