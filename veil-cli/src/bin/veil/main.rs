@@ -12,18 +12,18 @@ use veil::{PublicKey, SecretKey, Signature};
 fn main() -> Result<()> {
     let cli = Opts::parse();
     match cli.cmd {
-        Command::SecretKey(mut cmd) => cmd.run(cli.passphrase_fd),
-        Command::PublicKey(mut cmd) => cmd.run(cli.passphrase_fd),
-        Command::DeriveKey(mut cmd) => cmd.run(None),
-        Command::Encrypt(mut cmd) => cmd.run(cli.passphrase_fd),
-        Command::Decrypt(mut cmd) => cmd.run(cli.passphrase_fd),
-        Command::Sign(mut cmd) => cmd.run(cli.passphrase_fd),
-        Command::Verify(mut cmd) => cmd.run(None),
+        Command::SecretKey(mut cmd) => cmd.run(cli.flags),
+        Command::PublicKey(mut cmd) => cmd.run(cli.flags),
+        Command::DeriveKey(mut cmd) => cmd.run(cli.flags),
+        Command::Encrypt(mut cmd) => cmd.run(cli.flags),
+        Command::Decrypt(mut cmd) => cmd.run(cli.flags),
+        Command::Sign(mut cmd) => cmd.run(cli.flags),
+        Command::Verify(mut cmd) => cmd.run(cli.flags),
     }
 }
 
 trait Cmd {
-    fn run(&mut self, fd: Option<c_int>) -> Result<()>;
+    fn run(&mut self, flags: GlobalFlags) -> Result<()>;
 }
 
 #[derive(Clap)]
@@ -37,11 +37,40 @@ struct Opts {
     #[clap(subcommand)]
     cmd: Command,
 
+    #[clap(flatten)]
+    flags: GlobalFlags,
+}
+
+#[derive(Clap)]
+struct GlobalFlags {
     #[clap(
         long,
         about = "The file descriptor from which the passphrase should be read"
     )]
     passphrase_fd: Option<c_int>,
+}
+
+impl GlobalFlags {
+    fn decrypt_secret_key(&self, path: &Path) -> Result<SecretKey> {
+        let passphrase = self.prompt_passphrase()?;
+        let ciphertext = fs::read(path)?;
+        let sk = SecretKey::decrypt(passphrase.as_bytes(), &ciphertext)?;
+        Ok(sk)
+    }
+
+    fn prompt_passphrase(&self) -> Result<String> {
+        match self.passphrase_fd {
+            Some(fd) => {
+                let mut buffer = String::new();
+                let mut input = FileDescriptor::new(fd);
+                input.read_to_string(&mut buffer)?;
+                Ok(buffer)
+            }
+            None => Ok(rpassword::read_password_from_tty(Some(
+                "Enter passphrase: ",
+            ))?),
+        }
+    }
 }
 
 #[derive(Clap)]
@@ -81,11 +110,12 @@ struct SecretKeyCmd {
 }
 
 impl Cmd for SecretKeyCmd {
-    fn run(&mut self, fd: Option<c_int>) -> Result<()> {
+    fn run(&mut self, flags: GlobalFlags) -> Result<()> {
+        let passphrase = flags.prompt_passphrase()?;
         let secret_key = SecretKey::new();
-        let passphrase = read_passphrase(fd)?;
         let ciphertext = secret_key.encrypt(passphrase.as_bytes(), 1 << 7, 1 << 10);
-        fs::write(&mut self.output, ciphertext).map_err(anyhow::Error::from)
+        fs::write(&mut self.output, ciphertext)?;
+        Ok(())
     }
 }
 
@@ -102,8 +132,8 @@ struct PublicKeyCmd {
 }
 
 impl Cmd for PublicKeyCmd {
-    fn run(&mut self, fd: Option<c_int>) -> Result<()> {
-        let secret_key = open_secret_key(&self.secret_key, fd)?;
+    fn run(&mut self, flags: GlobalFlags) -> Result<()> {
+        let secret_key = flags.decrypt_secret_key(&self.secret_key)?;
         let public_key = secret_key.public_key(&self.key_id);
         println!("{}", public_key);
         Ok(())
@@ -123,7 +153,7 @@ struct DeriveKeyCmd {
 }
 
 impl Cmd for DeriveKeyCmd {
-    fn run(&mut self, _fd: Option<c_int>) -> Result<()> {
+    fn run(&mut self, _flags: GlobalFlags) -> Result<()> {
         let root = self.public_key.parse::<PublicKey>()?;
         let public_key = root.derive(&self.sub_key_id);
         println!("{}", public_key);
@@ -157,20 +187,16 @@ struct EncryptCmd {
     #[clap(required = true, about = "The recipients' public keys")]
     recipients: Vec<String>,
 
-    #[clap(long = "fakes", default_value = "0", about = "Add fake recipients")]
+    #[clap(long, default_value = "0", about = "Add fake recipients")]
     fakes: usize,
 
-    #[clap(
-        long = "padding",
-        default_value = "0",
-        about = "Add bytes of random padding"
-    )]
+    #[clap(long, default_value = "0", about = "Add bytes of random padding")]
     padding: u64,
 }
 
 impl Cmd for EncryptCmd {
-    fn run(&mut self, fd: Option<c_int>) -> Result<()> {
-        let secret_key = open_secret_key(&self.secret_key, fd)?;
+    fn run(&mut self, flags: GlobalFlags) -> Result<()> {
+        let secret_key = flags.decrypt_secret_key(&self.secret_key)?;
         let private_key = secret_key.private_key(&self.key_id);
         let pks = self
             .recipients
@@ -216,8 +242,8 @@ pub struct DecryptCmd {
 }
 
 impl Cmd for DecryptCmd {
-    fn run(&mut self, fd: Option<c_int>) -> Result<()> {
-        let secret_key = open_secret_key(&self.secret_key, fd)?;
+    fn run(&mut self, flags: GlobalFlags) -> Result<()> {
+        let secret_key = flags.decrypt_secret_key(&self.secret_key)?;
         let private_key = secret_key.private_key(&self.key_id);
         let sender = self.sender.parse::<PublicKey>()?;
         private_key.decrypt(&mut self.ciphertext, &mut self.plaintext, &sender)?;
@@ -244,8 +270,8 @@ struct SignCmd {
 }
 
 impl Cmd for SignCmd {
-    fn run(&mut self, fd: Option<c_int>) -> Result<()> {
-        let secret_key = open_secret_key(&self.secret_key, fd)?;
+    fn run(&mut self, flags: GlobalFlags) -> Result<()> {
+        let secret_key = flags.decrypt_secret_key(&self.secret_key)?;
         let private_key = secret_key.private_key(&self.key_id);
         let sig = private_key.sign(&mut self.message)?;
         println!("{}", sig);
@@ -272,31 +298,10 @@ struct VerifyCmd {
 }
 
 impl Cmd for VerifyCmd {
-    fn run(&mut self, _fd: Option<c_int>) -> Result<()> {
+    fn run(&mut self, _flags: GlobalFlags) -> Result<()> {
         let signer = self.public_key.parse::<PublicKey>()?;
         let sig: Signature = self.signature.parse()?;
         signer.verify(&mut self.message, &sig)?;
         Ok(())
-    }
-}
-
-fn open_secret_key(path: &Path, passphrase_fd: Option<c_int>) -> Result<SecretKey> {
-    let passphrase = read_passphrase(passphrase_fd)?;
-    let ciphertext = fs::read(path)?;
-    let sk = SecretKey::decrypt(passphrase.as_bytes(), &ciphertext)?;
-    Ok(sk)
-}
-
-fn read_passphrase(passphrase_fd: Option<i32>) -> Result<String> {
-    match passphrase_fd {
-        Some(fd) => {
-            let mut buffer = String::new();
-            let mut input = FileDescriptor::new(fd);
-            input.read_to_string(&mut buffer)?;
-            Ok(buffer)
-        }
-        None => Ok(rpassword::read_password_from_tty(Some(
-            "Enter passphrase: ",
-        ))?),
     }
 }
