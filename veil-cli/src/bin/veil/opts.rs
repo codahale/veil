@@ -1,4 +1,3 @@
-use std::ffi::OsStr;
 use std::os::raw::c_int;
 use std::path::PathBuf;
 
@@ -59,15 +58,15 @@ pub enum Command {
 
         #[structopt(
             help = "The path to the plaintext file or '-' for STDIN",
-            parse(from_os_str)
+            parse(try_from_os_str = clio::Input::try_from_os_str)
         )]
-        plaintext: Input,
+        plaintext: clio::Input,
 
         #[structopt(
             help = "The path to the ciphertext file or '-' for STDOUT",
-            parse(from_os_str)
+            parse(try_from_os_str = clio::Output::try_from_os_str)
         )]
-        ciphertext: Output,
+        ciphertext: clio::Output,
 
         #[structopt(required = true, help = "The recipients' public keys")]
         recipients: Vec<String>,
@@ -93,15 +92,15 @@ pub enum Command {
 
         #[structopt(
             help = "The path to the ciphertext file or '-' for STDIN",
-            parse(from_os_str)
+            parse(try_from_os_str = clio::Input::try_from_os_str)
         )]
-        ciphertext: Input,
+        ciphertext: clio::Input,
 
         #[structopt(
             help = "The path to the plaintext file or '-' for STDOUT",
-            parse(from_os_str)
+            parse(try_from_os_str = clio::Output::try_from_os_str)
         )]
-        plaintext: Output,
+        plaintext: clio::Output,
 
         #[structopt(help = "The sender's public key")]
         sender: String,
@@ -115,8 +114,11 @@ pub enum Command {
         #[structopt(help = "The ID of the private key to use")]
         key_id: String,
 
-        #[structopt(help = "The path to the message or '-' for STDIN", parse(from_os_str))]
-        message: Input,
+        #[structopt(
+            help = "The path to the message or '-' for STDIN",
+            parse(try_from_os_str = clio::Input::try_from_os_str)
+        )]
+        message: clio::Input,
     },
 
     #[structopt(about = "Verify a signature", display_order = 6)]
@@ -124,42 +126,13 @@ pub enum Command {
         #[structopt(help = "The signer's public key")]
         public_key: String,
 
-        #[structopt(help = "The path to the message or '-' for STDIN", parse(from_os_str))]
-        message: Input,
+        #[structopt(
+            help = "The path to the message or '-' for STDIN",
+            parse(try_from_os_str = clio::Input::try_from_os_str)
+        )]
+        message: clio::Input,
 
         #[structopt(help = "The signature")]
         signature: String,
     },
-}
-
-#[derive(Debug)]
-pub enum Input {
-    StdIn,
-    Path(PathBuf),
-}
-
-impl From<&OsStr> for Input {
-    fn from(s: &OsStr) -> Self {
-        if s == OsStr::new("-") {
-            Input::StdIn
-        } else {
-            Input::Path(PathBuf::from(s))
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum Output {
-    StdOut,
-    Path(PathBuf),
-}
-
-impl From<&OsStr> for Output {
-    fn from(s: &OsStr) -> Self {
-        if s == OsStr::new("-") {
-            Output::StdOut
-        } else {
-            Output::Path(PathBuf::from(s))
-        }
-    }
 }

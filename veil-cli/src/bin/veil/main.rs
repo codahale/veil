@@ -9,7 +9,7 @@ use structopt::StructOpt;
 
 use veil::{PublicKey, SecretKey, Signature};
 
-use crate::opts::{Command, Input, Opts, Output};
+use crate::opts::{Command, Opts};
 
 mod opts;
 
@@ -35,44 +35,17 @@ fn main() -> Result<()> {
             padding,
         } => {
             let secret_key = open_secret_key(&secret_key, cli.passphrase_fd)?;
-            match (plaintext, ciphertext) {
-                (Input::StdIn, Output::StdOut) => encrypt(
-                    secret_key,
-                    &key_id,
-                    &mut io::stdin(),
-                    &mut io::stdout(),
-                    recipients,
-                    fakes,
-                    padding,
-                ),
-                (Input::Path(input), Output::StdOut) => encrypt(
-                    secret_key,
-                    &key_id,
-                    &mut fs::File::open(input)?,
-                    &mut io::stdout(),
-                    recipients,
-                    fakes,
-                    padding,
-                ),
-                (Input::StdIn, Output::Path(output)) => encrypt(
-                    secret_key,
-                    &key_id,
-                    &mut io::stdin(),
-                    &mut fs::File::create(output)?,
-                    recipients,
-                    fakes,
-                    padding,
-                ),
-                (Input::Path(input), Output::Path(output)) => encrypt(
-                    secret_key,
-                    &key_id,
-                    &mut fs::File::open(input)?,
-                    &mut fs::File::create(output)?,
-                    recipients,
-                    fakes,
-                    padding,
-                ),
-            }
+            let mut plaintext = plaintext;
+            let mut ciphertext = ciphertext;
+            encrypt(
+                secret_key,
+                &key_id,
+                &mut plaintext,
+                &mut ciphertext,
+                recipients,
+                fakes,
+                padding,
+            )
         }
         Command::Decrypt {
             secret_key,
@@ -82,36 +55,15 @@ fn main() -> Result<()> {
             sender,
         } => {
             let secret_key = open_secret_key(&secret_key, cli.passphrase_fd)?;
-            match (ciphertext, plaintext) {
-                (Input::StdIn, Output::StdOut) => decrypt(
-                    secret_key,
-                    &key_id,
-                    &mut io::stdin(),
-                    &mut io::stdout(),
-                    &sender,
-                ),
-                (Input::Path(input), Output::StdOut) => decrypt(
-                    secret_key,
-                    &key_id,
-                    &mut fs::File::open(input)?,
-                    &mut io::stdout(),
-                    &sender,
-                ),
-                (Input::StdIn, Output::Path(output)) => decrypt(
-                    secret_key,
-                    &key_id,
-                    &mut io::stdin(),
-                    &mut fs::File::create(output)?,
-                    &sender,
-                ),
-                (Input::Path(input), Output::Path(output)) => decrypt(
-                    secret_key,
-                    &key_id,
-                    &mut fs::File::open(input)?,
-                    &mut fs::File::create(output)?,
-                    &sender,
-                ),
-            }
+            let mut ciphertext = ciphertext;
+            let mut plaintext = plaintext;
+            decrypt(
+                secret_key,
+                &key_id,
+                &mut ciphertext,
+                &mut plaintext,
+                &sender,
+            )
         }
         Command::Sign {
             secret_key,
@@ -119,19 +71,17 @@ fn main() -> Result<()> {
             message,
         } => {
             let secret_key = open_secret_key(&secret_key, cli.passphrase_fd)?;
-            match message {
-                Input::StdIn => sign(secret_key, &key_id, &mut io::stdin()),
-                Input::Path(p) => sign(secret_key, &key_id, &mut fs::File::open(p)?),
-            }
+            let mut message = message;
+            sign(secret_key, &key_id, &mut message)
         }
         Command::Verify {
             public_key,
             message,
             signature,
-        } => match message {
-            Input::StdIn => verify(&public_key, &mut io::stdin(), &signature),
-            Input::Path(p) => verify(&public_key, &mut fs::File::open(p)?, &signature),
-        },
+        } => {
+            let mut message = message;
+            verify(&public_key, &mut message, &signature)
+        }
     }
 }
 
