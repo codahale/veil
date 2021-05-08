@@ -6,9 +6,9 @@ edition = "2018"
 build = "build.rs"
 
 [build-dependencies]
-clap = {version="3.0.0-beta.2", features = ["suggestions", "derive", "std", "cargo", "wrap_help"]}
+clap = "3.0.0-beta.2"
 clap_generate = "3.0.0-beta.2"
-clio = "*"
+clio = "0.1"
 
 [dependencies]
 anyhow = "1"
