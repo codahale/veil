@@ -1,13 +1,10 @@
+use std::fs;
 use std::io::Read;
 use std::os::raw::c_int;
 use std::path::{Path, PathBuf};
-use std::{fs, io};
 
 use anyhow::Result;
-use clap::IntoApp;
-use clap::{AppSettings, ArgEnum, Clap};
-use clap_generate::generate;
-use clap_generate::generators::{Bash, PowerShell, Zsh};
+use clap::{AppSettings, Clap};
 use filedescriptor::FileDescriptor;
 
 use veil::{PublicKey, SecretKey, Signature};
@@ -22,7 +19,6 @@ fn main() -> Result<()> {
         Command::Decrypt(mut cmd) => cmd.run(cli.flags),
         Command::Sign(mut cmd) => cmd.run(cli.flags),
         Command::Verify(mut cmd) => cmd.run(cli.flags),
-        Command::Generate(mut cmd) => cmd.run(cli.flags),
     }
 }
 
@@ -95,9 +91,6 @@ enum Command {
 
     #[clap(about = "Verify a signature")]
     Verify(VerifyCmd),
-
-    #[clap(about = "Generate shell autocompletions", setting=AppSettings::Hidden)]
-    Generate(GenerateCmd),
 }
 
 #[derive(Clap)]
@@ -285,29 +278,5 @@ impl Cmd for VerifyCmd {
         let sig: Signature = self.signature.parse()?;
         signer.verify(&mut self.message, &sig)?;
         Ok(())
-    }
-}
-
-#[derive(Clap)]
-struct GenerateCmd {
-    #[clap(arg_enum, about = "The type of shell to generate auto-completion for")]
-    shell: ShellType,
-}
-
-#[derive(ArgEnum)]
-enum ShellType {
-    Bash,
-    Powershell,
-    Zsh,
-}
-
-impl Cmd for GenerateCmd {
-    fn run(&mut self, _flags: GlobalFlags) -> Result<()> {
-        match &self.shell {
-            ShellType::Bash => generate::<Bash, _>(&mut Opts::into_app(), "veil", &mut io::stdout()),
-            ShellType::Powershell=> generate::<PowerShell, _>(&mut Opts::into_app(), "veil", &mut io::stdout()),
-            ShellType::Zsh => generate::<Zsh, _>(&mut Opts::into_app(), "veil", &mut io::stdout()),
-        }
-        return Ok(());
     }
 }
