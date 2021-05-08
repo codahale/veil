@@ -65,7 +65,8 @@
 //! the very, very tall grass of cryptography and should never be used.
 //!
 
-use byteorder::{ByteOrder, LittleEndian};
+use std::convert::TryInto;
+
 use strobe_rs::{SecParam, Strobe};
 
 use crate::util::{self, StrobeExt, MAC_LEN};
@@ -85,8 +86,8 @@ pub(crate) fn encrypt(passphrase: &[u8], plaintext: &[u8], time: u32, space: u32
     let mut out = vec![0u8; CT_OFFSET + plaintext.len() + MAC_LEN];
 
     // Encode the time and space parameters.
-    LittleEndian::write_u32(&mut out[..4], time);
-    LittleEndian::write_u32(&mut out[4..8], space);
+    out[..4].copy_from_slice(&time.to_le_bytes());
+    out[4..8].copy_from_slice(&space.to_le_bytes());
 
     // Copy the salt.
     out[8..CT_OFFSET].copy_from_slice(&salt);
@@ -103,8 +104,8 @@ pub(crate) fn encrypt(passphrase: &[u8], plaintext: &[u8], time: u32, space: u32
 
 pub(crate) fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Option<Vec<u8>> {
     // Decode the time and space parameters.
-    let time = LittleEndian::read_u32(&ciphertext[..4]);
-    let space = LittleEndian::read_u32(&ciphertext[4..8]);
+    let time = u32::from_le_bytes(ciphertext[..4].try_into().expect("unreachable"));
+    let space = u32::from_le_bytes(ciphertext[4..8].try_into().expect("unreachable"));
 
     // Perform the balloon hashing.
     let mut pbenc = init(passphrase, &ciphertext[8..SALT_LEN + 8], time, space);
@@ -157,13 +158,14 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
             // Step 2b: Hash in pseudo-randomly chosen blocks.
             for i in 0..DELTA {
                 // Map indexes to a block and hash it and the salt.
-                LittleEndian::write_u64(&mut idx[0..8], t as u64);
-                LittleEndian::write_u64(&mut idx[8..16], m as u64);
-                LittleEndian::write_u64(&mut idx[16..24], i as u64);
+                idx[0..8].copy_from_slice(&(t as u64).to_le_bytes());
+                idx[8..16].copy_from_slice(&(m as u64).to_le_bytes());
+                idx[16..24].copy_from_slice(&(i as u64).to_le_bytes());
                 idx = hash_counter(&mut pbenc, &mut ctr, salt, &idx);
 
                 // Map the hashed index block back to an index and hash that block.
-                let other = (LittleEndian::read_u64(&idx) % space as u64) as usize;
+                let other = (u64::from_le_bytes(idx[..8].try_into().expect("unreachable"))
+                    % space as u64) as usize;
                 buf[m] = hash_counter(&mut pbenc, &mut ctr, &buf[other], &[]);
             }
         }

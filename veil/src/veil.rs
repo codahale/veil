@@ -3,7 +3,6 @@ use std::fmt::{Debug, Formatter};
 use std::{cmp, fmt, io, iter, result, str};
 
 use base58::{FromBase58, ToBase58};
-use byteorder::{ByteOrder, LittleEndian};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
@@ -310,7 +309,7 @@ fn rand_usize(n: usize) -> usize {
     let max = (usize::MAX - 1 - (usize::MAX % n)) as u64;
     let mut v = max;
     while v > max {
-        v = LittleEndian::read_u64(&util::rand_array::<8>());
+        v = u64::from_le_bytes(util::rand_array());
     }
     (v % n as u64) as usize
 }

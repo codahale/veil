@@ -6,7 +6,6 @@ edition = "2018"
 
 [dependencies]
 base58 = "0.1.0"
-byteorder = "1.4"
 curve25519-dalek = "3"
 getrandom = "0.2"
 strobe-rs = "0.6"
