@@ -1,8 +1,8 @@
+use std::ffi::OsString;
 use std::path::PathBuf;
 
 use argh::FromArgs;
 use clio::{Input, Output};
-use std::ffi::OsString;
 
 #[derive(Debug, FromArgs)]
 /// Stupid crypto tricks.
