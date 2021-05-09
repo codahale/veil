@@ -1,6 +1,5 @@
 use argh::FromArgs;
 use clio::{Input, Output};
-use std::os::raw::c_int;
 use std::path::PathBuf;
 
 #[derive(Debug, FromArgs)]
@@ -29,9 +28,17 @@ pub struct SecretKeyArgs {
     #[argh(positional)]
     pub output: PathBuf,
 
-    /// read the passphrase from the given file descriptor
+    /// the time parameter for secret key encryption
+    #[argh(option, default = "1<<7")]
+    pub time: u32,
+
+    /// the space parameter for secret key encryption
+    #[argh(option, default = "1<<10")]
+    pub space: u32,
+
+    /// read the passphrase from the given file
     #[argh(option)]
-    pub passphrase_fd: Option<c_int>,
+    pub passphrase_file: Option<PathBuf>,
 }
 
 #[derive(Debug, FromArgs)]
@@ -44,9 +51,9 @@ pub struct PublicKeyArgs {
     #[argh(positional)]
     pub key_id: String,
 
-    /// read the passphrase from the given file descriptor
+    /// read the passphrase from the given file
     #[argh(option)]
-    pub passphrase_fd: Option<c_int>,
+    pub passphrase_file: Option<PathBuf>,
 }
 
 #[derive(Debug, FromArgs)]
@@ -87,9 +94,9 @@ pub struct EncryptArgs {
     #[argh(option, default = "0")]
     pub padding: u64,
 
-    /// read the passphrase from the given file descriptor
+    /// read the passphrase from the given file
     #[argh(option)]
-    pub passphrase_fd: Option<c_int>,
+    pub passphrase_file: Option<PathBuf>,
 }
 
 #[derive(Debug, FromArgs)]
@@ -111,9 +118,9 @@ pub struct DecryptArgs {
     #[argh(positional)]
     pub sender: String,
 
-    /// read the passphrase from the given file descriptor
+    /// read the passphrase from the given file
     #[argh(option)]
-    pub passphrase_fd: Option<c_int>,
+    pub passphrase_file: Option<PathBuf>,
 }
 
 #[derive(Debug, FromArgs)]
@@ -129,9 +136,9 @@ pub struct SignArgs {
     #[argh(positional, from_str_fn(str_to_input))]
     pub message: Input,
 
-    /// read the passphrase from the given file descriptor
+    /// read the passphrase from the given file
     #[argh(option)]
-    pub passphrase_fd: Option<c_int>,
+    pub passphrase_file: Option<PathBuf>,
 }
 
 #[derive(Debug, FromArgs)]

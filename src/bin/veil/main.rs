@@ -1,10 +1,7 @@
 use std::fs;
-use std::io::Read;
-use std::os::raw::c_int;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use filedescriptor::FileDescriptor;
 
 use cli::*;
 use veil::{PublicKey, SecretKey, Signature};
@@ -25,15 +22,15 @@ fn main() -> Result<()> {
 }
 
 fn secret_key(cmd: &mut SecretKeyArgs) -> Result<()> {
-    let passphrase = prompt_passphrase(cmd.passphrase_fd)?;
+    let passphrase = prompt_passphrase(&cmd.passphrase_file)?;
     let secret_key = SecretKey::new();
-    let ciphertext = secret_key.encrypt(passphrase.as_bytes(), 1 << 7, 1 << 10);
+    let ciphertext = secret_key.encrypt(passphrase.as_bytes(), cmd.time, cmd.space);
     fs::write(&mut cmd.output, ciphertext)?;
     Ok(())
 }
 
 fn public_key(cmd: &PublicKeyArgs) -> Result<()> {
-    let secret_key = decrypt_secret_key(cmd.passphrase_fd, &cmd.secret_key)?;
+    let secret_key = decrypt_secret_key(&cmd.passphrase_file, &cmd.secret_key)?;
     let public_key = secret_key.public_key(&cmd.key_id);
     println!("{}", public_key);
     Ok(())
@@ -47,7 +44,7 @@ fn derive_key(cmd: &DeriveKeyArgs) -> Result<()> {
 }
 
 fn encrypt(cmd: &mut EncryptArgs) -> Result<()> {
-    let secret_key = decrypt_secret_key(cmd.passphrase_fd, &cmd.secret_key)?;
+    let secret_key = decrypt_secret_key(&cmd.passphrase_file, &cmd.secret_key)?;
     let private_key = secret_key.private_key(&cmd.key_id);
     let pks = cmd
         .recipients
@@ -59,7 +56,7 @@ fn encrypt(cmd: &mut EncryptArgs) -> Result<()> {
 }
 
 fn decrypt(cmd: &mut DecryptArgs) -> Result<()> {
-    let secret_key = decrypt_secret_key(cmd.passphrase_fd, &cmd.secret_key)?;
+    let secret_key = decrypt_secret_key(&cmd.passphrase_file, &cmd.secret_key)?;
     let private_key = secret_key.private_key(&cmd.key_id);
     let sender = cmd.sender.parse::<PublicKey>()?;
     private_key.decrypt(&mut cmd.ciphertext, &mut cmd.plaintext, &sender)?;
@@ -67,7 +64,7 @@ fn decrypt(cmd: &mut DecryptArgs) -> Result<()> {
 }
 
 fn sign(cmd: &mut SignArgs) -> Result<()> {
-    let secret_key = decrypt_secret_key(cmd.passphrase_fd, &cmd.secret_key)?;
+    let secret_key = decrypt_secret_key(&cmd.passphrase_file, &cmd.secret_key)?;
     let private_key = secret_key.private_key(&cmd.key_id);
     let sig = private_key.sign(&mut cmd.message)?;
     println!("{}", sig);
@@ -81,21 +78,16 @@ fn verify(cmd: &mut VerifyArgs) -> Result<()> {
     Ok(())
 }
 
-fn decrypt_secret_key(passphrase_fd: Option<c_int>, path: &Path) -> Result<SecretKey> {
-    let passphrase = prompt_passphrase(passphrase_fd)?;
+fn decrypt_secret_key(passphrase_file: &Option<PathBuf>, path: &Path) -> Result<SecretKey> {
+    let passphrase = prompt_passphrase(passphrase_file)?;
     let ciphertext = fs::read(path)?;
     let sk = SecretKey::decrypt(passphrase.as_bytes(), &ciphertext)?;
     Ok(sk)
 }
 
-fn prompt_passphrase(passphrase_fd: Option<c_int>) -> Result<String> {
-    match passphrase_fd {
-        Some(fd) => {
-            let mut buffer = String::new();
-            let mut input = FileDescriptor::new(fd);
-            input.read_to_string(&mut buffer)?;
-            Ok(buffer)
-        }
+fn prompt_passphrase(passphrase_file: &Option<PathBuf>) -> Result<String> {
+    match passphrase_file {
+        Some(p) => Ok(fs::read_to_string(p)?),
         None => Ok(rpassword::read_password_from_tty(Some("Enter passphrase: "))?),
     }
 }
