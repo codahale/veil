@@ -1,6 +1,6 @@
 [workspace]
 
 members = [
-    "veil-cli",
+    "veil-tool",
     "veil",
 ]

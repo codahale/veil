@@ -1,5 +1,5 @@
 [package]
-name = "veil-cli"
+name = "veil-tool"
 version = "0.1.0"
 authors = ["Coda Hale <coda.hale@gmail.com>"]
 edition = "2018"

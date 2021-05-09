@@ -5,7 +5,7 @@ use clap::{AppSettings, Clap};
 use clio::{Input, Output};
 
 #[derive(Clap)]
-#[clap(name = "veil", bin_name = "veil", about = "Stupid crypto tricks.")]
+#[clap(name = "veil-tool", bin_name = "veil-tool", about = "Stupid crypto tricks.")]
 #[clap(setting = AppSettings::DeriveDisplayOrder)]
 pub struct Opts {
     #[clap(subcommand)]
