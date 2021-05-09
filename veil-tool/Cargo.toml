@@ -3,16 +3,10 @@ name = "veil-tool"
 version = "0.1.0"
 authors = ["Coda Hale <coda.hale@gmail.com>"]
 edition = "2018"
-build = "build.rs"
-
-[build-dependencies]
-clap = "3.0.0-beta.2"
-clap_generate = "3.0.0-beta.2"
-clio = "0.1"
 
 [dependencies]
 anyhow = "1"
-clap = {version="3.0.0-beta.2", features = ["suggestions", "derive", "std", "cargo", "wrap_help"]}
+argh = "0.1"
 clio = "0.1"
 filedescriptor = "0.7"
 rpassword = "5"

@@ -1,139 +1,158 @@
+use argh::FromArgs;
+use clio::{Input, Output};
 use std::os::raw::c_int;
 use std::path::PathBuf;
 
-use clap::{AppSettings, Clap};
-use clio::{Input, Output};
-
-#[derive(Clap)]
-#[clap(name = "veil-tool", bin_name = "veil-tool", about = "Stupid crypto tricks.")]
-#[clap(setting = AppSettings::DeriveDisplayOrder)]
+#[derive(Debug, FromArgs)]
+/// Stupid crypto tricks.
 pub struct Opts {
-    #[clap(subcommand)]
+    #[argh(subcommand)]
     pub cmd: Command,
-
-    #[clap(flatten)]
-    pub flags: GlobalFlags,
 }
 
-#[derive(Clap)]
-pub struct GlobalFlags {
-    #[clap(long, about = "The file descriptor from which the passphrase should be read")]
+#[derive(Debug, FromArgs)]
+#[argh(subcommand)]
+pub enum Command {
+    SecretKey(SecretKeyArgs),
+    PublicKey(PublicKeyArgs),
+    DeriveKey(DeriveKeyArgs),
+    Encrypt(EncryptArgs),
+    Decrypt(DecryptArgs),
+    Sign(SignArgs),
+    Verify(VerifyArgs),
+}
+
+#[derive(Debug, FromArgs)]
+/// Generate a new secret key.
+#[argh(subcommand, name = "secret-key")]
+pub struct SecretKeyArgs {
+    #[argh(positional)]
+    pub output: PathBuf,
+
+    /// read the passphrase from the given file descriptor
+    #[argh(option)]
     pub passphrase_fd: Option<c_int>,
 }
 
-#[derive(Clap)]
-pub enum Command {
-    #[clap(about = "Generate a new secret key")]
-    SecretKey(SecretKeyCmd),
-
-    #[clap(about = "Derive a public key from a secret key")]
-    PublicKey(PublicKeyCmd),
-
-    #[clap(about = "Derive a public key from another public key")]
-    DeriveKey(DeriveKeyCmd),
-
-    #[clap(about = "Encrypt a message for a set of recipients")]
-    Encrypt(EncryptCmd),
-
-    #[clap(about = "Decrypt and verify a message")]
-    Decrypt(DecryptCmd),
-
-    #[clap(about = "Sign a message")]
-    Sign(SignCmd),
-
-    #[clap(about = "Verify a signature")]
-    Verify(VerifyCmd),
-}
-
-#[derive(Clap)]
-pub struct SecretKeyCmd {
-    #[clap(about = "The output path for the encrypted secret key", parse(from_os_str))]
-    pub output: PathBuf,
-}
-
-#[derive(Clap)]
-pub struct PublicKeyCmd {
-    #[clap(about = "The path to the secret key", parse(from_os_str))]
+#[derive(Debug, FromArgs)]
+/// Derive a public key from a secret key.
+#[argh(subcommand, name = "public-key")]
+pub struct PublicKeyArgs {
+    #[argh(positional)]
     pub secret_key: PathBuf,
 
-    #[clap(about = "The ID of the public key to generate")]
+    #[argh(positional)]
     pub key_id: String,
+
+    /// read the passphrase from the given file descriptor
+    #[argh(option)]
+    pub passphrase_fd: Option<c_int>,
 }
 
-#[derive(Clap)]
-pub struct DeriveKeyCmd {
-    #[clap(about = "The public key")]
+#[derive(Debug, FromArgs)]
+/// Derive a public key from another public key.
+#[argh(subcommand, name = "derive-key")]
+pub struct DeriveKeyArgs {
+    #[argh(positional)]
     pub public_key: String,
 
-    #[clap(about = "The ID of the public key to generate")]
+    #[argh(positional)]
     pub sub_key_id: String,
 }
 
-#[derive(Clap)]
-pub struct EncryptCmd {
-    #[clap(about = "The path to the secret key", parse(from_os_str))]
+#[derive(Debug, FromArgs)]
+/// Encrypt a message.
+#[argh(subcommand, name = "encrypt")]
+pub struct EncryptArgs {
+    #[argh(positional)]
     pub secret_key: PathBuf,
 
-    #[clap(about = "The ID of the private key to use")]
+    #[argh(positional)]
     pub key_id: String,
 
-    #[clap(
-    about = "The path to the plaintext file or '-' for STDIN",
-    parse(try_from_str = clio::Input::new)
-    )]
+    #[argh(positional, from_str_fn(str_to_input))]
     pub plaintext: Input,
 
-    #[clap(about = "The path to the ciphertext file or '-' for STDOUT", parse(try_from_str = clio::Output::new))]
+    #[argh(positional, from_str_fn(str_to_output))]
     pub ciphertext: Output,
 
-    #[clap(required = true, about = "The recipients' public keys")]
+    #[argh(positional)]
     pub recipients: Vec<String>,
 
-    #[clap(long, default_value = "0", about = "Add fake recipients")]
+    /// number of fake recipients to add
+    #[argh(option, default = "0")]
     pub fakes: usize,
 
-    #[clap(long, default_value = "0", about = "Add bytes of random padding")]
+    /// number of random padding bytes to add
+    #[argh(option, default = "0")]
     pub padding: u64,
+
+    /// read the passphrase from the given file descriptor
+    #[argh(option)]
+    pub passphrase_fd: Option<c_int>,
 }
 
-#[derive(Clap)]
-pub struct DecryptCmd {
-    #[clap(about = "The path to the secret key", parse(from_os_str))]
+#[derive(Debug, FromArgs)]
+/// Decrypt a message.
+#[argh(subcommand, name = "decrypt")]
+pub struct DecryptArgs {
+    #[argh(positional)]
     pub secret_key: PathBuf,
 
-    #[clap(about = "The ID of the private key to use")]
+    #[argh(positional)]
     pub key_id: String,
 
-    #[clap(about = "The path to the ciphertext file or '-' for STDIN", parse(try_from_str = clio::Input::new))]
+    #[argh(positional, from_str_fn(str_to_input))]
     pub ciphertext: Input,
 
-    #[clap(about = "The path to the plaintext file or '-' for STDOUT", parse(try_from_str = clio::Output::new))]
+    #[argh(positional, from_str_fn(str_to_output))]
     pub plaintext: Output,
 
-    #[clap(about = "The sender's public key")]
+    #[argh(positional)]
     pub sender: String,
+
+    /// read the passphrase from the given file descriptor
+    #[argh(option)]
+    pub passphrase_fd: Option<c_int>,
 }
 
-#[derive(Clap)]
-pub struct SignCmd {
-    #[clap(about = "The path to the secret key", parse(from_os_str))]
+#[derive(Debug, FromArgs)]
+/// Sign a message.
+#[argh(subcommand, name = "sign")]
+pub struct SignArgs {
+    #[argh(positional)]
     pub secret_key: PathBuf,
 
-    #[clap(about = "The ID of the private key to use")]
+    #[argh(positional)]
     pub key_id: String,
 
-    #[clap(about = "The path to the message or '-' for STDIN", parse(try_from_str = clio::Input::new))]
+    #[argh(positional, from_str_fn(str_to_input))]
     pub message: Input,
+
+    /// read the passphrase from the given file descriptor
+    #[argh(option)]
+    pub passphrase_fd: Option<c_int>,
 }
 
-#[derive(Clap)]
-pub struct VerifyCmd {
-    #[clap(about = "The signer's public key")]
+#[derive(Debug, FromArgs)]
+/// Verify a signature.
+#[argh(subcommand, name = "verify")]
+pub struct VerifyArgs {
+    /// the signer's public key
+    #[argh(positional)]
     pub public_key: String,
 
-    #[clap(about = "The path to the message or '-' for STDIN", parse(try_from_str = clio::Input::new))]
+    #[argh(positional, from_str_fn(str_to_input))]
     pub message: Input,
 
-    #[clap(about = "The signature")]
+    #[argh(positional)]
     pub signature: String,
+}
+
+fn str_to_input(value: &str) -> Result<Input, String> {
+    Input::new(value).map_err(|e| e.to_string())
+}
+
+fn str_to_output(value: &str) -> Result<Output, String> {
+    Output::new(value).map_err(|e| e.to_string())
 }
