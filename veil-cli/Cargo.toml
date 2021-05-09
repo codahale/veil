@@ -16,4 +16,4 @@ clap = {version="3.0.0-beta.2", features = ["suggestions", "derive", "std", "car
 clio = "0.1"
 filedescriptor = "0.7"
 rpassword = "5"
-veil = { path = "../veil" }
+veil = { version = "0.1.0", path = "../veil" }
