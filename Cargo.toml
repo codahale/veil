@@ -5,22 +5,31 @@ authors = ["Coda Hale <coda.hale@gmail.com>"]
 edition = "2018"
 include = ["src/**/*", "LICENSE", "README.md"]
 
+[features]
+cli = ["anyhow", "argh", "clio"]
+default = ["cli"]
+
 [dependencies]
-anyhow = "1"
-argh = "0.1"
 base58 = "0.1.0"
-clio = "0.1"
 curve25519-dalek = "3"
 getrandom = "0.2"
 rpassword = "5"
 strobe-rs = "0.6"
 thiserror = "1"
-zeroize = {version = "1", features = ["zeroize_derive"]}
+zeroize = { version = "1", features = ["zeroize_derive"] }
+anyhow = { version = "1", optional = true }
+argh = { version = "0.1", optional = true }
+clio = { version = "0.1", optional = true }
 
 [dev-dependencies]
+anyhow = "1"
 assert_cmd = "1.0.3"
 criterion = { version = "0.3", features = ["html_reports"] }
 tempfile = "3"
+
+[[bin]]
+name = "veil"
+required-features = ["cli"]
 
 [[bench]]
 name = "veil_bench"
