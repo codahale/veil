@@ -1,11 +1,12 @@
 #![cfg(feature = "cli")]
 
+use std::fs;
 use std::path::PathBuf;
-use std::str;
-use std::{env, fs};
 
 use anyhow::Result;
 use duct::cmd;
+
+const VEIL_PATH: &str = env!("CARGO_BIN_EXE_veil");
 
 #[test]
 pub fn bootstrap_and_send_a_message() -> Result<()> {
@@ -40,7 +41,7 @@ pub fn bootstrap_and_send_a_message() -> Result<()> {
     // Alice encrypts the message for Bea.
     let ciphertext_path = &dir.path().join("message.veil");
     cmd!(
-        bin_path(),
+        VEIL_PATH,
         "encrypt",
         secret_key_path_a,
         "/friends/bea",
@@ -59,7 +60,7 @@ pub fn bootstrap_and_send_a_message() -> Result<()> {
     // Bea decrypts the message.
     let plaintext_path = &dir.path().join("message.txt");
     cmd!(
-        bin_path(),
+        VEIL_PATH,
         "decrypt",
         secret_key_path_b,
         "/friends/alice",
@@ -99,7 +100,7 @@ fn sign_and_verify_message() -> Result<()> {
 
     // Alice signs the message.
     let sig = cmd!(
-        bin_path(),
+        VEIL_PATH,
         "sign",
         secret_key_path,
         "/friends",
@@ -109,7 +110,7 @@ fn sign_and_verify_message() -> Result<()> {
     )
     .read()?;
 
-    cmd!(bin_path(), "verify", public_key, message_file, sig).run()?;
+    cmd!(VEIL_PATH, "verify", public_key, message_file, sig).run()?;
 
     Ok(())
 }
@@ -120,7 +121,7 @@ fn generate_public_key(
     key_id: &str,
 ) -> Result<String> {
     let out = cmd!(
-        bin_path(),
+        VEIL_PATH,
         "public-key",
         secret_key_path,
         key_id,
@@ -133,7 +134,7 @@ fn generate_public_key(
 
 fn create_secret_key(secret_key_path: &PathBuf, passphrase_path: &PathBuf) -> Result<()> {
     cmd!(
-        bin_path(),
+        VEIL_PATH,
         "secret-key",
         secret_key_path,
         "--passphrase-file",
@@ -147,20 +148,4 @@ fn create_secret_key(secret_key_path: &PathBuf, passphrase_path: &PathBuf) -> Re
     .run()?;
 
     Ok(())
-}
-
-fn bin_path() -> PathBuf {
-    // Adapted from
-    // https://github.com/rust-lang/cargo/blob/485670b3983b52289a2f353d589c57fae2f60f82/tests/testsuite/support/mod.rs#L507
-    let target_dir = env::current_exe()
-        .ok()
-        .map(|mut path| {
-            path.pop();
-            if path.ends_with("deps") {
-                path.pop();
-            }
-            path
-        })
-        .unwrap();
-    target_dir.join(format!("veil{}", env::consts::EXE_SUFFIX))
 }
