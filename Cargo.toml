@@ -3,6 +3,7 @@ name = "veil"
 version = "0.1.0"
 authors = ["Coda Hale <coda.hale@gmail.com>"]
 edition = "2018"
+include = ["src/**/*", "LICENSE", "README.md"]
 
 [dependencies]
 anyhow = "1"
