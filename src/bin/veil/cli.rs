@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use argh::FromArgs;
 use clio::{Input, Output};
+use std::ffi::OsString;
 
 #[derive(Debug, FromArgs)]
 /// Stupid crypto tricks.
@@ -50,7 +51,7 @@ pub struct PublicKeyArgs {
     pub secret_key: PathBuf,
 
     #[argh(positional)]
-    pub key_id: String,
+    pub key_id: OsString,
 
     /// read the passphrase from the given file
     #[argh(option)]
@@ -62,10 +63,10 @@ pub struct PublicKeyArgs {
 #[argh(subcommand, name = "derive-key")]
 pub struct DeriveKeyArgs {
     #[argh(positional)]
-    pub public_key: String,
+    pub public_key: OsString,
 
     #[argh(positional)]
-    pub sub_key_id: String,
+    pub sub_key_id: OsString,
 }
 
 #[derive(Debug, FromArgs)]
@@ -76,7 +77,7 @@ pub struct EncryptArgs {
     pub secret_key: PathBuf,
 
     #[argh(positional)]
-    pub key_id: String,
+    pub key_id: OsString,
 
     #[argh(positional, from_str_fn(str_to_input))]
     pub plaintext: Input,
@@ -85,7 +86,7 @@ pub struct EncryptArgs {
     pub ciphertext: Output,
 
     #[argh(positional)]
-    pub recipients: Vec<String>,
+    pub recipients: Vec<OsString>,
 
     /// number of fake recipients to add
     #[argh(option, default = "0")]
@@ -108,7 +109,7 @@ pub struct DecryptArgs {
     pub secret_key: PathBuf,
 
     #[argh(positional)]
-    pub key_id: String,
+    pub key_id: OsString,
 
     #[argh(positional, from_str_fn(str_to_input))]
     pub ciphertext: Input,
@@ -117,7 +118,7 @@ pub struct DecryptArgs {
     pub plaintext: Output,
 
     #[argh(positional)]
-    pub sender: String,
+    pub sender: OsString,
 
     /// read the passphrase from the given file
     #[argh(option)]
@@ -132,7 +133,7 @@ pub struct SignArgs {
     pub secret_key: PathBuf,
 
     #[argh(positional)]
-    pub key_id: String,
+    pub key_id: OsString,
 
     #[argh(positional, from_str_fn(str_to_input))]
     pub message: Input,
@@ -148,13 +149,13 @@ pub struct SignArgs {
 pub struct VerifyArgs {
     /// the signer's public key
     #[argh(positional)]
-    pub public_key: String,
+    pub public_key: OsString,
 
     #[argh(positional, from_str_fn(str_to_input))]
     pub message: Input,
 
     #[argh(positional)]
-    pub signature: String,
+    pub signature: OsString,
 }
 
 fn str_to_input(value: &str) -> Result<Input, String> {

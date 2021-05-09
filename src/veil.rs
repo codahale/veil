@@ -32,7 +32,10 @@ pub enum VeilError {
     /// Returned when a secret key can't be decrypted.
     #[error("invalid secret key/passphrase")]
     InvalidSecretKey,
-    /// Returned when an underlying IO error occured.
+    /// Returned when key ID is invalid.
+    #[error("invalid key ID")]
+    InvalidKeyId,
+    /// Returned when an underlying IO error occurred.
     #[error("io error: {source:?}")]
     IoError {
         /// The source of the IO error.
