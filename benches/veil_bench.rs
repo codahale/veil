@@ -1,8 +1,8 @@
 use std::io;
+use std::io::Read;
 
 use criterion::{black_box, criterion_group, criterion_main, Bencher, Criterion};
 
-use std::io::Read;
 use veil::SecretKey;
 
 fn criterion_encrypt(c: &mut Criterion) {

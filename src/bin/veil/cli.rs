@@ -1,6 +1,7 @@
+use std::path::PathBuf;
+
 use argh::FromArgs;
 use clio::{Input, Output};
-use std::path::PathBuf;
 
 #[derive(Debug, FromArgs)]
 /// Stupid crypto tricks.
