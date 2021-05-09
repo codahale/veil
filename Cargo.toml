@@ -26,6 +26,7 @@ anyhow = "1"
 criterion = { version = "0.3", features = ["html_reports"] }
 duct = "0.13"
 tempfile = "3"
+test-case = "1"
 
 [[bin]]
 name = "veil"
