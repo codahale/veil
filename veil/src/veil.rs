@@ -70,11 +70,7 @@ impl SecretKey {
     pub fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Result<SecretKey> {
         pbenc::decrypt(passphrase, ciphertext)
             .ok_or(VeilError::InvalidSecretKey)
-            .and_then(|plaintext| {
-                plaintext
-                    .try_into()
-                    .map_err(|_| VeilError::InvalidSecretKey)
-            })
+            .and_then(|plaintext| plaintext.try_into().map_err(|_| VeilError::InvalidSecretKey))
             .map(|r| SecretKey { r })
     }
 
@@ -175,22 +171,22 @@ impl PrivateKey {
             &sender.q,
         )
         .map_err(io_error)
-        .and_then(|(verified, written)| {
-            if verified {
-                Ok(written)
-            } else {
-                Err(VeilError::InvalidCiphertext)
-            }
-        })
+        .and_then(
+            |(verified, written)| {
+                if verified {
+                    Ok(written)
+                } else {
+                    Err(VeilError::InvalidCiphertext)
+                }
+            },
+        )
     }
 
     /// Reads the contents of the reader and returns a Schnorr signature.
     pub fn sign<R: io::Read>(&self, reader: &mut R) -> Result<Signature> {
         let mut signer = schnorr::Signer::new(io::sink());
         io::copy(reader, &mut signer).map_err(io_error)?;
-        Ok(Signature {
-            sig: signer.sign(&self.d, &self.pk.q),
-        })
+        Ok(Signature { sig: signer.sign(&self.d, &self.pk.q) })
     }
 
     /// Derives a private key with the given key ID.
@@ -199,12 +195,7 @@ impl PrivateKey {
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     pub fn derive(&self, key_id: &str) -> PrivateKey {
         let d = scaldf::derive_scalar(self.d, key_id);
-        PrivateKey {
-            d,
-            pk: PublicKey {
-                q: RISTRETTO_BASEPOINT_POINT * d,
-            },
-        }
+        PrivateKey { d, pk: PublicKey { q: RISTRETTO_BASEPOINT_POINT * d } }
     }
 }
 
@@ -268,9 +259,7 @@ impl PublicKey {
     /// `key_id` should be slash-separated string (e.g. `/one/two/three`) which define a path of
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     pub fn derive(&self, key_id: &str) -> PublicKey {
-        PublicKey {
-            q: scaldf::derive_point(&self.q, key_id),
-        }
+        PublicKey { q: scaldf::derive_point(&self.q, key_id) }
     }
 }
 
@@ -344,18 +333,12 @@ mod tests {
 
     #[test]
     pub fn public_key_encoding() {
-        let base = PublicKey {
-            q: RISTRETTO_BASEPOINT_POINT,
-        };
+        let base = PublicKey { q: RISTRETTO_BASEPOINT_POINT };
 
-        assert_eq!(
-            "GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3",
-            base.to_string()
-        );
+        assert_eq!("GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3", base.to_string());
 
-        let decoded = "GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3"
-            .parse()
-            .expect("decoding error");
+        let decoded =
+            "GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3".parse().expect("decoding error");
         assert_eq!(base, decoded);
 
         let invalid = "woot woot".parse::<PublicKey>();
@@ -364,9 +347,7 @@ mod tests {
 
     #[test]
     pub fn signature_encoding() {
-        let sig = Signature {
-            sig: [69u8; SIGNATURE_LEN],
-        };
+        let sig = Signature { sig: [69u8; SIGNATURE_LEN] };
 
         assert_eq!("2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC", sig.to_string());
 
@@ -397,9 +378,7 @@ mod tests {
         let mut src = io::Cursor::new(dst.into_inner());
         let mut dst = io::Cursor::new(Vec::new());
 
-        let ptx_len = priv_b
-            .decrypt(&mut src, &mut dst, &priv_a.public_key())
-            .expect("decrypt");
+        let ptx_len = priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()).expect("decrypt");
         assert_eq!(dst.position(), ptx_len);
         assert_eq!(message.to_vec(), dst.into_inner());
     }

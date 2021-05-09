@@ -54,13 +54,7 @@ fn encrypt(cmd: &mut EncryptCmd, flags: &GlobalFlags) -> Result<()> {
         .iter()
         .map(|s| s.parse::<PublicKey>().map_err(anyhow::Error::from))
         .collect::<Result<Vec<PublicKey>>>()?;
-    private_key.encrypt(
-        &mut cmd.plaintext,
-        &mut cmd.ciphertext,
-        pks,
-        cmd.fakes,
-        cmd.padding,
-    )?;
+    private_key.encrypt(&mut cmd.plaintext, &mut cmd.ciphertext, pks, cmd.fakes, cmd.padding)?;
     Ok(())
 }
 
@@ -102,8 +96,6 @@ fn prompt_passphrase(flags: &GlobalFlags) -> Result<String> {
             input.read_to_string(&mut buffer)?;
             Ok(buffer)
         }
-        None => Ok(rpassword::read_password_from_tty(Some(
-            "Enter passphrase: ",
-        ))?),
+        None => Ok(rpassword::read_password_from_tty(Some("Enter passphrase: "))?),
     }
 }

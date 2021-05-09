@@ -17,10 +17,7 @@ pub struct Opts {
 
 #[derive(Clap)]
 pub struct GlobalFlags {
-    #[clap(
-        long,
-        about = "The file descriptor from which the passphrase should be read"
-    )]
+    #[clap(long, about = "The file descriptor from which the passphrase should be read")]
     pub passphrase_fd: Option<c_int>,
 }
 
@@ -50,10 +47,7 @@ pub enum Command {
 
 #[derive(Clap)]
 pub struct SecretKeyCmd {
-    #[clap(
-        about = "The output path for the encrypted secret key",
-        parse(from_os_str)
-    )]
+    #[clap(about = "The output path for the encrypted secret key", parse(from_os_str))]
     pub output: PathBuf,
 }
 

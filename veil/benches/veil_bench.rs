@@ -55,13 +55,7 @@ fn criterion_pbenc(c: &mut Criterion) {
     let sk = SecretKey::new();
 
     c.bench_function("SecretKey/encrypt", |b| {
-        b.iter(|| {
-            sk.encrypt(
-                black_box("passphrase".as_bytes()),
-                black_box(10),
-                black_box(10),
-            )
-        })
+        b.iter(|| sk.encrypt(black_box("passphrase".as_bytes()), black_box(10), black_box(10)))
     });
 }
 

@@ -254,14 +254,7 @@ mod tests {
         assert_eq!(None, output);
     }
 
-    fn setup() -> (
-        Scalar,
-        RistrettoPoint,
-        Scalar,
-        RistrettoPoint,
-        Scalar,
-        RistrettoPoint,
-    ) {
+    fn setup() -> (Scalar, RistrettoPoint, Scalar, RistrettoPoint, Scalar, RistrettoPoint) {
         let d_s = Scalar::from_bytes_mod_order_wide(&util::rand_array());
         let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
 
