@@ -78,6 +78,42 @@ pub fn bootstrap_and_send_a_message() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn sign_and_verify_message() -> Result<()> {
+    let dir = tempfile::tempdir()?;
+
+    // Alice picks a passphrase.
+    let passphrase_path = &dir.path().join("passphrase-a");
+    fs::write(passphrase_path, "excelsior")?;
+
+    // Alice generates a secret key.
+    let secret_key_path = &dir.path().join("secret-key-a");
+    create_secret_key(secret_key_path, passphrase_path)?;
+
+    // Alice generates a public key.
+    let public_key = generate_public_key(secret_key_path, passphrase_path, "/friends")?;
+
+    // Alice writes a plaintext message.
+    let message_file = &dir.path().join("message");
+    fs::write(message_file, "this is a public message")?;
+
+    // Alice signs the message.
+    let sig = cmd!(
+        bin_path(),
+        "sign",
+        secret_key_path,
+        "/friends",
+        message_file,
+        "--passphrase-file",
+        passphrase_path,
+    )
+    .read()?;
+
+    cmd!(bin_path(), "verify", public_key, message_file, sig).run()?;
+
+    Ok(())
+}
+
 fn generate_public_key(
     secret_key_path: &PathBuf,
     passphrase_path: &PathBuf,
