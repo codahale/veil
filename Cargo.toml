@@ -18,7 +18,9 @@ thiserror = "1"
 zeroize = {version = "1", features = ["zeroize_derive"]}
 
 [dev-dependencies]
+assert_cmd = "1.0.3"
 criterion = { version = "0.3", features = ["html_reports"] }
+tempfile = "3"
 
 [[bench]]
 name = "veil_bench"
