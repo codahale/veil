@@ -23,8 +23,8 @@ clio = { version = "0.1", optional = true }
 
 [dev-dependencies]
 anyhow = "1"
-assert_cmd = "1.0.3"
 criterion = { version = "0.3", features = ["html_reports"] }
+duct = "0.13"
 tempfile = "3"
 
 [[bin]]
