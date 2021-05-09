@@ -1,5 +1,3 @@
-#![warn(missing_docs)]
-
 //! The Veil hybrid cryptosystem.
 //!
 //! Veil is an incredibly experimental hybrid cryptosystem for sending and receiving confidential,
@@ -55,6 +53,9 @@
 //!   str::from_utf8(&plaintext.into_inner()).expect("invalid UTF-8"),
 //! );
 //! ```
+
+#![forbid(unsafe_code)]
+#![warn(missing_docs, rust_2018_idioms, trivial_casts, unused_lifetimes, unused_qualifications)]
 
 pub use self::veil::*;
 

@@ -179,8 +179,8 @@ pub(crate) fn encrypt<R, W>(
     padding: u64,
 ) -> io::Result<u64>
 where
-    R: io::Read,
-    W: io::Write,
+    R: Read,
+    W: Write,
 {
     let mut written = 0u64;
     let mut signer = schnorr::Signer::new(writer);
@@ -257,8 +257,8 @@ pub(crate) fn decrypt<R, W>(
     q_s: &RistrettoPoint,
 ) -> io::Result<(bool, u64)>
 where
-    R: io::Read,
-    W: io::Write,
+    R: Read,
+    W: Write,
 {
     // Initialize a verifier for the entire ciphertext.
     let mut verifier = schnorr::Verifier::new();
@@ -295,8 +295,8 @@ fn decrypt_message<R, W>(
     mres: &mut Strobe,
 ) -> io::Result<(u64, [u8; SIGNATURE_LEN])>
 where
-    R: io::Read,
-    W: io::Write,
+    R: Read,
+    W: Write,
 {
     let mut written = 0u64;
     let mut input = [0u8; 32 * 1024];
@@ -349,7 +349,7 @@ fn decrypt_header<R>(
     q_s: &RistrettoPoint,
 ) -> io::Result<Option<([u8; DEK_LEN], RistrettoPoint)>>
 where
-    R: io::Read,
+    R: Read,
 {
     let mut buf = [0u8; ENC_HEADER_LEN];
     let mut hdr_offset = 0u64;
@@ -385,7 +385,7 @@ fn encode_header(dek: &[u8; DEK_LEN], r_len: usize, padding: u64) -> Vec<u8> {
 
 struct RngReader;
 
-impl io::Read for RngReader {
+impl Read for RngReader {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         getrandom::getrandom(buf).expect("rng failure");
 
