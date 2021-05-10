@@ -1,8 +1,7 @@
-use std::ffi::OsString;
-use std::path::PathBuf;
-
 use argh::FromArgs;
 use clio::{Input, Output};
+
+// TODO support non-UTF8 paths, blocking on https://github.com/google/argh/issues/33
 
 #[derive(Debug, FromArgs)]
 /// Stupid crypto tricks.
@@ -28,7 +27,7 @@ pub enum Command {
 #[argh(subcommand, name = "secret-key")]
 pub struct SecretKeyArgs {
     #[argh(positional)]
-    pub output: PathBuf,
+    pub output: String,
 
     /// the time parameter for secret key encryption
     #[argh(option, default = "1<<7")]
@@ -40,7 +39,7 @@ pub struct SecretKeyArgs {
 
     /// read the passphrase from the given file
     #[argh(option)]
-    pub passphrase_file: Option<PathBuf>,
+    pub passphrase_file: Option<String>,
 }
 
 #[derive(Debug, FromArgs)]
@@ -48,14 +47,14 @@ pub struct SecretKeyArgs {
 #[argh(subcommand, name = "public-key")]
 pub struct PublicKeyArgs {
     #[argh(positional)]
-    pub secret_key: PathBuf,
+    pub secret_key: String,
 
     #[argh(positional)]
-    pub key_id: OsString,
+    pub key_id: String,
 
     /// read the passphrase from the given file
     #[argh(option)]
-    pub passphrase_file: Option<PathBuf>,
+    pub passphrase_file: Option<String>,
 }
 
 #[derive(Debug, FromArgs)]
@@ -63,10 +62,10 @@ pub struct PublicKeyArgs {
 #[argh(subcommand, name = "derive-key")]
 pub struct DeriveKeyArgs {
     #[argh(positional)]
-    pub public_key: OsString,
+    pub public_key: String,
 
     #[argh(positional)]
-    pub sub_key_id: OsString,
+    pub sub_key_id: String,
 }
 
 #[derive(Debug, FromArgs)]
@@ -74,10 +73,10 @@ pub struct DeriveKeyArgs {
 #[argh(subcommand, name = "encrypt")]
 pub struct EncryptArgs {
     #[argh(positional)]
-    pub secret_key: PathBuf,
+    pub secret_key: String,
 
     #[argh(positional)]
-    pub key_id: OsString,
+    pub key_id: String,
 
     #[argh(positional, from_str_fn(str_to_input))]
     pub plaintext: Input,
@@ -86,7 +85,7 @@ pub struct EncryptArgs {
     pub ciphertext: Output,
 
     #[argh(positional)]
-    pub recipients: Vec<OsString>,
+    pub recipients: Vec<String>,
 
     /// number of fake recipients to add
     #[argh(option, default = "0")]
@@ -98,7 +97,7 @@ pub struct EncryptArgs {
 
     /// read the passphrase from the given file
     #[argh(option)]
-    pub passphrase_file: Option<PathBuf>,
+    pub passphrase_file: Option<String>,
 }
 
 #[derive(Debug, FromArgs)]
@@ -106,10 +105,10 @@ pub struct EncryptArgs {
 #[argh(subcommand, name = "decrypt")]
 pub struct DecryptArgs {
     #[argh(positional)]
-    pub secret_key: PathBuf,
+    pub secret_key: String,
 
     #[argh(positional)]
-    pub key_id: OsString,
+    pub key_id: String,
 
     #[argh(positional, from_str_fn(str_to_input))]
     pub ciphertext: Input,
@@ -118,11 +117,11 @@ pub struct DecryptArgs {
     pub plaintext: Output,
 
     #[argh(positional)]
-    pub sender: OsString,
+    pub sender: String,
 
     /// read the passphrase from the given file
     #[argh(option)]
-    pub passphrase_file: Option<PathBuf>,
+    pub passphrase_file: Option<String>,
 }
 
 #[derive(Debug, FromArgs)]
@@ -130,17 +129,17 @@ pub struct DecryptArgs {
 #[argh(subcommand, name = "sign")]
 pub struct SignArgs {
     #[argh(positional)]
-    pub secret_key: PathBuf,
+    pub secret_key: String,
 
     #[argh(positional)]
-    pub key_id: OsString,
+    pub key_id: String,
 
     #[argh(positional, from_str_fn(str_to_input))]
     pub message: Input,
 
     /// read the passphrase from the given file
     #[argh(option)]
-    pub passphrase_file: Option<PathBuf>,
+    pub passphrase_file: Option<String>,
 }
 
 #[derive(Debug, FromArgs)]
@@ -149,13 +148,13 @@ pub struct SignArgs {
 pub struct VerifyArgs {
     /// the signer's public key
     #[argh(positional)]
-    pub public_key: OsString,
+    pub public_key: String,
 
     #[argh(positional, from_str_fn(str_to_input))]
     pub message: Input,
 
     #[argh(positional)]
-    pub signature: OsString,
+    pub signature: String,
 }
 
 fn str_to_input(value: &str) -> Result<Input, String> {
