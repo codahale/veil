@@ -144,7 +144,6 @@ fn create_secret_key(secret_key_path: &PathBuf, passphrase_path: &PathBuf) -> Re
         "--space",
         "15",
     )
-    .stdout_capture()
     .run()?;
 
     Ok(())
