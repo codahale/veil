@@ -68,8 +68,9 @@ impl SecretKey {
     /// Decrypts the secret key with the given passphrase and pbenc parameters.
     pub fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Result<SecretKey> {
         pbenc::decrypt(passphrase, ciphertext)
+            .and_then(|b| b.try_into().ok())
+            .map(|r| SecretKey { r })
             .ok_or(VeilError::InvalidSecretKey)
-            .and_then(|p| Ok(SecretKey { r: p.try_into().or(Err(VeilError::InvalidSecretKey))? }))
     }
 
     /// Derives a private key with the given key ID.
