@@ -209,11 +209,12 @@ impl str::FromStr for Signature {
     type Err = VeilError;
 
     fn from_str(s: &str) -> result::Result<Self, Self::Err> {
-        s.from_base58()
-            .ok()
-            .and_then(|b| b.try_into().ok())
-            .map(|sig| Signature { sig })
-            .ok_or(VeilError::InvalidSignature)
+        #[inline]
+        fn inner(s: &str) -> Option<Signature> {
+            let b = s.from_base58().ok()?;
+            Some(Signature { sig: b.try_into().ok()? })
+        }
+        inner(s).ok_or(VeilError::InvalidSignature)
     }
 }
 
@@ -257,15 +258,13 @@ impl str::FromStr for PublicKey {
     type Err = VeilError;
 
     fn from_str(s: &str) -> result::Result<Self, Self::Err> {
-        let b = s.from_base58().or(Err(VeilError::InvalidPublicKey))?;
-        if b.len() != POINT_LEN {
-            return Err(VeilError::InvalidPublicKey);
+        #[inline]
+        fn inner(s: &str) -> Option<PublicKey> {
+            let b = s.from_base58().ok().filter(|b| b.len() == POINT_LEN)?;
+            Some(PublicKey { q: CompressedRistretto::from_slice(&b).decompress()? })
         }
 
-        CompressedRistretto::from_slice(&b)
-            .decompress()
-            .map(|q| PublicKey { q })
-            .ok_or(VeilError::InvalidPublicKey)
+        inner(s).ok_or(VeilError::InvalidPublicKey)
     }
 }
 
