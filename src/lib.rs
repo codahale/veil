@@ -13,6 +13,7 @@
 //!
 //! ```
 //! use std::{io, str};
+//! use std::io::Cursor;
 //! use veil::SecretKey;
 //!
 //! // Alice creates a secret key.
@@ -30,9 +31,9 @@
 //! let bea_pub = bea_priv.public_key();
 //!
 //! // Alice encrypts a secret message for Bea.
-//! let mut ciphertext = io::Cursor::new(Vec::new());
+//! let mut ciphertext = Cursor::new(Vec::new());
 //! alice_priv.encrypt(
-//!   &mut io::Cursor::new("this is a secret message"),
+//!   &mut Cursor::new("this is a secret message"),
 //!   &mut ciphertext,
 //!   vec![bea_pub],
 //!   20,
@@ -40,9 +41,9 @@
 //! ).expect("encryption failed");
 //!
 //! // Bea decrypts the message.
-//! let mut plaintext = io::Cursor::new(Vec::new());
+//! let mut plaintext = Cursor::new(Vec::new());
 //! bea_priv.decrypt(
-//!   &mut io::Cursor::new(ciphertext.into_inner()),
+//!   &mut Cursor::new(ciphertext.into_inner()),
 //!   &mut plaintext,
 //!   &alice_pub,
 //! ).expect("decryption failed");

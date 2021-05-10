@@ -287,7 +287,7 @@ fn rand_usize(n: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use std::io;
+    use std::io::Cursor;
 
     use anyhow::Result;
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
@@ -353,14 +353,14 @@ mod tests {
         let priv_b = sk_b.private_key("/a/b");
 
         let message = b"this is a thingy";
-        let mut src = io::Cursor::new(message);
-        let mut dst = io::Cursor::new(Vec::new());
+        let mut src = Cursor::new(message);
+        let mut dst = Cursor::new(Vec::new());
 
         let ctx_len = priv_a.encrypt(&mut src, &mut dst, vec![priv_b.public_key()], 20, 123)?;
         assert_eq!(dst.position(), ctx_len);
 
-        let mut src = io::Cursor::new(dst.into_inner());
-        let mut dst = io::Cursor::new(Vec::new());
+        let mut src = Cursor::new(dst.into_inner());
+        let mut dst = Cursor::new(Vec::new());
 
         let ptx_len = priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key())?;
         assert_eq!(dst.position(), ptx_len);
@@ -378,14 +378,14 @@ mod tests {
         let priv_b = sk_b.private_key("/a/b");
 
         let message = b"this is a thingy";
-        let mut src = io::Cursor::new(message);
-        let mut dst = io::Cursor::new(Vec::new());
+        let mut src = Cursor::new(message);
+        let mut dst = Cursor::new(Vec::new());
 
         let ctx_len = priv_a.encrypt(&mut src, &mut dst, vec![priv_b.public_key()], 20, 123)?;
         assert_eq!(dst.position(), ctx_len);
 
-        let mut src = io::Cursor::new(dst.into_inner());
-        let mut dst = io::Cursor::new(Vec::new());
+        let mut src = Cursor::new(dst.into_inner());
+        let mut dst = Cursor::new(Vec::new());
 
         assert_decryption_failure(priv_b.decrypt(&mut src, &mut dst, &priv_b.public_key()))
     }
@@ -399,14 +399,14 @@ mod tests {
         let priv_b = sk_b.private_key("/a/b");
 
         let message = b"this is a thingy";
-        let mut src = io::Cursor::new(message);
-        let mut dst = io::Cursor::new(Vec::new());
+        let mut src = Cursor::new(message);
+        let mut dst = Cursor::new(Vec::new());
 
         let ctx_len = priv_a.encrypt(&mut src, &mut dst, vec![priv_a.public_key()], 20, 123)?;
         assert_eq!(dst.position(), ctx_len);
 
-        let mut src = io::Cursor::new(dst.into_inner());
-        let mut dst = io::Cursor::new(Vec::new());
+        let mut src = Cursor::new(dst.into_inner());
+        let mut dst = Cursor::new(Vec::new());
 
         assert_decryption_failure(priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()))
     }
@@ -420,8 +420,8 @@ mod tests {
         let priv_b = sk_b.private_key("/a/b");
 
         let message = b"this is a thingy";
-        let mut src = io::Cursor::new(message);
-        let mut dst = io::Cursor::new(Vec::new());
+        let mut src = Cursor::new(message);
+        let mut dst = Cursor::new(Vec::new());
 
         let ctx_len = priv_a.encrypt(&mut src, &mut dst, vec![priv_b.public_key()], 20, 123)?;
         assert_eq!(dst.position(), ctx_len);
@@ -429,8 +429,8 @@ mod tests {
         let mut ciphertext = dst.into_inner();
         ciphertext[200] ^= 1;
 
-        let mut src = io::Cursor::new(ciphertext);
-        let mut dst = io::Cursor::new(Vec::new());
+        let mut src = Cursor::new(ciphertext);
+        let mut dst = Cursor::new(Vec::new());
 
         assert_decryption_failure(priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()))
     }
@@ -442,11 +442,11 @@ mod tests {
         let pub_a = priv_a.public_key();
 
         let message = b"this is a thingy";
-        let mut src = io::Cursor::new(message);
+        let mut src = Cursor::new(message);
 
         let sig = priv_a.sign(&mut src)?;
 
-        let mut src = io::Cursor::new(message);
+        let mut src = Cursor::new(message);
         assert_eq!(true, pub_a.verify(&mut src, &sig).is_ok());
 
         Ok(())

@@ -159,16 +159,16 @@
 //!
 
 use std::convert::TryInto;
-use std::io::{self, Read, Write};
+use std::io::{self, Read, Result, Write};
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use strobe_rs::{SecParam, Strobe};
 
-use crate::schnorr::{Verifier, SIGNATURE_LEN};
+use crate::akem;
+use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::util::{StrobeExt, MAC_LEN};
-use crate::{akem, schnorr};
 
 pub(crate) fn encrypt<R, W>(
     reader: &mut R,
@@ -177,13 +177,13 @@ pub(crate) fn encrypt<R, W>(
     q_s: &RistrettoPoint,
     q_rs: Vec<RistrettoPoint>,
     padding: u64,
-) -> io::Result<u64>
+) -> Result<u64>
 where
     R: Read,
     W: Write,
 {
     let mut written = 0u64;
-    let mut signer = schnorr::Signer::new(writer);
+    let mut signer = Signer::new(writer);
 
     // Initialize a protocol and add the MAC length and sender's public key as associated data.
     let mut mres = Strobe::new(b"veil.mres", SecParam::B256);
@@ -255,13 +255,13 @@ pub(crate) fn decrypt<R, W>(
     d_r: &Scalar,
     q_r: &RistrettoPoint,
     q_s: &RistrettoPoint,
-) -> io::Result<(bool, u64)>
+) -> Result<(bool, u64)>
 where
     R: Read,
     W: Write,
 {
     // Initialize a verifier for the entire ciphertext.
-    let mut verifier = schnorr::Verifier::new();
+    let mut verifier = Verifier::new();
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the verifier.
     let (dek, q_e) = match decrypt_header(reader, &mut verifier, d_r, q_r, q_s)? {
@@ -293,7 +293,7 @@ fn decrypt_message<R, W>(
     writer: &mut W,
     verifier: &mut Verifier,
     mres: &mut Strobe,
-) -> io::Result<(u64, [u8; SIGNATURE_LEN])>
+) -> Result<(u64, [u8; SIGNATURE_LEN])>
 where
     R: Read,
     W: Write,
@@ -347,7 +347,7 @@ fn decrypt_header<R>(
     d_r: &Scalar,
     q_r: &RistrettoPoint,
     q_s: &RistrettoPoint,
-) -> io::Result<Option<([u8; DEK_LEN], RistrettoPoint)>>
+) -> Result<Option<([u8; DEK_LEN], RistrettoPoint)>>
 where
     R: Read,
 {
@@ -386,7 +386,7 @@ fn encode_header(dek: &[u8; DEK_LEN], r_len: usize, padding: u64) -> Vec<u8> {
 struct RngReader;
 
 impl Read for RngReader {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         getrandom::getrandom(buf).expect("rng failure");
 
         Ok(buf.len())
@@ -395,7 +395,7 @@ impl Read for RngReader {
 
 #[cfg(test)]
 mod tests {
-    use std::io;
+    use std::io::Cursor;
 
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
     use curve25519_dalek::scalar::Scalar;
@@ -405,7 +405,7 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn round_trip() -> io::Result<()> {
+    pub fn round_trip() -> Result<()> {
         let d_s = Scalar::from_bytes_mod_order_wide(&util::rand_array());
         let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
 
@@ -413,14 +413,14 @@ mod tests {
         let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
 
         let message = b"this is a thingy";
-        let mut src = io::Cursor::new(message);
-        let mut dst = io::Cursor::new(Vec::new());
+        let mut src = Cursor::new(message);
+        let mut dst = Cursor::new(Vec::new());
 
         let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, vec![q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len);
 
-        let mut src = io::Cursor::new(dst.into_inner());
-        let mut dst = io::Cursor::new(Vec::new());
+        let mut src = Cursor::new(dst.into_inner());
+        let mut dst = Cursor::new(Vec::new());
 
         let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
         assert_eq!(true, verified);
@@ -431,7 +431,7 @@ mod tests {
     }
 
     #[test]
-    pub fn multi_block_message() -> io::Result<()> {
+    pub fn multi_block_message() -> Result<()> {
         let d_s = Scalar::from_bytes_mod_order_wide(&util::rand_array());
         let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
 
@@ -439,14 +439,14 @@ mod tests {
         let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
 
         let message = [69u8; 65 * 1024];
-        let mut src = io::Cursor::new(message);
-        let mut dst = io::Cursor::new(Vec::new());
+        let mut src = Cursor::new(message);
+        let mut dst = Cursor::new(Vec::new());
 
         let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, vec![q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len);
 
-        let mut src = io::Cursor::new(dst.into_inner());
-        let mut dst = io::Cursor::new(Vec::new());
+        let mut src = Cursor::new(dst.into_inner());
+        let mut dst = Cursor::new(Vec::new());
 
         let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
         assert_eq!(true, verified);
@@ -457,7 +457,7 @@ mod tests {
     }
 
     #[test]
-    pub fn split_sig() -> io::Result<()> {
+    pub fn split_sig() -> Result<()> {
         let d_s = Scalar::from_bytes_mod_order_wide(&util::rand_array());
         let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
 
@@ -465,14 +465,14 @@ mod tests {
         let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
 
         let message = [69u8; 32 * 1024 - 37];
-        let mut src = io::Cursor::new(message);
-        let mut dst = io::Cursor::new(Vec::new());
+        let mut src = Cursor::new(message);
+        let mut dst = Cursor::new(Vec::new());
 
         let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, vec![q_s, q_r], 0)?;
         assert_eq!(dst.position(), ctx_len);
 
-        let mut src = io::Cursor::new(dst.into_inner());
-        let mut dst = io::Cursor::new(Vec::new());
+        let mut src = Cursor::new(dst.into_inner());
+        let mut dst = Cursor::new(Vec::new());
 
         let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
         assert_eq!(true, verified);
@@ -483,7 +483,7 @@ mod tests {
     }
 
     #[test]
-    pub fn bad_message() -> io::Result<()> {
+    pub fn bad_message() -> Result<()> {
         let d_s = Scalar::from_bytes_mod_order_wide(&util::rand_array());
         let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
 
@@ -491,8 +491,8 @@ mod tests {
         let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
 
         let message = [69u8; 32 * 1024 - 37];
-        let mut src = io::Cursor::new(message);
-        let mut dst = io::Cursor::new(Vec::new());
+        let mut src = Cursor::new(message);
+        let mut dst = Cursor::new(Vec::new());
 
         let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, vec![q_s, q_r], 0)?;
         assert_eq!(dst.position(), ctx_len);
@@ -500,8 +500,8 @@ mod tests {
         let mut ciphertext = dst.into_inner();
         ciphertext[22] ^= 1;
 
-        let mut src = io::Cursor::new(ciphertext);
-        let mut dst = io::Cursor::new(Vec::new());
+        let mut src = Cursor::new(ciphertext);
+        let mut dst = Cursor::new(Vec::new());
 
         let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
         assert_eq!(false, verified);

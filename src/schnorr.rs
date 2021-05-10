@@ -85,7 +85,7 @@
 //! signature schemes.
 
 use std::convert::TryInto;
-use std::io;
+use std::io::{Result, Write};
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::RistrettoPoint;
@@ -97,14 +97,14 @@ use crate::util::StrobeExt;
 pub(crate) const SIGNATURE_LEN: usize = SCALAR_LEN * 2;
 const SCALAR_LEN: usize = 32;
 
-pub(crate) struct Signer<W: io::Write> {
+pub(crate) struct Signer<W: Write> {
     schnorr: Strobe,
     writer: W,
 }
 
 impl<W> Signer<W>
 where
-    W: io::Write,
+    W: Write,
 {
     pub(crate) fn new(writer: W) -> Signer<W> {
         let mut schnorr = Strobe::new(b"veil.schnorr", SecParam::B256);
@@ -144,17 +144,17 @@ where
     }
 }
 
-impl<W> io::Write for Signer<W>
+impl<W> Write for Signer<W>
 where
-    W: io::Write,
+    W: Write,
 {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
         self.schnorr.send_clr(buf, true);
 
         self.writer.write(buf)
     }
 
-    fn flush(&mut self) -> io::Result<()> {
+    fn flush(&mut self) -> Result<()> {
         self.writer.flush()
     }
 }
@@ -196,14 +196,14 @@ impl Verifier {
     }
 }
 
-impl io::Write for Verifier {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+impl Write for Verifier {
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
         self.schnorr.recv_clr(buf, true);
 
         Ok(buf.len())
     }
 
-    fn flush(&mut self) -> io::Result<()> {
+    fn flush(&mut self) -> Result<()> {
         Ok(())
     }
 }
@@ -221,7 +221,7 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn sign_and_verify() -> io::Result<()> {
+    pub fn sign_and_verify() -> Result<()> {
         let d = Scalar::from_bytes_mod_order_wide(&util::rand_array());
         let q = RISTRETTO_BASEPOINT_POINT * d;
 
@@ -244,7 +244,7 @@ mod tests {
     }
 
     #[test]
-    pub fn bad_message() -> io::Result<()> {
+    pub fn bad_message() -> Result<()> {
         let d = Scalar::from_bytes_mod_order_wide(&util::rand_array());
         let q = RISTRETTO_BASEPOINT_POINT * d;
 
@@ -267,7 +267,7 @@ mod tests {
     }
 
     #[test]
-    pub fn bad_key() -> io::Result<()> {
+    pub fn bad_key() -> Result<()> {
         let d = Scalar::from_bytes_mod_order_wide(&util::rand_array());
         let q = RISTRETTO_BASEPOINT_POINT * d;
 
@@ -290,7 +290,7 @@ mod tests {
     }
 
     #[test]
-    pub fn bad_sig() -> io::Result<()> {
+    pub fn bad_sig() -> Result<()> {
         let d = Scalar::from_bytes_mod_order_wide(&util::rand_array());
         let q = RISTRETTO_BASEPOINT_POINT * d;
 

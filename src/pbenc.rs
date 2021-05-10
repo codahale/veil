@@ -104,8 +104,8 @@ pub(crate) fn encrypt(passphrase: &[u8], plaintext: &[u8], time: u32, space: u32
 
 pub(crate) fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Option<Vec<u8>> {
     // Decode the time and space parameters.
-    let time = u32::from_le_bytes(ciphertext[..4].try_into().expect("unreachable"));
-    let space = u32::from_le_bytes(ciphertext[4..8].try_into().expect("unreachable"));
+    let time = u32::from_le_bytes(ciphertext[..4].try_into().ok()?);
+    let space = u32::from_le_bytes(ciphertext[4..8].try_into().ok()?);
 
     // Perform the balloon hashing.
     let mut pbenc = init(passphrase, &ciphertext[8..SALT_LEN + 8], time, space);
