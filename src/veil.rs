@@ -162,23 +162,14 @@ impl PrivateKey {
         R: io::Read,
         W: io::Write,
     {
-        mres::decrypt(
+        let (verified, written) = mres::decrypt(
             &mut io::BufReader::new(reader),
             &mut io::BufWriter::new(writer),
             &self.d,
             &self.pk.q,
             &sender.q,
-        )
-        .map_err(VeilError::from)
-        .and_then(
-            |(verified, written)| {
-                if verified {
-                    Ok(written)
-                } else {
-                    Err(VeilError::InvalidCiphertext)
-                }
-            },
-        )
+        )?;
+        verified.then(|| written).ok_or(VeilError::InvalidCiphertext)
     }
 
     /// Reads the contents of the reader and returns a Schnorr signature.
