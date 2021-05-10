@@ -9,7 +9,7 @@ use duct::cmd;
 const VEIL_PATH: &str = env!("CARGO_BIN_EXE_veil");
 
 #[test]
-pub fn bootstrap_and_send_a_message() -> Result<()> {
+pub fn encrypt_and_decrypt_a_message() -> Result<()> {
     let dir = tempfile::tempdir()?;
 
     // Alice picks a passphrase.
