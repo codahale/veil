@@ -44,10 +44,6 @@ pub enum VeilError {
     },
 }
 
-pub(crate) fn io_error(source: io::Error) -> VeilError {
-    VeilError::IoError { source }
-}
-
 /// A 512-bit secret from which multiple private keys can be derived.
 #[derive(Zeroize)]
 #[zeroize(drop)]
@@ -154,7 +150,7 @@ impl PrivateKey {
             q_rs,
             padding,
         )
-        .map_err(io_error)
+        .map_err(VeilError::from)
     }
 
     /// Decrypts the contents of the reader, if possible, and writes the plaintext to the writer.
@@ -173,7 +169,7 @@ impl PrivateKey {
             &self.pk.q,
             &sender.q,
         )
-        .map_err(io_error)
+        .map_err(VeilError::from)
         .and_then(
             |(verified, written)| {
                 if verified {
@@ -188,7 +184,7 @@ impl PrivateKey {
     /// Reads the contents of the reader and returns a Schnorr signature.
     pub fn sign<R: io::Read>(&self, reader: &mut R) -> Result<Signature> {
         let mut signer = schnorr::Signer::new(io::sink());
-        io::copy(reader, &mut signer).map_err(io_error)?;
+        io::copy(reader, &mut signer).map_err(VeilError::from)?;
         Ok(Signature { sig: signer.sign(&self.d, &self.pk.q) })
     }
 
@@ -249,7 +245,7 @@ impl PublicKey {
     /// public key of the exact contents.
     pub fn verify<R: io::Read>(&self, reader: &mut R, sig: &Signature) -> Result<()> {
         let mut verifier = schnorr::Verifier::new();
-        io::copy(reader, &mut verifier).map_err(io_error)?;
+        io::copy(reader, &mut verifier).map_err(VeilError::from)?;
         if verifier.verify(&self.q, &sig.sig) {
             Ok(())
         } else {
