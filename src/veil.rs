@@ -236,11 +236,7 @@ impl PublicKey {
     pub fn verify<R: io::Read>(&self, reader: &mut R, sig: &Signature) -> Result<()> {
         let mut verifier = schnorr::Verifier::new();
         io::copy(reader, &mut verifier)?;
-        if verifier.verify(&self.q, &sig.sig) {
-            Ok(())
-        } else {
-            Err(VeilError::InvalidSignature)
-        }
+        verifier.verify(&self.q, &sig.sig).then(|| ()).ok_or(VeilError::InvalidSignature)
     }
 
     /// Derives a public key with the given key ID.
