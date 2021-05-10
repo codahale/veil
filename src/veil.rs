@@ -69,8 +69,7 @@ impl SecretKey {
     pub fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Result<SecretKey> {
         pbenc::decrypt(passphrase, ciphertext)
             .ok_or(VeilError::InvalidSecretKey)
-            .and_then(|plaintext| plaintext.try_into().map_err(|_| VeilError::InvalidSecretKey))
-            .map(|r| SecretKey { r })
+            .and_then(|p| Ok(SecretKey { r: p.try_into().or(Err(VeilError::InvalidSecretKey))? }))
     }
 
     /// Derives a private key with the given key ID.
@@ -258,7 +257,7 @@ impl str::FromStr for PublicKey {
     type Err = VeilError;
 
     fn from_str(s: &str) -> result::Result<Self, Self::Err> {
-        let b = s.from_base58().map_err(|_| VeilError::InvalidPublicKey)?;
+        let b = s.from_base58().or(Err(VeilError::InvalidPublicKey))?;
         if b.len() != POINT_LEN {
             return Err(VeilError::InvalidPublicKey);
         }
