@@ -54,10 +54,7 @@ pub struct SecretKey {
 impl SecretKey {
     /// Returns a randomly generated secret key.
     pub fn new() -> SecretKey {
-        let mut r = [0u8; 64];
-        getrandom::getrandom(&mut r).expect("rng failure");
-
-        SecretKey { r }
+        SecretKey { r: util::rand_array() }
     }
 
     /// Encrypts the secret key with the given passphrase and pbenc parameters.
