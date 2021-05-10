@@ -46,11 +46,10 @@ fn key_id_parts(key_id: &str) -> Vec<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_case::test_case;
 
-    #[test_case("/one/two/three" => vec!["one", "two", "three"] ; "simple key ID")]
-    #[test_case("two/three" => vec!["two", "three"] ; "sub key ID")]
-    pub fn key_id_splitting(s: &str) -> Vec<&str> {
-        key_id_parts(s)
+    #[test]
+    pub fn key_id_splitting() {
+        assert_eq!(vec!["one", "two", "three"], key_id_parts("/one/two/three"));
+        assert_eq!(vec!["two", "three"], key_id_parts("two/three"));
     }
 }
