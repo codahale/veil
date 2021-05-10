@@ -181,8 +181,8 @@ impl Verifier {
         self.schnorr.ad_point(q);
 
         // Decode the challenge and signature scalars.
-        let c = Scalar::from_canonical_bytes(sig[..SCALAR_LEN].try_into().expect("short sig c"))?;
-        let s = Scalar::from_canonical_bytes(sig[SCALAR_LEN..].try_into().expect("short sig s"))?;
+        let c = Scalar::from_canonical_bytes(sig[..SCALAR_LEN].try_into().ok()?)?;
+        let s = Scalar::from_canonical_bytes(sig[SCALAR_LEN..].try_into().ok()?)?;
 
         // Re-calculate the ephemeral public key and add it as associated data.
         let r_g = (RISTRETTO_BASEPOINT_POINT * s) + (-c * q);
