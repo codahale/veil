@@ -405,7 +405,7 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn round_trip() {
+    pub fn round_trip() -> io::Result<()> {
         let d_s = Scalar::from_bytes_mod_order_wide(&util::rand_array());
         let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
 
@@ -416,21 +416,22 @@ mod tests {
         let mut src = io::Cursor::new(message);
         let mut dst = io::Cursor::new(Vec::new());
 
-        let ctx_len =
-            encrypt(&mut src, &mut dst, &d_s, &q_s, vec![q_s, q_r], 123).expect("encrypt");
+        let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, vec![q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len);
 
         let mut src = io::Cursor::new(dst.into_inner());
         let mut dst = io::Cursor::new(Vec::new());
 
-        let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s).expect("decrypt");
+        let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
         assert_eq!(true, verified);
         assert_eq!(dst.position(), ptx_len);
         assert_eq!(message.to_vec(), dst.into_inner());
+
+        Ok(())
     }
 
     #[test]
-    pub fn multi_block_message() {
+    pub fn multi_block_message() -> io::Result<()> {
         let d_s = Scalar::from_bytes_mod_order_wide(&util::rand_array());
         let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
 
@@ -441,21 +442,22 @@ mod tests {
         let mut src = io::Cursor::new(message);
         let mut dst = io::Cursor::new(Vec::new());
 
-        let ctx_len =
-            encrypt(&mut src, &mut dst, &d_s, &q_s, vec![q_s, q_r], 123).expect("encrypt");
+        let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, vec![q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len);
 
         let mut src = io::Cursor::new(dst.into_inner());
         let mut dst = io::Cursor::new(Vec::new());
 
-        let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s).expect("decrypt");
+        let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
         assert_eq!(true, verified);
         assert_eq!(dst.position(), ptx_len);
         assert_eq!(message.to_vec(), dst.into_inner());
+
+        Ok(())
     }
 
     #[test]
-    pub fn split_sig() {
+    pub fn split_sig() -> io::Result<()> {
         let d_s = Scalar::from_bytes_mod_order_wide(&util::rand_array());
         let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
 
@@ -466,15 +468,45 @@ mod tests {
         let mut src = io::Cursor::new(message);
         let mut dst = io::Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, vec![q_s, q_r], 0).expect("encrypt");
+        let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, vec![q_s, q_r], 0)?;
         assert_eq!(dst.position(), ctx_len);
 
         let mut src = io::Cursor::new(dst.into_inner());
         let mut dst = io::Cursor::new(Vec::new());
 
-        let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s).expect("decrypt");
+        let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
         assert_eq!(true, verified);
         assert_eq!(dst.position(), ptx_len);
         assert_eq!(message.to_vec(), dst.into_inner());
+
+        Ok(())
+    }
+
+    #[test]
+    pub fn bad_message() -> io::Result<()> {
+        let d_s = Scalar::from_bytes_mod_order_wide(&util::rand_array());
+        let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
+
+        let d_r = Scalar::from_bytes_mod_order_wide(&util::rand_array());
+        let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
+
+        let message = [69u8; 32 * 1024 - 37];
+        let mut src = io::Cursor::new(message);
+        let mut dst = io::Cursor::new(Vec::new());
+
+        let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, vec![q_s, q_r], 0)?;
+        assert_eq!(dst.position(), ctx_len);
+
+        let mut ciphertext = dst.into_inner();
+        ciphertext[22] ^= 1;
+
+        let mut src = io::Cursor::new(ciphertext);
+        let mut dst = io::Cursor::new(Vec::new());
+
+        let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
+        assert_eq!(false, verified);
+        assert_eq!(dst.position(), ptx_len);
+
+        Ok(())
     }
 }

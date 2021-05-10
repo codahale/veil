@@ -288,4 +288,28 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    pub fn bad_sig() -> io::Result<()> {
+        let d = Scalar::from_bytes_mod_order_wide(&util::rand_array());
+        let q = RISTRETTO_BASEPOINT_POINT * d;
+
+        let mut signer = Signer::new(io::sink());
+        signer.write(b"this is a message that")?;
+        signer.write(b" is in multiple pieces")?;
+        signer.flush()?;
+
+        let mut sig = signer.sign(&d, &q);
+        sig[22] ^= 1;
+
+        let mut verifier = Verifier::new();
+        verifier.write(b"this is a message that")?;
+        verifier.write(b" is in multiple")?;
+        verifier.write(b" pieces")?;
+        verifier.flush()?;
+
+        assert_eq!(false, verifier.verify(&q, &sig));
+
+        Ok(())
+    }
 }

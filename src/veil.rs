@@ -289,6 +289,7 @@ fn rand_usize(n: usize) -> usize {
 mod tests {
     use std::io;
 
+    use anyhow::Result;
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 
     use super::*;
@@ -314,34 +315,37 @@ mod tests {
     }
 
     #[test]
-    pub fn public_key_encoding() {
+    pub fn public_key_encoding() -> Result<()> {
         let base = PublicKey { q: RISTRETTO_BASEPOINT_POINT };
 
         assert_eq!("GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3", base.to_string());
 
-        let decoded =
-            "GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3".parse().expect("decoding error");
+        let decoded = "GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3".parse()?;
         assert_eq!(base, decoded);
 
         let invalid = "woot woot".parse::<PublicKey>();
         assert_eq!(true, invalid.is_err());
+
+        Ok(())
     }
 
     #[test]
-    pub fn signature_encoding() {
+    pub fn signature_encoding() -> Result<()> {
         let sig = Signature { sig: [69u8; SIGNATURE_LEN] };
 
         assert_eq!("2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC", sig.to_string());
 
-        let decoded = "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC".parse().expect("error decoding");
+        let decoded = "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC".parse()?;
         assert_eq!(sig, decoded);
 
         let invalid = "woot woot".parse::<Signature>();
         assert_eq!(true, invalid.is_err());
+
+        Ok(())
     }
 
     #[test]
-    pub fn round_trip() {
+    pub fn round_trip() -> Result<()> {
         let sk_a = SecretKey::new();
         let priv_a = sk_a.private_key("/one/two");
 
@@ -352,21 +356,21 @@ mod tests {
         let mut src = io::Cursor::new(message);
         let mut dst = io::Cursor::new(Vec::new());
 
-        let ctx_len = priv_a
-            .encrypt(&mut src, &mut dst, vec![priv_b.public_key()], 20, 123)
-            .expect("encrypt");
+        let ctx_len = priv_a.encrypt(&mut src, &mut dst, vec![priv_b.public_key()], 20, 123)?;
         assert_eq!(dst.position(), ctx_len);
 
         let mut src = io::Cursor::new(dst.into_inner());
         let mut dst = io::Cursor::new(Vec::new());
 
-        let ptx_len = priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()).expect("decrypt");
+        let ptx_len = priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key())?;
         assert_eq!(dst.position(), ptx_len);
         assert_eq!(message.to_vec(), dst.into_inner());
+
+        Ok(())
     }
 
     #[test]
-    pub fn bad_sender_key() {
+    pub fn bad_sender_key() -> Result<()> {
         let sk_a = SecretKey::new();
         let priv_a = sk_a.private_key("/one/two");
 
@@ -377,20 +381,17 @@ mod tests {
         let mut src = io::Cursor::new(message);
         let mut dst = io::Cursor::new(Vec::new());
 
-        let ctx_len = priv_a
-            .encrypt(&mut src, &mut dst, vec![priv_b.public_key()], 20, 123)
-            .expect("encrypt");
+        let ctx_len = priv_a.encrypt(&mut src, &mut dst, vec![priv_b.public_key()], 20, 123)?;
         assert_eq!(dst.position(), ctx_len);
 
         let mut src = io::Cursor::new(dst.into_inner());
         let mut dst = io::Cursor::new(Vec::new());
 
-        let ptx_len = priv_b.decrypt(&mut src, &mut dst, &priv_b.public_key());
-        assert_eq!(true, ptx_len.is_err());
+        assert_decryption_failure(priv_b.decrypt(&mut src, &mut dst, &priv_b.public_key()))
     }
 
     #[test]
-    pub fn bad_recipient() {
+    pub fn bad_recipient() -> Result<()> {
         let sk_a = SecretKey::new();
         let priv_a = sk_a.private_key("/one/two");
 
@@ -401,20 +402,17 @@ mod tests {
         let mut src = io::Cursor::new(message);
         let mut dst = io::Cursor::new(Vec::new());
 
-        let ctx_len = priv_a
-            .encrypt(&mut src, &mut dst, vec![priv_a.public_key()], 20, 123)
-            .expect("encrypt");
+        let ctx_len = priv_a.encrypt(&mut src, &mut dst, vec![priv_a.public_key()], 20, 123)?;
         assert_eq!(dst.position(), ctx_len);
 
         let mut src = io::Cursor::new(dst.into_inner());
         let mut dst = io::Cursor::new(Vec::new());
 
-        let ptx_len = priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key());
-        assert_eq!(true, ptx_len.is_err());
+        assert_decryption_failure(priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()))
     }
 
     #[test]
-    pub fn bad_ciphertext() {
+    pub fn bad_ciphertext() -> Result<()> {
         let sk_a = SecretKey::new();
         let priv_a = sk_a.private_key("/one/two");
 
@@ -425,9 +423,7 @@ mod tests {
         let mut src = io::Cursor::new(message);
         let mut dst = io::Cursor::new(Vec::new());
 
-        let ctx_len = priv_a
-            .encrypt(&mut src, &mut dst, vec![priv_b.public_key()], 20, 123)
-            .expect("encrypt");
+        let ctx_len = priv_a.encrypt(&mut src, &mut dst, vec![priv_b.public_key()], 20, 123)?;
         assert_eq!(dst.position(), ctx_len);
 
         let mut ciphertext = dst.into_inner();
@@ -436,12 +432,11 @@ mod tests {
         let mut src = io::Cursor::new(ciphertext);
         let mut dst = io::Cursor::new(Vec::new());
 
-        let ptx_len = priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key());
-        assert_eq!(true, ptx_len.is_err());
+        assert_decryption_failure(priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()))
     }
 
     #[test]
-    pub fn sign_and_verify() {
+    pub fn sign_and_verify() -> Result<()> {
         let sk = SecretKey::new();
         let priv_a = sk.private_key("/one/two");
         let pub_a = priv_a.public_key();
@@ -449,9 +444,19 @@ mod tests {
         let message = b"this is a thingy";
         let mut src = io::Cursor::new(message);
 
-        let sig = priv_a.sign(&mut src).expect("signing error");
+        let sig = priv_a.sign(&mut src)?;
 
         let mut src = io::Cursor::new(message);
         assert_eq!(true, pub_a.verify(&mut src, &sig).is_ok());
+
+        Ok(())
+    }
+
+    fn assert_decryption_failure(result: Result<u64, VeilError>) -> Result<()> {
+        match result {
+            Err(VeilError::InvalidCiphertext) => Ok(()),
+            Err(e) => Err(anyhow::Error::from(e)),
+            _ => panic!("should not have decrypted"),
+        }
     }
 }

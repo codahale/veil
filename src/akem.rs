@@ -207,7 +207,6 @@ mod tests {
     #[test]
     fn round_trip() {
         let (d_s, q_s, d_e, q_e, d_r, q_r) = setup();
-
         let ciphertext = encapsulate(&d_s, &q_s, &d_e, &q_e, &q_r, b"this is an example");
         let (pk, plaintext) = decapsulate(&d_r, &q_r, &q_s, &ciphertext).expect("decapsulate");
 
@@ -218,40 +217,28 @@ mod tests {
     #[test]
     fn bad_ephemeral_public_key() {
         let (d_s, q_s, d_e, q_e, d_r, q_r) = setup();
-
         let mut ciphertext = encapsulate(&d_s, &q_s, &d_e, &q_e, &q_r, b"this is an example");
-
         ciphertext[0] ^= 1;
 
-        let output = decapsulate(&d_r, &q_r, &q_s, &ciphertext);
-
-        assert_eq!(None, output);
+        assert_eq!(None, decapsulate(&d_r, &q_r, &q_s, &ciphertext));
     }
 
     #[test]
     fn bad_ciphertext() {
         let (d_s, q_s, d_e, q_e, d_r, q_r) = setup();
-
         let mut ciphertext = encapsulate(&d_s, &q_s, &d_e, &q_e, &q_r, b"this is an example");
-
         ciphertext[36] ^= 1;
 
-        let output = decapsulate(&d_r, &q_r, &q_s, &ciphertext);
-
-        assert_eq!(None, output);
+        assert_eq!(None, decapsulate(&d_r, &q_r, &q_s, &ciphertext));
     }
 
     #[test]
     fn bad_mac() {
         let (d_s, q_s, d_e, q_e, d_r, q_r) = setup();
-
         let mut ciphertext = encapsulate(&d_s, &q_s, &d_e, &q_e, &q_r, b"this is an example");
-
         ciphertext[64] ^= 1;
 
-        let output = decapsulate(&d_r, &q_r, &q_s, &ciphertext);
-
-        assert_eq!(None, output);
+        assert_eq!(None, decapsulate(&d_r, &q_r, &q_s, &ciphertext));
     }
 
     fn setup() -> (Scalar, RistrettoPoint, Scalar, RistrettoPoint, Scalar, RistrettoPoint) {

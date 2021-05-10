@@ -211,9 +211,7 @@ mod tests {
         let mut ciphertext = encrypt(passphrase, message, 5, 3);
         ciphertext[0] ^= 1;
 
-        let plaintext = decrypt(passphrase, &ciphertext);
-
-        assert_eq!(None, plaintext);
+        assert_eq!(None, decrypt(passphrase, &ciphertext));
     }
 
     #[test]
@@ -223,9 +221,7 @@ mod tests {
         let mut ciphertext = encrypt(passphrase, message, 5, 3);
         ciphertext[5] ^= 1;
 
-        let plaintext = decrypt(passphrase, &ciphertext);
-
-        assert_eq!(None, plaintext);
+        assert_eq!(None, decrypt(passphrase, &ciphertext));
     }
 
     #[test]
@@ -235,9 +231,7 @@ mod tests {
         let mut ciphertext = encrypt(passphrase, message, 5, 3);
         ciphertext[12] ^= 1;
 
-        let plaintext = decrypt(passphrase, &ciphertext);
-
-        assert_eq!(None, plaintext);
+        assert_eq!(None, decrypt(passphrase, &ciphertext));
     }
 
     #[test]
@@ -247,9 +241,7 @@ mod tests {
         let mut ciphertext = encrypt(passphrase, message, 5, 3);
         ciphertext[37] ^= 1;
 
-        let plaintext = decrypt(passphrase, &ciphertext);
-
-        assert_eq!(None, plaintext);
+        assert_eq!(None, decrypt(passphrase, &ciphertext));
     }
 
     #[test]
@@ -259,8 +251,6 @@ mod tests {
         let mut ciphertext = encrypt(passphrase, message, 5, 3);
         ciphertext[49] ^= 1;
 
-        let plaintext = decrypt(passphrase, &ciphertext);
-
-        assert_eq!(None, plaintext);
+        assert_eq!(None, decrypt(passphrase, &ciphertext));
     }
 }
