@@ -69,13 +69,15 @@ use std::convert::TryInto;
 
 use strobe_rs::{SecParam, Strobe};
 
-use crate::util::{self, StrobeExt, MAC_LEN};
+use crate::util::{self, StrobeExt, MAC_LEN, U32_LEN, U64_LEN};
 
 const SALT_LEN: usize = 16;
+const TIME_OFFSET: usize = 0;
+const SPACE_OFFSET: usize = U32_LEN;
+const SALT_OFFSET: usize = SPACE_OFFSET + U32_LEN;
+const CT_OFFSET: usize = SALT_OFFSET + SALT_LEN;
 
 pub(crate) fn encrypt(passphrase: &[u8], plaintext: &[u8], time: u32, space: u32) -> Vec<u8> {
-    const CT_OFFSET: usize = 8 + SALT_LEN;
-
     // Generate a random salt.
     let salt: [u8; SALT_LEN] = util::rand_array();
 
@@ -86,11 +88,11 @@ pub(crate) fn encrypt(passphrase: &[u8], plaintext: &[u8], time: u32, space: u32
     let mut out = vec![0u8; CT_OFFSET + plaintext.len() + MAC_LEN];
 
     // Encode the time and space parameters.
-    out[..4].copy_from_slice(&time.to_le_bytes());
-    out[4..8].copy_from_slice(&space.to_le_bytes());
+    out[TIME_OFFSET..SPACE_OFFSET].copy_from_slice(&time.to_le_bytes());
+    out[SPACE_OFFSET..SALT_OFFSET].copy_from_slice(&space.to_le_bytes());
 
     // Copy the salt.
-    out[8..CT_OFFSET].copy_from_slice(&salt);
+    out[SALT_OFFSET..CT_OFFSET].copy_from_slice(&salt);
 
     // Copy the plaintext and encrypt it.
     out[CT_OFFSET..CT_OFFSET + plaintext.len()].copy_from_slice(plaintext);
@@ -104,14 +106,14 @@ pub(crate) fn encrypt(passphrase: &[u8], plaintext: &[u8], time: u32, space: u32
 
 pub(crate) fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Option<Vec<u8>> {
     // Decode the time and space parameters.
-    let time = u32::from_le_bytes(ciphertext[..4].try_into().ok()?);
-    let space = u32::from_le_bytes(ciphertext[4..8].try_into().ok()?);
+    let time = u32::from_le_bytes(ciphertext[TIME_OFFSET..SPACE_OFFSET].try_into().ok()?);
+    let space = u32::from_le_bytes(ciphertext[SPACE_OFFSET..SALT_OFFSET].try_into().ok()?);
 
     // Perform the balloon hashing.
-    let mut pbenc = init(passphrase, &ciphertext[8..SALT_LEN + 8], time, space);
+    let mut pbenc = init(passphrase, &ciphertext[SALT_OFFSET..CT_OFFSET], time, space);
 
     // Copy the ciphertext and MAC.
-    let mut out = Vec::from(&ciphertext[8 + SALT_LEN..]);
+    let mut out = Vec::from(&ciphertext[CT_OFFSET..]);
     let pt_len = out.len() - MAC_LEN;
 
     // Decrypt the ciphertext.
@@ -158,15 +160,14 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
             // Step 2b: Hash in pseudo-randomly chosen blocks.
             for i in 0..DELTA {
                 // Map indexes to a block and hash it and the salt.
-                idx[0..8].copy_from_slice(&(t as u64).to_le_bytes());
-                idx[8..16].copy_from_slice(&(m as u64).to_le_bytes());
-                idx[16..24].copy_from_slice(&(i as u64).to_le_bytes());
+                idx[0..U64_LEN].copy_from_slice(&(t as u64).to_le_bytes());
+                idx[U64_LEN..U64_LEN * 2].copy_from_slice(&(m as u64).to_le_bytes());
+                idx[U64_LEN * 2..U64_LEN * 3].copy_from_slice(&(i as u64).to_le_bytes());
                 idx = hash_counter(&mut pbenc, &mut ctr, salt, &idx);
 
                 // Map the hashed index block back to an index and hash that block.
-                let other =
-                    (u64::from_le_bytes(idx[..8].try_into().unwrap()) % space as u64) as usize;
-                buf[m] = hash_counter(&mut pbenc, &mut ctr, &buf[other], &[]);
+                let v = u64::from_le_bytes(idx[..U64_LEN].try_into().unwrap());
+                buf[m] = hash_counter(&mut pbenc, &mut ctr, &buf[(v % space as u64) as usize], &[]);
             }
         }
     }

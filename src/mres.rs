@@ -168,7 +168,7 @@ use strobe_rs::{SecParam, Strobe};
 
 use crate::akem;
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
-use crate::util::{StrobeExt, MAC_LEN};
+use crate::util::{StrobeExt, MAC_LEN, U64_LEN};
 
 pub(crate) fn encrypt<R, W>(
     reader: &mut R,
@@ -285,7 +285,7 @@ where
 }
 
 const DEK_LEN: usize = 32;
-const HEADER_LEN: usize = DEK_LEN + 8;
+const HEADER_LEN: usize = DEK_LEN + U64_LEN;
 const ENC_HEADER_LEN: usize = HEADER_LEN + akem::OVERHEAD;
 
 fn decrypt_message<R, W>(
@@ -362,7 +362,7 @@ where
         if let Some((p, header)) = akem::decapsulate(d_r, q_r, q_s, &buf) {
             // Recover the ephemeral public key, the DEK, and the message offset.
             let dek: [u8; DEK_LEN] = header[..DEK_LEN].try_into().unwrap();
-            let msg_offset = u64::from_le_bytes(header[header.len() - 8..].try_into().unwrap());
+            let msg_offset = u64::from_le_bytes(header[HEADER_LEN - U64_LEN..].try_into().unwrap());
 
             // Read the remainder of the headers and padding and write them to the verifier.
             let mut remainder = reader.take(msg_offset - hdr_offset);

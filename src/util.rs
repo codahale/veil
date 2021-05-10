@@ -1,3 +1,5 @@
+use std::mem;
+
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use strobe_rs::Strobe;
@@ -10,6 +12,8 @@ pub(crate) fn rand_array<const N: usize>() -> [u8; N] {
 
 pub(crate) const MAC_LEN: usize = 16;
 pub(crate) const POINT_LEN: usize = 32;
+pub(crate) const U32_LEN: usize = mem::size_of::<u32>();
+pub(crate) const U64_LEN: usize = mem::size_of::<u64>();
 
 pub(crate) trait StrobeExt {
     fn meta_ad_u32(&mut self, n: u32);
