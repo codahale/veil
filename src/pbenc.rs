@@ -164,8 +164,8 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
                 idx = hash_counter(&mut pbenc, &mut ctr, salt, &idx);
 
                 // Map the hashed index block back to an index and hash that block.
-                let other = (u64::from_le_bytes(idx[..8].try_into().expect("unreachable"))
-                    % space as u64) as usize;
+                let other =
+                    (u64::from_le_bytes(idx[..8].try_into().unwrap()) % space as u64) as usize;
                 buf[m] = hash_counter(&mut pbenc, &mut ctr, &buf[other], &[]);
             }
         }
