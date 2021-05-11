@@ -23,13 +23,13 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
 
-      - uses: actions-rs/cargo@v1
+      - uses: actions-rs/cargo@v1.0.3
         name: 'build'
         with:
           command: build
           args: --all-targets ${{ matrix.features }}
 
-      - uses: actions-rs/cargo@v1
+      - uses: actions-rs/cargo@v1.0.3
         name: 'test'
         with:
           command: test
@@ -47,13 +47,13 @@ jobs:
           override: true
           components: rustfmt, clippy
 
-      - uses: actions-rs/cargo@v1
+      - uses: actions-rs/cargo@v1.0.3
         name: 'rustfmt'
         with:
           command: fmt
           args: --all -- --check
 
-      - uses: actions-rs/cargo@v1
+      - uses: actions-rs/cargo@v1.0.3
         name: 'clippy'
         if: always()
         with:
