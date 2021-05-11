@@ -328,10 +328,10 @@ mod tests {
         let decoded = "GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3".parse()?;
         assert_eq!(base, decoded);
 
-        let invalid = "woot woot".parse::<PublicKey>();
-        assert_eq!(true, invalid.is_err());
-
-        Ok(())
+        match "woot woot".parse::<PublicKey>() {
+            Err(VeilError::InvalidPublicKey) => Ok(()),
+            r => panic!("shouldn't have parsed: {:?}", r),
+        }
     }
 
     #[test]
@@ -343,10 +343,10 @@ mod tests {
         let decoded = "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC".parse()?;
         assert_eq!(sig, decoded);
 
-        let invalid = "woot woot".parse::<Signature>();
-        assert_eq!(true, invalid.is_err());
-
-        Ok(())
+        match "woot woot".parse::<Signature>() {
+            Err(VeilError::InvalidSignature) => Ok(()),
+            r => panic!("shouldn't have parsed: {:?}", r),
+        }
     }
 
     #[test]
