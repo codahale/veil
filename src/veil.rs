@@ -1,5 +1,6 @@
 use std::convert::TryInto;
 use std::fmt::{Debug, Formatter};
+use std::io::{BufReader, BufWriter, Read, Write};
 use std::{fmt, io, iter, result, str};
 
 use base58::{FromBase58, ToBase58};
@@ -9,9 +10,9 @@ use curve25519_dalek::scalar::Scalar;
 use thiserror::Error;
 use zeroize::Zeroize;
 
-use crate::schnorr::SIGNATURE_LEN;
+use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::util::POINT_LEN;
-use crate::{mres, pbenc, scaldf, schnorr, util};
+use crate::{mres, pbenc, scaldf, util};
 
 /// Veil's custom result type.
 pub type Result<T> = result::Result<T, VeilError>;
@@ -122,8 +123,8 @@ impl PrivateKey {
         padding: u64,
     ) -> Result<u64>
     where
-        R: io::Read,
-        W: io::Write,
+        R: Read,
+        W: Write,
     {
         // Add fakes.
         let mut q_rs = recipients
@@ -140,8 +141,8 @@ impl PrivateKey {
 
         // Finally, encrypt.
         Ok(mres::encrypt(
-            &mut io::BufReader::new(reader),
-            &mut io::BufWriter::new(writer),
+            &mut BufReader::new(reader),
+            &mut BufWriter::new(writer),
             &self.d,
             &self.pk.q,
             q_rs,
@@ -155,12 +156,12 @@ impl PrivateKey {
     /// this private key, will return an error.
     pub fn decrypt<R, W>(&self, reader: &mut R, writer: &mut W, sender: &PublicKey) -> Result<u64>
     where
-        R: io::Read,
-        W: io::Write,
+        R: Read,
+        W: Write,
     {
         let (verified, written) = mres::decrypt(
-            &mut io::BufReader::new(reader),
-            &mut io::BufWriter::new(writer),
+            &mut BufReader::new(reader),
+            &mut BufWriter::new(writer),
             &self.d,
             &self.pk.q,
             &sender.q,
@@ -169,8 +170,11 @@ impl PrivateKey {
     }
 
     /// Reads the contents of the reader and returns a Schnorr signature.
-    pub fn sign<R: io::Read>(&self, reader: &mut R) -> Result<Signature> {
-        let mut signer = schnorr::Signer::new(io::sink());
+    pub fn sign<R>(&self, reader: &mut R) -> Result<Signature>
+    where
+        R: Read,
+    {
+        let mut signer = Signer::new(io::sink());
         io::copy(reader, &mut signer)?;
         Ok(Signature { sig: signer.sign(&self.d, &self.pk.q) })
     }
@@ -230,8 +234,11 @@ pub struct PublicKey {
 impl PublicKey {
     /// Reads the contents of the reader returns () iff the given signature was created by this
     /// public key of the exact contents.
-    pub fn verify<R: io::Read>(&self, reader: &mut R, sig: &Signature) -> Result<()> {
-        let mut verifier = schnorr::Verifier::new();
+    pub fn verify<R>(&self, reader: &mut R, sig: &Signature) -> Result<()>
+    where
+        R: Read,
+    {
+        let mut verifier = Verifier::new();
         io::copy(reader, &mut verifier)?;
         verifier.verify(&self.q, &sig.sig).then(|| ()).ok_or(VeilError::InvalidSignature)
     }
