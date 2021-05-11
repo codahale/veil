@@ -109,7 +109,6 @@ where
     pub(crate) fn new(writer: W) -> Signer<W> {
         let mut schnorr = Strobe::new(b"veil.schnorr", SecParam::B256);
         schnorr.send_clr(&[], false);
-
         Signer { schnorr, writer }
     }
 
@@ -150,7 +149,6 @@ where
 {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         self.schnorr.send_clr(buf, true);
-
         self.writer.write(buf)
     }
 
@@ -167,7 +165,6 @@ impl Verifier {
     pub(crate) fn new() -> Verifier {
         let mut schnorr = Strobe::new(b"veil.schnorr", SecParam::B256);
         schnorr.recv_clr(&[], false);
-
         Verifier { schnorr }
     }
 
@@ -199,7 +196,6 @@ impl Verifier {
 impl Write for Verifier {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         self.schnorr.recv_clr(buf, true);
-
         Ok(buf.len())
     }
 

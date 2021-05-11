@@ -30,7 +30,6 @@ pub(crate) fn derive_scalar(d: Scalar, key_id: &str) -> Scalar {
     key_id_parts(key_id).iter().fold(d, |d_p, &label| {
         let mut label_df = Strobe::new(b"veil.scaldf.label", SecParam::B256);
         label_df.key(label.as_bytes(), false);
-
         d_p + label_df.prf_scalar()
     })
 }

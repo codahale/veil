@@ -387,7 +387,6 @@ struct RngReader;
 impl Read for RngReader {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         getrandom::getrandom(buf).expect("rng failure");
-
         Ok(buf.len())
     }
 }
