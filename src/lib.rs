@@ -60,10 +60,10 @@
 
 pub use self::veil::*;
 
-pub mod akem;
-pub mod mres;
-pub mod pbenc;
-pub mod scaldf;
-pub mod schnorr;
+mod akem;
+mod mres;
+mod pbenc;
+mod scaldf;
+mod schnorr;
 mod util;
 mod veil;

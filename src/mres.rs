@@ -170,7 +170,7 @@ use crate::akem;
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::util::{StrobeExt, MAC_LEN, U64_LEN};
 
-pub(crate) fn encrypt<R, W>(
+pub fn encrypt<R, W>(
     reader: &mut R,
     writer: &mut W,
     d_s: &Scalar,
@@ -249,7 +249,7 @@ where
     Ok(written)
 }
 
-pub(crate) fn decrypt<R, W>(
+pub fn decrypt<R, W>(
     reader: &mut R,
     writer: &mut W,
     d_r: &Scalar,
