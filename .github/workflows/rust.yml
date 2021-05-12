@@ -13,22 +13,20 @@ jobs:
         rust:
           - stable
           - beta
-
     steps:
       - uses: actions/checkout@v2.3.4
-
+        name: "checkout"
       - uses: actions-rs/toolchain@v1.0.7
+        name: "install rust"
         with:
           profile: minimal
           toolchain: ${{ matrix.rust }}
           override: true
-
       - uses: actions-rs/cargo@v1.0.3
         name: 'build'
         with:
           command: build
           args: --all-targets ${{ matrix.features }}
-
       - uses: actions-rs/cargo@v1.0.3
         name: 'test'
         with:
@@ -39,20 +37,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2.3.4
-
+        name: "checkout"
       - uses: actions-rs/toolchain@v1.0.7
+        name: "install rust"
         with:
           profile: minimal
           toolchain: stable
           override: true
           components: rustfmt, clippy
-
       - uses: actions-rs/cargo@v1.0.3
         name: 'rustfmt'
         with:
           command: fmt
           args: --all -- --check
-
       - uses: actions-rs/cargo@v1.0.3
         name: 'clippy'
         if: always()
