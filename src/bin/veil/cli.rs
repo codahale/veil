@@ -146,9 +146,9 @@ pub struct VerifyArgs {
 }
 
 fn input_from_os_str(path: &OsStr) -> Result<Input, String> {
-    Input::try_from_os_str(path).map_err(|s| s.to_string_lossy().to_string())
+    Input::new(path).map_err(|e| e.to_string())
 }
 
 fn output_from_os_str(path: &OsStr) -> Result<Output, String> {
-    Output::try_from_os_str(path).map_err(|s| s.to_string_lossy().to_string())
+    Output::new(path).map_err(|e| e.to_string())
 }
