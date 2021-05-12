@@ -4,7 +4,7 @@ use clap::IntoApp;
 use clap_generate::generate_to;
 use clap_generate::generators::{Bash, Fish, PowerShell, Zsh};
 
-include!("src/bin/veil/cli.rs");
+include!("src/cli.rs");
 
 fn main() {
     if let Some(out_dir) = env::var_os("OUT_DIR") {

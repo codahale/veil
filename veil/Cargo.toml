@@ -1,0 +1,24 @@
+[package]
+name = "veil"
+version = "0.1.0"
+authors = ["Coda Hale <coda.hale@gmail.com>"]
+edition = "2018"
+license = "MIT OR Apache-2.0"
+include = ["src/**/*", "../LICENSE-MIT", "../LICENSE-APACHE", "..README.md"]
+description = "Stupid crypto tricks."
+
+[dependencies]
+base58 = "0.1.0"
+curve25519-dalek = "3"
+getrandom = "0.2"
+strobe-rs = "0.6"
+thiserror = "1"
+zeroize = { version = "1", features = ["zeroize_derive"] }
+
+[dev-dependencies]
+anyhow = "1"
+criterion = { version = "0.3", features = ["html_reports"] }
+
+[[bench]]
+name = "veil_bench"
+harness = false
