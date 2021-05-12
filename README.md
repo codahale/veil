@@ -21,16 +21,14 @@ keys.
 
 Veil uses just two distinct primitives:
 
-* [STROBE](https://strobe.sourceforge.io) for confidentiality, authentication, and integrity.
-* [ristretto255](https://ristretto.group) for key agreement and signing.
+* [STROBE][strobe] for confidentiality, authentication, and integrity.
+* [ristretto255][r255] for key agreement and signing.
 
-ristretto255 [uses a safe curve, is a prime-order cyclic group, has non-malleable encodings, and has
-no co-factor concerns](https://ristretto.group/why_ristretto.html). STROBE is built on the Keccak
-𝑓-\[1600\] permutation, the core of SHA-3, which has seen [significant scrutiny over the last
-decade](https://keccak.team/third_party.html).
+[ristretto255][r255-why] uses a safe curve, is a prime-order cyclic group, has non-malleable
+encodings, and has no co-factor concerns. STROBE is built on the Keccak 𝑓-\[1600\] permutation, the
+core of SHA-3, which has seen [significant scrutiny over the last decade][keccak].
 
-The underlying philosophy is that expressed by [Adam
-Langley](https://www.imperialviolet.org/2016/05/16/agility.html):
+The underlying philosophy is that expressed by [Adam Langley][agl]:
 
 > There's a lesson in all this: have one joint and keep it well oiled. … \[O\]ne needs to minimise
 > complexity, concentrate all extensibility in a single place and _actively defend it_.
@@ -53,8 +51,8 @@ data in a feed-forward mechanism, which removes it from the attackable surface a
 Because STROBE operations are cryptographically dependent on prior operations, the need for domain
 separation identifiers, padding, and framing is eliminated.
 
-Finally, the use of STROBE means all protocols which end in `RECV_MAC` calls are [compactly
-committing](https://eprint.iacr.org/2019/016.pdf).
+Finally, the use of STROBE means all protocols which end in `RECV_MAC` calls
+are [compactly committing][cce].
 
 ### Indistinguishable From Random Noise
 
@@ -93,16 +91,16 @@ shared secret before sending.
 
 Messages begin with a set of `veil.akem`-encrypted headers containing copies of the data encryption
 key and the length of the encrypted headers. Next, the message is encrypted with STROBE using the
-data encryption key. Finally, a `veil.schnorr` signature of the entire ciphertext created with an 
+data encryption key. Finally, a `veil.schnorr` signature of the entire ciphertext created with an
 ephemeral private key is appended.
 
 To decrypt, readers search for a decryptable header, recover the DEK, the ephemeral public key, and
 headers length, decrypt the message, and finally verify the signature.
 
-This provides strong confidentiality and authenticity guarantees while still providing repudiability
-(no recipient can prove a message's contents and origin without revealing their private key) and
-forward security for senders (compromise of a sender's private key will not compromise past messages
-they sent).
+This provides strong confidentiality and authenticity guarantees while still providing
+repudiability (no recipient can prove a message's contents and origin without revealing their
+private key) and forward security for senders (compromise of a sender's private key will not
+compromise past messages they sent).
 
 #### `veil.pbenc`
 
@@ -117,9 +115,9 @@ non-uniform values. Veil uses them to derive private keys and label scalars.
 #### `veil.schnorr`
 
 `veil.schnorr` implements a fully integrated Schnorr signature algorithm over ristretto255, as
-described by [Fleischhacker et al.](https://eprint.iacr.org/2011/673.pdf). It produces
-_indistinguishable_ signatures (i.e., signatures which do not reveal anything about the signing key
-or signed message) and when encrypted with an unrelated key (i.e. by `veil.mres`) are _pseudorandom_
+described by [Fleischhacker et al.][schnorr]. It produces _indistinguishable_ signatures (i.e.,
+signatures which do not reveal anything about the signing key or signed message) and when encrypted
+with an unrelated key (i.e. by `veil.mres`) are _pseudorandom_
 (i.e. indistinguishable from random noise).
 
 ## License
@@ -127,3 +125,18 @@ or signed message) and when encrypted with an unrelated key (i.e. by `veil.mres`
 Copyright © 2021 Coda Hale
 
 Distributed under the Apache License 2.0.
+
+
+[strobe]: https://strobe.sourceforge.io
+
+[r255]: https://ristretto.group
+
+[r255-why]: https://ristretto.group/why_ristretto.html
+
+[keccak]: https://keccak.team/third_party.html
+
+[agl]: https://www.imperialviolet.org/2016/05/16/agility.html
+
+[cce]: https://eprint.iacr.org/2019/016.pdf
+
+[schnorr]: https://eprint.iacr.org/2011/673.pdf
