@@ -77,7 +77,7 @@ const SPACE_OFFSET: usize = U32_LEN;
 const SALT_OFFSET: usize = SPACE_OFFSET + U32_LEN;
 const CT_OFFSET: usize = SALT_OFFSET + SALT_LEN;
 
-pub(crate) fn encrypt(passphrase: &[u8], plaintext: &[u8], time: u32, space: u32) -> Vec<u8> {
+pub fn encrypt(passphrase: &[u8], plaintext: &[u8], time: u32, space: u32) -> Vec<u8> {
     // Generate a random salt.
     let salt: [u8; SALT_LEN] = util::rand_array();
 
@@ -104,7 +104,7 @@ pub(crate) fn encrypt(passphrase: &[u8], plaintext: &[u8], time: u32, space: u32
     out
 }
 
-pub(crate) fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Option<Vec<u8>> {
+pub fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Option<Vec<u8>> {
     // Decode the time and space parameters.
     let time = u32::from_le_bytes(ciphertext[TIME_OFFSET..SPACE_OFFSET].try_into().ok()?);
     let space = u32::from_le_bytes(ciphertext[SPACE_OFFSET..SALT_OFFSET].try_into().ok()?);
