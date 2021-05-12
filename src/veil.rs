@@ -60,7 +60,7 @@ impl SecretKey {
 
     /// Encrypts the secret key with the given passphrase and pbenc parameters.
     pub fn encrypt(&self, passphrase: &[u8], time: u32, space: u32) -> Vec<u8> {
-        pbenc::encrypt(passphrase, &self.r, time, space)
+        pbenc::encrypt(passphrase, time, space, &self.r)
     }
 
     /// Decrypts the secret key with the given passphrase and pbenc parameters.

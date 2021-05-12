@@ -109,8 +109,11 @@ use strobe_rs::{SecParam, Strobe};
 
 use crate::util::{StrobeExt, MAC_LEN, POINT_LEN};
 
+/// The number of bytes encapsulation adds to a plaintext.
 pub const OVERHEAD: usize = POINT_LEN + MAC_LEN;
 
+/// Given a sender's key pair, an ephemeral key pair, and the recipient's public key, encrypt the
+/// given plaintext.
 pub fn encapsulate(
     d_s: &Scalar,
     q_s: &RistrettoPoint,
@@ -151,12 +154,15 @@ pub fn encapsulate(
     out
 }
 
+/// Given a recipient's key pair and sender's public key, recover the ephemeral public key and
+/// plaintext from the given ciphertext.
 pub fn decapsulate(
     d_r: &Scalar,
     q_r: &RistrettoPoint,
     q_s: &RistrettoPoint,
     ciphertext: &[u8],
 ) -> Option<(RistrettoPoint, Vec<u8>)> {
+    // Ensure the ciphertext has a point and MAC, at least.
     if ciphertext.len() < POINT_LEN + MAC_LEN {
         return None;
     }

@@ -71,13 +71,8 @@ use strobe_rs::{SecParam, Strobe};
 
 use crate::util::{self, StrobeExt, MAC_LEN, U32_LEN, U64_LEN};
 
-const SALT_LEN: usize = 16;
-const TIME_OFFSET: usize = 0;
-const SPACE_OFFSET: usize = U32_LEN;
-const SALT_OFFSET: usize = SPACE_OFFSET + U32_LEN;
-const CT_OFFSET: usize = SALT_OFFSET + SALT_LEN;
-
-pub fn encrypt(passphrase: &[u8], plaintext: &[u8], time: u32, space: u32) -> Vec<u8> {
+/// Encrypt the given plaintext using the given passphrase.
+pub fn encrypt(passphrase: &[u8], time: u32, space: u32, plaintext: &[u8]) -> Vec<u8> {
     // Generate a random salt.
     let salt: [u8; SALT_LEN] = util::rand_array();
 
@@ -104,6 +99,7 @@ pub fn encrypt(passphrase: &[u8], plaintext: &[u8], time: u32, space: u32) -> Ve
     out
 }
 
+/// Decrypt the given ciphertext using the given passphrase.
 pub fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Option<Vec<u8>> {
     // Decode the time and space parameters.
     let time = u32::from_le_bytes(ciphertext[TIME_OFFSET..SPACE_OFFSET].try_into().ok()?);
@@ -188,6 +184,11 @@ fn hash_counter(pbenc: &mut Strobe, ctr: &mut u64, left: &[u8], right: &[u8]) ->
     pbenc.prf_array()
 }
 
+const SALT_LEN: usize = 16;
+const TIME_OFFSET: usize = 0;
+const SPACE_OFFSET: usize = U32_LEN;
+const SALT_OFFSET: usize = SPACE_OFFSET + U32_LEN;
+const CT_OFFSET: usize = SALT_OFFSET + SALT_LEN;
 const N: usize = 32;
 const DELTA: usize = 3;
 
@@ -199,7 +200,7 @@ mod tests {
     pub fn round_trip() {
         let passphrase = b"this is a secret";
         let message = b"this is too";
-        let ciphertext = encrypt(passphrase, message, 5, 3);
+        let ciphertext = encrypt(passphrase, 5, 3, message);
         let plaintext = decrypt(passphrase, &ciphertext);
 
         assert_eq!(Some(message.to_vec()), plaintext);
@@ -209,7 +210,7 @@ mod tests {
     pub fn bad_time() {
         let passphrase = b"this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt(passphrase, message, 5, 3);
+        let mut ciphertext = encrypt(passphrase, 5, 3, message);
         ciphertext[0] ^= 1;
 
         assert_eq!(None, decrypt(passphrase, &ciphertext));
@@ -219,7 +220,7 @@ mod tests {
     pub fn bad_space() {
         let passphrase = b"this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt(passphrase, message, 5, 3);
+        let mut ciphertext = encrypt(passphrase, 5, 3, message);
         ciphertext[5] ^= 1;
 
         assert_eq!(None, decrypt(passphrase, &ciphertext));
@@ -229,7 +230,7 @@ mod tests {
     pub fn bad_salt() {
         let passphrase = b"this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt(passphrase, message, 5, 3);
+        let mut ciphertext = encrypt(passphrase, 5, 3, message);
         ciphertext[12] ^= 1;
 
         assert_eq!(None, decrypt(passphrase, &ciphertext));
@@ -239,7 +240,7 @@ mod tests {
     pub fn bad_ciphertext() {
         let passphrase = b"this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt(passphrase, message, 5, 3);
+        let mut ciphertext = encrypt(passphrase, 5, 3, message);
         ciphertext[37] ^= 1;
 
         assert_eq!(None, decrypt(passphrase, &ciphertext));
@@ -249,7 +250,7 @@ mod tests {
     pub fn bad_mac() {
         let passphrase = b"this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt(passphrase, message, 5, 3);
+        let mut ciphertext = encrypt(passphrase, 5, 3, message);
         ciphertext[49] ^= 1;
 
         assert_eq!(None, decrypt(passphrase, &ciphertext));

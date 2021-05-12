@@ -170,6 +170,8 @@ use crate::akem;
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::util::{StrobeExt, MAC_LEN, U64_LEN};
 
+/// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
+/// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
 pub fn encrypt<R, W>(
     reader: &mut R,
     writer: &mut W,
@@ -249,6 +251,8 @@ where
     Ok(written)
 }
 
+/// Decrypt the contents of `reader` iff they were originally encrypted by `q_s` for `q_r` and write
+/// the plaintext to `writer`.
 pub fn decrypt<R, W>(
     reader: &mut R,
     writer: &mut W,
