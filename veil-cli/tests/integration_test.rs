@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use duct::cmd;
 
-const VEIL_PATH: &str = env!("CARGO_BIN_EXE_veil");
+const VEIL_PATH: &str = env!("CARGO_BIN_EXE_veil-cli");
 
 #[test]
 pub fn encrypt_and_decrypt_a_message() -> Result<()> {
