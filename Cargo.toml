@@ -6,6 +6,7 @@ edition = "2018"
 license = "MIT OR Apache-2.0"
 include = ["src/**/*", "LICENSE", "README.md"]
 build = "build.rs"
+description = "Stupid crypto tricks."
 
 [features]
 cli = ["anyhow", "clap", "clap_generate", "clio"]

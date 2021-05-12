@@ -1,11 +1,11 @@
 use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 
-use clap::{AppSettings, Clap, ValueHint};
+use clap::{crate_description, crate_name, crate_version, AppSettings, Clap, ValueHint};
 use clio::{Input, Output};
 
 #[derive(Debug, Clap)]
-#[clap(bin_name = "veil", about = "Stupid crypto tricks.", version = env!("CARGO_PKG_VERSION"))]
+#[clap(bin_name = crate_name!(), about = crate_description!(), version = crate_version!())]
 #[clap(setting = AppSettings::HelpRequired)]
 #[clap(setting = AppSettings::SubcommandRequired)]
 #[clap(setting = AppSettings::VersionlessSubcommands)]
