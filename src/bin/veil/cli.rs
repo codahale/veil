@@ -1,18 +1,22 @@
-use clap::AppSettings;
-use clap::Clap;
-use clio::{Input, Output};
 use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 
+use clap::AppSettings;
+use clap::Clap;
+use clio::{Input, Output};
+
 #[derive(Debug, Clap)]
 #[clap(bin_name = "veil", about = "Stupid crypto tricks.", version = env!("CARGO_PKG_VERSION"))]
+#[clap(setting = AppSettings::HelpRequired)]
+#[clap(setting = AppSettings::SubcommandRequired)]
+#[clap(setting = AppSettings::VersionlessSubcommands)]
 pub struct Opts {
     #[clap(subcommand)]
     pub cmd: Command,
 }
 
 #[derive(Debug, Clap)]
-#[clap(setting = AppSettings::DeriveDisplayOrder )]
+#[clap(setting = AppSettings::DeriveDisplayOrder)]
 pub enum Command {
     SecretKey(SecretKeyArgs),
     PublicKey(PublicKeyArgs),
