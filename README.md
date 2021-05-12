@@ -124,8 +124,7 @@ with an unrelated key (i.e. by `veil.mres`) are _pseudorandom_
 
 Copyright © 2021 Coda Hale
 
-Distributed under the Apache License 2.0.
-
+Distributed under the Apache License 2.0 or MIT License.
 
 [strobe]: https://strobe.sourceforge.io
 
