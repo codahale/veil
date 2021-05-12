@@ -94,10 +94,10 @@ use strobe_rs::{SecParam, Strobe};
 
 use crate::util::StrobeExt;
 
-pub const SIGNATURE_LEN: usize = SCALAR_LEN * 2;
+pub(crate) const SIGNATURE_LEN: usize = SCALAR_LEN * 2;
 const SCALAR_LEN: usize = 32;
 
-pub struct Signer<W: Write> {
+pub(crate) struct Signer<W: Write> {
     schnorr: Strobe,
     writer: W,
 }
@@ -106,14 +106,14 @@ impl<W> Signer<W>
 where
     W: Write,
 {
-    pub fn new(writer: W) -> Signer<W> {
+    pub(crate) fn new(writer: W) -> Signer<W> {
         let mut schnorr = Strobe::new(b"veil.schnorr", SecParam::B256);
         schnorr.send_clr(&[], false);
         Signer { schnorr, writer }
     }
 
     #[allow(clippy::many_single_char_names)]
-    pub fn sign(&mut self, d: &Scalar, q: &RistrettoPoint) -> [u8; SIGNATURE_LEN] {
+    pub(crate) fn sign(&mut self, d: &Scalar, q: &RistrettoPoint) -> [u8; SIGNATURE_LEN] {
         // Add the signer's public key as associated data.
         self.schnorr.ad_point(q);
 
@@ -138,7 +138,7 @@ where
         sig
     }
 
-    pub fn into_inner(self) -> W {
+    pub(crate) fn into_inner(self) -> W {
         self.writer
     }
 }
@@ -157,12 +157,12 @@ where
     }
 }
 
-pub struct Verifier {
+pub(crate) struct Verifier {
     schnorr: Strobe,
 }
 
 impl Verifier {
-    pub fn new() -> Verifier {
+    pub(crate) fn new() -> Verifier {
         let mut schnorr = Strobe::new(b"veil.schnorr", SecParam::B256);
         schnorr.recv_clr(&[], false);
         Verifier { schnorr }

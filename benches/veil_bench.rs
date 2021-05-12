@@ -2,12 +2,8 @@ use std::io;
 use std::io::Read;
 
 use criterion::{black_box, criterion_group, criterion_main, Bencher, Criterion};
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
-use curve25519_dalek::scalar::Scalar;
 
 use veil::SecretKey;
-#[cfg(feature = "bench")]
-use veil::{decapsulate, encapsulate};
 
 fn criterion_encrypt(c: &mut Criterion) {
     let mut encrypt = c.benchmark_group("encrypt");
@@ -63,23 +59,5 @@ fn criterion_pbenc(c: &mut Criterion) {
     });
 }
 
-fn criterion_akem(c: &mut Criterion) {
-    #[cfg(feature = "bench")]
-    {
-        c.bench_function("akem/encapsulate", |b| {
-            let d = Scalar::from_bytes_mod_order_wide(&[22u8; 64]);
-            let q = RISTRETTO_BASEPOINT_POINT * d;
-            b.iter(|| encapsulate(&d, &q, &d, &q, &q, black_box(b"this is a thing")))
-        });
-
-        c.bench_function("akem/decapsulate", |b| {
-            let d = Scalar::from_bytes_mod_order_wide(&[22u8; 64]);
-            let q = RISTRETTO_BASEPOINT_POINT * d;
-            let ct = encapsulate(&d, &q, &d, &q, &q, black_box(b"this is a thing"));
-            b.iter(|| decapsulate(&d, &q, &q, &ct));
-        });
-    }
-}
-
-criterion_group!(benches, criterion_encrypt, criterion_sign, criterion_pbenc, criterion_akem);
+criterion_group!(benches, criterion_encrypt, criterion_sign, criterion_pbenc);
 criterion_main!(benches);

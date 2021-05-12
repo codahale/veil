@@ -109,9 +109,9 @@ use strobe_rs::{SecParam, Strobe};
 
 use crate::util::{StrobeExt, MAC_LEN, POINT_LEN};
 
-pub const OVERHEAD: usize = POINT_LEN + MAC_LEN;
+pub(crate) const OVERHEAD: usize = POINT_LEN + MAC_LEN;
 
-pub fn encapsulate(
+pub(crate) fn encapsulate(
     d_s: &Scalar,
     q_s: &RistrettoPoint,
     d_e: &Scalar,
@@ -151,7 +151,7 @@ pub fn encapsulate(
     out
 }
 
-pub fn decapsulate(
+pub(crate) fn decapsulate(
     d_r: &Scalar,
     q_r: &RistrettoPoint,
     q_s: &RistrettoPoint,

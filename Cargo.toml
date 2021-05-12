@@ -6,7 +6,6 @@ edition = "2018"
 include = ["src/**/*", "LICENSE", "README.md"]
 
 [features]
-bench = ["default"]
 cli = ["anyhow", "argh", "clio"]
 default = ["cli"]
 

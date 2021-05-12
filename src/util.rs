@@ -4,18 +4,18 @@ use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use strobe_rs::Strobe;
 
-pub fn rand_array<const N: usize>() -> [u8; N] {
+pub(crate) fn rand_array<const N: usize>() -> [u8; N] {
     let mut out = [0u8; N];
     getrandom::getrandom(&mut out).expect("rng failure");
     out
 }
 
-pub const MAC_LEN: usize = 16;
-pub const POINT_LEN: usize = 32;
-pub const U32_LEN: usize = mem::size_of::<u32>();
-pub const U64_LEN: usize = mem::size_of::<u64>();
+pub(crate) const MAC_LEN: usize = 16;
+pub(crate) const POINT_LEN: usize = 32;
+pub(crate) const U32_LEN: usize = mem::size_of::<u32>();
+pub(crate) const U64_LEN: usize = mem::size_of::<u64>();
 
-pub trait StrobeExt {
+pub(crate) trait StrobeExt {
     fn meta_ad_u32(&mut self, n: u32);
     fn key_point(&mut self, zz: RistrettoPoint);
     fn ad_point(&mut self, q: &RistrettoPoint);
