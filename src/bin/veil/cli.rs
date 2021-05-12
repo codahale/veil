@@ -1,17 +1,18 @@
-use argh::FromArgs;
+use clap::AppSettings;
+use clap::Clap;
 use clio::{Input, Output};
+use std::ffi::{OsStr, OsString};
+use std::path::PathBuf;
 
-// TODO support non-UTF8 paths, blocking on https://github.com/google/argh/issues/33
-
-#[derive(Debug, FromArgs)]
-#[argh(description = "Stupid crypto tricks.")]
+#[derive(Debug, Clap)]
+#[clap(bin_name = "veil", about = "Stupid crypto tricks.", version = env!("CARGO_PKG_VERSION"))]
 pub struct Opts {
-    #[argh(subcommand)]
+    #[clap(subcommand)]
     pub cmd: Command,
 }
 
-#[derive(Debug, FromArgs)]
-#[argh(subcommand)]
+#[derive(Debug, Clap)]
+#[clap(setting = AppSettings::DeriveDisplayOrder )]
 pub enum Command {
     SecretKey(SecretKeyArgs),
     PublicKey(PublicKeyArgs),
@@ -22,136 +23,128 @@ pub enum Command {
     Verify(VerifyArgs),
 }
 
-#[derive(Debug, FromArgs)]
-#[argh(subcommand, name = "secret-key", description = "Generate a new secret key.")]
+#[derive(Debug, Clap)]
+#[clap(about = "Generate a new secret key.")]
 pub struct SecretKeyArgs {
-    #[argh(positional)]
-    pub output: String,
+    #[clap(about = "The output path for the encrypted secret key")]
+    pub output: PathBuf,
 
-    #[argh(option, default = "1<<7", description = "the time parameter for secret key encryption")]
+    #[clap(long, about = "The time parameter for encryption", default_value = "128")]
     pub time: u32,
 
-    #[argh(
-        option,
-        default = "1<<10",
-        description = "the space parameter for secret key encryption"
-    )]
+    #[clap(long, about = "The space parameter for encryption", default_value = "1024")]
     pub space: u32,
 
-    #[argh(option, description = "read the passphrase from the given file")]
-    pub passphrase_file: Option<String>,
+    #[clap(long, about = "The path to read the passphrase from")]
+    pub passphrase_file: Option<PathBuf>,
 }
 
-#[derive(Debug, FromArgs)]
-#[argh(subcommand, name = "public-key", description = "Derive a public key from a secret key.")]
+#[derive(Debug, Clap)]
+#[clap(about = "Derive a public key from a secret key.")]
 pub struct PublicKeyArgs {
-    #[argh(positional)]
-    pub secret_key: String,
+    #[clap(about = "The path of the encrypted secret key")]
+    pub secret_key: PathBuf,
 
-    #[argh(positional)]
-    pub key_id: String,
+    #[clap(about = "The ID of the generated public key")]
+    pub key_id: OsString,
 
-    #[argh(option, description = "read the passphrase from the given file")]
-    pub passphrase_file: Option<String>,
+    #[clap(long, about = "The path to read the passphrase from")]
+    pub passphrase_file: Option<PathBuf>,
 }
 
-#[derive(Debug, FromArgs)]
-#[argh(
-    subcommand,
-    name = "derive-key",
-    description = "Derive a public key from another public key."
-)]
+#[derive(Debug, Clap)]
+#[clap(about = "Derive a public key from another public key.")]
 pub struct DeriveKeyArgs {
-    #[argh(positional)]
-    pub public_key: String,
+    #[clap(about = "The public key")]
+    pub public_key: OsString,
 
-    #[argh(positional)]
-    pub sub_key_id: String,
+    #[clap(about = "The sub ID of the generated public key")]
+    pub sub_key_id: OsString,
 }
 
-#[derive(Debug, FromArgs)]
-#[argh(subcommand, name = "encrypt", description = "Encrypt a message.")]
+#[derive(Debug, Clap)]
+#[clap(about = "Encrypt a message for a set of recipients.")]
 pub struct EncryptArgs {
-    #[argh(positional)]
-    pub secret_key: String,
+    #[clap(about = "The path of the encrypted secret key")]
+    pub secret_key: PathBuf,
 
-    #[argh(positional)]
-    pub key_id: String,
+    #[clap(about = "The ID of the public key to use")]
+    pub key_id: OsString,
 
-    #[argh(positional, from_str_fn(str_to_input))]
+    #[clap(about = "The path to the input file", parse(try_from_os_str = input_from_os_str))]
     pub plaintext: Input,
 
-    #[argh(positional, from_str_fn(str_to_output))]
+    #[clap(about = "The path to the output file", parse(try_from_os_str = output_from_os_str))]
     pub ciphertext: Output,
 
-    #[argh(positional)]
-    pub recipients: Vec<String>,
+    #[clap(about = "The recipient's public key", required = true)]
+    pub recipients: Vec<OsString>,
 
-    #[argh(option, default = "0", description = "number of fake recipients to add")]
+    #[clap(about = "Add fake recipients", long, default_value = "0")]
     pub fakes: usize,
 
-    #[argh(option, default = "0", description = "number of random padding bytes to add")]
+    #[clap(about = "Add random bytes of padding", long, default_value = "0")]
     pub padding: u64,
 
-    #[argh(option, description = "read the passphrase from the given file")]
-    pub passphrase_file: Option<String>,
+    #[clap(about = "The path to read the passphrase from", long)]
+    pub passphrase_file: Option<PathBuf>,
 }
 
-#[derive(Debug, FromArgs)]
-#[argh(subcommand, name = "decrypt", description = "Decrypt a message.")]
+#[derive(Debug, Clap)]
+#[clap(about = "Decrypt and verify a message.")]
 pub struct DecryptArgs {
-    #[argh(positional)]
-    pub secret_key: String,
+    #[clap(about = "The path of the encrypted secret key")]
+    pub secret_key: PathBuf,
 
-    #[argh(positional)]
-    pub key_id: String,
+    #[clap(about = "The ID of the public key")]
+    pub key_id: OsString,
 
-    #[argh(positional, from_str_fn(str_to_input))]
+    #[clap(about = "The path to the input file", parse(try_from_os_str = input_from_os_str))]
     pub ciphertext: Input,
 
-    #[argh(positional, from_str_fn(str_to_output))]
+    #[clap(about = "The path to the output file", parse(try_from_os_str = output_from_os_str))]
     pub plaintext: Output,
 
-    #[argh(positional)]
-    pub sender: String,
+    #[clap(about = "The sender's public key")]
+    pub sender: OsString,
 
-    #[argh(option, description = "read the passphrase from the given file")]
-    pub passphrase_file: Option<String>,
+    #[clap(about = "The path to read the passphrase from", long)]
+    pub passphrase_file: Option<PathBuf>,
 }
 
-#[derive(Debug, FromArgs)]
-#[argh(subcommand, name = "sign", description = "Sign a message.")]
+#[derive(Debug, Clap)]
+#[clap(about = "Sign a message.")]
 pub struct SignArgs {
-    #[argh(positional)]
-    pub secret_key: String,
+    #[clap(about = "The path of the encrypted secret key")]
+    pub secret_key: PathBuf,
 
-    #[argh(positional)]
-    pub key_id: String,
+    #[clap(about = "The ID of the public key to use")]
+    pub key_id: OsString,
 
-    #[argh(positional, from_str_fn(str_to_input))]
+    #[clap(about = "The path to the message file", parse(try_from_os_str = input_from_os_str))]
     pub message: Input,
 
-    #[argh(option, description = "read the passphrase from the given file")]
-    pub passphrase_file: Option<String>,
+    #[clap(about = "The path to read the passphrase from", long)]
+    pub passphrase_file: Option<PathBuf>,
 }
 
-#[derive(Debug, FromArgs)]
-#[argh(subcommand, name = "verify", description = "Verify a signature.")]
+#[derive(Debug, Clap)]
+#[clap(about = "Verify a signature.")]
 pub struct VerifyArgs {
-    #[argh(positional, description = "the signer's public key")]
-    pub public_key: String,
+    #[clap(about = "The signer's public key")]
+    pub public_key: OsString,
 
-    #[argh(positional, from_str_fn(str_to_input))]
+    #[clap(about = "The path to the message file", parse(try_from_os_str = input_from_os_str))]
     pub message: Input,
 
-    #[argh(positional)]
-    pub signature: String,
+    #[clap(about = "The signature of the message")]
+    pub signature: OsString,
 }
 
-fn str_to_input(value: &str) -> Result<Input, String> {
-    Input::new(value).map_err(|e| e.to_string())
+fn input_from_os_str(path: &OsStr) -> Result<Input, String> {
+    Input::try_from_os_str(path).map_err(|s| s.to_string_lossy().to_string())
 }
 
-fn str_to_output(value: &str) -> Result<Output, String> {
-    Output::new(value).map_err(|e| e.to_string())
+fn output_from_os_str(path: &OsStr) -> Result<Output, String> {
+    Output::try_from_os_str(path).map_err(|s| s.to_string_lossy().to_string())
 }

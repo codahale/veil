@@ -5,9 +5,10 @@ authors = ["Coda Hale <coda.hale@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
 include = ["src/**/*", "LICENSE", "README.md"]
+build = "build.rs"
 
 [features]
-cli = ["anyhow", "argh", "clio"]
+cli = ["anyhow", "clap", "clap_generate", "clio"]
 default = ["cli"]
 
 [dependencies]
@@ -19,7 +20,12 @@ strobe-rs = "0.6"
 thiserror = "1"
 zeroize = { version = "1", features = ["zeroize_derive"] }
 anyhow = { version = "1", optional = true }
-argh = { version = "0.1", optional = true }
+clap = { version = "3.0.0-beta.2", optional = true }
+clio = { version = "0.1", optional = true }
+
+[build-dependencies]
+clap = { version = "3.0.0-beta.2", optional = true }
+clap_generate = { version = "3.0.0-beta.2", optional = true }
 clio = { version = "0.1", optional = true }
 
 [dev-dependencies]
