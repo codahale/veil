@@ -10,7 +10,7 @@ use veil::{PublicKey, SecretKey, Signature};
 mod cli;
 
 fn main() -> Result<()> {
-    let opts = Opts::parse();
+    let opts: Opts = Opts::parse();
     match opts.cmd {
         Command::SecretKey(mut cmd) => secret_key(&mut cmd),
         Command::PublicKey(cmd) => public_key(&cmd),
