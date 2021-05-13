@@ -1,18 +1,16 @@
 use std::io;
 use std::io::Read;
 
-use criterion::{black_box, criterion_group, criterion_main, Bencher, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, Bencher, Criterion, Throughput};
 
 use veil::SecretKey;
 
 fn criterion_encrypt(c: &mut Criterion) {
     let mut encrypt = c.benchmark_group("encrypt");
-    encrypt.bench_with_input("0KB", &0, bench_encrypt);
-    encrypt.bench_with_input("1KB", &1_000, bench_encrypt);
-    encrypt.bench_with_input("10KB", &10_000, bench_encrypt);
-    encrypt.bench_with_input("100KB", &100_000, bench_encrypt);
-    encrypt.bench_with_input("1MB", &1_000_000, bench_encrypt);
-    encrypt.bench_with_input("10MB", &10_000_000, bench_encrypt);
+    for i in vec![0u64, 1_000, 10_000, 100_000, 1_000_000] {
+        encrypt.throughput(Throughput::Elements(i));
+        encrypt.bench_with_input(format!("{}", i), &i, bench_encrypt);
+    }
 }
 
 fn bench_encrypt(b: &mut Bencher, n: &u64) {
@@ -36,12 +34,10 @@ fn bench_encrypt(b: &mut Bencher, n: &u64) {
 
 fn criterion_sign(c: &mut Criterion) {
     let mut sign = c.benchmark_group("sign");
-    sign.bench_with_input("0KB", &0, bench_sign);
-    sign.bench_with_input("1KB", &1000, bench_sign);
-    sign.bench_with_input("10KB", &10_000, bench_sign);
-    sign.bench_with_input("100KB", &100_000, bench_sign);
-    sign.bench_with_input("1MB", &1_000_000, bench_sign);
-    sign.bench_with_input("10MB", &10_000_000, bench_sign);
+    for i in vec![0u64, 1_000, 10_000, 100_000, 1_000_000] {
+        sign.throughput(Throughput::Elements(i));
+        sign.bench_with_input(format!("{}", i), &i, bench_sign);
+    }
 }
 
 fn bench_sign(b: &mut Bencher, n: &u64) {
