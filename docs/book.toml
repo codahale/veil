@@ -1,0 +1,8 @@
+[book]
+authors = ["Coda Hale"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Veil Cryptosystem"
+
+[preprocessor.katex]
