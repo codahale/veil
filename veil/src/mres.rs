@@ -104,6 +104,11 @@ where
     R: Read,
     W: Write,
 {
+    // Initialize a protocol and add the MAC length and sender's public key as associated data.
+    let mut mres = Strobe::new(b"veil.mres", SecParam::B256);
+    mres.meta_ad_u32(MAC_LEN as u32);
+    mres.ad_point(q_s);
+
     // Initialize a verifier for the entire ciphertext.
     let mut verifier = Verifier::new();
 
@@ -113,12 +118,7 @@ where
         None => return Ok((false, 0)),
     };
 
-    // Initialize a protocol and add the MAC length and sender's public key as associated data.
-    let mut mres = Strobe::new(b"veil.mres", SecParam::B256);
-    mres.meta_ad_u32(MAC_LEN as u32);
-    mres.ad_point(q_s);
-
-    // Key the protocol with the DEK.
+    // Key the protocol with the recovered DEK.
     mres.key(&dek, false);
 
     // Decrypt the message and get the signature.
