@@ -73,8 +73,8 @@ fn sign(cmd: &mut SignArgs) -> Result<()> {
 }
 
 fn verify(cmd: &mut VerifyArgs) -> Result<()> {
-    let signer: PublicKey = cmd.public_key.to_string_lossy().parse()?;
-    let sig: Signature = cmd.signature.to_string_lossy().parse()?;
+    let signer = cmd.public_key.to_string_lossy().parse::<PublicKey>()?;
+    let sig = cmd.signature.to_string_lossy().parse::<Signature>()?;
     signer.verify(&mut cmd.message, &sig)?;
     Ok(())
 }
