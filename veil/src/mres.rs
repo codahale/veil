@@ -206,7 +206,7 @@ where
         if let Some((p, header)) = akem::decapsulate(d_r, q_r, q_s, &buf) {
             // Recover the ephemeral public key, the DEK, and the message offset.
             let dek: [u8; DEK_LEN] = header[..DEK_LEN].try_into().unwrap();
-            let msg_offset = u64::from_le_bytes(header[HEADER_LEN - U64_LEN..].try_into().unwrap());
+            let msg_offset = u64::from_le_bytes(header[DEK_LEN..].try_into().unwrap());
 
             // Read the remainder of the headers and padding and write them to the verifier.
             let mut remainder = reader.take(msg_offset - hdr_offset);
