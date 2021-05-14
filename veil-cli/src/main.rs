@@ -1,11 +1,11 @@
-use std::fs;
 use std::path::{Path, PathBuf};
+use std::{fs, result};
 
 use anyhow::Result;
 use clap::Clap;
 
 use cli::*;
-use veil::{PublicKey, SecretKey, Signature};
+use veil::{PublicKey, PublicKeyError, SecretKey, Signature};
 
 mod cli;
 
@@ -51,7 +51,7 @@ fn encrypt(cmd: &mut EncryptArgs) -> Result<()> {
         .recipients
         .iter()
         .map(|s| s.to_string_lossy().parse::<PublicKey>())
-        .collect::<Result<Vec<PublicKey>>>()?;
+        .collect::<result::Result<Vec<PublicKey>, PublicKeyError>>()?;
     private_key.encrypt(&mut cmd.plaintext, &mut cmd.ciphertext, pks, cmd.fakes, cmd.padding)?;
     Ok(())
 }

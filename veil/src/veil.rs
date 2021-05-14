@@ -1,9 +1,8 @@
 use std::convert::TryInto;
 use std::fmt::{Debug, Formatter};
 use std::io::{BufReader, BufWriter, Read, Write};
-use std::{fmt, io, iter, result, str};
+use std::{fmt, io, iter, str};
 
-use anyhow::{anyhow, Result};
 use base58::{FromBase58, ToBase58};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
@@ -12,7 +11,7 @@ use zeroize::Zeroize;
 
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::util::POINT_LEN;
-use crate::{mres, pbenc, scaldf, util};
+use crate::{mres, pbenc, scaldf, util, DecryptionError, PublicKeyError, VerificationError};
 
 /// A 512-bit secret from which multiple private keys can be derived.
 #[derive(Zeroize)]
@@ -33,11 +32,11 @@ impl SecretKey {
     }
 
     /// Decrypts the secret key with the given passphrase and pbenc parameters.
-    pub fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Result<SecretKey> {
+    pub fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Result<SecretKey, DecryptionError> {
         pbenc::decrypt(passphrase, ciphertext)
             .and_then(|b| b.try_into().ok())
             .map(|r| SecretKey { r })
-            .ok_or_else(|| anyhow!("invalid passphrase/ciphertext"))
+            .ok_or(DecryptionError::InvalidCiphertext)
     }
 
     /// Derives a private key with the given key ID.
@@ -90,7 +89,7 @@ impl PrivateKey {
         recipients: Vec<PublicKey>,
         fakes: usize,
         padding: u64,
-    ) -> Result<u64>
+    ) -> io::Result<u64>
     where
         R: Read,
         W: Write,
@@ -109,21 +108,26 @@ impl PrivateKey {
         shuffle(&mut q_rs);
 
         // Finally, encrypt.
-        Ok(mres::encrypt(
+        mres::encrypt(
             &mut BufReader::new(reader),
             &mut BufWriter::new(writer),
             &self.d,
             &self.pk.q,
             q_rs,
             padding,
-        )?)
+        )
     }
 
     /// Decrypts the contents of the reader, if possible, and writes the plaintext to the writer.
     ///
     /// If the ciphertext has been modified, was not sent by the sender, or was not encrypted for
     /// this private key, will return an error.
-    pub fn decrypt<R, W>(&self, reader: &mut R, writer: &mut W, sender: &PublicKey) -> Result<u64>
+    pub fn decrypt<R, W>(
+        &self,
+        reader: &mut R,
+        writer: &mut W,
+        sender: &PublicKey,
+    ) -> Result<u64, DecryptionError>
     where
         R: Read,
         W: Write,
@@ -135,11 +139,11 @@ impl PrivateKey {
             &self.pk.q,
             &sender.q,
         )?;
-        verified.then(|| written).ok_or_else(|| anyhow!("invalid ciphertext"))
+        verified.then(|| written).ok_or(DecryptionError::InvalidCiphertext)
     }
 
     /// Reads the contents of the reader and returns a Schnorr signature.
-    pub fn sign<R>(&self, reader: &mut R) -> Result<Signature>
+    pub fn sign<R>(&self, reader: &mut R) -> io::Result<Signature>
     where
         R: Read,
     {
@@ -177,14 +181,14 @@ pub struct Signature {
 }
 
 impl str::FromStr for Signature {
-    type Err = anyhow::Error;
+    type Err = VerificationError;
 
-    fn from_str(s: &str) -> result::Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         s.from_base58()
             .ok()
             .and_then(|b| b.try_into().ok())
             .map(|sig| Signature { sig })
-            .ok_or_else(|| anyhow!("invalid signature"))
+            .ok_or(VerificationError::InvalidSignature)
     }
 }
 
@@ -203,13 +207,13 @@ pub struct PublicKey {
 impl PublicKey {
     /// Reads the contents of the reader returns () iff the given signature was created by this
     /// public key of the exact contents.
-    pub fn verify<R>(&self, reader: &mut R, sig: &Signature) -> Result<()>
+    pub fn verify<R>(&self, reader: &mut R, sig: &Signature) -> Result<(), VerificationError>
     where
         R: Read,
     {
         let mut verifier = Verifier::new();
         io::copy(reader, &mut verifier)?;
-        verifier.verify(&self.q, &sig.sig).then(|| ()).ok_or_else(|| anyhow!("invalid signature"))
+        verifier.verify(&self.q, &sig.sig).then(|| ()).ok_or(VerificationError::InvalidSignature)
     }
 
     /// Derives a public key with the given key ID.
@@ -228,16 +232,16 @@ impl fmt::Display for PublicKey {
 }
 
 impl str::FromStr for PublicKey {
-    type Err = anyhow::Error;
+    type Err = PublicKeyError;
 
-    fn from_str(s: &str) -> result::Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         s.from_base58()
             .ok()
             .filter(|b| b.len() == POINT_LEN)
             .map(|b| CompressedRistretto::from_slice(&b))
             .and_then(|p| p.decompress())
             .map(|q| PublicKey { q })
-            .ok_or_else(|| anyhow!("invalid public key"))
+            .ok_or(PublicKeyError)
     }
 }
 
