@@ -2,18 +2,23 @@ use std::io;
 
 use thiserror::Error;
 
-/// An error returned when a public key cannot be parsed.
+/// Error due to invalid public key format.
 #[derive(Error, Debug)]
 #[error("invalid public key")]
 pub struct PublicKeyError;
 
-/// Errors returned during decryption.
+/// Error due to invalid signature format.
+#[derive(Error, Debug)]
+#[error("invalid signature")]
+pub struct InvalidSignatureError;
+
+/// The error type for message decryption.
 #[derive(Error, Debug)]
 pub enum DecryptionError {
-    /// An error returned when a message cannot be decrypted with the given keys.
+    /// Error due to message/private key/public key mismatch.
     ///
-    /// The ciphertext may have been altered, or the message may not have been encrypted with those
-    /// keys.
+    /// The ciphertext may have been altered, the message may not have been encrypted by the given
+    /// sender, or the message may not have been encrypted for the given recipient.
     #[error("invalid ciphertext")]
     InvalidCiphertext,
 
@@ -22,17 +27,17 @@ pub enum DecryptionError {
     IoError(#[from] io::Error),
 }
 
-/// Errors returned during verification.
+/// The error type for message verification.
 #[derive(Error, Debug)]
 pub enum VerificationError {
-    /// An error returned when a signature cannot be verified.
+    /// Error due to signature/message/public key mismatch.
     ///
     /// The message or signature may have been altered, or the message may not have been signed with
     /// the given key.
     #[error("invalid signature")]
     InvalidSignature,
 
-    /// An error returned when there was an underlying IO error during verification.
+    /// The reader containing the message returned an IO error.
     #[error("error verifying: {0}")]
     IoError(#[from] io::Error),
 }

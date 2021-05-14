@@ -11,7 +11,10 @@ use zeroize::Zeroize;
 
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::util::POINT_LEN;
-use crate::{mres, pbenc, scaldf, util, DecryptionError, PublicKeyError, VerificationError};
+use crate::{
+    mres, pbenc, scaldf, util, DecryptionError, InvalidSignatureError, PublicKeyError,
+    VerificationError,
+};
 
 /// A 512-bit secret from which multiple private keys can be derived.
 #[derive(Zeroize)]
@@ -181,14 +184,14 @@ pub struct Signature {
 }
 
 impl str::FromStr for Signature {
-    type Err = VerificationError;
+    type Err = InvalidSignatureError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         s.from_base58()
             .ok()
             .and_then(|b| b.try_into().ok())
             .map(|sig| Signature { sig })
-            .ok_or(VerificationError::InvalidSignature)
+            .ok_or(InvalidSignatureError)
     }
 }
 
