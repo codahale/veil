@@ -51,7 +51,7 @@ fn encrypt(cmd: &mut EncryptArgs) -> Result<()> {
         .recipients
         .iter()
         .map(|s| s.to_string_lossy().parse::<PublicKey>())
-        .collect::<veil::Result<Vec<PublicKey>>>()?;
+        .collect::<Result<Vec<PublicKey>>>()?;
     private_key.encrypt(&mut cmd.plaintext, &mut cmd.ciphertext, pks, cmd.fakes, cmd.padding)?;
     Ok(())
 }

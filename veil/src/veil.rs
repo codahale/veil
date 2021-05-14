@@ -3,47 +3,16 @@ use std::fmt::{Debug, Formatter};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::{fmt, io, iter, result, str};
 
+use anyhow::{anyhow, Result};
 use base58::{FromBase58, ToBase58};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
-use thiserror::Error;
 use zeroize::Zeroize;
 
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::util::POINT_LEN;
 use crate::{mres, pbenc, scaldf, util};
-
-/// Veil's custom result type.
-pub type Result<T> = result::Result<T, VeilError>;
-
-/// The full set of Veil errors.
-#[derive(Error, Debug)]
-#[non_exhaustive]
-pub enum VeilError {
-    /// Returned when a ciphertext can't be decrypted.
-    #[error("invalid ciphertext")]
-    InvalidCiphertext,
-    /// Returned when a signature is invalid.
-    #[error("invalid signature")]
-    InvalidSignature,
-    /// Returned when a public key is invalid.
-    #[error("invalid public key")]
-    InvalidPublicKey,
-    /// Returned when a secret key can't be decrypted.
-    #[error("invalid secret key/passphrase")]
-    InvalidSecretKey,
-    /// Returned when key ID is invalid.
-    #[error("invalid key ID")]
-    InvalidKeyId,
-    /// Returned when an underlying IO error occurred.
-    #[error("io error: {source:?}")]
-    IoError {
-        /// The source of the IO error.
-        #[from]
-        source: io::Error,
-    },
-}
 
 /// A 512-bit secret from which multiple private keys can be derived.
 #[derive(Zeroize)]
@@ -68,7 +37,7 @@ impl SecretKey {
         pbenc::decrypt(passphrase, ciphertext)
             .and_then(|b| b.try_into().ok())
             .map(|r| SecretKey { r })
-            .ok_or(VeilError::InvalidSecretKey)
+            .ok_or_else(|| anyhow!("invalid passphrase/ciphertext"))
     }
 
     /// Derives a private key with the given key ID.
@@ -166,7 +135,7 @@ impl PrivateKey {
             &self.pk.q,
             &sender.q,
         )?;
-        verified.then(|| written).ok_or(VeilError::InvalidCiphertext)
+        verified.then(|| written).ok_or_else(|| anyhow!("invalid ciphertext"))
     }
 
     /// Reads the contents of the reader and returns a Schnorr signature.
@@ -208,14 +177,14 @@ pub struct Signature {
 }
 
 impl str::FromStr for Signature {
-    type Err = VeilError;
+    type Err = anyhow::Error;
 
     fn from_str(s: &str) -> result::Result<Self, Self::Err> {
         s.from_base58()
             .ok()
             .and_then(|b| b.try_into().ok())
             .map(|sig| Signature { sig })
-            .ok_or(VeilError::InvalidSignature)
+            .ok_or_else(|| anyhow!("invalid signature"))
     }
 }
 
@@ -240,7 +209,7 @@ impl PublicKey {
     {
         let mut verifier = Verifier::new();
         io::copy(reader, &mut verifier)?;
-        verifier.verify(&self.q, &sig.sig).then(|| ()).ok_or(VeilError::InvalidSignature)
+        verifier.verify(&self.q, &sig.sig).then(|| ()).ok_or_else(|| anyhow!("invalid signature"))
     }
 
     /// Derives a public key with the given key ID.
@@ -259,7 +228,7 @@ impl fmt::Display for PublicKey {
 }
 
 impl str::FromStr for PublicKey {
-    type Err = VeilError;
+    type Err = anyhow::Error;
 
     fn from_str(s: &str) -> result::Result<Self, Self::Err> {
         s.from_base58()
@@ -268,7 +237,7 @@ impl str::FromStr for PublicKey {
             .map(|b| CompressedRistretto::from_slice(&b))
             .and_then(|p| p.decompress())
             .map(|q| PublicKey { q })
-            .ok_or(VeilError::InvalidPublicKey)
+            .ok_or_else(|| anyhow!("invalid public key"))
     }
 }
 
@@ -328,10 +297,9 @@ mod tests {
         let decoded = "GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3".parse()?;
         assert_eq!(base, decoded);
 
-        match "woot woot".parse::<PublicKey>() {
-            Err(VeilError::InvalidPublicKey) => Ok(()),
-            r => panic!("shouldn't have parsed: {:?}", r),
-        }
+        assert!("woot woot".parse::<PublicKey>().is_err());
+
+        Ok(())
     }
 
     #[test]
@@ -343,10 +311,9 @@ mod tests {
         let decoded = "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC".parse()?;
         assert_eq!(sig, decoded);
 
-        match "woot woot".parse::<Signature>() {
-            Err(VeilError::InvalidSignature) => Ok(()),
-            r => panic!("shouldn't have parsed: {:?}", r),
-        }
+        assert!("woot woot".parse::<Signature>().is_err());
+
+        Ok(())
     }
 
     #[test]
@@ -392,7 +359,9 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert_decryption_failure(priv_b.decrypt(&mut src, &mut dst, &priv_b.public_key()))
+        assert!(priv_b.decrypt(&mut src, &mut dst, &priv_b.public_key()).is_err());
+
+        Ok(())
     }
 
     #[test]
@@ -413,7 +382,9 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert_decryption_failure(priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()))
+        assert!(priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()).is_err());
+
+        Ok(())
     }
 
     #[test]
@@ -437,7 +408,9 @@ mod tests {
         let mut src = Cursor::new(ciphertext);
         let mut dst = Cursor::new(Vec::new());
 
-        assert_decryption_failure(priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()))
+        assert!(priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()).is_err());
+
+        Ok(())
     }
 
     #[test]
@@ -455,13 +428,5 @@ mod tests {
         assert_eq!(true, pub_a.verify(&mut src, &sig).is_ok());
 
         Ok(())
-    }
-
-    fn assert_decryption_failure(result: Result<u64, VeilError>) -> Result<()> {
-        match result {
-            Err(VeilError::InvalidCiphertext) => Ok(()),
-            Err(e) => Err(anyhow::Error::from(e)),
-            _ => panic!("should not have decrypted"),
-        }
     }
 }
