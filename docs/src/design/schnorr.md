@@ -2,7 +2,7 @@
 
 ## Signing A Message
 
-Signing is as follows, given a message in blocks $M_0...M_n$, a private scalar $d$, and a public point $Q$:
+Signing is as follows, given a message in blocks $M_0...M_N$, a private scalar $d$, and a public point $Q$:
 
 ```text
 INIT('veil.schnorr', level=256)
@@ -10,7 +10,7 @@ SEND_CLR('',  more=false)
 SEND_CLR(M_0, more=true)
 SEND_CLR(M_1, more=true)
 …
-SEND_CLR(M_n, more=true)
+SEND_CLR(M_N, more=true)
 AD(Q)
 ```
 
@@ -33,11 +33,11 @@ AD(R)
 PRF(64) -> c
 ```
 
-The resulting signature consists of the two scalars, $c$ and $s = d_sc + r$.
+The resulting signature consists of the two scalars, $c$ and $s = dc + r$.
 
 ## Verifying A Signature
 
-To verify, `veil.schnorr` is run with a message in blocks $M_0...M_n$ and a public point $Q$:
+To verify, `veil.schnorr` is run with a message in blocks $M_0...M_N$ and a public point $Q$:
 
 ```text
 INIT('veil.schnorr', level=256)
@@ -45,11 +45,11 @@ RECV_CLR('',  more=false)
 RECV_CLR(M_0, more=true)
 RECV_CLR(M_1, more=true)
 …
-RECV_CLR(M_n, more=true)
+RECV_CLR(M_N, more=true)
 AD(Q)
 ```
 
-The public ephemeral is re-calculated as $R' = Q^{-c} + G^s$ and the challenge scalar re-derived:
+The public ephemeral is re-calculated as $R' = Q^{-c} + G^s$ and the challenge scalar is re-derived from PRF output:
 
 ```
 AD(R')

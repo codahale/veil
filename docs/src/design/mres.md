@@ -2,29 +2,29 @@
 
 ## Encryption
 
-Encrypting a message begins as follows, given the sender's key pair, $d_s$ and $Q_s$, a plaintext message in blocks
-$P_0...P_n$, a list of recipient public keys, $Q_{r0}...Q_{rm}$, and a DEK size $N_{dek}$:
+Encrypting a message begins as follows, given the sender's key pair, $d_S$ and $Q_S$, a plaintext message in blocks
+$P_0...P_N$, a list of recipient public keys, $Q_{R^0}...Q_{R^M}$, and a DEK size $N_{DEK}$:
 
 ```text
 INIT('veil.mres', level=256)
-AD(LE_32(N_dek),  meta=true)
+AD(LE_32(N_DEK),  meta=true)
 AD(Q_s)
 ```
 
 The protocol context is cloned and keyed with the sender's private key and a random nonce and used to derive a data
-encryption key, $K_{dek}$, and an ephemeral private key, $d_e$:
+encryption key, $K_{DEK}$, and an ephemeral private key, $d_E$:
 
 ```text
-KEY(d_s)
+KEY(d_S)
 KEY(rand())
-PRF(32) -> K_dek
-PRF(64) -> d_e
+PRF(32) -> K_DEK
+PRF(64) -> d_E
 ```
 
-The ephemeral public key is computed as $Q_e = G^{d_e}$, and the cloned context is discarded:
+The ephemeral public key is computed as $Q_E = G^{d_E}$, and the cloned context is discarded:
 
 The data encryption key and message offset are encoded into a fixed-length header and copies of it are encrypted
-with `veil.akem` for each recipient using $d_e$ and $Q_e$. Optional random padding is added to the end, and the
+with `veil.akem` for each recipient using $d_E$ and $Q_E$. Optional random padding is added to the end, and the
 resulting block $H$ is written:
 
 ```text
@@ -38,10 +38,10 @@ KEY(K_dek)
 SEND_ENC('')
 SEND_ENC(P_0,     more=true)
 …
-SEND_ENC(P_n,     more=true)
+SEND_ENC(P_N,     more=true)
 ```
 
-Finally, a Schnorr signature $S$ of the entire ciphertext (headers, padding, and DEM ciphertext) is created with $d_e$
+Finally, a Schnorr signature $S$ of the entire ciphertext (headers, padding, and DEM ciphertext) is created with $d_E$
 and encrypted:
 
 ```text
@@ -53,17 +53,17 @@ and a Schnorr signature of the headers, padding, and ciphertext.
 
 ## Decryption
 
-Decryption begins as follows, given the recipient's key pair, $d_r$ and $Q_r$, the sender's public key, $Q_s$:
+Decryption begins as follows, given the recipient's key pair, $d_R$ and $Q_R$, the sender's public key, $Q_S$:
 
 ```text
 INIT('veil.mres', level=256)
-AD(LE_32(N_dek),  meta=true)
+AD(LE_32(N_DEK),  meta=true)
 AD(Q_s)
 ```
 
 The recipient reads through the ciphertext in header-sized blocks, looking for one which is decryptable given their key
-pair and the sender's public key. Having found one, they recover the data encryption key $K_{dek}$, the message offset,
-and the ephemeral public key $Q_e$. They then read the remainder of the block of encrypted headers and padding $H$:
+pair and the sender's public key. Having found one, they recover the data encryption key $K_{DEK}$, the message offset,
+and the ephemeral public key $Q_E$. They then read the remainder of the block of encrypted headers and padding $H$:
 
 ```text
 RECV_CLR(H)
@@ -76,7 +76,7 @@ KEY(K_dek)
 RECV_ENC('')
 RECV_ENC(C_0,     more=true)
 …
-RECV_ENC(C_n,     more=true)
+RECV_ENC(C_N,     more=true)
 ```
 
 Finally, the signature $S$ is decrypted and verified against the entire ciphertext:
@@ -130,7 +130,7 @@ and all other forms of sender identity which are transmitted are only binding on
 
 ## Randomness Re-Use
 
-The ephemeral key pair, $d_e$ and $Q_e$, are used multiple times: once for each `veil.akem`
+The ephemeral key pair, $d_E$ and $Q_E$, are used multiple times: once for each `veil.akem`
 header and finally once for the end signature. This improves the efficiency of the scheme without reducing its security,
 per [Bellare et al.'s treatment of Randomness Reusing Multi-Recipient Encryption Schemes][rr-mres].
 

@@ -5,15 +5,15 @@ Veil implements memory-hard password-based encryption via STROBE using [balloon 
 ## Initialization
 
 The protocol is initialized as follows, given a passphrase $P$, a 128-bit salt $S$, delta constant $D$, space parameter
-$N_{space}$, time parameter $N_{time}$, block size $N_{block}$, and MAC size $N_{mac}$:
+$N_S$, time parameter $N_T$, block size $N_B$, and MAC size $N_M$:
 
 ```text
 INIT('veil.kdf.balloon', level=256)
 AD(LE_U32(D),            meta=true)
-AD(LE_U32(N_block),      meta=true)
-AD(LE_U32(N_mac),        meta=true)
-AD(LE_U32(N_time),       meta=true)
-AD(LE_U32(N_space),      meta=true)
+AD(LE_U32(N_B),          meta=true)
+AD(LE_U32(N_M),          meta=true)
+AD(LE_U32(N_T),          meta=true)
+AD(LE_U32(N_S),          meta=true)
 KEY(P)
 AD(S)
 ```
@@ -27,35 +27,35 @@ AD(R)
 PRF(N)
 ```
 
-The final block $B_n$ of the balloon hashing algorithm is then used to key the protocol:
+The final block $B_N$ of the balloon hashing algorithm is then used to key the protocol:
 
 ```text
-KEY(B_n)
+KEY(B_N)
 ```
 
 ## Encryption
 
-Encryption of a message $M$ is as follows:
+Encryption of a message $P$ is as follows:
 
 ```text
-SEND_ENC(M)
-SEND_MAC(T)
+SEND_ENC(P) -> C
+SEND_MAC(N_M) -> M
 ```
 
 The returned ciphertext contains the following:
 
 ```text
-LE_U32(N_time) || LE_U32(N_space) || S || C || T
+LE_U32(N_T) || LE_U32(N_S) || S || C || M
 ```
 
 ## Decryption
 
-Decryption of a ciphertext parses $N_{time}$, $N_{space}$, $S$, $C$ and MAC $T$, initializes the protocol, and performs
-the inverse of encryption:
+Decryption of a ciphertext parses $N_T$, $N_S$, $S$, $C$ and $M$, initializes the protocol, and performs the inverse of
+encryption:
 
 ```text
 RECV_ENC(C) -> P
-RECV_MAC(T)
+RECV_MAC(M)
 ```
 
 If the `RECV_MAC` call is successful, the plaintext $P$ is returned.
