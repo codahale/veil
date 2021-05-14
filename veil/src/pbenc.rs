@@ -80,10 +80,10 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
     }
 
     // Step 2: Mix buffer contents.
-    for t in 1..time as usize {
-        for m in 1..space as usize {
+    for t in 0..time as usize {
+        for m in 0..space as usize {
             // Step 2a: Hash last and current blocks.
-            let prev = (m - 1) % space as usize;
+            let prev = (m as isize - 1) as usize % space as usize; // wrap 0 to last block
             buf[m] = hash_counter(&mut pbenc, &mut ctr, &buf[prev], &buf[m]);
 
             // Step 2b: Hash in pseudo-randomly chosen blocks.
