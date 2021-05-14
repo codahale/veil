@@ -53,7 +53,15 @@
 //! ```
 
 #![forbid(unsafe_code)]
-#![warn(missing_docs, rust_2018_idioms, trivial_casts, unused_lifetimes, unused_qualifications)]
+#![warn(
+    missing_docs,
+    rust_2018_idioms,
+    trivial_casts,
+    unused_lifetimes,
+    unused_qualifications,
+    missing_copy_implementations,
+    missing_debug_implementations
+)]
 
 pub use self::errors::*;
 pub use self::veil::*;

@@ -46,10 +46,7 @@ impl SecretKey {
     /// `key_id` should be slash-separated string (e.g. `/one/two/three`) which define a path of
     /// derived keys (e.g. `/` -> `one` -> `two` -> `three`).
     pub fn private_key(&self, key_id: &str) -> PrivateKey {
-        let d = scaldf::derive_root(&self.r);
-        let q = RISTRETTO_BASEPOINT_POINT * d;
-        let pk = PublicKey { q };
-        PrivateKey { d, pk }.derive(key_id)
+        self.root().derive(key_id)
     }
 
     /// Derive a public key with the given key ID.
@@ -59,6 +56,11 @@ impl SecretKey {
     pub fn public_key(&self, key_id: &str) -> PublicKey {
         self.private_key(key_id).public_key()
     }
+
+    fn root(&self) -> PrivateKey {
+        let d = scaldf::derive_root(&self.r);
+        PrivateKey { d, pk: PublicKey { q: RISTRETTO_BASEPOINT_POINT * d } }
+    }
 }
 
 impl Default for SecretKey {
@@ -67,7 +69,14 @@ impl Default for SecretKey {
     }
 }
 
+impl Debug for SecretKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.root().fmt(f)
+    }
+}
+
 /// A derived private key, used to encrypt, decrypt, and sign messages.
+#[derive(Copy, Clone)]
 pub struct PrivateKey {
     d: Scalar,
     pk: PublicKey,
