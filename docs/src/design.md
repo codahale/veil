@@ -1,4 +1,6 @@
-## Design Criteria
+## Design
+
+Veil is designed to be simple, understandable, and robust.
 
 ### Cryptographic Minimalism
 
