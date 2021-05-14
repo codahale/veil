@@ -12,7 +12,7 @@
 //!
 //!
 //! ```
-//! use std::{io, str};
+//! use std::io;
 //! use std::io::Cursor;
 //! use veil::SecretKey;
 //!
@@ -49,10 +49,7 @@
 //! ).expect("decryption failed");
 //!
 //! // Having decrypted the message, Bea can read the plaintext.
-//! assert_eq!(
-//!   "this is a secret message",
-//!   str::from_utf8(&plaintext.into_inner()).expect("invalid UTF-8"),
-//! );
+//! assert_eq!(b"this is a secret message".to_vec(), plaintext.into_inner());
 //! ```
 
 #![forbid(unsafe_code)]
