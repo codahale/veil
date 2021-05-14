@@ -11,6 +11,17 @@ pub fn rand_array<const N: usize>() -> [u8; N] {
     out
 }
 
+#[cfg(test)]
+/// Generate a random scalar.
+pub fn rand_scalar() -> Scalar {
+    Scalar::from_bytes_mod_order_wide(&rand_array())
+}
+
+/// Generate a random point.
+pub fn rand_point() -> RistrettoPoint {
+    RistrettoPoint::from_uniform_bytes(&rand_array())
+}
+
 /// The length of a MAC in bytes.
 pub const MAC_LEN: usize = 16;
 

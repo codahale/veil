@@ -133,7 +133,6 @@ mod tests {
     use std::io::Write;
 
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
-    use curve25519_dalek::scalar::Scalar;
 
     use crate::util;
 
@@ -141,7 +140,7 @@ mod tests {
 
     #[test]
     pub fn sign_and_verify() -> Result<()> {
-        let d = Scalar::from_bytes_mod_order_wide(&util::rand_array());
+        let d = util::rand_scalar();
         let q = RISTRETTO_BASEPOINT_POINT * d;
 
         let mut signer = Signer::new(io::sink());
@@ -164,7 +163,7 @@ mod tests {
 
     #[test]
     pub fn bad_message() -> Result<()> {
-        let d = Scalar::from_bytes_mod_order_wide(&util::rand_array());
+        let d = util::rand_scalar();
         let q = RISTRETTO_BASEPOINT_POINT * d;
 
         let mut signer = Signer::new(io::sink());
@@ -187,7 +186,7 @@ mod tests {
 
     #[test]
     pub fn bad_key() -> Result<()> {
-        let d = Scalar::from_bytes_mod_order_wide(&util::rand_array());
+        let d = util::rand_scalar();
         let q = RISTRETTO_BASEPOINT_POINT * d;
 
         let mut signer = Signer::new(io::sink());
@@ -210,7 +209,7 @@ mod tests {
 
     #[test]
     pub fn bad_sig() -> Result<()> {
-        let d = Scalar::from_bytes_mod_order_wide(&util::rand_array());
+        let d = util::rand_scalar();
         let q = RISTRETTO_BASEPOINT_POINT * d;
 
         let mut signer = Signer::new(io::sink());

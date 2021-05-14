@@ -109,10 +109,7 @@ impl PrivateKey {
         let mut q_rs = recipients
             .into_iter()
             .map(|pk| pk.q)
-            .chain(
-                iter::repeat_with(|| RistrettoPoint::from_uniform_bytes(&util::rand_array()))
-                    .take(fakes),
-            )
+            .chain(iter::repeat_with(util::rand_point).take(fakes))
             .collect();
 
         // Shuffle the recipients list.

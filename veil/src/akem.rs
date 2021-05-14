@@ -143,13 +143,13 @@ mod tests {
     }
 
     fn setup() -> (Scalar, RistrettoPoint, Scalar, RistrettoPoint, Scalar, RistrettoPoint) {
-        let d_s = Scalar::from_bytes_mod_order_wide(&util::rand_array());
+        let d_s = util::rand_scalar();
         let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
 
-        let d_e = Scalar::from_bytes_mod_order_wide(&util::rand_array());
+        let d_e = util::rand_scalar();
         let q_e = RISTRETTO_BASEPOINT_POINT * d_e;
 
-        let d_r = Scalar::from_bytes_mod_order_wide(&util::rand_array());
+        let d_r = util::rand_scalar();
         let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
 
         (d_s, q_s, d_e, q_e, d_r, q_r)
