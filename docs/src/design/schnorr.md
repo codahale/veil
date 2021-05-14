@@ -2,7 +2,7 @@
 
 ## Signing A Message
 
-Signing is as follows, given a message in blocks $M_0...M_n$, a private scalar $d$, and a public element $Q$:
+Signing is as follows, given a message in blocks $M_0...M_n$, a private scalar $d$, and a public point $Q$:
 
 ```text
 INIT('veil.schnorr', level=256)
@@ -37,7 +37,7 @@ The resulting signature consists of the two scalars, $c$ and $s = d_sc + r$.
 
 ## Verifying A Signature
 
-To verify, `veil.schnorr` is run with a message in blocks $M_0...M_n$ and a public element $Q$:
+To verify, `veil.schnorr` is run with a message in blocks $M_0...M_n$ and a public point $Q$:
 
 ```text
 INIT('veil.schnorr', level=256)

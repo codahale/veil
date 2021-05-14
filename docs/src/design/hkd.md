@@ -25,8 +25,8 @@ This is used iteratively to provide hierarchical key derivation. Private keys ar
 like `/friends/alice`, where the secret key is mapped to a private key via the label `/`, which is then mapped to a
 private key via the label `friends`, which is then mapped to the final private key via the label `alice`.
 
-To derive a public key from a public key $Q$, the delta scalar $r$ is first multiplied by the curve's base element, then
-added to the public key element:
+To derive a public key from a public key $Q$, the delta scalar $r$ is first multiplied by the curve's base point, then
+added to the public key point:
 
 $$ Q' = Q + G^r $$
 

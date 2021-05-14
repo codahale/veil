@@ -38,7 +38,7 @@ Finally, the use of STROBE means all protocols which end in `RECV_MAC` calls are
 ### Indistinguishable From Random Noise
 
 Veil messages are entirely indistinguishable from random noise. They contain no plaintext metadata, no plaintext
-ristretto255 elements, no plaintext framing or padding, and have entirely arbitrary lengths. This makes them ideal for
+ristretto255 points, no plaintext framing or padding, and have entirely arbitrary lengths. This makes them ideal for
 distribution via steganographic channels and very resistant to traffic analysis.
 
 [strobe]: https://strobe.sourceforge.io
