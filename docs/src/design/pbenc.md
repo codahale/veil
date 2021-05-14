@@ -48,7 +48,7 @@ The returned ciphertext contains the following:
 LE_U32(N_time) || LE_U32(N_space) || S || C || T
 ```
 
-# Decryption
+## Decryption
 
 Decryption of a ciphertext parses $N_{time}$, $N_{space}$, $S$, $C$ and MAC $T$, initializes the protocol, and performs
 the inverse of encryption:
