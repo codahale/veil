@@ -6,3 +6,6 @@ src = "src"
 title = "Veil Cryptosystem"
 
 [preprocessor.katex]
+
+[build]
+build-dir = "../target/book"
