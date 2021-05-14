@@ -16,7 +16,6 @@ thiserror = "1"
 zeroize = { version = "1", features = ["zeroize_derive"] }
 
 [dev-dependencies]
-anyhow = "1"
 criterion = { version = "0.3", features = ["html_reports"] }
 
 [[bench]]

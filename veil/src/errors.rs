@@ -3,14 +3,14 @@ use std::io;
 use thiserror::Error;
 
 /// Error due to invalid public key format.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Eq, PartialEq)]
 #[error("invalid public key")]
 pub struct PublicKeyError;
 
 /// Error due to invalid signature format.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Eq, PartialEq)]
 #[error("invalid signature")]
-pub struct InvalidSignatureError;
+pub struct SignatureError;
 
 /// The error type for message decryption.
 #[derive(Error, Debug)]

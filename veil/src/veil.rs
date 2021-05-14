@@ -12,8 +12,7 @@ use zeroize::Zeroize;
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::util::POINT_LEN;
 use crate::{
-    mres, pbenc, scaldf, util, DecryptionError, InvalidSignatureError, PublicKeyError,
-    VerificationError,
+    mres, pbenc, scaldf, util, DecryptionError, PublicKeyError, SignatureError, VerificationError,
 };
 
 /// A 512-bit secret from which multiple private keys can be derived.
@@ -184,14 +183,14 @@ pub struct Signature {
 }
 
 impl str::FromStr for Signature {
-    type Err = InvalidSignatureError;
+    type Err = SignatureError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         s.from_base58()
             .ok()
             .and_then(|b| b.try_into().ok())
             .map(|sig| Signature { sig })
-            .ok_or(InvalidSignatureError)
+            .ok_or(SignatureError)
     }
 }
 
@@ -271,7 +270,6 @@ fn rand_usize(n: usize) -> usize {
 mod tests {
     use std::io::Cursor;
 
-    use anyhow::Result;
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 
     use super::*;
@@ -297,35 +295,31 @@ mod tests {
     }
 
     #[test]
-    pub fn public_key_encoding() -> Result<()> {
+    pub fn public_key_encoding() {
         let base = PublicKey { q: RISTRETTO_BASEPOINT_POINT };
 
         assert_eq!("GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3", base.to_string());
 
-        let decoded = "GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3".parse()?;
-        assert_eq!(base, decoded);
+        let decoded = "GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3".parse::<PublicKey>();
+        assert_eq!(Ok(base), decoded);
 
-        assert!("woot woot".parse::<PublicKey>().is_err());
-
-        Ok(())
+        assert_eq!(Err(PublicKeyError), "woot woot".parse::<PublicKey>());
     }
 
     #[test]
-    pub fn signature_encoding() -> Result<()> {
+    pub fn signature_encoding() {
         let sig = Signature { sig: [69u8; SIGNATURE_LEN] };
 
         assert_eq!("2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC", sig.to_string());
 
-        let decoded = "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC".parse()?;
-        assert_eq!(sig, decoded);
+        let decoded = "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC".parse::<Signature>();
+        assert_eq!(Ok(sig), decoded);
 
-        assert!("woot woot".parse::<Signature>().is_err());
-
-        Ok(())
+        assert_eq!(Err(SignatureError), "woot woot".parse::<Signature>());
     }
 
     #[test]
-    pub fn round_trip() -> Result<()> {
+    pub fn round_trip() -> Result<(), DecryptionError> {
         let sk_a = SecretKey::new();
         let priv_a = sk_a.private_key("/one/two");
 
@@ -350,7 +344,7 @@ mod tests {
     }
 
     #[test]
-    pub fn bad_sender_key() -> Result<()> {
+    pub fn bad_sender_key() -> Result<(), DecryptionError> {
         let sk_a = SecretKey::new();
         let priv_a = sk_a.private_key("/one/two");
 
@@ -367,13 +361,11 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert!(priv_b.decrypt(&mut src, &mut dst, &priv_b.public_key()).is_err());
-
-        Ok(())
+        assert_failed_decryption(priv_b.decrypt(&mut src, &mut dst, &priv_b.public_key()))
     }
 
     #[test]
-    pub fn bad_recipient() -> Result<()> {
+    pub fn bad_recipient() -> Result<(), DecryptionError> {
         let sk_a = SecretKey::new();
         let priv_a = sk_a.private_key("/one/two");
 
@@ -390,13 +382,11 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert!(priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()).is_err());
-
-        Ok(())
+        assert_failed_decryption(priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()))
     }
 
     #[test]
-    pub fn bad_ciphertext() -> Result<()> {
+    pub fn bad_ciphertext() -> Result<(), DecryptionError> {
         let sk_a = SecretKey::new();
         let priv_a = sk_a.private_key("/one/two");
 
@@ -416,13 +406,11 @@ mod tests {
         let mut src = Cursor::new(ciphertext);
         let mut dst = Cursor::new(Vec::new());
 
-        assert!(priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()).is_err());
-
-        Ok(())
+        assert_failed_decryption(priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()))
     }
 
     #[test]
-    pub fn sign_and_verify() -> Result<()> {
+    pub fn sign_and_verify() -> Result<(), VerificationError> {
         let sk = SecretKey::new();
         let priv_a = sk.private_key("/one/two");
         let pub_a = priv_a.public_key();
@@ -433,8 +421,16 @@ mod tests {
         let sig = priv_a.sign(&mut src)?;
 
         let mut src = Cursor::new(message);
-        assert_eq!(true, pub_a.verify(&mut src, &sig).is_ok());
+        pub_a.verify(&mut src, &sig)
+    }
 
-        Ok(())
+    fn assert_failed_decryption(
+        result: Result<u64, DecryptionError>,
+    ) -> Result<(), DecryptionError> {
+        match result {
+            Ok(_) => panic!("decrypted but shouldn't have"),
+            Err(DecryptionError::InvalidCiphertext) => Ok(()),
+            Err(e) => Err(e),
+        }
     }
 }
