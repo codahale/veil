@@ -24,9 +24,6 @@ where
     R: Read,
     W: Write,
 {
-    let mut written = 0u64;
-    let mut signer = Signer::new(writer);
-
     // Initialize a protocol and add the MAC length and sender's public key as associated data.
     let mut mres = Strobe::new(b"veil.mres", SecParam::B256);
     mres.meta_ad_u32(MAC_LEN as u32);
@@ -45,6 +42,10 @@ where
 
     // Encode the DEK and message offset in a header.
     let header = encode_header(&dek, q_rs.len(), padding);
+
+    // Count and sign all of the bytes written to `writer`.
+    let mut written = 0u64;
+    let mut signer = Signer::new(writer);
 
     // For each recipient, encrypt a copy of the header.
     for q_r in q_rs {
