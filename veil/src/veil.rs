@@ -21,17 +21,17 @@ pub struct SecretKey {
 }
 
 impl SecretKey {
-    /// Returns a randomly generated secret key.
+    /// Return a randomly generated secret key.
     pub fn new() -> SecretKey {
         SecretKey { r: util::rand_array() }
     }
 
-    /// Encrypts the secret key with the given passphrase and pbenc parameters.
+    /// Encrypt the secret key with the given passphrase and pbenc parameters.
     pub fn encrypt(&self, passphrase: &[u8], time: u32, space: u32) -> Vec<u8> {
         pbenc::encrypt(passphrase, time, space, &self.r)
     }
 
-    /// Decrypts the secret key with the given passphrase and pbenc parameters.
+    /// Decrypt the secret key with the given passphrase and pbenc parameters.
     pub fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Result<SecretKey, DecryptionError> {
         pbenc::decrypt(passphrase, ciphertext)
             .and_then(|b| b.try_into().ok())
@@ -39,7 +39,7 @@ impl SecretKey {
             .ok_or(DecryptionError::InvalidCiphertext)
     }
 
-    /// Derives a private key with the given key ID.
+    /// Derive a private key with the given key ID.
     ///
     /// `key_id` should be slash-separated string (e.g. `/one/two/three`) which define a path of
     /// derived keys (e.g. `/` -> `one` -> `two` -> `three`).
@@ -50,7 +50,7 @@ impl SecretKey {
         PrivateKey { d, pk }.derive(key_id)
     }
 
-    /// Derives a public key with the given key ID.
+    /// Derive a public key with the given key ID.
     ///
     /// `key_id` should be slash-separated string (e.g. `/one/two/three`) which define a path of
     /// derived keys (e.g. `/` -> `one` -> `two` -> `three`).
@@ -72,16 +72,16 @@ pub struct PrivateKey {
 }
 
 impl PrivateKey {
-    /// Returns the corresponding public key.
+    /// Return the corresponding public key.
     pub fn public_key(&self) -> PublicKey {
         self.pk
     }
 
-    /// Encrypts the contents of the reader such that any of the recipients will be able to decrypt
+    /// Encrypt the contents of the reader such that any of the recipients will be able to decrypt
     /// it with authenticity and writes the ciphertext to the writer.
     ///
-    /// Optionally adds a number of fake recipients and random padding to disguise the number of
-    /// true recipients and message length.
+    /// Optionally add a number of fake recipients to disguise the number of true recipients and/or
+    /// random padding to disguise the message length.
     pub fn encrypt<R, W>(
         &self,
         reader: &mut R,
@@ -118,10 +118,10 @@ impl PrivateKey {
         )
     }
 
-    /// Decrypts the contents of the reader, if possible, and writes the plaintext to the writer.
+    /// Decrypt the contents of the reader, if possible, and writes the plaintext to the writer.
     ///
     /// If the ciphertext has been modified, was not sent by the sender, or was not encrypted for
-    /// this private key, will return an error.
+    /// this private key, will return [DecryptionError::InvalidCiphertext].
     pub fn decrypt<R, W>(
         &self,
         reader: &mut R,
@@ -142,7 +142,7 @@ impl PrivateKey {
         verified.then(|| written).ok_or(DecryptionError::InvalidCiphertext)
     }
 
-    /// Reads the contents of the reader and returns a Schnorr signature.
+    /// Read the contents of the reader and returns a digital signature.
     pub fn sign<R>(&self, reader: &mut R) -> io::Result<Signature>
     where
         R: Read,
@@ -152,7 +152,7 @@ impl PrivateKey {
         Ok(Signature { sig: signer.sign(&self.d, &self.pk.q) })
     }
 
-    /// Derives a private key with the given key ID.
+    /// Derive a private key with the given key ID.
     ///
     /// `key_id` should be slash-separated string (e.g. `/one/two/three`) which define a path of
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
@@ -205,8 +205,9 @@ pub struct PublicKey {
 }
 
 impl PublicKey {
-    /// Reads the contents of the reader returns () iff the given signature was created by this
-    /// public key of the exact contents.
+    /// Read the contents of the reader and return `Ok(())` iff the given signature was created by
+    /// this public key of the exact contents. Otherwise, returns
+    /// [VerificationError::InvalidSignature].
     pub fn verify<R>(&self, reader: &mut R, sig: &Signature) -> Result<(), VerificationError>
     where
         R: Read,
@@ -216,7 +217,7 @@ impl PublicKey {
         verifier.verify(&self.q, &sig.sig).then(|| ()).ok_or(VerificationError::InvalidSignature)
     }
 
-    /// Derives a public key with the given key ID.
+    /// Derive a public key with the given key ID.
     ///
     /// `key_id` should be slash-separated string (e.g. `/one/two/three`) which define a path of
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
@@ -252,7 +253,7 @@ fn shuffle(pks: &mut Vec<RistrettoPoint>) {
     }
 }
 
-/// Generates a random `usize` in `[0..n)` using rejection sampling.
+/// Generate a random `usize` in `[0..n)` using rejection sampling.
 #[inline]
 fn rand_usize(n: usize) -> usize {
     let max = (usize::MAX - 1 - (usize::MAX % n)) as u64;

@@ -56,7 +56,7 @@ where
         sig
     }
 
-    /// Unwraps the signer, returning the inner writer.
+    /// Unwrap the signer, returning the inner writer.
     pub fn into_inner(self) -> W {
         self.writer
     }
