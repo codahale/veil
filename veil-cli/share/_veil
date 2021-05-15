@@ -64,8 +64,8 @@ _arguments "${_arguments_options[@]}" \
 '--help[Prints help information]' \
 ':secret-key -- The path of the encrypted secret key:_files' \
 ':key-id -- The ID of the public key to use:' \
-':plaintext -- The path to the input file:_files' \
-':ciphertext -- The path to the output file:_files' \
+':plaintext -- The path to the input file or '-' for stdin:_files' \
+':ciphertext -- The path to the output file or '-' for stdout:_files' \
 '*::recipients -- The recipient's public key:' \
 && ret=0
 ;;
@@ -76,8 +76,8 @@ _arguments "${_arguments_options[@]}" \
 '--help[Prints help information]' \
 ':secret-key -- The path of the encrypted secret key:_files' \
 ':key-id -- The ID of the public key:' \
-':ciphertext -- The path to the input file:_files' \
-':plaintext -- The path to the output file:_files' \
+':ciphertext -- The path to the input file or '-' for stdin:_files' \
+':plaintext -- The path to the output file or '-' for stdout:_files' \
 ':sender -- The sender's public key:' \
 && ret=0
 ;;
@@ -88,7 +88,7 @@ _arguments "${_arguments_options[@]}" \
 '--help[Prints help information]' \
 ':secret-key -- The path of the encrypted secret key:_files' \
 ':key-id -- The ID of the public key to use:' \
-':message -- The path to the message file:_files' \
+':message -- The path to the message file or '-' for stdin:_files' \
 && ret=0
 ;;
 (verify)
@@ -96,7 +96,7 @@ _arguments "${_arguments_options[@]}" \
 '-h[Prints help information]' \
 '--help[Prints help information]' \
 ':public-key -- The signer's public key:' \
-':message -- The path to the message file:_files' \
+':message -- The path to the message file or '-' for stdin:_files' \
 ':signature -- The signature of the message:' \
 && ret=0
 ;;

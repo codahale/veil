@@ -22,8 +22,8 @@ complete -c veil -n "__fish_seen_subcommand_from derive-key" -d 'The sub ID of t
 complete -c veil -n "__fish_seen_subcommand_from derive-key" -s h -l help -d 'Prints help information'
 complete -c veil -n "__fish_seen_subcommand_from encrypt" -d 'The path of the encrypted secret key' -r -F
 complete -c veil -n "__fish_seen_subcommand_from encrypt" -d 'The ID of the public key to use' -r
-complete -c veil -n "__fish_seen_subcommand_from encrypt" -d 'The path to the input file' -r -F
-complete -c veil -n "__fish_seen_subcommand_from encrypt" -d 'The path to the output file' -r -F
+complete -c veil -n "__fish_seen_subcommand_from encrypt" -d 'The path to the input file or \'-\' for stdin' -r -F
+complete -c veil -n "__fish_seen_subcommand_from encrypt" -d 'The path to the output file or \'-\' for stdout' -r -F
 complete -c veil -n "__fish_seen_subcommand_from encrypt" -d 'The recipient\'s public key' -r
 complete -c veil -n "__fish_seen_subcommand_from encrypt" -l fakes -d 'Add fake recipients' -r
 complete -c veil -n "__fish_seen_subcommand_from encrypt" -l padding -d 'Add random bytes of padding' -r
@@ -31,18 +31,18 @@ complete -c veil -n "__fish_seen_subcommand_from encrypt" -l passphrase-file -d 
 complete -c veil -n "__fish_seen_subcommand_from encrypt" -s h -l help -d 'Prints help information'
 complete -c veil -n "__fish_seen_subcommand_from decrypt" -d 'The path of the encrypted secret key' -r -F
 complete -c veil -n "__fish_seen_subcommand_from decrypt" -d 'The ID of the public key' -r
-complete -c veil -n "__fish_seen_subcommand_from decrypt" -d 'The path to the input file' -r -F
-complete -c veil -n "__fish_seen_subcommand_from decrypt" -d 'The path to the output file' -r -F
+complete -c veil -n "__fish_seen_subcommand_from decrypt" -d 'The path to the input file or \'-\' for stdin' -r -F
+complete -c veil -n "__fish_seen_subcommand_from decrypt" -d 'The path to the output file or \'-\' for stdout' -r -F
 complete -c veil -n "__fish_seen_subcommand_from decrypt" -d 'The sender\'s public key' -r
 complete -c veil -n "__fish_seen_subcommand_from decrypt" -l passphrase-file -d 'The path to read the passphrase from' -r -F
 complete -c veil -n "__fish_seen_subcommand_from decrypt" -s h -l help -d 'Prints help information'
 complete -c veil -n "__fish_seen_subcommand_from sign" -d 'The path of the encrypted secret key' -r -F
 complete -c veil -n "__fish_seen_subcommand_from sign" -d 'The ID of the public key to use' -r
-complete -c veil -n "__fish_seen_subcommand_from sign" -d 'The path to the message file' -r -F
+complete -c veil -n "__fish_seen_subcommand_from sign" -d 'The path to the message file or \'-\' for stdin' -r -F
 complete -c veil -n "__fish_seen_subcommand_from sign" -l passphrase-file -d 'The path to read the passphrase from' -r -F
 complete -c veil -n "__fish_seen_subcommand_from sign" -s h -l help -d 'Prints help information'
 complete -c veil -n "__fish_seen_subcommand_from verify" -d 'The signer\'s public key' -r
-complete -c veil -n "__fish_seen_subcommand_from verify" -d 'The path to the message file' -r -F
+complete -c veil -n "__fish_seen_subcommand_from verify" -d 'The path to the message file or \'-\' for stdin' -r -F
 complete -c veil -n "__fish_seen_subcommand_from verify" -d 'The signature of the message' -r
 complete -c veil -n "__fish_seen_subcommand_from verify" -s h -l help -d 'Prints help information'
 complete -c veil -n "__fish_seen_subcommand_from help" -s h -l help -d 'Prints help information'
