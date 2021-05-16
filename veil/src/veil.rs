@@ -84,7 +84,7 @@ pub struct PrivateKey {
 
 impl PrivateKey {
     /// Return the corresponding public key.
-    pub fn public_key(&self) -> PublicKey {
+    pub const fn public_key(&self) -> PublicKey {
         self.pk
     }
 
