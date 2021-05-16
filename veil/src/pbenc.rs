@@ -83,7 +83,7 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
     for t in 0..time as usize {
         for m in 0..space as usize {
             // Step 2a: Hash last and current blocks.
-            let prev = (m as isize - 1) as usize % space as usize; // wrap 0 to last block
+            let prev = (m as isize - 1).rem_euclid(space as isize) as usize; // wrap 0 to last block
             buf[m] = hash_counter(&mut pbenc, &mut ctr, &buf[prev], &buf[m]);
 
             // Step 2b: Hash in pseudo-randomly chosen blocks.
