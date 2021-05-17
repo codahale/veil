@@ -8,7 +8,7 @@ include = ["src/**/*", "../LICENSE-MIT", "../LICENSE-APACHE", "..README.md"]
 description = "Stupid crypto tricks."
 
 [dependencies]
-base58 = "0.1.0"
+bs58 = "0.4.0"
 curve25519-dalek = "3"
 getrandom = "0.2"
 strobe-rs = "0.6"

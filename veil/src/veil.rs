@@ -3,7 +3,6 @@ use std::fmt::{Debug, Formatter};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::{fmt, io, iter, str};
 
-use base58::{FromBase58, ToBase58};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
@@ -192,7 +191,8 @@ impl str::FromStr for Signature {
     type Err = SignatureError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        s.from_base58()
+        bs58::decode(s)
+            .into_vec()
             .ok()
             .and_then(|b| b.try_into().ok())
             .map(|sig| Signature { sig })
@@ -202,7 +202,7 @@ impl str::FromStr for Signature {
 
 impl fmt::Display for Signature {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.sig.to_base58())
+        write!(f, "{}", bs58::encode(self.sig).into_string())
     }
 }
 
@@ -236,7 +236,7 @@ impl PublicKey {
 
 impl fmt::Display for PublicKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.q.compress().as_bytes().to_base58())
+        write!(f, "{}", bs58::encode(self.q.compress().as_bytes()).into_string())
     }
 }
 
@@ -244,7 +244,8 @@ impl str::FromStr for PublicKey {
     type Err = PublicKeyError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        s.from_base58()
+        bs58::decode(s)
+            .into_vec()
             .ok()
             .filter(|b| b.len() == POINT_LEN)
             .map(|b| CompressedRistretto::from_slice(&b))
