@@ -23,7 +23,7 @@ pub fn encapsulate(
     out[POINT_LEN..POINT_LEN + plaintext.len()].copy_from_slice(plaintext);
 
     // Initialize the protocol.
-    let mut akem = Strobe::new(b"veil.akem", SecParam::B256);
+    let mut akem = Strobe::new(b"veil.akem", SecParam::B128);
     akem.meta_ad_u32(MAC_LEN as u32);
 
     // Include the sender and receiver as associated data.
@@ -66,7 +66,7 @@ pub fn decapsulate(
     let mut out = Vec::from(ciphertext);
 
     // Initialize the protocol.
-    let mut akem = Strobe::new(b"veil.akem", SecParam::B256);
+    let mut akem = Strobe::new(b"veil.akem", SecParam::B128);
     akem.meta_ad_u32(MAC_LEN as u32);
 
     // Include the sender and receiver as associated data.

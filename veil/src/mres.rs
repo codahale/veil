@@ -25,7 +25,7 @@ where
     W: Write,
 {
     // Initialize a protocol and add the MAC length and sender's public key as associated data.
-    let mut mres = Strobe::new(b"veil.mres", SecParam::B256);
+    let mut mres = Strobe::new(b"veil.mres", SecParam::B128);
     mres.meta_ad_u32(MAC_LEN as u32);
     mres.ad_point(q_s);
 
@@ -106,7 +106,7 @@ where
     W: Write,
 {
     // Initialize a protocol and add the MAC length and sender's public key as associated data.
-    let mut mres = Strobe::new(b"veil.mres", SecParam::B256);
+    let mut mres = Strobe::new(b"veil.mres", SecParam::B128);
     mres.meta_ad_u32(MAC_LEN as u32);
     mres.ad_point(q_s);
 

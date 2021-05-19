@@ -55,7 +55,7 @@ pub fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Option<Vec<u8>> {
 }
 
 fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
-    let mut pbenc = Strobe::new(b"veil.pbenc", SecParam::B256);
+    let mut pbenc = Strobe::new(b"veil.pbenc", SecParam::B128);
 
     // Initialize protocol with metadata.
     pbenc.meta_ad_u32(DELTA as u32);
