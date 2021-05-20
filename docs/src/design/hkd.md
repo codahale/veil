@@ -28,7 +28,7 @@ private key via the label `friends`, which is then mapped to the final private k
 To derive a public key from a public key $Q$, the delta scalar $r$ is first multiplied by the curve's base point, then
 added to the public key point:
 
-$$ Q' = Q + G^r $$
+$$ Q' = Q + [r]G $$
 
 ## Disposable Keys
 

@@ -12,7 +12,7 @@ AD(Q_R)
 AD(Q_S)
 ```
 
-The static shared secret point is calculated ${ZZ_S}={Q_R}^{d_S}=G^{{d_R}{d_S}}$ and used as a key to encrypt the
+The static shared secret point is calculated ${ZZ_S}=[{d_S}]{Q_R}=[{d_R}{d_S}]G$ and used as a key to encrypt the
 ephemeral public key $Q_E$:
 
 ```text
@@ -20,7 +20,7 @@ KEY(ZZ_S)
 SEND_ENC(Q_E) -> E
 ```
 
-The ephemeral shared secret point is calculated ${ZZ_E}={Q_R}^{d_E}=G^{{d_R}{d_E}}$ and used as a key:
+The ephemeral shared secret point is calculated ${ZZ_E}=[{d_E}]{Q_R}=[{d_R}{d_E}]G$ and used as a key:
 
 ```text
 KEY(ZZ_E)
@@ -48,7 +48,7 @@ AD(Q_R)
 AD(Q_S)
 ```
 
-The static shared secret point is calculated ${ZZ_S}={Q_S}^{d_R}=G^{{d_R}{d_S}}$ and used as a key to decrypt the
+The static shared secret point is calculated ${ZZ_S}=[{d_R}]{Q_S}=[{d_R}{d_S}]G$ and used as a key to decrypt the
 ephemeral public key $Q_E$:
 
 ```text
@@ -56,7 +56,7 @@ KEY(ZZ_S)
 RECV_ENC(E) -> Q_E
 ```
 
-The ephemeral shared secret point is calculated ${ZZ_E}={Q_E}^{d_R}=G^{{d_R}{d_E}}$ and used as a key to decrypt the
+The ephemeral shared secret point is calculated ${ZZ_E}=[{d_R}]{Q_E}=[{d_R}{d_E}]G$ and used as a key to decrypt the
 plaintext and verify the MAC:
 
 ```text

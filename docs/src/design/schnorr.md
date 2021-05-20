@@ -26,7 +26,7 @@ KEY(d)
 PRF(64) -> r
 ```
 
-The clone's state is discarded, and $r$ is returned to the parent along with $R = G^r$:
+The clone's state is discarded, and $r$ is returned to the parent along with $R = [r]G$:
 
 ```text
 AD(R)
@@ -49,7 +49,7 @@ RECV_CLR(M_N, more=true)
 AD(Q)
 ```
 
-The public ephemeral is re-calculated as $R' = Q^{-c} + G^s$ and the challenge scalar is re-derived from PRF output:
+The public ephemeral is re-calculated as $R' = [{-c}]Q + [s]G$ and the challenge scalar is re-derived from PRF output:
 
 ```
 AD(R')

@@ -21,7 +21,7 @@ PRF(32) -> K_DEK
 PRF(64) -> d_E
 ```
 
-The ephemeral public key is computed as $Q_E = G^{d_E}$, and the cloned context is discarded:
+The ephemeral public key is computed as $Q_E = [{d_E}]G$, and the cloned context is discarded:
 
 The data encryption key and message offset are encoded into a fixed-length header and copies of it are encrypted
 with `veil.akem` for each recipient using $d_E$ and $Q_E$. Optional random padding is added to the end, and the
