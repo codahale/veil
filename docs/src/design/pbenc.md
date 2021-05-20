@@ -8,7 +8,7 @@ The protocol is initialized as follows, given a passphrase $P$, a 128-bit salt $
 $N_S$, time parameter $N_T$, block size $N_B$, and MAC size $N_M$:
 
 ```text
-INIT('veil.kdf.balloon', level=256)
+INIT('veil.kdf.balloon', level=128)
 AD(LE_U32(D),            meta=true)
 AD(LE_U32(N_B),          meta=true)
 AD(LE_U32(N_M),          meta=true)

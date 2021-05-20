@@ -5,7 +5,7 @@
 Signing is as follows, given a message in blocks $M_0...M_N$, a private scalar $d$, and a public point $Q$:
 
 ```text
-INIT('veil.schnorr', level=256)
+INIT('veil.schnorr', level=128)
 SEND_CLR('',  more=false)
 SEND_CLR(M_0, more=true)
 SEND_CLR(M_1, more=true)
@@ -40,7 +40,7 @@ The resulting signature consists of the two scalars, $c$ and $s = dc + r$.
 To verify, `veil.schnorr` is run with a message in blocks $M_0...M_N$ and a public point $Q$:
 
 ```text
-INIT('veil.schnorr', level=256)
+INIT('veil.schnorr', level=128)
 RECV_CLR('',  more=false)
 RECV_CLR(M_0, more=true)
 RECV_CLR(M_1, more=true)

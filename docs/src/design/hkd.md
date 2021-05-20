@@ -4,7 +4,7 @@ Each participant in Veil has a secret key, which is a 64-byte random string $S$.
 key, the secret key is mapped to a ristretto255 scalar $d$ using a STROBE protocol:
 
 ```text
-INIT('veil.scaldf.root', level=256)
+INIT('veil.scaldf.root', level=128)
 KEY(S)
 PRF(64) -> d
 ```
@@ -12,7 +12,7 @@ PRF(64) -> d
 A delta scalar $r$ is derived from an opaque label value $L$ via another STROBE protocol:
 
 ```text
-INIT('veil.scaldf.label', level=256)
+INIT('veil.scaldf.label', level=128)
 KEY(L)
 PRF(64) -> r
 ```

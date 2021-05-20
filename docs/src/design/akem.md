@@ -6,7 +6,7 @@ Encapsulation is as follows, given the sender's key pair, $d_S$ and $Q_S$, an ep
 receiver's public key, $Q_R$, a plaintext message $P$, and MAC size $N_M$:
 
 ```text
-INIT('veil.akem', level=256)
+INIT('veil.akem', level=128)
 AD(LE_U32(N_M),   meta=true)
 AD(Q_R)
 AD(Q_S)
@@ -42,7 +42,7 @@ Decapsulation is then the inverse of encryption, given the recipient's key pair,
 public key $Q_S$:
 
 ```text
-INIT('veil.akem', level=256)
+INIT('veil.akem', level=128)
 AD(LE_U32(N_M),   meta=true)
 AD(Q_R)
 AD(Q_S)

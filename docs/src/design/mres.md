@@ -6,7 +6,7 @@ Encrypting a message begins as follows, given the sender's key pair, $d_S$ and $
 $P_0...P_N$, a list of recipient public keys, $Q_{R^0}...Q_{R^M}$, and a DEK size $N_{DEK}$:
 
 ```text
-INIT('veil.mres', level=256)
+INIT('veil.mres', level=128)
 AD(LE_32(N_DEK),  meta=true)
 AD(Q_s)
 ```
@@ -56,7 +56,7 @@ and a Schnorr signature of the headers, padding, and ciphertext.
 Decryption begins as follows, given the recipient's key pair, $d_R$ and $Q_R$, the sender's public key, $Q_S$:
 
 ```text
-INIT('veil.mres', level=256)
+INIT('veil.mres', level=128)
 AD(LE_32(N_DEK),  meta=true)
 AD(Q_s)
 ```
