@@ -25,7 +25,7 @@ fn main() -> Result<()> {
 fn secret_key(cmd: &mut SecretKeyArgs) -> Result<()> {
     let passphrase = prompt_passphrase(&cmd.passphrase_file)?;
     let secret_key = SecretKey::new();
-    let ciphertext = secret_key.encrypt(passphrase.as_bytes(), cmd.time, cmd.space);
+    let ciphertext = secret_key.encrypt(&passphrase, cmd.time, cmd.space);
     fs::write(&mut cmd.output, ciphertext)?;
     Ok(())
 }
@@ -82,7 +82,7 @@ fn verify(cmd: &mut VerifyArgs) -> Result<()> {
 fn decrypt_secret_key(passphrase_file: &Option<PathBuf>, path: &Path) -> Result<SecretKey> {
     let passphrase = prompt_passphrase(passphrase_file)?;
     let ciphertext = fs::read(path)?;
-    let sk = SecretKey::decrypt(passphrase.as_bytes(), &ciphertext)?;
+    let sk = SecretKey::decrypt(&passphrase, &ciphertext)?;
     Ok(sk)
 }
 

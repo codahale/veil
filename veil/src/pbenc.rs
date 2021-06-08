@@ -5,12 +5,12 @@ use strobe_rs::{SecParam, Strobe};
 use crate::util::{self, StrobeExt, MAC_LEN, U32_LEN, U64_LEN};
 
 /// Encrypt the given plaintext using the given passphrase.
-pub fn encrypt(passphrase: &[u8], time: u32, space: u32, plaintext: &[u8]) -> Vec<u8> {
+pub fn encrypt(passphrase: &str, time: u32, space: u32, plaintext: &[u8]) -> Vec<u8> {
     // Generate a random salt.
     let salt: [u8; SALT_LEN] = util::rand_array();
 
     // Perform the balloon hashing.
-    let mut pbenc = init(passphrase, &salt, time, space);
+    let mut pbenc = init(passphrase.as_bytes(), &salt, time, space);
 
     // Allocate an output buffer.
     let mut out = vec![0u8; CT_OFFSET + plaintext.len() + MAC_LEN];
@@ -33,13 +33,13 @@ pub fn encrypt(passphrase: &[u8], time: u32, space: u32, plaintext: &[u8]) -> Ve
 }
 
 /// Decrypt the given ciphertext using the given passphrase.
-pub fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Option<Vec<u8>> {
+pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Vec<u8>> {
     // Decode the time and space parameters.
     let time = u32::from_le_bytes(ciphertext[TIME_OFFSET..SPACE_OFFSET].try_into().ok()?);
     let space = u32::from_le_bytes(ciphertext[SPACE_OFFSET..SALT_OFFSET].try_into().ok()?);
 
     // Perform the balloon hashing.
-    let mut pbenc = init(passphrase, &ciphertext[SALT_OFFSET..CT_OFFSET], time, space);
+    let mut pbenc = init(passphrase.as_bytes(), &ciphertext[SALT_OFFSET..CT_OFFSET], time, space);
 
     // Copy the ciphertext and MAC.
     let mut out = Vec::from(&ciphertext[CT_OFFSET..]);
@@ -131,7 +131,7 @@ mod tests {
 
     #[test]
     pub fn round_trip() {
-        let passphrase = b"this is a secret";
+        let passphrase = "this is a secret";
         let message = b"this is too";
         let ciphertext = encrypt(passphrase, 5, 3, message);
         let plaintext = decrypt(passphrase, &ciphertext);
@@ -141,7 +141,7 @@ mod tests {
 
     #[test]
     pub fn bad_time() {
-        let passphrase = b"this is a secret";
+        let passphrase = "this is a secret";
         let message = b"this is too";
         let mut ciphertext = encrypt(passphrase, 5, 3, message);
         ciphertext[0] ^= 1;
@@ -151,7 +151,7 @@ mod tests {
 
     #[test]
     pub fn bad_space() {
-        let passphrase = b"this is a secret";
+        let passphrase = "this is a secret";
         let message = b"this is too";
         let mut ciphertext = encrypt(passphrase, 5, 3, message);
         ciphertext[5] ^= 1;
@@ -161,7 +161,7 @@ mod tests {
 
     #[test]
     pub fn bad_salt() {
-        let passphrase = b"this is a secret";
+        let passphrase = "this is a secret";
         let message = b"this is too";
         let mut ciphertext = encrypt(passphrase, 5, 3, message);
         ciphertext[12] ^= 1;
@@ -171,7 +171,7 @@ mod tests {
 
     #[test]
     pub fn bad_ciphertext() {
-        let passphrase = b"this is a secret";
+        let passphrase = "this is a secret";
         let message = b"this is too";
         let mut ciphertext = encrypt(passphrase, 5, 3, message);
         ciphertext[37] ^= 1;
@@ -181,7 +181,7 @@ mod tests {
 
     #[test]
     pub fn bad_mac() {
-        let passphrase = b"this is a secret";
+        let passphrase = "this is a secret";
         let message = b"this is too";
         let mut ciphertext = encrypt(passphrase, 5, 3, message);
         ciphertext[49] ^= 1;

@@ -28,12 +28,12 @@ impl SecretKey {
     }
 
     /// Encrypt the secret key with the given passphrase and pbenc parameters.
-    pub fn encrypt(&self, passphrase: &[u8], time: u32, space: u32) -> Vec<u8> {
+    pub fn encrypt(&self, passphrase: &str, time: u32, space: u32) -> Vec<u8> {
         pbenc::encrypt(passphrase, time, space, &self.r)
     }
 
     /// Decrypt the secret key with the given passphrase and pbenc parameters.
-    pub fn decrypt(passphrase: &[u8], ciphertext: &[u8]) -> Result<SecretKey, DecryptionError> {
+    pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Result<SecretKey, DecryptionError> {
         pbenc::decrypt(passphrase, ciphertext)
             .and_then(|b| b.try_into().ok())
             .map(|r| SecretKey { r })
