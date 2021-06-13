@@ -62,8 +62,10 @@ pub fn decapsulate(
         return None;
     }
 
-    // Copy the input for modification.
-    let mut out = Vec::from(ciphertext);
+    // Break the input up into its components.
+    let mut q_e = Vec::from(ciphertext);
+    let mut ciphertext = q_e.split_off(POINT_LEN);
+    let mut mac = ciphertext.split_off(ciphertext.len() - MAC_LEN);
 
     // Initialize the protocol.
     let mut akem = Strobe::new(b"veil.akem", SecParam::B128);
@@ -77,22 +79,23 @@ pub fn decapsulate(
     akem.key_point(d_r * q_s);
 
     // Decrypt the ephemeral public key.
-    akem.recv_enc(&mut out[..POINT_LEN], false);
+    akem.recv_enc(&mut q_e, false);
 
     // Decode the ephemeral public key.
-    let q_e = CompressedRistretto::from_slice(&out[..POINT_LEN]).decompress()?;
+    let q_e = CompressedRistretto::from_slice(&q_e).decompress()?;
 
     // Calculate the ephemeral Diffie-Hellman shared secret and key the protocol with it.
     akem.key_point(d_r * q_e);
 
     // Decrypt the plaintext.
-    akem.recv_enc(&mut out[POINT_LEN..ciphertext.len() - MAC_LEN], false);
+    akem.recv_enc(&mut ciphertext, false);
+    let plaintext = ciphertext;
 
     // Verify the MAC.
-    akem.recv_mac(&mut out[ciphertext.len() - MAC_LEN..]).ok()?;
+    akem.recv_mac(&mut mac).ok()?;
 
     // Return the ephemeral public key and the plaintext.
-    Some((q_e, out[POINT_LEN..ciphertext.len() - MAC_LEN].to_vec()))
+    Some((q_e, plaintext))
 }
 
 #[cfg(test)]

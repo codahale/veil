@@ -70,12 +70,13 @@ where
         if n == 0 {
             break;
         }
+        let mut buf = &mut buf[0..n];
 
         // Encrypt the block.
-        mres.send_enc(&mut buf[0..n], true);
+        mres.send_enc(&mut buf, true);
 
         // Write the ciphertext and sign it.
-        signer.write_all(&buf[0..n])?;
+        signer.write_all(buf)?;
         written += n as u64;
     }
 

@@ -34,24 +34,28 @@ pub fn encrypt(passphrase: &str, time: u32, space: u32, plaintext: &[u8]) -> Vec
 
 /// Decrypt the given ciphertext using the given passphrase.
 pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Vec<u8>> {
+    // Split the input into parts.
+    let mut time = Vec::from(ciphertext);
+    let mut space = time.split_off(U32_LEN);
+    let mut salt = space.split_off(U32_LEN);
+    let mut ciphertext = salt.split_off(SALT_LEN);
+    let mut mac = ciphertext.split_off(ciphertext.len() - MAC_LEN);
+
     // Decode the time and space parameters.
-    let time = u32::from_le_bytes(ciphertext[TIME_OFFSET..SPACE_OFFSET].try_into().ok()?);
-    let space = u32::from_le_bytes(ciphertext[SPACE_OFFSET..SALT_OFFSET].try_into().ok()?);
+    let time = u32::from_le_bytes(time.try_into().ok()?);
+    let space = u32::from_le_bytes(space.try_into().ok()?);
 
     // Perform the balloon hashing.
-    let mut pbenc = init(passphrase.as_bytes(), &ciphertext[SALT_OFFSET..CT_OFFSET], time, space);
-
-    // Copy the ciphertext and MAC.
-    let mut out = Vec::from(&ciphertext[CT_OFFSET..]);
-    let pt_len = out.len() - MAC_LEN;
+    let mut pbenc = init(passphrase.as_bytes(), &salt, time, space);
 
     // Decrypt the ciphertext.
-    pbenc.recv_enc(&mut out[..pt_len], false);
+    pbenc.recv_enc(&mut ciphertext, false);
+    let plaintext = ciphertext;
 
     // Verify the MAC.
-    pbenc.recv_mac(&mut out[pt_len..]).ok()?;
+    pbenc.recv_mac(&mut mac).ok()?;
 
-    Some(out[..pt_len].to_vec())
+    Some(plaintext)
 }
 
 fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {

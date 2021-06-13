@@ -95,9 +95,13 @@ impl Verifier {
             // Add the signer's public key as associated data.
             self.schnorr.ad_point(q);
 
+            // Split the signature into parts.
+            let mut c = sig.to_vec();
+            let s = c.split_off(SCALAR_LEN);
+
             // Decode the challenge and signature scalars.
-            let c = Scalar::from_canonical_bytes(sig[..SCALAR_LEN].try_into().ok()?)?;
-            let s = Scalar::from_canonical_bytes(sig[SCALAR_LEN..].try_into().ok()?)?;
+            let c = Scalar::from_canonical_bytes(c.try_into().ok()?)?;
+            let s = Scalar::from_canonical_bytes(s.try_into().ok()?)?;
 
             // Re-calculate the ephemeral public key and add it as associated data.
             let r_g = (RISTRETTO_BASEPOINT_POINT * s) + (-c * q);
