@@ -34,6 +34,10 @@ pub fn encrypt(passphrase: &str, time: u32, space: u32, plaintext: &[u8]) -> Vec
 
 /// Decrypt the given ciphertext using the given passphrase.
 pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Vec<u8>> {
+    if ciphertext.len() < U32_LEN + U32_LEN + SALT_LEN + MAC_LEN {
+        return None;
+    }
+
     // Split the input into parts.
     let mut time = Vec::from(ciphertext);
     let mut space = time.split_off(U32_LEN);
