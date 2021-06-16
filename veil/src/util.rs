@@ -1,4 +1,5 @@
-use std::mem;
+use std::io::Write;
+use std::{io, mem};
 
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
@@ -56,6 +57,14 @@ pub trait StrobeExt {
     fn hedge<R, F>(&self, secret: &[u8], f: F) -> R
     where
         F: FnOnce(&mut Strobe) -> R;
+
+    fn send_clr_writer<W>(self, w: W) -> SendClrWriter<W>
+    where
+        W: Write;
+
+    fn recv_clr_writer<W>(self, w: W) -> RecvClrWriter<W>
+    where
+        W: Write;
 }
 
 impl StrobeExt for Strobe {
@@ -97,5 +106,59 @@ impl StrobeExt for Strobe {
 
         // Call the given function with the clone.
         f(&mut clone)
+    }
+
+    fn send_clr_writer<W>(mut self, w: W) -> SendClrWriter<W>
+    where
+        W: Write,
+    {
+        self.send_clr(&[], false);
+        SendClrWriter(self, w)
+    }
+
+    fn recv_clr_writer<W>(mut self, w: W) -> RecvClrWriter<W>
+    where
+        W: Write,
+    {
+        self.recv_clr(&[], false);
+        RecvClrWriter(self, w)
+    }
+}
+
+pub struct SendClrWriter<W: Write>(Strobe, W);
+
+impl<W: Write> SendClrWriter<W> {
+    pub fn into_inner(self) -> (Strobe, W) {
+        (self.0, self.1)
+    }
+}
+
+impl<W: Write> Write for SendClrWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.0.send_clr(buf, true);
+        self.1.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.1.flush()
+    }
+}
+
+pub struct RecvClrWriter<W: Write>(Strobe, W);
+
+impl<W: Write> RecvClrWriter<W> {
+    pub fn into_inner(self) -> (Strobe, W) {
+        (self.0, self.1)
+    }
+}
+
+impl<W: Write> Write for RecvClrWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.0.recv_clr(buf, true);
+        self.1.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.1.flush()
     }
 }

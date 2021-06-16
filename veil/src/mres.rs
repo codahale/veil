@@ -45,17 +45,23 @@ where
 
     // Count and sign all of the bytes written to `writer`.
     let mut written = 0u64;
-    let mut signer = Signer::new(writer);
+    let signer = Signer::new(writer);
+
+    // Include all encrypted headers and padding as sent cleartext.
+    let mut mres_writer = mres.send_clr_writer(signer);
 
     // For each recipient, encrypt a copy of the header.
     for q_r in q_rs {
         let ciphertext = akem::encapsulate(d_s, q_s, &d_e, &q_e, &q_r, &header);
-        signer.write_all(&ciphertext)?;
+        mres_writer.write_all(&ciphertext)?;
         written += ciphertext.len() as u64;
     }
 
     // Add random padding to the end of the headers.
-    written += io::copy(&mut RngReader.take(padding), &mut signer)?;
+    written += io::copy(&mut RngReader.take(padding), &mut mres_writer)?;
+
+    // Unwrap the sent cleartext writer.
+    let (mut mres, mut signer) = mres_writer.into_inner();
 
     // Key the protocol with the DEK.
     mres.key(&dek, false);
@@ -112,13 +118,19 @@ where
     mres.ad_point(q_s);
 
     // Initialize a verifier for the entire ciphertext.
-    let mut verifier = Verifier::new();
+    let verifier = Verifier::new();
+
+    // Include all encrypted headers and padding as received cleartext.
+    let mut mres_writer = mres.recv_clr_writer(verifier);
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the verifier.
-    let (dek, q_e) = match decrypt_header(reader, &mut verifier, d_r, q_r, q_s)? {
+    let (dek, q_e) = match decrypt_header(reader, &mut mres_writer, d_r, q_r, q_s)? {
         Some((dek, q_e)) => (dek, q_e),
         None => return Ok((false, 0)),
     };
+
+    // Unwrap the received cleartext writer.
+    let (mut mres, mut verifier) = mres_writer.into_inner();
 
     // Key the protocol with the recovered DEK.
     mres.key(&dek, false);
@@ -187,15 +199,16 @@ where
     Ok((written, sig))
 }
 
-fn decrypt_header<R>(
+fn decrypt_header<R, W>(
     reader: &mut R,
-    verifier: &mut Verifier,
+    verifier: &mut W,
     d_r: &Scalar,
     q_r: &RistrettoPoint,
     q_s: &RistrettoPoint,
 ) -> Result<Option<([u8; DEK_LEN], RistrettoPoint)>>
 where
     R: Read,
+    W: Write,
 {
     let mut buf = [0u8; ENC_HEADER_LEN];
     let mut hdr_offset = 0u64;

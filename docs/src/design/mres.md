@@ -25,10 +25,14 @@ The ephemeral public key is computed as $Q_E = [{d_E}]G$, and the cloned context
 
 The data encryption key and message offset are encoded into a fixed-length header and copies of it are encrypted
 with `veil.akem` for each recipient using $d_E$ and $Q_E$. Optional random padding is added to the end, and the
-resulting block $H$ is written:
+resulting blocks $H_0..H_N,H_{pad}$ is written:
 
 ```text
-SEND_CLR(H)
+SEND_CLR('')
+SEND_CLR(H_0,   more=true)
+…
+SEND_CLR(H_N,   more=true)
+SEND_CLR(H_pad, more=true)
 ```
 
 The protocol is keyed with the DEK and the encrypted message is written:
@@ -36,9 +40,9 @@ The protocol is keyed with the DEK and the encrypted message is written:
 ```text
 KEY(K_dek)
 SEND_ENC('')
-SEND_ENC(P_0,     more=true)
+SEND_ENC(P_0, more=true)
 …
-SEND_ENC(P_N,     more=true)
+SEND_ENC(P_N, more=true)
 ```
 
 Finally, a Schnorr signature $S$ of the entire ciphertext (headers, padding, and DEM ciphertext) is created with $d_E$
@@ -63,10 +67,15 @@ AD(Q_s)
 
 The recipient reads through the ciphertext in header-sized blocks, looking for one which is decryptable given their key
 pair and the sender's public key. Having found one, they recover the data encryption key $K_{DEK}$, the message offset,
-and the ephemeral public key $Q_E$. They then read the remainder of the block of encrypted headers and padding $H$:
+and the ephemeral public key $Q_E$. They then read the remainder of the block of encrypted headers and padding 
+$H_0..H_N,H_{pad}$:
 
 ```text
-RECV_CLR(H)
+RECV_CLR('')
+RECV_CLR(H_0,   more=true)
+…
+RECV_CLR(H_N,   more=true)
+RECV_CLR(H_pad, more=true)
 ```
 
 The protocol is keyed with the DEK, and the plaintext is decrypted:
