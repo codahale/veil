@@ -64,6 +64,12 @@ pub trait StrobeExt {
     where
         W: Write;
 
+    /// Create a writer which passes writes through `SEND_ENC` before passing them to the given
+    /// writer.
+    fn send_enc_writer<W>(self, w: W) -> SendEncWriter<W>
+    where
+        W: Write;
+
     /// Create a writer which passes writes through `RECV_CLR` before passing them to the given
     /// writer.
     fn recv_clr_writer<W>(self, w: W) -> RecvClrWriter<W>
@@ -120,6 +126,14 @@ impl StrobeExt for Strobe {
         SendClrWriter(self, w)
     }
 
+    fn send_enc_writer<W>(mut self, w: W) -> SendEncWriter<W>
+    where
+        W: Write,
+    {
+        self.send_enc(&mut [], false);
+        SendEncWriter(self, w)
+    }
+
     fn recv_clr_writer<W>(mut self, w: W) -> RecvClrWriter<W>
     where
         W: Write,
@@ -141,6 +155,26 @@ impl<W: Write> Write for SendClrWriter<W> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.0.send_clr(buf, true);
         self.1.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.1.flush()
+    }
+}
+
+pub struct SendEncWriter<W: Write>(Strobe, W);
+
+impl<W: Write> SendEncWriter<W> {
+    pub fn into_inner(self) -> (Strobe, W) {
+        (self.0, self.1)
+    }
+}
+
+impl<W: Write> Write for SendEncWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let mut input = Vec::from(buf);
+        self.0.send_enc(&mut input, true);
+        self.1.write(&input)
     }
 
     fn flush(&mut self) -> io::Result<()> {

@@ -48,43 +48,30 @@ where
     let signer = Signer::new(writer);
 
     // Include all encrypted headers and padding as sent cleartext.
-    let mut mres_writer = mres.send_clr_writer(signer);
+    let mut send_clr = mres.send_clr_writer(signer);
 
     // For each recipient, encrypt a copy of the header.
     for q_r in q_rs {
         let ciphertext = akem::encapsulate(d_s, q_s, &d_e, &q_e, &q_r, &header);
-        mres_writer.write_all(&ciphertext)?;
+        send_clr.write_all(&ciphertext)?;
         written += ciphertext.len() as u64;
     }
 
     // Add random padding to the end of the headers.
-    written += io::copy(&mut RngReader.take(padding), &mut mres_writer)?;
+    written += io::copy(&mut RngReader.take(padding), &mut send_clr)?;
 
     // Unwrap the sent cleartext writer.
-    let (mut mres, mut signer) = mres_writer.into_inner();
+    let (mut mres, signer) = send_clr.into_inner();
 
     // Key the protocol with the DEK.
     mres.key(&dek, false);
 
-    // Prep for streaming encryption.
-    mres.send_enc(&mut [], false);
+    // Encrypt the plaintext, pass it through the signer, and write it.
+    let mut send_enc = mres.send_enc_writer(signer);
+    written += io::copy(reader, &mut send_enc)?;
 
-    // Read through src in 32KiB chunks.
-    let mut buf = [0u8; 32 * 1024];
-    loop {
-        let n = reader.read(&mut buf)?;
-        if n == 0 {
-            break;
-        }
-        let mut buf = &mut buf[0..n];
-
-        // Encrypt the block.
-        mres.send_enc(&mut buf, true);
-
-        // Write the ciphertext and sign it.
-        signer.write_all(buf)?;
-        written += n as u64;
-    }
+    // Unwrap the sent encryption writer.
+    let (mut mres, mut signer) = send_enc.into_inner();
 
     // Sign the encrypted headers and ciphertext with the ephemeral key pair.
     let mut sig = signer.sign(&d_e, &q_e);
