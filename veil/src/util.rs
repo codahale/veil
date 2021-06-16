@@ -58,10 +58,14 @@ pub trait StrobeExt {
     where
         F: FnOnce(&mut Strobe) -> R;
 
+    /// Create a writer which passes writes through `SEND_CLR` before passing them to the given
+    /// writer.
     fn send_clr_writer<W>(self, w: W) -> SendClrWriter<W>
     where
         W: Write;
 
+    /// Create a writer which passes writes through `RECV_CLR` before passing them to the given
+    /// writer.
     fn recv_clr_writer<W>(self, w: W) -> RecvClrWriter<W>
     where
         W: Write;
