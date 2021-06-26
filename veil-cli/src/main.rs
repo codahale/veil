@@ -3,11 +3,15 @@ use std::{fs, result};
 
 use anyhow::Result;
 use clap::Clap;
+use mimalloc::MiMalloc;
 
 use cli::*;
 use veil::{PublicKey, PublicKeyError, SecretKey, Signature};
 
 mod cli;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 fn main() -> Result<()> {
     let opts: Opts = Opts::parse();
