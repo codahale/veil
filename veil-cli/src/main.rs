@@ -14,7 +14,7 @@ mod cli;
 static GLOBAL: MiMalloc = MiMalloc;
 
 fn main() -> Result<()> {
-    let opts: Opts = Opts::parse();
+    let opts = Opts::parse();
     match opts.cmd {
         Command::SecretKey(mut cmd) => secret_key(&mut cmd),
         Command::PublicKey(cmd) => public_key(&cmd),
