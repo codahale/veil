@@ -9,7 +9,7 @@ use clio::{Input, Output};
 #[clap(setting = AppSettings::ColoredHelp)]
 #[clap(setting = AppSettings::HelpRequired)]
 #[clap(setting = AppSettings::SubcommandRequired)]
-#[clap(setting = AppSettings::VersionlessSubcommands)]
+#[clap(setting = AppSettings::DisableVersionForSubcommands)]
 pub struct Opts {
     #[clap(subcommand)]
     pub cmd: Command,
