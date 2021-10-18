@@ -1,21 +1,19 @@
 use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 
-use clap::{crate_description, crate_name, crate_version, AppSettings, Clap, ValueHint};
+use clap::{crate_description, crate_name, crate_version, AppSettings, Parser, ValueHint};
 use clio::{Input, Output};
 
-#[derive(Debug, Clap)]
+#[derive(Debug, Parser)]
 #[clap(bin_name = crate_name!(), about = crate_description!(), version = crate_version!())]
-#[clap(setting = AppSettings::ColoredHelp)]
 #[clap(setting = AppSettings::HelpRequired)]
 #[clap(setting = AppSettings::SubcommandRequired)]
-#[clap(setting = AppSettings::DisableVersionForSubcommands)]
 pub struct Opts {
     #[clap(subcommand)]
     pub cmd: Command,
 }
 
-#[derive(Debug, Clap)]
+#[derive(Debug, Parser)]
 #[clap(setting = AppSettings::DeriveDisplayOrder)]
 pub enum Command {
     SecretKey(SecretKeyArgs),
@@ -27,9 +25,8 @@ pub enum Command {
     Verify(VerifyArgs),
 }
 
-#[derive(Debug, Clap)]
+#[derive(Debug, Parser)]
 #[clap(about = "Generate a new secret key.")]
-#[clap(setting = AppSettings::ColoredHelp)]
 pub struct SecretKeyArgs {
     #[clap(about = "The output path for the encrypted secret key", value_hint = ValueHint::FilePath)]
     pub output: PathBuf,
@@ -44,9 +41,8 @@ pub struct SecretKeyArgs {
     pub passphrase_file: Option<PathBuf>,
 }
 
-#[derive(Debug, Clap)]
+#[derive(Debug, Parser)]
 #[clap(about = "Derive a public key from a secret key.")]
-#[clap(setting = AppSettings::ColoredHelp)]
 pub struct PublicKeyArgs {
     #[clap(about = "The path of the encrypted secret key", value_hint = ValueHint::FilePath)]
     pub secret_key: PathBuf,
@@ -58,9 +54,8 @@ pub struct PublicKeyArgs {
     pub passphrase_file: Option<PathBuf>,
 }
 
-#[derive(Debug, Clap)]
+#[derive(Debug, Parser)]
 #[clap(about = "Derive a public key from another public key.")]
-#[clap(setting = AppSettings::ColoredHelp)]
 pub struct DeriveKeyArgs {
     #[clap(about = "The public key")]
     pub public_key: OsString,
@@ -69,9 +64,8 @@ pub struct DeriveKeyArgs {
     pub sub_key_id: OsString,
 }
 
-#[derive(Debug, Clap)]
+#[derive(Debug, Parser)]
 #[clap(about = "Encrypt a message for a set of recipients.")]
-#[clap(setting = AppSettings::ColoredHelp)]
 pub struct EncryptArgs {
     #[clap(about = "The path of the encrypted secret key", value_hint = ValueHint::FilePath)]
     pub secret_key: PathBuf,
@@ -106,9 +100,8 @@ pub struct EncryptArgs {
     pub passphrase_file: Option<PathBuf>,
 }
 
-#[derive(Debug, Clap)]
+#[derive(Debug, Parser)]
 #[clap(about = "Decrypt and verify a message.")]
-#[clap(setting = AppSettings::ColoredHelp)]
 pub struct DecryptArgs {
     #[clap(about = "The path of the encrypted secret key", value_hint = ValueHint::FilePath)]
     pub secret_key: PathBuf,
@@ -137,9 +130,8 @@ pub struct DecryptArgs {
     pub passphrase_file: Option<PathBuf>,
 }
 
-#[derive(Debug, Clap)]
+#[derive(Debug, Parser)]
 #[clap(about = "Sign a message.")]
-#[clap(setting = AppSettings::ColoredHelp)]
 pub struct SignArgs {
     #[clap(about = "The path of the encrypted secret key", value_hint = ValueHint::FilePath)]
     pub secret_key: PathBuf,
@@ -158,9 +150,8 @@ pub struct SignArgs {
     pub passphrase_file: Option<PathBuf>,
 }
 
-#[derive(Debug, Clap)]
+#[derive(Debug, Parser)]
 #[clap(about = "Verify a signature.")]
-#[clap(setting = AppSettings::ColoredHelp)]
 pub struct VerifyArgs {
     #[clap(about = "The signer's public key")]
     pub public_key: OsString,

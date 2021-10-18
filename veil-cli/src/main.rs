@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::{fs, result};
 
 use anyhow::Result;
-use clap::Clap;
+use clap::Parser;
 use mimalloc::MiMalloc;
 
 use cli::*;
