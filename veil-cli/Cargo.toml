@@ -2,7 +2,7 @@
 name = "veil-cli"
 version = "0.1.0"
 authors = ["Coda Hale <coda.hale@gmail.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT OR Apache-2.0"
 include = ["src/**/*", "../LICENSE-MIT", "../LICENSE-APACHE", "..README.md"]
 build = "build.rs"
