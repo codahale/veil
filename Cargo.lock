@@ -135,9 +135,9 @@ dependencies = [
 
 [[package]]
 name = "clio"
-version = "0.1.7"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51319db11fbb5337671b032ea52e539de4ef8823149e58af9af32a2530f21edc"
+checksum = "b954eef85c884a2d0ea962b4c7e4265ee2bffff1b704687350d6cdc44a1feaf5"
 
 [[package]]
 name = "criterion"
