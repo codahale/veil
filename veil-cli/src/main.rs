@@ -8,6 +8,7 @@ use mimalloc::MiMalloc;
 use cli::*;
 use veil::{PublicKey, PublicKeyError, SecretKey, Signature};
 
+#[deny(missing_docs)]
 mod cli;
 
 #[global_allocator]

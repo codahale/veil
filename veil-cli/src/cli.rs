@@ -1,19 +1,18 @@
 use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 
-use clap::{crate_description, crate_name, crate_version, AppSettings, Parser, ValueHint};
+use clap::{AppSettings, Parser, Subcommand, ValueHint};
 use clio::{Input, Output};
 
 #[derive(Debug, Parser)]
-#[clap(bin_name = crate_name!(), about = crate_description!(), version = crate_version!())]
-#[clap(setting = AppSettings::HelpRequired)]
+#[clap(author, version, about)]
 #[clap(setting = AppSettings::SubcommandRequired)]
 pub struct Opts {
     #[clap(subcommand)]
     pub cmd: Command,
 }
 
-#[derive(Debug, Parser)]
+#[derive(Debug, Subcommand)]
 #[clap(setting = AppSettings::DeriveDisplayOrder)]
 pub enum Command {
     SecretKey(SecretKeyArgs),
@@ -25,145 +24,160 @@ pub enum Command {
     Verify(VerifyArgs),
 }
 
+/// Generate a new secret key.
 #[derive(Debug, Parser)]
-#[clap(about = "Generate a new secret key.")]
 pub struct SecretKeyArgs {
-    #[clap(about = "The output path for the encrypted secret key", value_hint = ValueHint::FilePath)]
+    /// The output path for the encrypted secret key.
+    #[clap(value_hint = ValueHint::FilePath)]
     pub output: PathBuf,
 
-    #[clap(long, about = "The time parameter for encryption", default_value = "128")]
+    /// The time parameter for encryption.
+    #[clap(long, default_value = "128")]
     pub time: u32,
 
-    #[clap(long, about = "The space parameter for encryption", default_value = "1024")]
+    /// The space parameter for encryption.
+    #[clap(long, default_value = "1024")]
     pub space: u32,
 
-    #[clap(long, about = "The path to read the passphrase from", value_hint = ValueHint::FilePath)]
+    /// The path to read the passphrase from
+    #[clap(long, value_hint = ValueHint::FilePath)]
     pub passphrase_file: Option<PathBuf>,
 }
 
+/// Derive a public key from a secret key.
 #[derive(Debug, Parser)]
-#[clap(about = "Derive a public key from a secret key.")]
 pub struct PublicKeyArgs {
-    #[clap(about = "The path of the encrypted secret key", value_hint = ValueHint::FilePath)]
+    /// The path of the encrypted secret key.
+    #[clap( value_hint = ValueHint::FilePath)]
     pub secret_key: PathBuf,
 
-    #[clap(about = "The ID of the generated public key")]
+    /// The ID of the generated public key.
     pub key_id: OsString,
 
-    #[clap(long, about = "The path to read the passphrase from", value_hint = ValueHint::FilePath)]
+    /// The path to read the passphrase from.
+    #[clap(long,  value_hint = ValueHint::FilePath)]
     pub passphrase_file: Option<PathBuf>,
 }
 
+/// Derive a public key from another public key..
 #[derive(Debug, Parser)]
-#[clap(about = "Derive a public key from another public key.")]
 pub struct DeriveKeyArgs {
-    #[clap(about = "The public key")]
+    /// The public key.
     pub public_key: OsString,
 
-    #[clap(about = "The sub ID of the generated public key")]
+    /// The sub ID of the generated public key.
     pub sub_key_id: OsString,
 }
 
+/// Encrypt a message for a set of recipients.
 #[derive(Debug, Parser)]
-#[clap(about = "Encrypt a message for a set of recipients.")]
 pub struct EncryptArgs {
-    #[clap(about = "The path of the encrypted secret key", value_hint = ValueHint::FilePath)]
+    /// The path of the encrypted secret key.
+    #[clap( value_hint = ValueHint::FilePath)]
     pub secret_key: PathBuf,
 
-    #[clap(about = "The ID of the public key to use")]
+    /// The ID of the public key to use.
     pub key_id: OsString,
 
+    /// The path to the input file or '-' for stdin.
     #[clap(
-        about = "The path to the input file or '-' for stdin",
         parse(try_from_os_str = input_from_os_str),
         value_hint = ValueHint::FilePath,
     )]
     pub plaintext: Input,
 
+    /// The path to the output file or '-' for stdout.
     #[clap(
-        about = "The path to the output file or '-' for stdout",
         parse(try_from_os_str = output_from_os_str),
         value_hint = ValueHint::FilePath,
     )]
     pub ciphertext: Output,
 
-    #[clap(about = "The recipient's public key", required = true)]
+    /// The recipient's public key.
+    #[clap(required = true)]
     pub recipients: Vec<OsString>,
 
-    #[clap(about = "Add fake recipients", long, default_value = "0")]
+    /// Add fake recipients.
+    #[clap(long, default_value = "0")]
     pub fakes: usize,
 
-    #[clap(about = "Add random bytes of padding", long, default_value = "0")]
+    /// Add random bytes of padding.
+    #[clap(long, default_value = "0")]
     pub padding: u64,
 
-    #[clap(about = "The path to read the passphrase from", long, value_hint = ValueHint::FilePath)]
+    /// The path to read the passphrase from.
+    #[clap(long, value_hint = ValueHint::FilePath)]
     pub passphrase_file: Option<PathBuf>,
 }
 
+/// Decrypt and verify a message.
 #[derive(Debug, Parser)]
-#[clap(about = "Decrypt and verify a message.")]
 pub struct DecryptArgs {
-    #[clap(about = "The path of the encrypted secret key", value_hint = ValueHint::FilePath)]
+    /// The path of the encrypted secret key.
+    #[clap(value_hint = ValueHint::FilePath)]
     pub secret_key: PathBuf,
 
-    #[clap(about = "The ID of the public key")]
+    /// The ID of the public key.
     pub key_id: OsString,
 
+    /// The path to the input file or '-' for stdin.
     #[clap(
-        about = "The path to the input file or '-' for stdin",
         parse(try_from_os_str = input_from_os_str),
         value_hint = ValueHint::FilePath,
     )]
     pub ciphertext: Input,
 
+    /// The path to the output file or '-' for stdout.
     #[clap(
-        about = "The path to the output file or '-' for stdout",
         parse(try_from_os_str = output_from_os_str),
         value_hint = ValueHint::FilePath,
     )]
     pub plaintext: Output,
 
-    #[clap(about = "The sender's public key")]
+    /// The sender's public key.
     pub sender: OsString,
 
-    #[clap(about = "The path to read the passphrase from", long, value_hint = ValueHint::FilePath)]
+    /// The path to read the passphrase from.
+    #[clap(long, value_hint = ValueHint::FilePath)]
     pub passphrase_file: Option<PathBuf>,
 }
 
+/// Sign a message.
 #[derive(Debug, Parser)]
-#[clap(about = "Sign a message.")]
 pub struct SignArgs {
-    #[clap(about = "The path of the encrypted secret key", value_hint = ValueHint::FilePath)]
+    /// The path of the encrypted secret key.
+    #[clap(value_hint = ValueHint::FilePath)]
     pub secret_key: PathBuf,
 
-    #[clap(about = "The ID of the public key to use")]
+    /// The ID of the public key to use.
     pub key_id: OsString,
 
+    /// The path to the message file or '-' for stdin.
     #[clap(
-        about = "The path to the message file or '-' for stdin",
         parse(try_from_os_str = input_from_os_str),
         value_hint = ValueHint::FilePath,
     )]
     pub message: Input,
 
-    #[clap(about = "The path to read the passphrase from", long, value_hint = ValueHint::FilePath)]
+    /// The path to read the passphrase from.
+    #[clap(long, value_hint = ValueHint::FilePath)]
     pub passphrase_file: Option<PathBuf>,
 }
 
+/// Verify a signature.
 #[derive(Debug, Parser)]
-#[clap(about = "Verify a signature.")]
 pub struct VerifyArgs {
-    #[clap(about = "The signer's public key")]
+    /// The signer's public key.
     pub public_key: OsString,
 
+    /// The path to the message file or '-' for stdin.
     #[clap(
-      about = "The path to the message file or '-' for stdin", 
       parse(try_from_os_str = input_from_os_str),
       value_hint = ValueHint::FilePath,
     )]
     pub message: Input,
 
-    #[clap(about = "The signature of the message")]
+    /// The signature of the message.
     pub signature: OsString,
 }
 
