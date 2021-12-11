@@ -37,25 +37,25 @@ fn secret_key(cmd: &mut SecretKeyArgs) -> Result<()> {
 
 fn public_key(cmd: &PublicKeyArgs) -> Result<()> {
     let secret_key = decrypt_secret_key(&cmd.passphrase_file, &cmd.secret_key)?;
-    let public_key = secret_key.public_key(&cmd.key_id.to_string_lossy());
+    let public_key = secret_key.public_key(cmd.key_id.to_string_lossy().as_ref());
     println!("{}", public_key);
     Ok(())
 }
 
 fn derive_key(cmd: &DeriveKeyArgs) -> Result<()> {
-    let root = cmd.public_key.to_string_lossy().parse::<PublicKey>()?;
-    let public_key = root.derive(&cmd.sub_key_id.to_string_lossy());
+    let root = cmd.public_key.to_string_lossy().as_ref().parse::<PublicKey>()?;
+    let public_key = root.derive(cmd.sub_key_id.to_string_lossy().as_ref());
     println!("{}", public_key);
     Ok(())
 }
 
 fn encrypt(cmd: &mut EncryptArgs) -> Result<()> {
     let secret_key = decrypt_secret_key(&cmd.passphrase_file, &cmd.secret_key)?;
-    let private_key = secret_key.private_key(&cmd.key_id.to_string_lossy());
+    let private_key = secret_key.private_key(cmd.key_id.to_string_lossy().as_ref());
     let pks = cmd
         .recipients
         .iter()
-        .map(|s| s.to_string_lossy().parse::<PublicKey>())
+        .map(|s| s.to_string_lossy().as_ref().parse::<PublicKey>())
         .collect::<result::Result<Vec<PublicKey>, PublicKeyError>>()?;
     private_key.encrypt(
         &mut cmd.plaintext.lock(),
@@ -69,7 +69,7 @@ fn encrypt(cmd: &mut EncryptArgs) -> Result<()> {
 
 fn decrypt(cmd: &mut DecryptArgs) -> Result<()> {
     let secret_key = decrypt_secret_key(&cmd.passphrase_file, &cmd.secret_key)?;
-    let private_key = secret_key.private_key(&cmd.key_id.to_string_lossy());
+    let private_key = secret_key.private_key(cmd.key_id.to_string_lossy().as_ref());
     let sender = cmd.sender.to_string_lossy().parse()?;
     private_key.decrypt(&mut cmd.ciphertext.lock(), &mut cmd.plaintext.lock(), &sender)?;
     Ok(())
@@ -77,15 +77,15 @@ fn decrypt(cmd: &mut DecryptArgs) -> Result<()> {
 
 fn sign(cmd: &mut SignArgs) -> Result<()> {
     let secret_key = decrypt_secret_key(&cmd.passphrase_file, &cmd.secret_key)?;
-    let private_key = secret_key.private_key(&cmd.key_id.to_string_lossy());
+    let private_key = secret_key.private_key(cmd.key_id.to_string_lossy().as_ref());
     let sig = private_key.sign(&mut cmd.message.lock())?;
     println!("{}", sig);
     Ok(())
 }
 
 fn verify(cmd: &mut VerifyArgs) -> Result<()> {
-    let signer = cmd.public_key.to_string_lossy().parse::<PublicKey>()?;
-    let sig = cmd.signature.to_string_lossy().parse::<Signature>()?;
+    let signer = cmd.public_key.to_string_lossy().as_ref().parse::<PublicKey>()?;
+    let sig = cmd.signature.to_string_lossy().as_ref().parse::<Signature>()?;
     signer.verify(&mut cmd.message.lock(), &sig)?;
     Ok(())
 }
