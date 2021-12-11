@@ -10,15 +10,15 @@ description = "Stupid crypto tricks."
 
 [dependencies]
 anyhow = "1"
-clap = { version = "3.0.0-rc.0", features = ["derive"] }
+clap = { version = "3.0.0-rc.4", features = ["derive"] }
 clio = "0.1"
 mimalloc = "0.1"
 rpassword = "5"
 veil = { version = "0.1.0", path = "../veil" }
 
 [build-dependencies]
-clap = "3.0.0-beta.5"
-clap_generate = "3.0.0-rc.3"
+clap = "3.0.0-rc.4"
+clap_generate = "3.0.0-rc.4"
 clio = "0.1"
 
 [dev-dependencies]
