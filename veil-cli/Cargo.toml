@@ -14,7 +14,7 @@ clap = { version = "3.0.0-rc.4", features = ["derive"] }
 clio = "0.1"
 mimalloc = "0.1"
 rpassword = "5"
-veil = { version = "0.1.0", path = "../veil" }
+veil = { path = "../veil" }
 
 [build-dependencies]
 clap = "3.0.0-rc.4"
