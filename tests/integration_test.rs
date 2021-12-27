@@ -1,10 +1,12 @@
+#![cfg(feature = "cli")]
+
 use std::fs;
 use std::path::PathBuf;
 
 use anyhow::Result;
 use duct::cmd;
 
-const VEIL_PATH: &str = env!("CARGO_BIN_EXE_veil-cli");
+const VEIL_PATH: &str = env!("CARGO_BIN_EXE_veil");
 
 #[test]
 pub fn encrypt_and_decrypt_a_message() -> Result<()> {

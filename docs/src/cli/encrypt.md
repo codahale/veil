@@ -4,7 +4,7 @@ To encrypt a message, you need your secret key, the key ID you want to use, the 
 message:
 
 ```shell
-veil-cli encrypt ./my-secret-key /friends/poker message.txt message.txt.veil \
+veil encrypt ./my-secret-key /friends/poker message.txt message.txt.veil \
   TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa \
   BfksdzSKbmcS2Suav16dmYE2WxifqauPRL6FZpJt1476 \
   --fakes 18 --padding 1234

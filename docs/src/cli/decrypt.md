@@ -4,7 +4,7 @@ To decrypt a message, you'll need the key ID the message was encrypted for, the 
 public key:
 
 ```shell
-veil-cli decrypt ./my-secret-key /friends/poker reply.txt.veil reply.txt \
+veil decrypt ./my-secret-key /friends/poker reply.txt.veil reply.txt \
   TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa
 ```
 

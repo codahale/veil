@@ -3,7 +3,7 @@
 Now that you have a secret key, you can generate a public key to share with others:
 
 ```shell
-veil-cli public-key ./my-secret-key /test-keys/1
+veil public-key ./my-secret-key /test-keys/1
 
 #=> TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa
 ```
