@@ -2,7 +2,8 @@ use std::path::{Path, PathBuf};
 use std::{fs, result};
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{App, IntoApp, Parser};
+use clap_generate::generate_to;
 use mimalloc::MiMalloc;
 
 use cli::*;
@@ -15,7 +16,7 @@ mod cli;
 static GLOBAL: MiMalloc = MiMalloc;
 
 fn main() -> Result<()> {
-    let opts = Opts::parse();
+    let opts: Opts = Opts::parse();
     match opts.cmd {
         Command::SecretKey(mut cmd) => secret_key(&mut cmd),
         Command::PublicKey(cmd) => public_key(&cmd),
@@ -24,6 +25,7 @@ fn main() -> Result<()> {
         Command::Decrypt(mut cmd) => decrypt(&mut cmd),
         Command::Sign(mut cmd) => sign(&mut cmd),
         Command::Verify(mut cmd) => verify(&mut cmd),
+        Command::Complete(mut cmd) => complete(&mut cmd),
     }
 }
 
@@ -102,4 +104,12 @@ fn prompt_passphrase(passphrase_file: &Option<PathBuf>) -> Result<String> {
         Some(p) => Ok(fs::read_to_string(p)?),
         None => Ok(rpassword::read_password_from_tty(Some("Enter passphrase: "))?),
     }
+}
+
+fn complete(cmd: &mut CompleteArgs) -> Result<()> {
+    let mut app: App = Opts::into_app();
+
+    generate_to(cmd.shell, &mut app, "veil", &cmd.output)?;
+
+    Ok(())
 }

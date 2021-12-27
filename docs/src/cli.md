@@ -18,4 +18,8 @@ of an art installation than a practical tool.
 
 ## Shell Completion
 
-`veil` comes with shell completion scripts for Bash, Zsh, Fish, and Powershell. Find them in `veil/share`.
+`veil` can generate its own shell completion scripts for Bash, Elvish, Fish, Powershell, and Zsh:
+
+```shell
+veil complete zsh /usr/local/share/zsh/site-functions/
+```

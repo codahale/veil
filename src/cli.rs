@@ -2,6 +2,7 @@ use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 
 use clap::{AppSettings, Parser, Subcommand, ValueHint};
+use clap_generate::Shell;
 use clio::{Input, Output};
 
 #[derive(Debug, Parser)]
@@ -22,6 +23,7 @@ pub enum Command {
     Decrypt(DecryptArgs),
     Sign(SignArgs),
     Verify(VerifyArgs),
+    Complete(CompleteArgs),
 }
 
 /// Generate a new secret key.
@@ -179,6 +181,18 @@ pub struct VerifyArgs {
 
     /// The signature of the message.
     pub signature: OsString,
+}
+
+/// Generate shell completion scripts.
+#[derive(Debug, Parser)]
+#[clap(setting = AppSettings::Hidden)]
+pub struct CompleteArgs {
+    /// The type of shell completion script to generate: bash, elvish, fish, powershell, or zsh.
+    pub shell: Shell,
+
+    /// Output directory for shell completion scripts.
+    #[clap(value_hint = ValueHint::DirPath)]
+    pub output: OsString,
 }
 
 fn input_from_os_str(path: &OsStr) -> Result<Input, String> {
