@@ -3,12 +3,13 @@ use std::{io, mem};
 
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
+use rand::RngCore;
 use strobe_rs::Strobe;
 
 /// Generate a random `u8` array.
 pub fn rand_array<const N: usize>() -> [u8; N] {
     let mut out = [0u8; N];
-    getrandom::getrandom(&mut out).expect("rng failure");
+    rand::thread_rng().fill_bytes(&mut out);
     out
 }
 

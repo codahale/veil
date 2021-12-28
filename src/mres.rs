@@ -4,6 +4,7 @@ use std::io::{self, Read, Result, Write};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
+use rand::RngCore;
 use strobe_rs::{SecParam, Strobe};
 
 use crate::akem;
@@ -232,7 +233,7 @@ struct RngReader;
 
 impl Read for RngReader {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        getrandom::getrandom(buf).expect("rng failure");
+        rand::thread_rng().fill_bytes(buf);
         Ok(buf.len())
     }
 }

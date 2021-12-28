@@ -14,7 +14,7 @@ cli = ["anyhow", "clap", "clap_generate", "clio", "mimalloc", "rpassword"]
 [dependencies]
 bs58 = "0.4.0"
 curve25519-dalek = "3"
-getrandom = "0.2"
+rand = "0.8"
 strobe-rs = "0.6"
 thiserror = "1"
 zeroize = { version = "1", features = ["zeroize_derive"] }

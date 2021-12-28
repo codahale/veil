@@ -6,6 +6,7 @@ use std::{fmt, io, iter, str};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
+use rand::Rng;
 use zeroize::Zeroize;
 
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
@@ -258,19 +259,8 @@ impl str::FromStr for PublicKey {
 /// Fisher-Yates shuffle with cryptographically generated random numbers.
 fn shuffle(pks: &mut Vec<RistrettoPoint>) {
     for i in (1..pks.len()).rev() {
-        pks.swap(i, rand_usize(i + 1));
+        pks.swap(i, rand::thread_rng().gen_range(0..=i));
     }
-}
-
-/// Generate a random `usize` in `[0..n)` using rejection sampling.
-#[inline]
-fn rand_usize(n: usize) -> usize {
-    let max = (usize::MAX - 1 - (usize::MAX % n)) as u64;
-    let mut v = max;
-    while v > max {
-        v = u64::from_le_bytes(util::rand_array());
-    }
-    (v % n as u64) as usize
 }
 
 #[cfg(test)]
