@@ -1,9 +1,8 @@
 use std::ffi::{OsStr, OsString};
-use std::intrinsics::forget;
 use std::path::{Path, PathBuf};
 use std::{fs, result};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::{App, IntoApp, Parser};
 use clap::{AppSettings, Subcommand, ValueHint};
 use clap_generate::generate_to;
