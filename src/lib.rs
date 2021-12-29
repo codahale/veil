@@ -70,8 +70,6 @@ pub use self::errors::*;
 pub use self::veil::*;
 
 mod akem;
-#[cfg(feature = "cli")]
-mod cli;
 mod errors;
 mod mres;
 mod pbenc;

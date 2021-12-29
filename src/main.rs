@@ -1,16 +1,17 @@
+use std::ffi::{OsStr, OsString};
+use std::intrinsics::forget;
 use std::path::{Path, PathBuf};
 use std::{fs, result};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{App, IntoApp, Parser};
+use clap::{AppSettings, Subcommand, ValueHint};
 use clap_generate::generate_to;
+use clap_generate::Shell;
+use clio::{Input, Output};
 use mimalloc::MiMalloc;
 
-use cli::*;
 use veil::{PublicKey, PublicKeyError, SecretKey, Signature};
-
-#[deny(missing_docs)]
-mod cli;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -108,8 +109,204 @@ fn prompt_passphrase(passphrase_file: &Option<PathBuf>) -> Result<String> {
 
 fn complete(cmd: &mut CompleteArgs) -> Result<()> {
     let mut app: App = Opts::into_app();
-
     generate_to(cmd.shell, &mut app, "veil", &cmd.output)?;
-
     Ok(())
+}
+
+#[derive(Debug, Parser)]
+#[clap(author, version, about)]
+#[clap(setting = AppSettings::SubcommandRequired)]
+struct Opts {
+    #[clap(subcommand)]
+    cmd: Command,
+}
+
+#[derive(Debug, Subcommand)]
+#[clap(setting = AppSettings::DeriveDisplayOrder)]
+enum Command {
+    SecretKey(SecretKeyArgs),
+    PublicKey(PublicKeyArgs),
+    DeriveKey(DeriveKeyArgs),
+    Encrypt(EncryptArgs),
+    Decrypt(DecryptArgs),
+    Sign(SignArgs),
+    Verify(VerifyArgs),
+    Complete(CompleteArgs),
+}
+
+/// Generate a new secret key.
+#[derive(Debug, Parser)]
+struct SecretKeyArgs {
+    /// The output path for the encrypted secret key.
+    #[clap(value_hint = ValueHint::FilePath)]
+    output: PathBuf,
+
+    /// The time parameter for encryption.
+    #[clap(long, default_value = "128")]
+    time: u32,
+
+    /// The space parameter for encryption.
+    #[clap(long, default_value = "1024")]
+    space: u32,
+
+    /// The path to read the passphrase from
+    #[clap(long, value_hint = ValueHint::FilePath)]
+    passphrase_file: Option<PathBuf>,
+}
+
+/// Derive a public key from a secret key.
+#[derive(Debug, Parser)]
+struct PublicKeyArgs {
+    /// The path of the encrypted secret key.
+    #[clap( value_hint = ValueHint::FilePath)]
+    secret_key: PathBuf,
+
+    /// The ID of the generated public key.
+    key_id: OsString,
+
+    /// The path to read the passphrase from.
+    #[clap(long,  value_hint = ValueHint::FilePath)]
+    passphrase_file: Option<PathBuf>,
+}
+
+/// Derive a public key from another public key..
+#[derive(Debug, Parser)]
+struct DeriveKeyArgs {
+    /// The public key.
+    public_key: OsString,
+
+    /// The sub ID of the generated public key.
+    sub_key_id: OsString,
+}
+
+/// Encrypt a message for a set of recipients.
+#[derive(Debug, Parser)]
+struct EncryptArgs {
+    /// The path of the encrypted secret key.
+    #[clap( value_hint = ValueHint::FilePath)]
+    secret_key: PathBuf,
+
+    /// The ID of the public key to use.
+    key_id: OsString,
+
+    /// The path to the input file or '-' for stdin.
+    #[clap(
+    parse(try_from_os_str = input_from_os_str),
+    value_hint = ValueHint::FilePath,
+    )]
+    plaintext: Input,
+
+    /// The path to the output file or '-' for stdout.
+    #[clap(
+    parse(try_from_os_str = output_from_os_str),
+    value_hint = ValueHint::FilePath,
+    )]
+    ciphertext: Output,
+
+    /// The recipient's public key.
+    #[clap(required = true)]
+    recipients: Vec<OsString>,
+
+    /// Add fake recipients.
+    #[clap(long, default_value = "0")]
+    fakes: usize,
+
+    /// Add random bytes of padding.
+    #[clap(long, default_value = "0")]
+    padding: u64,
+
+    /// The path to read the passphrase from.
+    #[clap(long, value_hint = ValueHint::FilePath)]
+    passphrase_file: Option<PathBuf>,
+}
+
+/// Decrypt and verify a message.
+#[derive(Debug, Parser)]
+struct DecryptArgs {
+    /// The path of the encrypted secret key.
+    #[clap(value_hint = ValueHint::FilePath)]
+    secret_key: PathBuf,
+
+    /// The ID of the public key.
+    key_id: OsString,
+
+    /// The path to the input file or '-' for stdin.
+    #[clap(
+    parse(try_from_os_str = input_from_os_str),
+    value_hint = ValueHint::FilePath,
+    )]
+    ciphertext: Input,
+
+    /// The path to the output file or '-' for stdout.
+    #[clap(
+    parse(try_from_os_str = output_from_os_str),
+    value_hint = ValueHint::FilePath,
+    )]
+    plaintext: Output,
+
+    /// The sender's public key.
+    sender: OsString,
+
+    /// The path to read the passphrase from.
+    #[clap(long, value_hint = ValueHint::FilePath)]
+    passphrase_file: Option<PathBuf>,
+}
+
+/// Sign a message.
+#[derive(Debug, Parser)]
+struct SignArgs {
+    /// The path of the encrypted secret key.
+    #[clap(value_hint = ValueHint::FilePath)]
+    secret_key: PathBuf,
+
+    /// The ID of the public key to use.
+    key_id: OsString,
+
+    /// The path to the message file or '-' for stdin.
+    #[clap(
+    parse(try_from_os_str = input_from_os_str),
+    value_hint = ValueHint::FilePath,
+    )]
+    message: Input,
+
+    /// The path to read the passphrase from.
+    #[clap(long, value_hint = ValueHint::FilePath)]
+    passphrase_file: Option<PathBuf>,
+}
+
+/// Verify a signature.
+#[derive(Debug, Parser)]
+struct VerifyArgs {
+    /// The signer's public key.
+    public_key: OsString,
+
+    /// The path to the message file or '-' for stdin.
+    #[clap(
+    parse(try_from_os_str = input_from_os_str),
+    value_hint = ValueHint::FilePath,
+    )]
+    message: Input,
+
+    /// The signature of the message.
+    signature: OsString,
+}
+
+/// Generate shell completion scripts.
+#[derive(Debug, Parser)]
+#[clap(setting = AppSettings::Hidden)]
+struct CompleteArgs {
+    /// The type of shell completion script to generate: bash, elvish, fish, powershell, or zsh.
+    shell: Shell,
+
+    /// Output directory for shell completion scripts.
+    #[clap(value_hint = ValueHint::DirPath)]
+    output: OsString,
+}
+
+fn input_from_os_str(path: &OsStr) -> Result<Input, String> {
+    Input::new(path).map_err(|e| e.to_string())
+}
+
+fn output_from_os_str(path: &OsStr) -> Result<Output, String> {
+    Output::new(path).map_err(|e| e.to_string())
 }
