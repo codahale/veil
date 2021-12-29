@@ -157,14 +157,14 @@ struct SecretKeyArgs {
 #[derive(Debug, Parser)]
 struct PublicKeyArgs {
     /// The path of the encrypted secret key.
-    #[clap( value_hint = ValueHint::FilePath)]
+    #[clap(value_hint = ValueHint::FilePath)]
     secret_key: PathBuf,
 
     /// The ID of the generated public key.
     key_id: OsString,
 
     /// The path to read the passphrase from.
-    #[clap(long,  value_hint = ValueHint::FilePath)]
+    #[clap(long, value_hint = ValueHint::FilePath)]
     passphrase_file: Option<PathBuf>,
 }
 
@@ -182,24 +182,18 @@ struct DeriveKeyArgs {
 #[derive(Debug, Parser)]
 struct EncryptArgs {
     /// The path of the encrypted secret key.
-    #[clap( value_hint = ValueHint::FilePath)]
+    #[clap(value_hint = ValueHint::FilePath)]
     secret_key: PathBuf,
 
     /// The ID of the public key to use.
     key_id: OsString,
 
     /// The path to the input file or '-' for stdin.
-    #[clap(
-    parse(try_from_os_str = input_from_os_str),
-    value_hint = ValueHint::FilePath,
-    )]
+    #[clap(parse(try_from_os_str = input_from_os_str), value_hint = ValueHint::FilePath)]
     plaintext: Input,
 
     /// The path to the output file or '-' for stdout.
-    #[clap(
-    parse(try_from_os_str = output_from_os_str),
-    value_hint = ValueHint::FilePath,
-    )]
+    #[clap(parse(try_from_os_str = output_from_os_str), value_hint = ValueHint::FilePath)]
     ciphertext: Output,
 
     /// The recipient's public key.
@@ -230,17 +224,11 @@ struct DecryptArgs {
     key_id: OsString,
 
     /// The path to the input file or '-' for stdin.
-    #[clap(
-    parse(try_from_os_str = input_from_os_str),
-    value_hint = ValueHint::FilePath,
-    )]
+    #[clap(parse(try_from_os_str = input_from_os_str), value_hint = ValueHint::FilePath)]
     ciphertext: Input,
 
     /// The path to the output file or '-' for stdout.
-    #[clap(
-    parse(try_from_os_str = output_from_os_str),
-    value_hint = ValueHint::FilePath,
-    )]
+    #[clap(parse(try_from_os_str = output_from_os_str), value_hint = ValueHint::FilePath)]
     plaintext: Output,
 
     /// The sender's public key.
@@ -262,10 +250,7 @@ struct SignArgs {
     key_id: OsString,
 
     /// The path to the message file or '-' for stdin.
-    #[clap(
-    parse(try_from_os_str = input_from_os_str),
-    value_hint = ValueHint::FilePath,
-    )]
+    #[clap(parse(try_from_os_str = input_from_os_str), value_hint = ValueHint::FilePath)]
     message: Input,
 
     /// The path to read the passphrase from.
@@ -280,10 +265,7 @@ struct VerifyArgs {
     public_key: OsString,
 
     /// The path to the message file or '-' for stdin.
-    #[clap(
-    parse(try_from_os_str = input_from_os_str),
-    value_hint = ValueHint::FilePath,
-    )]
+    #[clap(parse(try_from_os_str = input_from_os_str), value_hint = ValueHint::FilePath)]
     message: Input,
 
     /// The signature of the message.
