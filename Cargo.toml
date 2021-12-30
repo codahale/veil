@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Coda Hale <coda.hale@gmail.com>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
-include = ["src/**/*", "../LICENSE-MIT", "../LICENSE-APACHE", "..README.md"]
+include = ["src/**/*", "LICENSE-MIT", "LICENSE-APACHE", "README.md"]
 description = "Stupid crypto tricks."
 
 [features]
@@ -33,7 +33,8 @@ duct = "0.13"
 tempfile = "3"
 
 [[bench]]
-name = "veil_bench"
+name = "benches"
+path = "benches/benches.rs"
 harness = false
 
 [[bin]]
