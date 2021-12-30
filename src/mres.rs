@@ -38,11 +38,14 @@ where
         let q_e = RISTRETTO_BASEPOINT_POINT * d_e;
 
         // Return the key pair and a DEK.
-        (d_e, q_e, clone.prf_array())
+        (d_e, q_e, clone.prf_array::<DEK_LEN>())
     });
 
     // Encode the DEK and message offset in a header.
-    let header = encode_header(&dek, q_rs.len(), padding);
+    let msg_offset = ((q_rs.len() as u64) * ENC_HEADER_LEN as u64) + padding;
+    let mut header = Vec::with_capacity(HEADER_LEN);
+    header.extend_from_slice(&dek);
+    header.extend_from_slice(&msg_offset.to_le_bytes());
 
     // Count and sign all of the bytes written to `writer`.
     let mut written = 0u64;
@@ -222,11 +225,6 @@ where
 
     // If no header was found, return none.
     Ok(None)
-}
-
-fn encode_header(dek: &[u8; DEK_LEN], r_len: usize, padding: u64) -> Vec<u8> {
-    let msg_offset = ((r_len as u64) * ENC_HEADER_LEN as u64) + padding;
-    vec![dek.to_vec(), (&msg_offset.to_le_bytes()).to_vec()].concat()
 }
 
 struct RngReader;
