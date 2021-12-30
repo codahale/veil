@@ -1,6 +1,7 @@
 use std::convert::TryInto;
 
 use strobe_rs::{SecParam, Strobe};
+use unicode_normalization::UnicodeNormalization;
 
 use crate::util::{self, StrobeExt, MAC_LEN, U32_LEN, U64_LEN};
 
@@ -10,7 +11,7 @@ pub fn encrypt(passphrase: &str, time: u32, space: u32, plaintext: &[u8]) -> Vec
     let salt: [u8; SALT_LEN] = util::rand_array();
 
     // Perform the balloon hashing.
-    let mut pbenc = init(passphrase.as_bytes(), &salt, time, space);
+    let mut pbenc = init(passphrase.nfkc().to_string().as_bytes(), &salt, time, space);
 
     // Allocate an output buffer.
     let mut out = vec![0u8; CT_OFFSET + plaintext.len() + MAC_LEN];
@@ -50,7 +51,7 @@ pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Vec<u8>> {
     let space = u32::from_le_bytes(space.try_into().ok()?);
 
     // Perform the balloon hashing.
-    let mut pbenc = init(passphrase.as_bytes(), &salt, time, space);
+    let mut pbenc = init(passphrase.nfkc().to_string().as_bytes(), &salt, time, space);
 
     // Decrypt the ciphertext.
     pbenc.recv_enc(&mut ciphertext, false);
