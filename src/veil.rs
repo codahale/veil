@@ -1,7 +1,8 @@
 use std::convert::TryInto;
 use std::fmt::{Debug, Formatter};
 use std::io::{BufReader, BufWriter, Read, Write};
-use std::{fmt, io, iter, str};
+use std::str::FromStr;
+use std::{fmt, io, iter};
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
@@ -9,11 +10,10 @@ use curve25519_dalek::scalar::Scalar;
 use rand::Rng;
 use zeroize::Zeroize;
 
+use crate::errors::*;
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::util::POINT_LEN;
-use crate::{
-    mres, pbenc, scaldf, util, DecryptionError, PublicKeyError, SignatureError, VerificationError,
-};
+use crate::{mres, pbenc, scaldf, util};
 
 /// A 512-bit secret from which multiple private keys can be derived.
 #[derive(Zeroize)]
@@ -188,7 +188,7 @@ pub struct Signature {
     sig: [u8; SIGNATURE_LEN],
 }
 
-impl str::FromStr for Signature {
+impl FromStr for Signature {
     type Err = SignatureError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -241,7 +241,7 @@ impl fmt::Display for PublicKey {
     }
 }
 
-impl str::FromStr for PublicKey {
+impl FromStr for PublicKey {
     type Err = PublicKeyError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
