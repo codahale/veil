@@ -5,8 +5,8 @@ use std::{fs, result};
 use anyhow::Result;
 use clap::{App, IntoApp, Parser};
 use clap::{AppSettings, Subcommand, ValueHint};
-use clap_generate::generate_to;
-use clap_generate::Shell;
+use clap_complete::generate_to;
+use clap_complete::Shell;
 use clio::{Input, Output};
 use mimalloc::MiMalloc;
 
