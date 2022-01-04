@@ -22,8 +22,8 @@ zeroize = { version = "1", features = ["zeroize_derive"] }
 
 # cli-only deps
 anyhow = { version = "1", optional = true }
-clap = { version = "3.0.1", features = ["derive"], optional = true }
-clap_complete = { version = "3.0.1", optional = true }
+clap = { version = "3", features = ["derive"], optional = true }
+clap_complete = { version = "3", optional = true }
 clio = { version = "0.1", optional = true }
 mimalloc = { version = "0.1", optional = true }
 rpassword = { version = "5", optional = true }
