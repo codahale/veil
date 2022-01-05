@@ -155,9 +155,10 @@ where
     mres.recv_enc(&mut [], false);
 
     // Read through src in 32KiB chunks, keeping the last 64 bytes as the signature.
-    loop {
+    let mut n = usize::MAX;
+    while n > 0 {
         // Read a block of ciphertext and copy it to the buffer.
-        let n = reader.read(&mut input)?;
+        n = reader.read(&mut input)?;
         buf.extend_from_slice(&input[..n]);
 
         // Process the data if we have at least a signature's worth.
@@ -174,11 +175,6 @@ where
             // Write the plaintext.
             writer.write_all(&block)?;
             written += block.len() as u64;
-        }
-
-        // If our last read returned zero bytes, we're at the end of the ciphertext.
-        if n == 0 {
-            break;
         }
     }
 
