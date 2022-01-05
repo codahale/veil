@@ -27,7 +27,7 @@ pub fn derive_point(q: &RistrettoPoint, key_id: &str) -> RistrettoPoint {
 }
 
 fn key_id_parts(key_id: &str) -> Vec<&str> {
-    key_id.trim_matches(|s| s == '/').split(|s| s == '/').collect()
+    key_id.trim_matches('/').split('/').collect()
 }
 
 #[cfg(test)]
