@@ -91,30 +91,26 @@ impl Verifier {
 
     /// Verify the previously-written message contents using the given public key and signature.
     pub fn verify(mut self, q: &RistrettoPoint, sig: &[u8; SIGNATURE_LEN]) -> bool {
-        let mut inner = || {
-            // Add the signer's public key as associated data.
-            self.schnorr.ad_point(q);
+        // Add the signer's public key as associated data.
+        self.schnorr.ad_point(q);
 
-            // Split the signature into parts.
-            let mut c = sig.to_vec();
-            let s = c.split_off(SCALAR_LEN);
+        // Split the signature into parts.
+        let c = sig[..SCALAR_LEN].try_into().expect("invalid scalar size");
+        let s = sig[SCALAR_LEN..].try_into().expect("invalid scalar size");
 
-            // Decode the challenge and signature scalars.
-            let c = Scalar::from_canonical_bytes(c.try_into().ok()?)?;
-            let s = Scalar::from_canonical_bytes(s.try_into().ok()?)?;
+        // Decode the challenge and signature scalars.
+        let c = if let Some(c) = Scalar::from_canonical_bytes(c) { c } else { return false };
+        let s = if let Some(s) = Scalar::from_canonical_bytes(s) { s } else { return false };
 
-            // Re-calculate the ephemeral public key and add it as associated data.
-            let r_g = (RISTRETTO_BASEPOINT_POINT * s) + (-c * q);
-            self.schnorr.ad_point(&r_g);
+        // Re-calculate the ephemeral public key and add it as associated data.
+        let r_g = (RISTRETTO_BASEPOINT_POINT * s) + (-c * q);
+        self.schnorr.ad_point(&r_g);
 
-            // Re-derive the challenge scalar.
-            let c_p = self.schnorr.prf_scalar();
+        // Re-derive the challenge scalar.
+        let c_p = self.schnorr.prf_scalar();
 
-            // Return true iff c' == c.
-            Some(c_p == c)
-        };
-
-        inner().unwrap_or(false)
+        // Return true iff c' == c.
+        c_p == c
     }
 }
 
