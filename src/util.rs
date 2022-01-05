@@ -144,60 +144,43 @@ impl StrobeExt for Strobe {
     }
 }
 
-pub struct SendClrWriter<W: Write>(Strobe, W);
+macro_rules! strobe_writer {
+    ($t:ident, $strobe:ident, $buf:ident, $writer:ident, $body:block) => {
+        pub struct $t<W: Write>(Strobe, W);
 
-impl<W: Write> SendClrWriter<W> {
-    pub fn into_inner(self) -> (Strobe, W) {
-        (self.0, self.1)
-    }
+        impl<W: Write> $t<W> {
+            pub fn into_inner(self) -> (Strobe, W) {
+                (self.0, self.1)
+            }
+        }
+
+        impl<W: Write> Write for $t<W> {
+            fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+                let $strobe = &mut self.0;
+                let $buf = buf;
+                let $writer = &mut self.1;
+                $body
+            }
+
+            fn flush(&mut self) -> io::Result<()> {
+                self.1.flush()
+            }
+        }
+    };
 }
 
-impl<W: Write> Write for SendClrWriter<W> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.0.send_clr(buf, true);
-        self.1.write(buf)
-    }
+strobe_writer!(SendClrWriter, strobe, buf, w, {
+    strobe.send_clr(buf, true);
+    w.write(buf)
+});
 
-    fn flush(&mut self) -> io::Result<()> {
-        self.1.flush()
-    }
-}
+strobe_writer!(SendEncWriter, strobe, buf, w, {
+    let mut input = Vec::from(buf);
+    strobe.send_enc(&mut input, true);
+    w.write(&input)
+});
 
-pub struct SendEncWriter<W: Write>(Strobe, W);
-
-impl<W: Write> SendEncWriter<W> {
-    pub fn into_inner(self) -> (Strobe, W) {
-        (self.0, self.1)
-    }
-}
-
-impl<W: Write> Write for SendEncWriter<W> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let mut input = Vec::from(buf);
-        self.0.send_enc(&mut input, true);
-        self.1.write(&input)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        self.1.flush()
-    }
-}
-
-pub struct RecvClrWriter<W: Write>(Strobe, W);
-
-impl<W: Write> RecvClrWriter<W> {
-    pub fn into_inner(self) -> (Strobe, W) {
-        (self.0, self.1)
-    }
-}
-
-impl<W: Write> Write for RecvClrWriter<W> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.0.recv_clr(buf, true);
-        self.1.write(buf)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        self.1.flush()
-    }
-}
+strobe_writer!(RecvClrWriter, strobe, buf, w, {
+    strobe.recv_clr(buf, true);
+    w.write(buf)
+});
