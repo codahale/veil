@@ -147,7 +147,12 @@ impl PrivateKey {
             &self.pk.q,
             &sender.q,
         )?;
-        verified.then(|| written).ok_or(DecryptionError::InvalidCiphertext)
+
+        if verified {
+            Ok(written)
+        } else {
+            Err(DecryptionError::InvalidCiphertext)
+        }
     }
 
     /// Read the contents of the reader and returns a digital signature.
