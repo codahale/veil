@@ -7,7 +7,7 @@ use std::{fmt, io, iter};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
-use rand::Rng;
+use rand::prelude::SliceRandom;
 use zeroize::Zeroize;
 
 use crate::errors::*;
@@ -110,10 +110,10 @@ impl PrivateKey {
             .into_iter()
             .map(|pk| pk.q)
             .chain(iter::repeat_with(util::rand_point).take(fakes))
-            .collect();
+            .collect::<Vec<RistrettoPoint>>();
 
         // Shuffle the recipients list.
-        shuffle(&mut q_rs);
+        q_rs.shuffle(&mut rand::thread_rng());
 
         // Finally, encrypt.
         mres::encrypt(
@@ -258,13 +258,6 @@ impl FromStr for PublicKey {
             .and_then(|p| p.decompress())
             .map(|q| PublicKey { q })
             .ok_or(PublicKeyError)
-    }
-}
-
-/// Fisher-Yates shuffle with cryptographically generated random numbers.
-fn shuffle(pks: &mut Vec<RistrettoPoint>) {
-    for i in (1..pks.len()).rev() {
-        pks.swap(i, rand::thread_rng().gen_range(0..=i));
     }
 }
 
