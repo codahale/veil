@@ -95,8 +95,8 @@ impl Verifier {
         self.schnorr.ad_point(q);
 
         // Split the signature into parts.
-        let c = sig[..SCALAR_LEN].try_into().expect("invalid scalar size");
-        let s = sig[SCALAR_LEN..].try_into().expect("invalid scalar size");
+        let c = sig[..SCALAR_LEN].try_into().expect("invalid scalar len");
+        let s = sig[SCALAR_LEN..].try_into().expect("invalid scalar len");
 
         // Decode the challenge and signature scalars.
         let c = if let Some(c) = Scalar::from_canonical_bytes(c) { c } else { return false };
