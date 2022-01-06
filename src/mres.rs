@@ -4,6 +4,7 @@ use std::io::{self, Read, Result, Write};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
+use rand::prelude::ThreadRng;
 use rand::RngCore;
 use strobe_rs::{SecParam, Strobe};
 
@@ -62,7 +63,7 @@ where
     }
 
     // Add random padding to the end of the headers.
-    written += io::copy(&mut RngReader.take(padding), &mut send_clr)?;
+    written += io::copy(&mut RngReader(rand::thread_rng()).take(padding), &mut send_clr)?;
 
     // Unwrap the sent cleartext writer.
     let (mut mres, signer) = send_clr.into_inner();
@@ -224,11 +225,11 @@ where
     Ok(None)
 }
 
-struct RngReader;
+struct RngReader(ThreadRng);
 
 impl Read for RngReader {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        rand::thread_rng().fill_bytes(buf);
+        self.0.fill_bytes(buf);
         Ok(buf.len())
     }
 }
