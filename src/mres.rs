@@ -179,7 +179,7 @@ where
     }
 
     // Keep the last 64 bytes as the encrypted signature.
-    let mut sig: [u8; SIGNATURE_LEN] = buf.try_into().unwrap();
+    let mut sig: [u8; SIGNATURE_LEN] = buf.try_into().expect("invalid sig len");
     mres.recv_enc(&mut sig, false);
 
     // Return the bytes written and the decrypted signature.
@@ -207,8 +207,9 @@ where
 
         if let Some((p, header)) = akem::decapsulate(d_r, q_r, q_s, &buf) {
             // Recover the ephemeral public key, the DEK, and the message offset.
-            let dek: [u8; DEK_LEN] = header[..DEK_LEN].try_into().unwrap();
-            let msg_offset = u64::from_le_bytes(header[DEK_LEN..].try_into().unwrap());
+            let dek: [u8; DEK_LEN] = header[..DEK_LEN].try_into().expect("invalid DEK len");
+            let msg_offset =
+                u64::from_le_bytes(header[DEK_LEN..].try_into().expect("invalid u64 len"));
 
             // Read the remainder of the headers and padding and write them to the verifier.
             let mut remainder = reader.take(msg_offset - hdr_offset);
