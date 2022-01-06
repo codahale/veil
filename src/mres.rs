@@ -1,5 +1,5 @@
 use std::convert::TryInto;
-use std::io::{self, Read, Result, Write};
+use std::io::{self, ErrorKind, Read, Result, Write};
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::RistrettoPoint;
@@ -202,27 +202,35 @@ where
     let mut hdr_offset = 0u64;
 
     // Iterate through blocks, looking for an encrypted header that can be decrypted.
-    while let Ok(()) = reader.read_exact(&mut buf) {
-        verifier.write_all(&buf)?;
-        hdr_offset += buf.len() as u64;
+    loop {
+        match reader.read_exact(&mut buf) {
+            Ok(()) => {
+                // Pass the block to the verifier.
+                verifier.write_all(&buf)?;
+                hdr_offset += buf.len() as u64;
 
-        if let Some((p, header)) = akem::decapsulate(d_r, q_r, q_s, &buf) {
-            // Recover the ephemeral public key, the DEK, and the message offset.
-            let dek: [u8; DEK_LEN] = header[..DEK_LEN].try_into().expect("invalid DEK len");
-            let msg_offset =
-                u64::from_le_bytes(header[DEK_LEN..].try_into().expect("invalid u64 len"));
+                if let Some((p, header)) = akem::decapsulate(d_r, q_r, q_s, &buf) {
+                    // Recover the ephemeral public key, the DEK, and the message offset.
+                    let dek: [u8; DEK_LEN] = header[..DEK_LEN].try_into().expect("invalid DEK len");
+                    let msg_offset =
+                        u64::from_le_bytes(header[DEK_LEN..].try_into().expect("invalid u64 len"));
 
-            // Read the remainder of the headers and padding and write them to the verifier.
-            let mut remainder = reader.take(msg_offset - hdr_offset);
-            io::copy(&mut remainder, verifier)?;
+                    // Read the remainder of the headers and padding and write them to the verifier.
+                    let mut remainder = reader.take(msg_offset - hdr_offset);
+                    io::copy(&mut remainder, verifier)?;
 
-            // Return the DEK and ephemeral public key.
-            return Ok(Some((dek, p)));
+                    // Return the DEK and ephemeral public key.
+                    return Ok(Some((dek, p)));
+                }
+            }
+
+            // If no header was found, return none.
+            Err(e) if e.kind() == ErrorKind::UnexpectedEof => return Ok(None),
+
+            // If an error was returned, bubble it up.
+            Err(e) => return Err(e),
         }
     }
-
-    // If no header was found, return none.
-    Ok(None)
 }
 
 struct RngReader(ThreadRng);
