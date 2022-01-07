@@ -248,16 +248,14 @@ mod tests {
 
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 
-    use crate::util;
-
     use super::*;
 
     #[test]
     pub fn round_trip() -> Result<()> {
-        let d_s = util::rand_scalar();
+        let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
 
-        let d_r = util::rand_scalar();
+        let d_r = Scalar::random(&mut rand::thread_rng());
         let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
 
         let message = b"this is a thingy";
@@ -280,10 +278,10 @@ mod tests {
 
     #[test]
     pub fn multi_block_message() -> Result<()> {
-        let d_s = util::rand_scalar();
+        let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
 
-        let d_r = util::rand_scalar();
+        let d_r = Scalar::random(&mut rand::thread_rng());
         let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
 
         let message = [69u8; 65 * 1024];
@@ -306,10 +304,10 @@ mod tests {
 
     #[test]
     pub fn split_sig() -> Result<()> {
-        let d_s = util::rand_scalar();
+        let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
 
-        let d_r = util::rand_scalar();
+        let d_r = Scalar::random(&mut rand::thread_rng());
         let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
 
         let message = [69u8; 32 * 1024 - 37];
@@ -332,10 +330,10 @@ mod tests {
 
     #[test]
     pub fn bad_message() -> Result<()> {
-        let d_s = util::rand_scalar();
+        let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
 
-        let d_r = util::rand_scalar();
+        let d_r = Scalar::random(&mut rand::thread_rng());
         let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
 
         let message = [69u8; 32 * 1024 - 37];

@@ -13,7 +13,7 @@ cli = ["anyhow", "clap", "clap_complete", "clio", "mimalloc", "rpassword"]
 
 [dependencies]
 bs58 = "0.4"
-curve25519-dalek = "3"
+curve25519-dalek = "4.0.0-pre.1"
 rand = "0.8"
 strobe-rs = "0.7"
 thiserror = "1"
