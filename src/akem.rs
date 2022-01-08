@@ -1,5 +1,6 @@
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
+use curve25519_dalek::traits::IsIdentity;
 use strobe_rs::{SecParam, Strobe};
 
 use crate::util::{StrobeExt, MAC_LEN, POINT_LEN};
@@ -31,13 +32,13 @@ pub fn encapsulate(
     akem.ad_point(q_r);
 
     // Calculate the static Diffie-Hellman shared secret and key the protocol with it.
-    akem.key_point(d_s * q_r);
+    akem.key(&diffie_hellman(d_s, q_r), false);
 
     // Encrypt the ephemeral public key.
     akem.send_enc(&mut out[..POINT_LEN], false);
 
     // Calculate the ephemeral Diffie-Hellman shared secret and key the protocol with it.
-    akem.key_point(d_e * q_r);
+    akem.key(&diffie_hellman(d_e, q_r), false);
 
     // Encrypt the plaintext.
     akem.send_enc(&mut out[POINT_LEN..POINT_LEN + plaintext.len()], false);
@@ -76,7 +77,7 @@ pub fn decapsulate(
     akem.ad_point(q_r);
 
     // Calculate the static Diffie-Hellman shared secret and key the protocol with it.
-    akem.key_point(d_r * q_s);
+    akem.key(&diffie_hellman(d_r, q_s), false);
 
     // Decrypt the ephemeral public key.
     akem.recv_enc(&mut q_e, false);
@@ -85,7 +86,7 @@ pub fn decapsulate(
     let q_e = CompressedRistretto::from_slice(&q_e).decompress()?;
 
     // Calculate the ephemeral Diffie-Hellman shared secret and key the protocol with it.
-    akem.key_point(d_r * q_e);
+    akem.key(&diffie_hellman(d_r, &q_e), false);
 
     // Decrypt the plaintext.
     akem.recv_enc(&mut ciphertext, false);
@@ -96,6 +97,15 @@ pub fn decapsulate(
 
     // Return the ephemeral public key and the plaintext.
     Some((q_e, plaintext))
+}
+
+fn diffie_hellman(d: &Scalar, q: &RistrettoPoint) -> Vec<u8> {
+    let zz = q * d;
+    if zz.is_identity() {
+        panic!("non-contributory ECDH");
+    }
+
+    zz.compress().to_bytes().to_vec()
 }
 
 #[cfg(test)]
