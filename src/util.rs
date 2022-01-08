@@ -1,3 +1,4 @@
+use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use std::io::Write;
 use std::{io, mem};
 
@@ -12,6 +13,9 @@ pub fn rand_array<const N: usize>() -> [u8; N] {
     rand::thread_rng().fill_bytes(&mut out);
     out
 }
+
+/// The generator point for ristretto255.
+pub const G: RistrettoPoint = RISTRETTO_BASEPOINT_POINT;
 
 /// The length of a MAC in bytes.
 pub const MAC_LEN: usize = 16;

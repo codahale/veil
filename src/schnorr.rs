@@ -1,12 +1,11 @@
 use std::convert::TryInto;
 use std::io::{Result, Write};
 
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use strobe_rs::{SecParam, Strobe};
 
-use crate::util::StrobeExt;
+use crate::util::{StrobeExt, G};
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = SCALAR_LEN * 2;
@@ -40,7 +39,7 @@ where
         let r = self.schnorr.hedge(d.as_bytes(), StrobeExt::prf_scalar);
 
         // Add the ephemeral public key as associated data.
-        let r_g = RISTRETTO_BASEPOINT_POINT * r;
+        let r_g = G * r;
         self.schnorr.ad_point(&r_g);
 
         // Derive a challenge scalar from PRF output.
@@ -103,7 +102,7 @@ impl Verifier {
         let s = if let Some(s) = Scalar::from_canonical_bytes(s) { s } else { return false };
 
         // Re-calculate the ephemeral public key and add it as associated data.
-        let r_g = (RISTRETTO_BASEPOINT_POINT * s) + (-c * q);
+        let r_g = (G * s) + (-c * q);
         self.schnorr.ad_point(&r_g);
 
         // Re-derive the challenge scalar.
@@ -132,14 +131,12 @@ mod tests {
     use std::io;
     use std::io::Write;
 
-    use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
-
     use super::*;
 
     #[test]
     pub fn sign_and_verify() -> Result<()> {
         let d = Scalar::random(&mut rand::thread_rng());
-        let q = RISTRETTO_BASEPOINT_POINT * d;
+        let q = G * d;
 
         let mut signer = Signer::new(io::sink());
         signer.write(b"this is a message that")?;
@@ -162,7 +159,7 @@ mod tests {
     #[test]
     pub fn bad_message() -> Result<()> {
         let d = Scalar::random(&mut rand::thread_rng());
-        let q = RISTRETTO_BASEPOINT_POINT * d;
+        let q = G * d;
 
         let mut signer = Signer::new(io::sink());
         signer.write(b"this is a message that")?;
@@ -185,7 +182,7 @@ mod tests {
     #[test]
     pub fn bad_key() -> Result<()> {
         let d = Scalar::random(&mut rand::thread_rng());
-        let q = RISTRETTO_BASEPOINT_POINT * d;
+        let q = G * d;
 
         let mut signer = Signer::new(io::sink());
         signer.write(b"this is a message that")?;
@@ -200,7 +197,7 @@ mod tests {
         verifier.write(b" pieces")?;
         verifier.flush()?;
 
-        assert_eq!(false, verifier.verify(&RISTRETTO_BASEPOINT_POINT, &sig));
+        assert_eq!(false, verifier.verify(&G, &sig));
 
         Ok(())
     }
@@ -208,7 +205,7 @@ mod tests {
     #[test]
     pub fn bad_sig() -> Result<()> {
         let d = Scalar::random(&mut rand::thread_rng());
-        let q = RISTRETTO_BASEPOINT_POINT * d;
+        let q = G * d;
 
         let mut signer = Signer::new(io::sink());
         signer.write(b"this is a message that")?;

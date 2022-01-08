@@ -4,7 +4,6 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::str::FromStr;
 use std::{fmt, io, iter};
 
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use rand::prelude::SliceRandom;
@@ -12,7 +11,7 @@ use zeroize::Zeroize;
 
 use crate::errors::*;
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
-use crate::util::POINT_LEN;
+use crate::util::{G, POINT_LEN};
 use crate::{mres, pbenc, scaldf, util};
 
 /// A 512-bit secret from which multiple private keys can be derived.
@@ -59,7 +58,7 @@ impl SecretKey {
 
     fn root(&self) -> PrivateKey {
         let d = scaldf::derive_root(&self.r);
-        PrivateKey { d, pk: PublicKey { q: RISTRETTO_BASEPOINT_POINT * d } }
+        PrivateKey { d, pk: PublicKey { q: G * d } }
     }
 }
 
@@ -173,7 +172,7 @@ impl PrivateKey {
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     pub fn derive(&self, key_id: &str) -> PrivateKey {
         let d = scaldf::derive_scalar(self.d, key_id);
-        PrivateKey { d, pk: PublicKey { q: RISTRETTO_BASEPOINT_POINT * d } }
+        PrivateKey { d, pk: PublicKey { q: G * d } }
     }
 }
 
@@ -267,8 +266,6 @@ impl FromStr for PublicKey {
 mod tests {
     use std::io::Cursor;
 
-    use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
-
     use super::*;
 
     #[test]
@@ -293,7 +290,7 @@ mod tests {
 
     #[test]
     pub fn public_key_encoding() {
-        let base = PublicKey { q: RISTRETTO_BASEPOINT_POINT };
+        let base = PublicKey { q: G };
 
         assert_eq!("GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3", base.to_string());
 

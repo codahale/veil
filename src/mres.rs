@@ -1,7 +1,6 @@
 use std::convert::TryInto;
 use std::io::{self, ErrorKind, Read, Result, Write};
 
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use rand::prelude::ThreadRng;
@@ -10,7 +9,7 @@ use strobe_rs::{SecParam, Strobe};
 
 use crate::akem;
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
-use crate::util::{StrobeExt, MAC_LEN, U64_LEN};
+use crate::util::{StrobeExt, G, MAC_LEN, U64_LEN};
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
@@ -36,7 +35,7 @@ where
     let (d_e, q_e, dek) = mres.hedge(d_s.as_bytes(), |clone| {
         // Generate an ephemeral key pair.
         let d_e = clone.prf_scalar();
-        let q_e = RISTRETTO_BASEPOINT_POINT * d_e;
+        let q_e = G * d_e;
 
         // Return the key pair and a DEK.
         (d_e, q_e, clone.prf_array::<DEK_LEN>())
@@ -246,17 +245,15 @@ impl Read for RngReader {
 mod tests {
     use std::io::Cursor;
 
-    use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
-
     use super::*;
 
     #[test]
     pub fn round_trip() -> Result<()> {
         let d_s = Scalar::random(&mut rand::thread_rng());
-        let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
+        let q_s = G * d_s;
 
         let d_r = Scalar::random(&mut rand::thread_rng());
-        let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
+        let q_r = G * d_r;
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
@@ -279,10 +276,10 @@ mod tests {
     #[test]
     pub fn multi_block_message() -> Result<()> {
         let d_s = Scalar::random(&mut rand::thread_rng());
-        let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
+        let q_s = G * d_s;
 
         let d_r = Scalar::random(&mut rand::thread_rng());
-        let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
+        let q_r = G * d_r;
 
         let message = [69u8; 65 * 1024];
         let mut src = Cursor::new(message);
@@ -305,10 +302,10 @@ mod tests {
     #[test]
     pub fn split_sig() -> Result<()> {
         let d_s = Scalar::random(&mut rand::thread_rng());
-        let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
+        let q_s = G * d_s;
 
         let d_r = Scalar::random(&mut rand::thread_rng());
-        let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
+        let q_r = G * d_r;
 
         let message = [69u8; 32 * 1024 - 37];
         let mut src = Cursor::new(message);
@@ -331,10 +328,10 @@ mod tests {
     #[test]
     pub fn bad_message() -> Result<()> {
         let d_s = Scalar::random(&mut rand::thread_rng());
-        let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
+        let q_s = G * d_s;
 
         let d_r = Scalar::random(&mut rand::thread_rng());
-        let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
+        let q_r = G * d_r;
 
         let message = [69u8; 32 * 1024 - 37];
         let mut src = Cursor::new(message);

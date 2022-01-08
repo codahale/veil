@@ -1,9 +1,8 @@
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use strobe_rs::{SecParam, Strobe};
 
-use crate::util::StrobeExt;
+use crate::util::{StrobeExt, G};
 
 /// Derive a scalar from the given secret key.
 pub fn derive_root(r: &[u8; 64]) -> Scalar {
@@ -23,7 +22,7 @@ pub fn derive_scalar(d: Scalar, key_id: &str) -> Scalar {
 
 /// Derive a point from another point using the given key ID.
 pub fn derive_point(q: &RistrettoPoint, key_id: &str) -> RistrettoPoint {
-    q + (RISTRETTO_BASEPOINT_POINT * derive_scalar(Scalar::zero(), key_id))
+    q + (G * derive_scalar(Scalar::zero(), key_id))
 }
 
 fn key_id_parts(key_id: &str) -> Vec<&str> {
