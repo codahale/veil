@@ -73,6 +73,7 @@ impl StrobeExt for Strobe {
         self.meta_ad(&n.to_le_bytes(), false);
     }
 
+    #[inline]
     fn ad_point(&mut self, q: &RistrettoPoint) {
         self.ad(q.compress().as_bytes(), false);
     }
