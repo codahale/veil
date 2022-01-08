@@ -47,7 +47,7 @@ pub trait StrobeExt {
     /// pass the clone to the given function.
     fn hedge<R, F>(&self, secret: &[u8], f: F) -> R
     where
-        F: FnOnce(&mut Strobe) -> R;
+        F: Fn(&mut Strobe) -> R;
 
     /// Create a writer which passes writes through `SEND_CLR` before passing them to the given
     /// writer.
@@ -90,7 +90,7 @@ impl StrobeExt for Strobe {
 
     fn hedge<R, F>(&self, secret: &[u8], f: F) -> R
     where
-        F: FnOnce(&mut Strobe) -> R,
+        F: Fn(&mut Strobe) -> R,
     {
         // Clone the protocol's state.
         let mut clone = self.clone();
