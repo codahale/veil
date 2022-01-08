@@ -13,7 +13,7 @@ pub fn derive_root(r: &[u8; 64]) -> Scalar {
 
 /// Derive a scalar from another scalar using the given key ID.
 pub fn derive_scalar(d: Scalar, key_id: &str) -> Scalar {
-    key_id.trim_matches('/').split('/').fold(d, |d_p, label| {
+    key_id.trim_matches(KEY_ID_DELIM).split(KEY_ID_DELIM).fold(d, |d_p, label| {
         let mut label_df = Strobe::new(b"veil.scaldf.label", SecParam::B128);
         label_df.key(label.as_bytes(), false);
         d_p + label_df.prf_scalar()
@@ -24,6 +24,8 @@ pub fn derive_scalar(d: Scalar, key_id: &str) -> Scalar {
 pub fn derive_point(q: &RistrettoPoint, key_id: &str) -> RistrettoPoint {
     q + (G * &derive_scalar(Scalar::zero(), key_id))
 }
+
+const KEY_ID_DELIM: char = '/';
 
 #[cfg(test)]
 mod tests {
