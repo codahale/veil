@@ -63,6 +63,18 @@ pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Vec<u8>> {
     Some(plaintext)
 }
 
+macro_rules! hash_counter {
+    ($pbenc:ident, $ctr:ident, $left:expr, $right:expr, $out:expr) => {
+        $ctr += 1;
+
+        $pbenc.ad(&$ctr.to_le_bytes(), false);
+        $pbenc.ad(&$left, false);
+        $pbenc.ad(&$right, false);
+
+        $pbenc.prf(&mut $out, false);
+    };
+}
+
 fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
     let mut pbenc = Strobe::new(b"veil.pbenc", SecParam::B128);
 
@@ -83,9 +95,9 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
     let mut buf = vec![[0u8; N]; space as usize];
 
     // Step 1: Expand input into buffer.
-    buf[0] = hash_counter(&mut pbenc, &mut ctr, passphrase, salt);
+    hash_counter!(pbenc, ctr, passphrase, salt, buf[0]);
     for m in 1..space as usize {
-        buf[m] = hash_counter(&mut pbenc, &mut ctr, &buf[m - 1], &[]);
+        hash_counter!(pbenc, ctr, buf[m - 1], [], buf[m]);
     }
 
     // Step 2: Mix buffer contents.
@@ -93,7 +105,7 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
         for m in 0..space as usize {
             // Step 2a: Hash last and current blocks.
             let prev = (m as isize - 1).rem_euclid(space as isize) as usize; // wrap 0 to last block
-            buf[m] = hash_counter(&mut pbenc, &mut ctr, &buf[prev], &buf[m]);
+            hash_counter!(pbenc, ctr, buf[prev], buf[m], buf[m]);
 
             // Step 2b: Hash in pseudo-randomly chosen blocks.
             for i in 0..DELTA {
@@ -101,11 +113,11 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
                 idx[..U64_LEN].copy_from_slice(&(t as u64).to_le_bytes());
                 idx[U64_LEN..U64_LEN * 2].copy_from_slice(&(m as u64).to_le_bytes());
                 idx[U64_LEN * 2..U64_LEN * 3].copy_from_slice(&(i as u64).to_le_bytes());
-                idx = hash_counter(&mut pbenc, &mut ctr, salt, &idx);
+                hash_counter!(pbenc, ctr, salt, idx, idx);
 
                 // Map the hashed index block back to an index and hash that block.
                 let v = u64::from_le_bytes(idx[..U64_LEN].try_into().expect("invalid u64 len"));
-                buf[m] = hash_counter(&mut pbenc, &mut ctr, &buf[(v % space as u64) as usize], &[]);
+                hash_counter!(pbenc, ctr, buf[(v % space as u64) as usize], [], buf[m]);
             }
         }
     }
@@ -114,17 +126,6 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
     pbenc.key(&buf[space as usize - 1], false);
 
     pbenc
-}
-
-#[inline]
-fn hash_counter(pbenc: &mut Strobe, ctr: &mut u64, left: &[u8], right: &[u8]) -> [u8; N] {
-    *ctr += 1;
-
-    pbenc.ad(&ctr.to_le_bytes(), false);
-    pbenc.ad(left, false);
-    pbenc.ad(right, false);
-
-    pbenc.prf_array()
 }
 
 const SALT_LEN: usize = 16;
