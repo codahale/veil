@@ -99,13 +99,13 @@ pub fn decapsulate(
     Some((q_e, plaintext))
 }
 
-fn diffie_hellman(d: &Scalar, q: &RistrettoPoint) -> Vec<u8> {
+fn diffie_hellman(d: &Scalar, q: &RistrettoPoint) -> [u8; 32] {
     let zz = q * d;
     if zz.is_identity() {
         panic!("non-contributory ECDH");
     }
 
-    zz.compress().to_bytes().to_vec()
+    zz.compress().to_bytes()
 }
 
 #[cfg(test)]
