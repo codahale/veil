@@ -22,7 +22,7 @@ pub fn derive_scalar(d: Scalar, key_id: &str) -> Scalar {
 
 /// Derive a point from another point using the given key ID.
 pub fn derive_point(q: &RistrettoPoint, key_id: &str) -> RistrettoPoint {
-    q + (G * derive_scalar(Scalar::zero(), key_id))
+    q + (G * &derive_scalar(Scalar::zero(), key_id))
 }
 
 fn key_id_parts(key_id: &str) -> Vec<&str> {

@@ -110,9 +110,10 @@ fn diffie_hellman(d: &Scalar, q: &RistrettoPoint) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use crate::util::G;
     use curve25519_dalek::ristretto::RistrettoPoint;
     use curve25519_dalek::scalar::Scalar;
+
+    use crate::util::G;
 
     use super::*;
 
@@ -155,13 +156,13 @@ mod tests {
 
     fn setup() -> (Scalar, RistrettoPoint, Scalar, RistrettoPoint, Scalar, RistrettoPoint) {
         let d_s = Scalar::random(&mut rand::thread_rng());
-        let q_s = G * d_s;
+        let q_s = G * &d_s;
 
         let d_e = Scalar::random(&mut rand::thread_rng());
-        let q_e = G * d_e;
+        let q_e = G * &d_e;
 
         let d_r = Scalar::random(&mut rand::thread_rng());
-        let q_r = G * d_r;
+        let q_r = G * &d_r;
 
         (d_s, q_s, d_e, q_e, d_r, q_r)
     }

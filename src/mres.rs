@@ -35,7 +35,7 @@ where
     let (d_e, q_e, dek) = mres.hedge(d_s.as_bytes(), |clone| {
         // Generate an ephemeral key pair.
         let d_e = clone.prf_scalar();
-        let q_e = G * d_e;
+        let q_e = G * &d_e;
 
         // Return the key pair and a DEK.
         (d_e, q_e, clone.prf_array::<DEK_LEN>())
@@ -250,10 +250,10 @@ mod tests {
     #[test]
     pub fn round_trip() -> Result<()> {
         let d_s = Scalar::random(&mut rand::thread_rng());
-        let q_s = G * d_s;
+        let q_s = G * &d_s;
 
         let d_r = Scalar::random(&mut rand::thread_rng());
-        let q_r = G * d_r;
+        let q_r = G * &d_r;
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
@@ -276,10 +276,10 @@ mod tests {
     #[test]
     pub fn multi_block_message() -> Result<()> {
         let d_s = Scalar::random(&mut rand::thread_rng());
-        let q_s = G * d_s;
+        let q_s = G * &d_s;
 
         let d_r = Scalar::random(&mut rand::thread_rng());
-        let q_r = G * d_r;
+        let q_r = G * &d_r;
 
         let message = [69u8; 65 * 1024];
         let mut src = Cursor::new(message);
@@ -302,10 +302,10 @@ mod tests {
     #[test]
     pub fn split_sig() -> Result<()> {
         let d_s = Scalar::random(&mut rand::thread_rng());
-        let q_s = G * d_s;
+        let q_s = G * &d_s;
 
         let d_r = Scalar::random(&mut rand::thread_rng());
-        let q_r = G * d_r;
+        let q_r = G * &d_r;
 
         let message = [69u8; 32 * 1024 - 37];
         let mut src = Cursor::new(message);
@@ -328,10 +328,10 @@ mod tests {
     #[test]
     pub fn bad_message() -> Result<()> {
         let d_s = Scalar::random(&mut rand::thread_rng());
-        let q_s = G * d_s;
+        let q_s = G * &d_s;
 
         let d_r = Scalar::random(&mut rand::thread_rng());
-        let q_r = G * d_r;
+        let q_r = G * &d_r;
 
         let message = [69u8; 32 * 1024 - 37];
         let mut src = Cursor::new(message);

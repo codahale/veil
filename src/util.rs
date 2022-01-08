@@ -1,8 +1,8 @@
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use std::io::Write;
 use std::{io, mem};
 
-use curve25519_dalek::ristretto::RistrettoPoint;
+use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
+use curve25519_dalek::ristretto::{RistrettoBasepointTable, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use rand::RngCore;
 use strobe_rs::Strobe;
@@ -15,7 +15,7 @@ pub fn rand_array<const N: usize>() -> [u8; N] {
 }
 
 /// The generator point for ristretto255.
-pub const G: RistrettoPoint = RISTRETTO_BASEPOINT_POINT;
+pub const G: &RistrettoBasepointTable = &RISTRETTO_BASEPOINT_TABLE;
 
 /// The length of a MAC in bytes.
 pub const MAC_LEN: usize = 16;

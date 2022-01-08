@@ -58,7 +58,7 @@ impl SecretKey {
 
     fn root(&self) -> PrivateKey {
         let d = scaldf::derive_root(&self.r);
-        PrivateKey { d, pk: PublicKey { q: G * d } }
+        PrivateKey { d, pk: PublicKey { q: G * &d } }
     }
 }
 
@@ -172,7 +172,7 @@ impl PrivateKey {
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     pub fn derive(&self, key_id: &str) -> PrivateKey {
         let d = scaldf::derive_scalar(self.d, key_id);
-        PrivateKey { d, pk: PublicKey { q: G * d } }
+        PrivateKey { d, pk: PublicKey { q: G * &d } }
     }
 }
 
@@ -290,7 +290,7 @@ mod tests {
 
     #[test]
     pub fn public_key_encoding() {
-        let base = PublicKey { q: G };
+        let base = PublicKey { q: G.basepoint() };
 
         assert_eq!("GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3", base.to_string());
 
