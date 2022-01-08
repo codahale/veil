@@ -66,11 +66,9 @@
     clippy::needless_borrow
 )]
 
-pub use self::errors::*;
 pub use self::veil::*;
 
 mod akem;
-mod errors;
 mod mres;
 mod pbenc;
 mod scaldf;
