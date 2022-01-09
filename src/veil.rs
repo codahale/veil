@@ -1,6 +1,6 @@
 use std::convert::TryInto;
 use std::fmt::{Debug, Formatter};
-use std::io::{BufReader, BufWriter, Read, Write};
+use std::io::{BufWriter, Read, Write};
 use std::str::FromStr;
 use std::{fmt, io, iter};
 
@@ -157,14 +157,7 @@ impl PrivateKey {
         q_rs.shuffle(&mut rand::thread_rng());
 
         // Finally, encrypt.
-        mres::encrypt(
-            &mut BufReader::new(reader),
-            &mut BufWriter::new(writer),
-            &self.d,
-            &self.pk.q,
-            q_rs,
-            padding,
-        )
+        mres::encrypt(reader, &mut BufWriter::new(writer), &self.d, &self.pk.q, q_rs, padding)
     }
 
     /// Decrypt the contents of the reader, if possible, and writes the plaintext to the writer.
@@ -181,13 +174,8 @@ impl PrivateKey {
         R: Read,
         W: Write,
     {
-        let (verified, written) = mres::decrypt(
-            &mut BufReader::new(reader),
-            &mut BufWriter::new(writer),
-            &self.d,
-            &self.pk.q,
-            &sender.q,
-        )?;
+        let (verified, written) =
+            mres::decrypt(reader, &mut BufWriter::new(writer), &self.d, &self.pk.q, &sender.q)?;
 
         if verified {
             Ok(written)
