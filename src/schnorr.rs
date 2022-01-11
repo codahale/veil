@@ -98,15 +98,9 @@ impl Verifier {
         let s = sig[SCALAR_LEN..].try_into().expect("invalid scalar len");
 
         // Decode the challenge and signature scalars.
-        let c = if let Some(c) = Scalar::from_canonical_bytes(c) {
-            c
-        } else {
-            return false;
-        };
-        let s = if let Some(s) = Scalar::from_canonical_bytes(s) {
-            s
-        } else {
-            return false;
+        let (c, s) = match (Scalar::from_canonical_bytes(c), Scalar::from_canonical_bytes(s)) {
+            (Some(c), Some(s)) => (c, s),
+            _ => return false,
         };
 
         // Re-calculate the ephemeral public key and add it as associated data.
