@@ -94,16 +94,20 @@ struct PublicKeyArgs {
     /// The ID of the generated public key.
     key_id: OsString,
 
+    /// The path to the public key file or '-' for stdout.
+    #[clap(parse(try_from_os_str = output_from_os_str), value_hint = ValueHint::FilePath, default_value="-")]
+    output: Output,
+
     /// The path to read the passphrase from.
     #[clap(long, value_hint = ValueHint::FilePath)]
     passphrase_file: Option<PathBuf>,
 }
 
 impl Cmd for PublicKeyArgs {
-    fn run(self) -> Result<()> {
+    fn run(mut self) -> Result<()> {
         let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
         let public_key = secret_key.public_key(self.key_id.to_string_lossy().as_ref());
-        println!("{}", public_key);
+        write!(self.output.lock(), "{}", public_key)?;
         Ok(())
     }
 }
@@ -116,13 +120,17 @@ struct DeriveKeyArgs {
 
     /// The sub ID of the generated public key.
     sub_key_id: OsString,
+
+    /// The path to the public key file or '-' for stdout.
+    #[clap(parse(try_from_os_str = output_from_os_str), value_hint = ValueHint::FilePath, default_value="-")]
+    output: Output,
 }
 
 impl Cmd for DeriveKeyArgs {
-    fn run(self) -> Result<()> {
+    fn run(mut self) -> Result<()> {
         let root = self.public_key.to_string_lossy().as_ref().parse::<PublicKey>()?;
         let public_key = root.derive(self.sub_key_id.to_string_lossy().as_ref());
-        println!("{}", public_key);
+        write!(self.output.lock(), "{}", public_key)?;
         Ok(())
     }
 }
@@ -232,6 +240,10 @@ struct SignArgs {
     #[clap(parse(try_from_os_str = input_from_os_str), value_hint = ValueHint::FilePath)]
     message: Input,
 
+    /// The path to the signature file or '-' for stdout.
+    #[clap(parse(try_from_os_str = output_from_os_str), value_hint = ValueHint::FilePath, default_value="-")]
+    output: Output,
+
     /// The path to read the passphrase from.
     #[clap(long, value_hint = ValueHint::FilePath)]
     passphrase_file: Option<PathBuf>,
@@ -242,7 +254,7 @@ impl Cmd for SignArgs {
         let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
         let private_key = secret_key.private_key(self.key_id.to_string_lossy().as_ref());
         let sig = private_key.sign(&mut self.message.lock())?;
-        println!("{}", sig);
+        write!(self.output.lock(), "{}", sig)?;
         Ok(())
     }
 }
