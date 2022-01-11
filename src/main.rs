@@ -18,98 +18,15 @@ static GLOBAL: MiMalloc = MiMalloc;
 fn main() -> Result<()> {
     let opts: Opts = Opts::parse();
     match opts.cmd {
-        Command::SecretKey(mut cmd) => secret_key(&mut cmd),
-        Command::PublicKey(cmd) => public_key(&cmd),
-        Command::DeriveKey(cmd) => derive_key(&cmd),
-        Command::Encrypt(mut cmd) => encrypt(&mut cmd),
-        Command::Decrypt(mut cmd) => decrypt(&mut cmd),
-        Command::Sign(mut cmd) => sign(&mut cmd),
-        Command::Verify(mut cmd) => verify(&mut cmd),
-        Command::Complete(mut cmd) => complete(&mut cmd),
+        Command::SecretKey(cmd) => cmd.run(),
+        Command::PublicKey(cmd) => cmd.run(),
+        Command::DeriveKey(cmd) => cmd.run(),
+        Command::Encrypt(cmd) => cmd.run(),
+        Command::Decrypt(cmd) => cmd.run(),
+        Command::Sign(cmd) => cmd.run(),
+        Command::Verify(cmd) => cmd.run(),
+        Command::Complete(cmd) => cmd.run(),
     }
-}
-
-fn secret_key(cmd: &mut SecretKeyArgs) -> Result<()> {
-    let passphrase = prompt_passphrase(&cmd.passphrase_file)?;
-    let secret_key = SecretKey::new();
-    let ciphertext = secret_key.encrypt(&passphrase, cmd.time, cmd.space);
-    fs::write(&mut cmd.output, ciphertext)?;
-    Ok(())
-}
-
-fn public_key(cmd: &PublicKeyArgs) -> Result<()> {
-    let secret_key = decrypt_secret_key(&cmd.passphrase_file, &cmd.secret_key)?;
-    let public_key = secret_key.public_key(cmd.key_id.to_string_lossy().as_ref());
-    println!("{}", public_key);
-    Ok(())
-}
-
-fn derive_key(cmd: &DeriveKeyArgs) -> Result<()> {
-    let root = cmd.public_key.to_string_lossy().as_ref().parse::<PublicKey>()?;
-    let public_key = root.derive(cmd.sub_key_id.to_string_lossy().as_ref());
-    println!("{}", public_key);
-    Ok(())
-}
-
-fn encrypt(cmd: &mut EncryptArgs) -> Result<()> {
-    let secret_key = decrypt_secret_key(&cmd.passphrase_file, &cmd.secret_key)?;
-    let private_key = secret_key.private_key(cmd.key_id.to_string_lossy().as_ref());
-    let pks = cmd
-        .recipients
-        .iter()
-        .map(|s| s.to_string_lossy().as_ref().parse::<PublicKey>())
-        .collect::<result::Result<Vec<PublicKey>, PublicKeyError>>()?;
-    private_key.encrypt(
-        &mut cmd.plaintext.lock(),
-        &mut cmd.ciphertext.lock(),
-        pks,
-        cmd.fakes,
-        cmd.padding,
-    )?;
-    Ok(())
-}
-
-fn decrypt(cmd: &mut DecryptArgs) -> Result<()> {
-    let secret_key = decrypt_secret_key(&cmd.passphrase_file, &cmd.secret_key)?;
-    let private_key = secret_key.private_key(cmd.key_id.to_string_lossy().as_ref());
-    let sender = cmd.sender.to_string_lossy().parse()?;
-    private_key.decrypt(&mut cmd.ciphertext.lock(), &mut cmd.plaintext.lock(), &sender)?;
-    Ok(())
-}
-
-fn sign(cmd: &mut SignArgs) -> Result<()> {
-    let secret_key = decrypt_secret_key(&cmd.passphrase_file, &cmd.secret_key)?;
-    let private_key = secret_key.private_key(cmd.key_id.to_string_lossy().as_ref());
-    let sig = private_key.sign(&mut cmd.message.lock())?;
-    println!("{}", sig);
-    Ok(())
-}
-
-fn verify(cmd: &mut VerifyArgs) -> Result<()> {
-    let signer = cmd.public_key.to_string_lossy().as_ref().parse::<PublicKey>()?;
-    let sig = cmd.signature.to_string_lossy().as_ref().parse::<Signature>()?;
-    signer.verify(&mut cmd.message.lock(), &sig)?;
-    Ok(())
-}
-
-fn decrypt_secret_key(passphrase_file: &Option<PathBuf>, path: &Path) -> Result<SecretKey> {
-    let passphrase = prompt_passphrase(passphrase_file)?;
-    let ciphertext = fs::read(path)?;
-    let sk = SecretKey::decrypt(&passphrase, &ciphertext)?;
-    Ok(sk)
-}
-
-fn prompt_passphrase(passphrase_file: &Option<PathBuf>) -> Result<String> {
-    match passphrase_file {
-        Some(p) => Ok(fs::read_to_string(p)?),
-        None => Ok(rpassword::read_password_from_tty(Some("Enter passphrase: "))?),
-    }
-}
-
-fn complete(cmd: &mut CompleteArgs) -> Result<()> {
-    let mut app: App = Opts::into_app();
-    generate_to(cmd.shell, &mut app, "veil", &cmd.output)?;
-    Ok(())
 }
 
 #[derive(Debug, Parser)]
@@ -118,6 +35,10 @@ fn complete(cmd: &mut CompleteArgs) -> Result<()> {
 struct Opts {
     #[clap(subcommand)]
     cmd: Command,
+}
+
+trait Cmd {
+    fn run(self) -> Result<()>;
 }
 
 #[derive(Debug, Subcommand)]
@@ -153,6 +74,16 @@ struct SecretKeyArgs {
     passphrase_file: Option<PathBuf>,
 }
 
+impl Cmd for SecretKeyArgs {
+    fn run(self) -> Result<()> {
+        let passphrase = prompt_passphrase(&self.passphrase_file)?;
+        let secret_key = SecretKey::new();
+        let ciphertext = secret_key.encrypt(&passphrase, self.time, self.space);
+        fs::write(self.output, ciphertext)?;
+        Ok(())
+    }
+}
+
 /// Derive a public key from a secret key.
 #[derive(Debug, Parser)]
 struct PublicKeyArgs {
@@ -168,6 +99,15 @@ struct PublicKeyArgs {
     passphrase_file: Option<PathBuf>,
 }
 
+impl Cmd for PublicKeyArgs {
+    fn run(self) -> Result<()> {
+        let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
+        let public_key = secret_key.public_key(self.key_id.to_string_lossy().as_ref());
+        println!("{}", public_key);
+        Ok(())
+    }
+}
+
 /// Derive a public key from another public key..
 #[derive(Debug, Parser)]
 struct DeriveKeyArgs {
@@ -176,6 +116,15 @@ struct DeriveKeyArgs {
 
     /// The sub ID of the generated public key.
     sub_key_id: OsString,
+}
+
+impl Cmd for DeriveKeyArgs {
+    fn run(self) -> Result<()> {
+        let root = self.public_key.to_string_lossy().as_ref().parse::<PublicKey>()?;
+        let public_key = root.derive(self.sub_key_id.to_string_lossy().as_ref());
+        println!("{}", public_key);
+        Ok(())
+    }
 }
 
 /// Encrypt a message for a set of recipients.
@@ -213,6 +162,26 @@ struct EncryptArgs {
     passphrase_file: Option<PathBuf>,
 }
 
+impl Cmd for EncryptArgs {
+    fn run(mut self) -> Result<()> {
+        let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
+        let private_key = secret_key.private_key(self.key_id.to_string_lossy().as_ref());
+        let pks = self
+            .recipients
+            .iter()
+            .map(|s| s.to_string_lossy().as_ref().parse::<PublicKey>())
+            .collect::<result::Result<Vec<PublicKey>, PublicKeyError>>()?;
+        private_key.encrypt(
+            &mut self.plaintext.lock(),
+            &mut self.ciphertext.lock(),
+            pks,
+            self.fakes,
+            self.padding,
+        )?;
+        Ok(())
+    }
+}
+
 /// Decrypt and verify a message.
 #[derive(Debug, Parser)]
 struct DecryptArgs {
@@ -239,6 +208,16 @@ struct DecryptArgs {
     passphrase_file: Option<PathBuf>,
 }
 
+impl Cmd for DecryptArgs {
+    fn run(mut self) -> Result<()> {
+        let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
+        let private_key = secret_key.private_key(self.key_id.to_string_lossy().as_ref());
+        let sender = self.sender.to_string_lossy().parse()?;
+        private_key.decrypt(&mut self.ciphertext.lock(), &mut self.plaintext.lock(), &sender)?;
+        Ok(())
+    }
+}
+
 /// Sign a message.
 #[derive(Debug, Parser)]
 struct SignArgs {
@@ -258,6 +237,16 @@ struct SignArgs {
     passphrase_file: Option<PathBuf>,
 }
 
+impl Cmd for SignArgs {
+    fn run(mut self) -> Result<()> {
+        let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
+        let private_key = secret_key.private_key(self.key_id.to_string_lossy().as_ref());
+        let sig = private_key.sign(&mut self.message.lock())?;
+        println!("{}", sig);
+        Ok(())
+    }
+}
+
 /// Verify a signature.
 #[derive(Debug, Parser)]
 struct VerifyArgs {
@@ -272,6 +261,15 @@ struct VerifyArgs {
     signature: OsString,
 }
 
+impl Cmd for VerifyArgs {
+    fn run(mut self) -> Result<()> {
+        let signer = self.public_key.to_string_lossy().as_ref().parse::<PublicKey>()?;
+        let sig = self.signature.to_string_lossy().as_ref().parse::<Signature>()?;
+        signer.verify(&mut self.message.lock(), &sig)?;
+        Ok(())
+    }
+}
+
 /// Generate shell completion scripts.
 #[derive(Debug, Parser)]
 #[clap(setting = AppSettings::Hidden)]
@@ -282,6 +280,28 @@ struct CompleteArgs {
     /// Output directory for shell completion scripts.
     #[clap(value_hint = ValueHint::DirPath)]
     output: OsString,
+}
+
+impl Cmd for CompleteArgs {
+    fn run(self) -> Result<()> {
+        let mut app: App = Opts::into_app();
+        generate_to(self.shell, &mut app, "veil", &self.output)?;
+        Ok(())
+    }
+}
+
+fn decrypt_secret_key(passphrase_file: &Option<PathBuf>, path: &Path) -> Result<SecretKey> {
+    let passphrase = prompt_passphrase(passphrase_file)?;
+    let ciphertext = fs::read(path)?;
+    let sk = SecretKey::decrypt(&passphrase, &ciphertext)?;
+    Ok(sk)
+}
+
+fn prompt_passphrase(passphrase_file: &Option<PathBuf>) -> Result<String> {
+    match passphrase_file {
+        Some(p) => Ok(fs::read_to_string(p)?),
+        None => Ok(rpassword::read_password_from_tty(Some("Enter passphrase: "))?),
+    }
 }
 
 fn input_from_os_str(path: &OsStr) -> Result<Input, String> {
