@@ -75,3 +75,4 @@ mod scaldf;
 mod schnorr;
 mod util;
 mod veil;
+mod vrf;
