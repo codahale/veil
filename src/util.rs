@@ -40,6 +40,9 @@ pub trait StrobeExt {
     /// Derive a scalar from PRF output.
     fn prf_scalar(&mut self) -> Scalar;
 
+    /// Derive a point from PRF output.
+    fn prf_point(&mut self) -> RistrettoPoint;
+
     /// Derive an array from PRF output.
     fn prf_array<const N: usize>(&mut self) -> [u8; N];
 
@@ -80,6 +83,10 @@ impl StrobeExt for Strobe {
 
     fn prf_scalar(&mut self) -> Scalar {
         Scalar::from_bytes_mod_order_wide(&self.prf_array())
+    }
+
+    fn prf_point(&mut self) -> RistrettoPoint {
+        RistrettoPoint::from_uniform_bytes(&self.prf_array())
     }
 
     fn prf_array<const N: usize>(&mut self) -> [u8; N] {
