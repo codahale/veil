@@ -10,6 +10,7 @@ pub const OVERHEAD: usize = POINT_LEN + MAC_LEN;
 
 /// Given a sender's key pair, an ephemeral key pair, and the recipient's public key, encrypt the
 /// given plaintext.
+#[must_use]
 pub fn encapsulate(
     d_s: &Scalar,
     q_s: &RistrettoPoint,
@@ -52,6 +53,7 @@ pub fn encapsulate(
 
 /// Given a recipient's key pair and sender's public key, recover the ephemeral public key and
 /// plaintext from the given ciphertext.
+#[must_use]
 pub fn decapsulate(
     d_r: &Scalar,
     q_r: &RistrettoPoint,
@@ -99,6 +101,7 @@ pub fn decapsulate(
     Some((q_e, plaintext))
 }
 
+#[must_use]
 fn diffie_hellman(d: &Scalar, q: &RistrettoPoint) -> [u8; 32] {
     let zz = q * d;
     if zz.is_identity() {

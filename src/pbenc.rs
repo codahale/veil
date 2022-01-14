@@ -6,6 +6,7 @@ use unicode_normalization::UnicodeNormalization;
 use crate::util::{self, StrobeExt, MAC_LEN, U32_LEN, U64_LEN};
 
 /// Encrypt the given plaintext using the given passphrase.
+#[must_use]
 pub fn encrypt(passphrase: &str, time: u32, space: u32, plaintext: &[u8]) -> Vec<u8> {
     // Generate a random salt.
     let salt: [u8; SALT_LEN] = util::rand_array();
@@ -34,6 +35,7 @@ pub fn encrypt(passphrase: &str, time: u32, space: u32, plaintext: &[u8]) -> Vec
 }
 
 /// Decrypt the given ciphertext using the given passphrase.
+#[must_use]
 pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Vec<u8>> {
     if ciphertext.len() < U32_LEN + U32_LEN + SALT_LEN + MAC_LEN {
         return None;

@@ -81,7 +81,8 @@ pub struct Verifier {
 }
 
 impl Verifier {
-    /// Create a new verifier.
+    /// Create a new ver ifier.
+    #[must_use]
     pub fn new() -> Verifier {
         let mut schnorr = Strobe::new(b"veil.schnorr", SecParam::B128);
         schnorr.recv_clr(&[], false);
@@ -89,6 +90,7 @@ impl Verifier {
     }
 
     /// Verify the previously-written message contents using the given public key and signature.
+    #[must_use]
     pub fn verify(mut self, q: &RistrettoPoint, sig: &[u8; SIGNATURE_LEN]) -> bool {
         // Add the signer's public key as associated data.
         self.schnorr.ad_point(q);

@@ -63,11 +63,13 @@ pub struct SecretKey {
 
 impl SecretKey {
     /// Return a randomly generated secret key.
+    #[must_use]
     pub fn new() -> SecretKey {
         SecretKey { r: util::rand_array() }
     }
 
     /// Encrypt the secret key with the given passphrase and pbenc parameters.
+    #[must_use]
     pub fn encrypt(&self, passphrase: &str, time: u32, space: u32) -> Vec<u8> {
         pbenc::encrypt(passphrase, time, space, &self.r)
     }
@@ -84,6 +86,7 @@ impl SecretKey {
     ///
     /// `key_id` should be slash-separated string (e.g. `/one/two/three`) which define a path of
     /// derived keys (e.g. `/` -> `one` -> `two` -> `three`).
+    #[must_use]
     pub fn private_key(&self, key_id: &str) -> PrivateKey {
         self.root().derive(key_id)
     }
@@ -92,10 +95,12 @@ impl SecretKey {
     ///
     /// `key_id` should be slash-separated string (e.g. `/one/two/three`) which define a path of
     /// derived keys (e.g. `/` -> `one` -> `two` -> `three`).
+    #[must_use]
     pub fn public_key(&self, key_id: &str) -> PublicKey {
         self.private_key(key_id).public_key()
     }
 
+    #[must_use]
     fn root(&self) -> PrivateKey {
         let d = scaldf::derive_root(&self.r);
         PrivateKey { d, pk: PublicKey { q: G * &d } }
@@ -123,6 +128,7 @@ pub struct PrivateKey {
 
 impl PrivateKey {
     /// Return the corresponding public key.
+    #[must_use]
     pub const fn public_key(&self) -> PublicKey {
         self.pk
     }
@@ -198,6 +204,7 @@ impl PrivateKey {
     ///
     /// `key_id` should be slash-separated string (e.g. `/one/two/three`) which define a path of
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
+    #[must_use]
     pub fn derive(&self, key_id: &str) -> PrivateKey {
         let d = scaldf::derive_scalar(self.d, key_id);
         PrivateKey { d, pk: PublicKey { q: G * &d } }
@@ -264,6 +271,7 @@ impl PublicKey {
     ///
     /// `key_id` should be slash-separated string (e.g. `/one/two/three`) which define a path of
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
+    #[must_use]
     pub fn derive(&self, key_id: &str) -> PublicKey {
         PublicKey { q: scaldf::derive_point(&self.q, key_id) }
     }

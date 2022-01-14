@@ -5,6 +5,7 @@ use strobe_rs::{SecParam, Strobe};
 use crate::util::{StrobeExt, G};
 
 /// Derive a scalar from the given secret key.
+#[must_use]
 pub fn derive_root(r: &[u8; 64]) -> Scalar {
     let mut root_df = Strobe::new(b"veil.scaldf.root", SecParam::B128);
     root_df.key(r, false);
@@ -12,6 +13,7 @@ pub fn derive_root(r: &[u8; 64]) -> Scalar {
 }
 
 /// Derive a scalar from another scalar using the given key ID.
+#[must_use]
 pub fn derive_scalar(d: Scalar, key_id: &str) -> Scalar {
     key_id.trim_matches(KEY_ID_DELIM).split(KEY_ID_DELIM).fold(d, |d_p, label| {
         let mut label_df = Strobe::new(b"veil.scaldf.label", SecParam::B128);
@@ -21,6 +23,7 @@ pub fn derive_scalar(d: Scalar, key_id: &str) -> Scalar {
 }
 
 /// Derive a point from another point using the given key ID.
+#[must_use]
 pub fn derive_point(q: &RistrettoPoint, key_id: &str) -> RistrettoPoint {
     q + (G * &derive_scalar(Scalar::zero(), key_id))
 }

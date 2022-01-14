@@ -8,6 +8,7 @@ use rand::RngCore;
 use strobe_rs::Strobe;
 
 /// Generate a random `u8` array.
+#[must_use]
 pub fn rand_array<const N: usize>() -> [u8; N] {
     let mut out = [0u8; N];
     rand::thread_rng().fill_bytes(&mut out);
@@ -38,31 +39,37 @@ pub trait StrobeExt {
     fn ad_point(&mut self, q: &RistrettoPoint);
 
     /// Derive a scalar from PRF output.
+    #[must_use]
     fn prf_scalar(&mut self) -> Scalar;
 
     /// Derive an array from PRF output.
+    #[must_use]
     fn prf_array<const N: usize>(&mut self) -> [u8; N];
 
     /// Clone the current instance, key it with the given secret, key it again with random data, and
     /// pass the clone to the given function.
+    #[must_use]
     fn hedge<R, F>(&self, secret: &[u8], f: F) -> R
     where
         F: Fn(&mut Strobe) -> R;
 
     /// Create a writer which passes writes through `SEND_CLR` before passing them to the given
     /// writer.
+    #[must_use]
     fn send_clr_writer<W>(self, w: W) -> SendClrWriter<W>
     where
         W: Write;
 
     /// Create a writer which passes writes through `SEND_ENC` before passing them to the given
     /// writer.
+    #[must_use]
     fn send_enc_writer<W>(self, w: W) -> SendEncWriter<W>
     where
         W: Write;
 
     /// Create a writer which passes writes through `RECV_CLR` before passing them to the given
     /// writer.
+    #[must_use]
     fn recv_clr_writer<W>(self, w: W) -> RecvClrWriter<W>
     where
         W: Write;
@@ -136,6 +143,7 @@ macro_rules! strobe_writer {
         pub struct $t<W: Write>(Strobe, W);
 
         impl<W: Write> $t<W> {
+            #[must_use]
             pub fn into_inner(self) -> (Strobe, W) {
                 (self.0, self.1)
             }
