@@ -8,7 +8,7 @@ use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use rand::prelude::SliceRandom;
 use thiserror::Error;
-use zeroize::Zeroize;
+use zeroize::ZeroizeOnDrop;
 
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::util::{G, POINT_LEN};
@@ -55,8 +55,7 @@ pub enum VerificationError {
 }
 
 /// A 512-bit secret from which multiple private keys can be derived.
-#[derive(Zeroize)]
-#[zeroize(drop)]
+#[derive(ZeroizeOnDrop)]
 pub struct SecretKey {
     r: [u8; 64],
 }
