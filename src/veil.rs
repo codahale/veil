@@ -201,7 +201,8 @@ impl PrivateKey {
     {
         let mut signer = Signer::new(io::sink());
         io::copy(reader, &mut signer)?;
-        Ok(Signature { sig: signer.sign(&self.d, &self.pk.q) })
+        let (sig, _) = signer.sign(&self.d, &self.pk.q);
+        Ok(Signature { sig: (sig) })
     }
 
     /// Derive a private key with the given key ID.

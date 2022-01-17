@@ -49,11 +49,6 @@ impl Protocol {
     }
 
     #[inline]
-    pub fn send_clr(&mut self, data: &[u8], more: bool) {
-        self.0.send_clr(data, more);
-    }
-
-    #[inline]
     pub fn recv_clr(&mut self, data: &[u8], more: bool) {
         self.0.send_clr(data, more);
     }

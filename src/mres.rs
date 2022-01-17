@@ -76,16 +76,16 @@ where
     written += io::copy(reader, &mut send_enc)?;
 
     // Unwrap the sent encryption writer.
-    let (mut mres, mut signer) = send_enc.into_inner();
+    let (mut mres, signer) = send_enc.into_inner();
 
     // Sign the encrypted headers and ciphertext with the ephemeral key pair.
-    let mut sig = signer.sign(&d_e, &q_e);
+    let (mut sig, writer) = signer.sign(&d_e, &q_e);
 
     // Encrypt the signature.
     mres.send_enc(&mut sig, false);
 
     // Write the encrypted signature.
-    signer.into_inner().write_all(&sig)?;
+    writer.write_all(&sig)?;
     written += sig.len() as u64;
 
     Ok(written)

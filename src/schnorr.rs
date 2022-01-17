@@ -6,7 +6,7 @@ use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 
 use crate::constants::SCALAR_LEN;
-use crate::strobe::Protocol;
+use crate::strobe::{Protocol, SendClrWriter};
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = SCALAR_LEN * 2;
@@ -14,8 +14,7 @@ pub const SIGNATURE_LEN: usize = SCALAR_LEN * 2;
 /// A writer which accumulates message contents for signing before passing them along to an inner
 /// writer.
 pub struct Signer<W: Write> {
-    schnorr: Protocol,
-    writer: W,
+    writer: SendClrWriter<W>,
 }
 
 impl<W> Signer<W>
@@ -24,41 +23,37 @@ where
 {
     /// Create a new signer which passes writes through to the given writer.
     pub fn new(writer: W) -> Signer<W> {
-        let mut schnorr = Protocol::new("veil.schnorr");
-        schnorr.send_clr(&[], false);
-        Signer { schnorr, writer }
+        let schnorr = Protocol::new("veil.schnorr");
+        Signer { writer: schnorr.send_clr_writer(writer) }
     }
 
     /// Create a signature of the previously-written message contents using the given key pair.
     #[allow(clippy::many_single_char_names)]
-    pub fn sign(&mut self, d: &Scalar, q: &RistrettoPoint) -> [u8; SIGNATURE_LEN] {
+    pub fn sign(self, d: &Scalar, q: &RistrettoPoint) -> ([u8; SIGNATURE_LEN], W) {
+        let (mut schnorr, writer) = self.writer.into_inner();
+
         // Add the signer's public key as associated data.
-        self.schnorr.ad_point(q);
+        schnorr.ad_point(q);
 
         // Derive an ephemeral scalar from the protocol's current state, the signer's private key,
         // and a random nonce.
-        let r = self.schnorr.hedge(d.as_bytes(), Protocol::prf_scalar);
+        let r = schnorr.hedge(d.as_bytes(), Protocol::prf_scalar);
 
         // Add the ephemeral public key as associated data.
         let r_g = &G * &r;
-        self.schnorr.ad_point(&r_g);
+        schnorr.ad_point(&r_g);
 
         // Derive a challenge scalar from PRF output.
-        let c = self.schnorr.prf_scalar();
+        let c = schnorr.prf_scalar();
 
         // Calculate the signature scalar.
         let s = d * c + r;
 
-        // Return the challenge and signature scalars.
+        // Return the challenge and signature scalars, plus the underlying writer.
         let mut sig = [0u8; SIGNATURE_LEN];
         sig[..SCALAR_LEN].copy_from_slice(c.as_bytes());
         sig[SCALAR_LEN..].copy_from_slice(s.as_bytes());
-        sig
-    }
-
-    /// Unwrap the signer, returning the inner writer.
-    pub fn into_inner(self) -> W {
-        self.writer
+        (sig, writer)
     }
 }
 
@@ -67,7 +62,6 @@ where
     W: Write,
 {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        self.schnorr.send_clr(buf, true);
         self.writer.write(buf)
     }
 
@@ -146,7 +140,7 @@ mod tests {
         signer.write(b" is in multiple pieces")?;
         signer.flush()?;
 
-        let sig = signer.sign(&d, &q);
+        let (sig, _) = signer.sign(&d, &q);
 
         let mut verifier = Verifier::new();
         verifier.write(b"this is a message that")?;
@@ -169,7 +163,7 @@ mod tests {
         signer.write(b" is in multiple pieces")?;
         signer.flush()?;
 
-        let sig = signer.sign(&d, &q);
+        let (sig, _) = signer.sign(&d, &q);
 
         let mut verifier = Verifier::new();
         verifier.write(b"this is NOT a message that")?;
@@ -192,7 +186,7 @@ mod tests {
         signer.write(b" is in multiple pieces")?;
         signer.flush()?;
 
-        let sig = signer.sign(&d, &q);
+        let (sig, _) = signer.sign(&d, &q);
 
         let mut verifier = Verifier::new();
         verifier.write(b"this is a message that")?;
@@ -215,7 +209,7 @@ mod tests {
         signer.write(b" is in multiple pieces")?;
         signer.flush()?;
 
-        let mut sig = signer.sign(&d, &q);
+        let (mut sig, _) = signer.sign(&d, &q);
         sig[22] ^= 1;
 
         let mut verifier = Verifier::new();
