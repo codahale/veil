@@ -119,9 +119,10 @@ impl Debug for SecretKey {
 }
 
 /// A derived private key, used to encrypt, decrypt, and sign messages.
-#[derive(Copy, Clone)]
+#[derive(Clone, ZeroizeOnDrop)]
 pub struct PrivateKey {
     d: Scalar,
+    #[zeroize(skip)]
     pk: PublicKey,
 }
 
