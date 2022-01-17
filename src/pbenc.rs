@@ -1,15 +1,17 @@
+use rand::RngCore;
 use std::convert::TryInto;
 
 use unicode_normalization::UnicodeNormalization;
 
 use crate::strobe::Protocol;
-use crate::util::{self, MAC_LEN, U32_LEN, U64_LEN};
+use crate::util::{MAC_LEN, U32_LEN, U64_LEN};
 
 /// Encrypt the given plaintext using the given passphrase.
 #[must_use]
 pub fn encrypt(passphrase: &str, time: u32, space: u32, plaintext: &[u8]) -> Vec<u8> {
     // Generate a random salt.
-    let salt: [u8; SALT_LEN] = util::rand_array();
+    let mut salt = [0u8; SALT_LEN];
+    rand::thread_rng().fill_bytes(&mut salt);
 
     // Perform the balloon hashing.
     let mut pbenc = init(passphrase.nfkc().to_string().as_bytes(), &salt, time, space);

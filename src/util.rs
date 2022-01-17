@@ -2,15 +2,6 @@ use std::mem;
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
 use curve25519_dalek::ristretto::RistrettoBasepointTable;
-use rand::RngCore;
-
-/// Generate a random `u8` array.
-#[must_use]
-pub fn rand_array<const N: usize>() -> [u8; N] {
-    let mut out = [0u8; N];
-    rand::thread_rng().fill_bytes(&mut out);
-    out
-}
 
 /// The generator point for ristretto255.
 pub const G: &RistrettoBasepointTable = &RISTRETTO_BASEPOINT_TABLE;

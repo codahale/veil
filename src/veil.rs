@@ -7,12 +7,13 @@ use std::{fmt, io, iter};
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use rand::prelude::SliceRandom;
+use rand::RngCore;
 use thiserror::Error;
 use zeroize::ZeroizeOnDrop;
 
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::util::{G, POINT_LEN};
-use crate::{mres, pbenc, scaldf, util};
+use crate::{mres, pbenc, scaldf};
 
 /// Error due to invalid public key format.
 #[derive(Error, Debug, Eq, PartialEq, Copy, Clone)]
@@ -64,7 +65,9 @@ impl SecretKey {
     /// Return a randomly generated secret key.
     #[must_use]
     pub fn new() -> SecretKey {
-        SecretKey { r: util::rand_array() }
+        let mut r = [0u8; 64];
+        rand::thread_rng().fill_bytes(&mut r);
+        SecretKey { r }
     }
 
     /// Encrypt the secret key with the given passphrase and pbenc parameters.

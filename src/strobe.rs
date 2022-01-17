@@ -1,6 +1,6 @@
-use crate::util::rand_array;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
+use rand::RngCore;
 use std::io::{self, Write};
 use strobe_rs::{SecParam, Strobe};
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -119,7 +119,8 @@ impl Protocol {
         clone.key(secret, false);
 
         // Key with a random value.
-        let r: [u8; 64] = rand_array();
+        let mut r = [0u8; 64];
+        rand::thread_rng().fill_bytes(&mut r);
         clone.key(&r, false);
 
         // Call the given function with the clone.
