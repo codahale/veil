@@ -1,11 +1,5 @@
 use std::mem;
 
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
-use curve25519_dalek::ristretto::RistrettoBasepointTable;
-
-/// The generator point for ristretto255.
-pub const G: &RistrettoBasepointTable = &RISTRETTO_BASEPOINT_TABLE;
-
 /// The length of a MAC in bytes.
 pub const MAC_LEN: usize = 16;
 

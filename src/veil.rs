@@ -4,6 +4,7 @@ use std::io::{BufWriter, Read, Write};
 use std::str::FromStr;
 use std::{fmt, io, iter};
 
+use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use rand::prelude::SliceRandom;
@@ -12,7 +13,7 @@ use thiserror::Error;
 use zeroize::ZeroizeOnDrop;
 
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
-use crate::util::{G, POINT_LEN};
+use crate::util::POINT_LEN;
 use crate::{mres, pbenc, scaldf};
 
 /// Error due to invalid public key format.
@@ -105,7 +106,7 @@ impl SecretKey {
     #[must_use]
     fn root(&self) -> PrivateKey {
         let d = scaldf::derive_root(&self.r);
-        PrivateKey { d, pk: PublicKey { q: G * &d } }
+        PrivateKey { d, pk: PublicKey { q: &G * &d } }
     }
 }
 
@@ -210,7 +211,7 @@ impl PrivateKey {
     #[must_use]
     pub fn derive(&self, key_id: &str) -> PrivateKey {
         let d = scaldf::derive_scalar(self.d, key_id);
-        PrivateKey { d, pk: PublicKey { q: G * &d } }
+        PrivateKey { d, pk: PublicKey { q: &G * &d } }
     }
 }
 

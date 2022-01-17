@@ -1,8 +1,8 @@
+use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 
 use crate::strobe::Protocol;
-use crate::util::G;
 
 /// Derive a scalar from the given secret key.
 #[must_use]
@@ -25,7 +25,7 @@ pub fn derive_scalar(d: Scalar, key_id: &str) -> Scalar {
 /// Derive a point from another point using the given key ID.
 #[must_use]
 pub fn derive_point(q: &RistrettoPoint, key_id: &str) -> RistrettoPoint {
-    q + (G * &derive_scalar(Scalar::zero(), key_id))
+    q + (&G * &derive_scalar(Scalar::zero(), key_id))
 }
 
 const KEY_ID_DELIM: char = '/';
@@ -49,7 +49,7 @@ mod tests {
     #[test]
     fn point_derivation() {
         let d = Scalar::random(&mut rand::thread_rng());
-        let q = G * &d;
+        let q = &G * &d;
 
         let q1 = derive_point(&q, "/one");
         let q2 = derive_point(&q1, "/two");

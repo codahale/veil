@@ -1,11 +1,11 @@
 use std::convert::TryInto;
 use std::io::{Result, Write};
 
+use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 
 use crate::strobe::Protocol;
-use crate::util::G;
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = SCALAR_LEN * 2;
@@ -39,7 +39,7 @@ where
         let r = self.schnorr.hedge(d.as_bytes(), Protocol::prf_scalar);
 
         // Add the ephemeral public key as associated data.
-        let r_g = G * &r;
+        let r_g = &G * &r;
         self.schnorr.ad_point(&r_g);
 
         // Derive a challenge scalar from PRF output.
@@ -106,7 +106,7 @@ impl Verifier {
         };
 
         // Re-calculate the ephemeral public key and add it as associated data.
-        let r_g = (G * &s) + (-c * q);
+        let r_g = (&G * &s) + (-c * q);
         self.schnorr.ad_point(&r_g);
 
         // Re-derive the challenge scalar.
@@ -140,7 +140,7 @@ mod tests {
     #[test]
     pub fn sign_and_verify() -> Result<()> {
         let d = Scalar::random(&mut rand::thread_rng());
-        let q = G * &d;
+        let q = &G * &d;
 
         let mut signer = Signer::new(io::sink());
         signer.write(b"this is a message that")?;
@@ -163,7 +163,7 @@ mod tests {
     #[test]
     pub fn bad_message() -> Result<()> {
         let d = Scalar::random(&mut rand::thread_rng());
-        let q = G * &d;
+        let q = &G * &d;
 
         let mut signer = Signer::new(io::sink());
         signer.write(b"this is a message that")?;
@@ -186,7 +186,7 @@ mod tests {
     #[test]
     pub fn bad_key() -> Result<()> {
         let d = Scalar::random(&mut rand::thread_rng());
-        let q = G * &d;
+        let q = &G * &d;
 
         let mut signer = Signer::new(io::sink());
         signer.write(b"this is a message that")?;
@@ -209,7 +209,7 @@ mod tests {
     #[test]
     pub fn bad_sig() -> Result<()> {
         let d = Scalar::random(&mut rand::thread_rng());
-        let q = G * &d;
+        let q = &G * &d;
 
         let mut signer = Signer::new(io::sink());
         signer.write(b"this is a message that")?;
