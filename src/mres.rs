@@ -5,11 +5,11 @@ use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use rand::prelude::ThreadRng;
 use rand::RngCore;
-use strobe_rs::{SecParam, Strobe};
 
 use crate::akem;
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
-use crate::util::{StrobeExt, G, MAC_LEN, U64_LEN};
+use crate::strobe::Protocol;
+use crate::util::{G, MAC_LEN, U64_LEN};
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
@@ -26,7 +26,7 @@ where
     W: Write,
 {
     // Initialize a protocol and add the MAC length and sender's public key as associated data.
-    let mut mres = Strobe::new(b"veil.mres", SecParam::B128);
+    let mut mres = Protocol::new("veil.mres");
     mres.meta_ad_u32(MAC_LEN as u32);
     mres.ad_point(q_s);
 
@@ -104,7 +104,7 @@ where
     W: Write,
 {
     // Initialize a protocol and add the MAC length and sender's public key as associated data.
-    let mut mres = Strobe::new(b"veil.mres", SecParam::B128);
+    let mut mres = Protocol::new("veil.mres");
     mres.meta_ad_u32(MAC_LEN as u32);
     mres.ad_point(q_s);
 
@@ -141,7 +141,7 @@ fn decrypt_message<R, W>(
     reader: &mut R,
     writer: &mut W,
     verifier: &mut Verifier,
-    mres: &mut Strobe,
+    mres: &mut Protocol,
 ) -> Result<(u64, [u8; SIGNATURE_LEN])>
 where
     R: Read,

@@ -1,9 +1,9 @@
 use std::convert::TryInto;
 
-use strobe_rs::{SecParam, Strobe};
 use unicode_normalization::UnicodeNormalization;
 
-use crate::util::{self, StrobeExt, MAC_LEN, U32_LEN, U64_LEN};
+use crate::strobe::Protocol;
+use crate::util::{self, MAC_LEN, U32_LEN, U64_LEN};
 
 /// Encrypt the given plaintext using the given passphrase.
 #[must_use]
@@ -77,8 +77,8 @@ macro_rules! hash_counter {
     };
 }
 
-fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
-    let mut pbenc = Strobe::new(b"veil.pbenc", SecParam::B128);
+fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Protocol {
+    let mut pbenc = Protocol::new("veil.pbenc");
 
     // Initialize protocol with metadata.
     pbenc.meta_ad_u32(DELTA as u32);

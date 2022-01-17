@@ -3,9 +3,9 @@ use std::io::{Result, Write};
 
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
-use strobe_rs::{SecParam, Strobe};
 
-use crate::util::{StrobeExt, G};
+use crate::strobe::Protocol;
+use crate::util::G;
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = SCALAR_LEN * 2;
@@ -13,7 +13,7 @@ pub const SIGNATURE_LEN: usize = SCALAR_LEN * 2;
 /// A writer which accumulates message contents for signing before passing them along to an inner
 /// writer.
 pub struct Signer<W: Write> {
-    schnorr: Strobe,
+    schnorr: Protocol,
     writer: W,
 }
 
@@ -23,7 +23,7 @@ where
 {
     /// Create a new signer which passes writes through to the given writer.
     pub fn new(writer: W) -> Signer<W> {
-        let mut schnorr = Strobe::new(b"veil.schnorr", SecParam::B128);
+        let mut schnorr = Protocol::new("veil.schnorr");
         schnorr.send_clr(&[], false);
         Signer { schnorr, writer }
     }
@@ -36,7 +36,7 @@ where
 
         // Derive an ephemeral scalar from the protocol's current state, the signer's private key,
         // and a random nonce.
-        let r = self.schnorr.hedge(d.as_bytes(), StrobeExt::prf_scalar);
+        let r = self.schnorr.hedge(d.as_bytes(), Protocol::prf_scalar);
 
         // Add the ephemeral public key as associated data.
         let r_g = G * &r;
@@ -77,14 +77,14 @@ where
 
 /// A writer which accumulates message contents for verifying.
 pub struct Verifier {
-    schnorr: Strobe,
+    schnorr: Protocol,
 }
 
 impl Verifier {
     /// Create a new ver ifier.
     #[must_use]
     pub fn new() -> Verifier {
-        let mut schnorr = Strobe::new(b"veil.schnorr", SecParam::B128);
+        let mut schnorr = Protocol::new("veil.schnorr");
         schnorr.recv_clr(&[], false);
         Verifier { schnorr }
     }
