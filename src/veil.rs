@@ -13,7 +13,7 @@ use thiserror::Error;
 use zeroize::ZeroizeOnDrop;
 
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
-use crate::util::POINT_LEN;
+use crate::constants::POINT_LEN;
 use crate::{mres, pbenc, scaldf};
 
 /// Error due to invalid public key format.

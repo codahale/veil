@@ -5,6 +5,7 @@ use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 
+use crate::constants::SCALAR_LEN;
 use crate::strobe::Protocol;
 
 /// The length of a signature, in bytes.
@@ -127,8 +128,6 @@ impl Write for Verifier {
         Ok(())
     }
 }
-
-const SCALAR_LEN: usize = 32;
 
 #[cfg(test)]
 mod tests {
