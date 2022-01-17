@@ -1,6 +1,6 @@
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsStr;
+use std::fs;
 use std::path::{Path, PathBuf};
-use std::{fs, result};
 
 use anyhow::Result;
 use clap::{App, IntoApp, Parser};
@@ -10,7 +10,7 @@ use clap_complete::Shell;
 use clio::{Input, Output};
 use mimalloc::MiMalloc;
 
-use veil::{PublicKey, PublicKeyError, SecretKey, Signature};
+use veil::{PublicKey, SecretKey, Signature};
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -92,7 +92,7 @@ struct PublicKeyArgs {
     secret_key: PathBuf,
 
     /// The ID of the generated public key.
-    key_id: OsString,
+    key_id: String,
 
     /// The path to the public key file or '-' for stdout.
     #[clap(parse(try_from_os_str = output_from_os_str), value_hint = ValueHint::FilePath, default_value="-")]
@@ -106,7 +106,7 @@ struct PublicKeyArgs {
 impl Cmd for PublicKeyArgs {
     fn run(mut self) -> Result<()> {
         let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
-        let public_key = secret_key.public_key(self.key_id.to_string_lossy().as_ref());
+        let public_key = secret_key.public_key(&self.key_id);
         write!(self.output.lock(), "{}", public_key)?;
         Ok(())
     }
@@ -116,10 +116,10 @@ impl Cmd for PublicKeyArgs {
 #[derive(Debug, Parser)]
 struct DeriveKeyArgs {
     /// The public key.
-    public_key: OsString,
+    public_key: PublicKey,
 
     /// The sub ID of the generated public key.
-    sub_key_id: OsString,
+    sub_key_id: String,
 
     /// The path to the public key file or '-' for stdout.
     #[clap(parse(try_from_os_str = output_from_os_str), value_hint = ValueHint::FilePath, default_value="-")]
@@ -128,8 +128,7 @@ struct DeriveKeyArgs {
 
 impl Cmd for DeriveKeyArgs {
     fn run(mut self) -> Result<()> {
-        let root = self.public_key.to_string_lossy().as_ref().parse::<PublicKey>()?;
-        let public_key = root.derive(self.sub_key_id.to_string_lossy().as_ref());
+        let public_key = self.public_key.derive(&self.sub_key_id);
         write!(self.output.lock(), "{}", public_key)?;
         Ok(())
     }
@@ -143,7 +142,7 @@ struct EncryptArgs {
     secret_key: PathBuf,
 
     /// The ID of the public key to use.
-    key_id: OsString,
+    key_id: String,
 
     /// The path to the input file or '-' for stdin.
     #[clap(parse(try_from_os_str = input_from_os_str), value_hint = ValueHint::FilePath)]
@@ -155,7 +154,7 @@ struct EncryptArgs {
 
     /// The recipient's public key.
     #[clap(required = true)]
-    recipients: Vec<OsString>,
+    recipients: Vec<PublicKey>,
 
     /// Add fake recipients.
     #[clap(long, default_value = "0")]
@@ -173,16 +172,11 @@ struct EncryptArgs {
 impl Cmd for EncryptArgs {
     fn run(mut self) -> Result<()> {
         let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
-        let private_key = secret_key.private_key(self.key_id.to_string_lossy().as_ref());
-        let pks = self
-            .recipients
-            .iter()
-            .map(|s| s.to_string_lossy().as_ref().parse::<PublicKey>())
-            .collect::<result::Result<Vec<PublicKey>, PublicKeyError>>()?;
+        let private_key = secret_key.private_key(&self.key_id);
         private_key.encrypt(
             &mut self.plaintext.lock(),
             &mut self.ciphertext.lock(),
-            pks,
+            self.recipients,
             self.fakes,
             self.padding,
         )?;
@@ -198,7 +192,7 @@ struct DecryptArgs {
     secret_key: PathBuf,
 
     /// The ID of the public key.
-    key_id: OsString,
+    key_id: String,
 
     /// The path to the input file or '-' for stdin.
     #[clap(parse(try_from_os_str = input_from_os_str), value_hint = ValueHint::FilePath)]
@@ -209,7 +203,7 @@ struct DecryptArgs {
     plaintext: Output,
 
     /// The sender's public key.
-    sender: OsString,
+    sender: PublicKey,
 
     /// The path to read the passphrase from.
     #[clap(long, value_hint = ValueHint::FilePath)]
@@ -219,9 +213,12 @@ struct DecryptArgs {
 impl Cmd for DecryptArgs {
     fn run(mut self) -> Result<()> {
         let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
-        let private_key = secret_key.private_key(self.key_id.to_string_lossy().as_ref());
-        let sender = self.sender.to_string_lossy().parse()?;
-        private_key.decrypt(&mut self.ciphertext.lock(), &mut self.plaintext.lock(), &sender)?;
+        let private_key = secret_key.private_key(&self.key_id);
+        private_key.decrypt(
+            &mut self.ciphertext.lock(),
+            &mut self.plaintext.lock(),
+            &self.sender,
+        )?;
         Ok(())
     }
 }
@@ -234,7 +231,7 @@ struct SignArgs {
     secret_key: PathBuf,
 
     /// The ID of the public key to use.
-    key_id: OsString,
+    key_id: String,
 
     /// The path to the message file or '-' for stdin.
     #[clap(parse(try_from_os_str = input_from_os_str), value_hint = ValueHint::FilePath)]
@@ -252,7 +249,7 @@ struct SignArgs {
 impl Cmd for SignArgs {
     fn run(mut self) -> Result<()> {
         let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
-        let private_key = secret_key.private_key(self.key_id.to_string_lossy().as_ref());
+        let private_key = secret_key.private_key(&self.key_id);
         let sig = private_key.sign(&mut self.message.lock())?;
         write!(self.output.lock(), "{}", sig)?;
         Ok(())
@@ -263,21 +260,19 @@ impl Cmd for SignArgs {
 #[derive(Debug, Parser)]
 struct VerifyArgs {
     /// The signer's public key.
-    public_key: OsString,
+    public_key: PublicKey,
 
     /// The path to the message file or '-' for stdin.
     #[clap(parse(try_from_os_str = input_from_os_str), value_hint = ValueHint::FilePath)]
     message: Input,
 
     /// The signature of the message.
-    signature: OsString,
+    signature: Signature,
 }
 
 impl Cmd for VerifyArgs {
     fn run(mut self) -> Result<()> {
-        let signer = self.public_key.to_string_lossy().as_ref().parse::<PublicKey>()?;
-        let sig = self.signature.to_string_lossy().as_ref().parse::<Signature>()?;
-        signer.verify(&mut self.message.lock(), &sig)?;
+        self.public_key.verify(&mut self.message.lock(), &self.signature)?;
         Ok(())
     }
 }
@@ -291,7 +286,7 @@ struct CompleteArgs {
 
     /// Output directory for shell completion scripts.
     #[clap(value_hint = ValueHint::DirPath)]
-    output: OsString,
+    output: PathBuf,
 }
 
 impl Cmd for CompleteArgs {
