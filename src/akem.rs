@@ -2,8 +2,8 @@ use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::IsIdentity;
 
-use crate::strobe::Protocol;
 use crate::constants::{MAC_LEN, POINT_LEN};
+use crate::strobe::Protocol;
 
 /// The number of bytes encapsulation adds to a plaintext.
 pub const OVERHEAD: usize = POINT_LEN + MAC_LEN;

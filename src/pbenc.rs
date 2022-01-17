@@ -3,8 +3,8 @@ use std::convert::TryInto;
 
 use unicode_normalization::UnicodeNormalization;
 
-use crate::strobe::Protocol;
 use crate::constants::{MAC_LEN, U32_LEN, U64_LEN};
+use crate::strobe::Protocol;
 
 /// Encrypt the given plaintext using the given passphrase.
 #[must_use]
