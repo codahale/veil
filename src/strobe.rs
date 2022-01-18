@@ -30,21 +30,18 @@ pub trait StrobeExt {
 
     /// Create a writer which passes writes through `SEND_CLR` before passing them to the given
     /// writer.
-    #[must_use]
     fn send_clr_writer<W>(self, w: W) -> SendClrWriter<W>
     where
         W: Write;
 
     /// Create a writer which passes writes through `SEND_ENC` before passing them to the given
     /// writer.
-    #[must_use]
     fn send_enc_writer<W>(self, w: W) -> SendEncWriter<W>
     where
         W: Write;
 
     /// Create a writer which passes writes through `RECV_CLR` before passing them to the given
     /// writer.
-    #[must_use]
     fn recv_clr_writer<W>(self, w: W) -> RecvClrWriter<W>
     where
         W: Write;
@@ -69,7 +66,6 @@ impl StrobeExt for Strobe {
         out
     }
 
-    #[must_use]
     fn hedge<R, F>(&self, secret: &[u8], f: F) -> R
     where
         F: Fn(&mut Strobe) -> R,
@@ -116,6 +112,7 @@ impl StrobeExt for Strobe {
 
 macro_rules! strobe_writer {
     ($t:ident, $strobe:ident, $buf:ident, $writer:ident, $body:block) => {
+        #[must_use]
         pub struct $t<W: Write>(Strobe, W);
 
         impl<W: Write> $t<W> {
