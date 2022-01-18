@@ -1,13 +1,14 @@
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
+use strobe_rs::{SecParam, Strobe};
 
-use crate::strobe::Protocol;
+use crate::strobe::StrobeExt;
 
 /// Derive a scalar from the given secret key.
 #[must_use]
 pub fn derive_root(r: &[u8; 64]) -> Scalar {
-    let mut root_df = Protocol::new("veil.scaldf.root");
+    let mut root_df = Strobe::new(b"veil.scaldf.root", SecParam::B128);
     root_df.key(r, false);
     root_df.prf_scalar()
 }
@@ -16,7 +17,7 @@ pub fn derive_root(r: &[u8; 64]) -> Scalar {
 #[must_use]
 pub fn derive_scalar(d: Scalar, key_id: &str) -> Scalar {
     key_id.trim_matches(KEY_ID_DELIM).split(KEY_ID_DELIM).fold(d, |d_p, label| {
-        let mut label_df = Protocol::new("veil.scaldf.label");
+        let mut label_df = Strobe::new(b"veil.scaldf.label", SecParam::B128);
         label_df.key(label.as_bytes(), false);
         d_p + label_df.prf_scalar()
     })

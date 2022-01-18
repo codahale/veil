@@ -1,114 +1,81 @@
+use std::io::{self, Write};
+
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use rand::RngCore;
-use std::io::{self, Write};
-use strobe_rs::{SecParam, Strobe};
-use zeroize::{Zeroize, ZeroizeOnDrop};
+use strobe_rs::Strobe;
 
-pub struct Protocol(Strobe);
-
-impl Zeroize for Protocol {
-    fn zeroize(&mut self) {
-        // Because Strobe doesn't implement Zeroize natively, we're overwriting the state instead by
-        // using the RATCHET operation with the security parameter in bytes. This will overwrite the
-        // full state.
-        self.0.ratchet(DEFAULT_SEC as usize / 8, false);
-    }
-}
-
-impl ZeroizeOnDrop for Protocol {}
-
-impl Drop for Protocol {
-    fn drop(&mut self) {
-        self.zeroize();
-    }
-}
-
-const DEFAULT_SEC: SecParam = SecParam::B128;
-
-impl Protocol {
-    #[must_use]
-    pub fn new(name: &str) -> Protocol {
-        Protocol(Strobe::new(name.as_bytes(), DEFAULT_SEC))
-    }
-
+/// An extension trait for [Strobe] instances.
+pub trait StrobeExt {
     /// Add the given `u32` as little endian encoded meta associated data.
-    #[inline]
-    pub fn meta_ad_u32(&mut self, n: u32) {
-        self.0.meta_ad(&n.to_le_bytes(), false);
-    }
-
-    #[inline]
-    pub fn ad(&mut self, data: &[u8], more: bool) {
-        self.0.ad(data, more);
-    }
-
-    #[inline]
-    pub fn key(&mut self, data: &[u8], more: bool) {
-        self.0.key(data, more);
-    }
-
-    #[inline]
-    pub fn recv_clr(&mut self, data: &[u8], more: bool) {
-        self.0.send_clr(data, more);
-    }
-
-    #[inline]
-    pub fn send_enc(&mut self, data: &mut [u8], more: bool) {
-        self.0.send_enc(data, more);
-    }
-
-    #[inline]
-    pub fn recv_enc(&mut self, data: &mut [u8], more: bool) {
-        self.0.recv_enc(data, more);
-    }
-
-    #[inline]
-    pub fn send_mac(&mut self, data: &mut [u8], more: bool) {
-        self.0.send_mac(data, more);
-    }
-
-    #[inline]
-    pub fn recv_mac(&mut self, data: &mut [u8]) -> Result<(), strobe_rs::AuthError> {
-        self.0.recv_mac(data)
-    }
-
-    #[inline]
-    pub fn prf(&mut self, data: &mut [u8], more: bool) {
-        self.0.prf(data, more);
-    }
+    fn meta_ad_u32(&mut self, n: u32);
 
     /// Add the compressed form of the given point as associated data.
-    #[inline]
-    pub fn ad_point(&mut self, q: &RistrettoPoint) {
-        self.0.ad(q.compress().as_bytes(), false);
-    }
+    fn ad_point(&mut self, q: &RistrettoPoint);
 
     /// Derive a scalar from PRF output.
     #[must_use]
-    #[inline]
-    pub fn prf_scalar(&mut self) -> Scalar {
-        Scalar::from_bytes_mod_order_wide(&self.prf_array())
-    }
+    fn prf_scalar(&mut self) -> Scalar;
 
     /// Derive an array from PRF output.
     #[must_use]
-    #[inline]
-    pub fn prf_array<const N: usize>(&mut self) -> [u8; N] {
-        let mut out = [0u8; N];
-        self.0.prf(&mut out, false);
-        out
-    }
+    fn prf_array<const N: usize>(&mut self) -> [u8; N];
 
     /// Clone the current instance, key it with the given secret, key it again with random data, and
     /// pass the clone to the given function.
     #[must_use]
-    pub fn hedge<R, F>(&self, secret: &[u8], f: F) -> R
+    fn hedge<R, F>(&self, secret: &[u8], f: F) -> R
     where
-        F: Fn(&mut Protocol) -> R,
+        F: Fn(&mut Strobe) -> R;
+
+    /// Create a writer which passes writes through `SEND_CLR` before passing them to the given
+    /// writer.
+    #[must_use]
+    fn send_clr_writer<W>(self, w: W) -> SendClrWriter<W>
+    where
+        W: Write;
+
+    /// Create a writer which passes writes through `SEND_ENC` before passing them to the given
+    /// writer.
+    #[must_use]
+    fn send_enc_writer<W>(self, w: W) -> SendEncWriter<W>
+    where
+        W: Write;
+
+    /// Create a writer which passes writes through `RECV_CLR` before passing them to the given
+    /// writer.
+    #[must_use]
+    fn recv_clr_writer<W>(self, w: W) -> RecvClrWriter<W>
+    where
+        W: Write;
+}
+
+impl StrobeExt for Strobe {
+    fn meta_ad_u32(&mut self, n: u32) {
+        self.meta_ad(&n.to_le_bytes(), false);
+    }
+
+    fn ad_point(&mut self, q: &RistrettoPoint) {
+        self.ad(q.compress().as_bytes(), false);
+    }
+
+    fn prf_scalar(&mut self) -> Scalar {
+        Scalar::from_bytes_mod_order_wide(&self.prf_array())
+    }
+
+    fn prf_array<const N: usize>(&mut self) -> [u8; N] {
+        let mut out = [0u8; N];
+        self.prf(&mut out, false);
+        out
+    }
+
+    #[must_use]
+    fn hedge<R, F>(&self, secret: &[u8], f: F) -> R
+    where
+        F: Fn(&mut Strobe) -> R,
     {
         // Clone the protocol's state.
-        let mut clone = Protocol(self.0.clone());
+        let mut clone = self.clone();
 
         // Key with the given secret.
         clone.key(secret, false);
@@ -122,23 +89,15 @@ impl Protocol {
         f(&mut clone)
     }
 
-    /// Create a writer which passes writes through `SEND_CLR` before passing them to the given
-    /// writer.
-    #[must_use]
-    #[inline]
-    pub fn send_clr_writer<W>(mut self, w: W) -> SendClrWriter<W>
+    fn send_clr_writer<W>(mut self, w: W) -> SendClrWriter<W>
     where
         W: Write,
     {
-        self.0.send_clr(&[], false);
+        self.send_clr(&[], false);
         SendClrWriter(self, w)
     }
 
-    /// Create a writer which passes writes through `SEND_ENC` before passing them to the given
-    /// writer.
-    #[must_use]
-    #[inline]
-    pub fn send_enc_writer<W>(mut self, w: W) -> SendEncWriter<W>
+    fn send_enc_writer<W>(mut self, w: W) -> SendEncWriter<W>
     where
         W: Write,
     {
@@ -146,26 +105,22 @@ impl Protocol {
         SendEncWriter(self, w)
     }
 
-    /// Create a writer which passes writes through `RECV_CLR` before passing them to the given
-    /// writer.
-    #[must_use]
-    #[inline]
-    pub fn recv_clr_writer<W>(mut self, w: W) -> RecvClrWriter<W>
+    fn recv_clr_writer<W>(mut self, w: W) -> RecvClrWriter<W>
     where
         W: Write,
     {
-        self.0.recv_clr(&[], false);
+        self.recv_clr(&[], false);
         RecvClrWriter(self, w)
     }
 }
 
 macro_rules! strobe_writer {
     ($t:ident, $strobe:ident, $buf:ident, $writer:ident, $body:block) => {
-        pub struct $t<W: Write>(Protocol, W);
+        pub struct $t<W: Write>(Strobe, W);
 
         impl<W: Write> $t<W> {
             #[must_use]
-            pub fn into_inner(self) -> (Protocol, W) {
+            pub fn into_inner(self) -> (Strobe, W) {
                 (self.0, self.1)
             }
         }
@@ -186,17 +141,17 @@ macro_rules! strobe_writer {
 }
 
 strobe_writer!(SendClrWriter, strobe, buf, w, {
-    strobe.0.send_clr(buf, true);
+    strobe.send_clr(buf, true);
     w.write(buf)
 });
 
 strobe_writer!(SendEncWriter, strobe, buf, w, {
     let mut input = Vec::from(buf);
-    strobe.0.send_enc(&mut input, true);
+    strobe.send_enc(&mut input, true);
     w.write(&input)
 });
 
 strobe_writer!(RecvClrWriter, strobe, buf, w, {
-    strobe.0.recv_clr(buf, true);
+    strobe.recv_clr(buf, true);
     w.write(buf)
 });

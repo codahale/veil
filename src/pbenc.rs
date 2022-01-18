@@ -1,10 +1,11 @@
-use rand::RngCore;
 use std::convert::TryInto;
 
+use rand::RngCore;
+use strobe_rs::{SecParam, Strobe};
 use unicode_normalization::UnicodeNormalization;
 
 use crate::constants::{MAC_LEN, U32_LEN, U64_LEN};
-use crate::strobe::Protocol;
+use crate::strobe::StrobeExt;
 
 /// Encrypt the given plaintext using the given passphrase.
 #[must_use]
@@ -79,8 +80,8 @@ macro_rules! hash_counter {
     };
 }
 
-fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Protocol {
-    let mut pbenc = Protocol::new("veil.pbenc");
+fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
+    let mut pbenc = Strobe::new(b"veil.pbenc", SecParam::B128);
 
     // Initialize protocol with metadata.
     pbenc.meta_ad_u32(DELTA as u32);

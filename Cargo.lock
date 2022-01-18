@@ -773,13 +773,13 @@ dependencies = [
 [[package]]
 name = "strobe-rs"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ff6a920303c8c2f1f0c5dcb3442ae729de31cf2b3b18b929bac74c81f8582d9"
+source = "git+https://github.com/codahale/strobe-rs?branch=zeroize-support#58d289e7b2b7914ef90bbd0c6c96235711948cd3"
 dependencies = [
  "bitflags",
  "byteorder",
  "keccak",
  "subtle",
+ "zeroize",
 ]
 
 [[package]]

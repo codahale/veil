@@ -1,9 +1,10 @@
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::IsIdentity;
+use strobe_rs::{SecParam, Strobe};
 
 use crate::constants::{MAC_LEN, POINT_LEN};
-use crate::strobe::Protocol;
+use crate::strobe::StrobeExt;
 
 /// The number of bytes encapsulation adds to a plaintext.
 pub const OVERHEAD: usize = POINT_LEN + MAC_LEN;
@@ -25,7 +26,7 @@ pub fn encapsulate(
     out[POINT_LEN..POINT_LEN + plaintext.len()].copy_from_slice(plaintext);
 
     // Initialize the protocol.
-    let mut akem = Protocol::new("veil.akem");
+    let mut akem = Strobe::new(b"veil.akem", SecParam::B128);
     akem.meta_ad_u32(MAC_LEN as u32);
 
     // Include the sender and receiver as associated data.
@@ -71,7 +72,7 @@ pub fn decapsulate(
     let mut mac = ciphertext.split_off(ciphertext.len() - MAC_LEN);
 
     // Initialize the protocol.
-    let mut akem = Protocol::new("veil.akem");
+    let mut akem = Strobe::new(b"veil.akem", SecParam::B128);
     akem.meta_ad_u32(MAC_LEN as u32);
 
     // Include the sender and receiver as associated data.
