@@ -12,12 +12,16 @@ AD(Q_R)
 AD(Q_S)
 ```
 
+A [`veil.dvsig`](dvsig.md) signature $S$ is calculated of the ephemeral public key $Q_E$ using the recipient's public
+key as the designated verifier.
+
 The static shared secret point is calculated ${ZZ_S}=[{d_S}]{Q_R}=[{d_R}{d_S}]G$ and used as a key to encrypt the
-ephemeral public key $Q_E$:
+ephemeral public key $Q_E$ and signature $S$:
 
 ```text
 KEY(ZZ_S)
-SEND_ENC(Q_E) -> E
+SEND_ENC(Q_E) -> E_1
+SEND_ENC(S)   -> E_2
 ```
 
 The ephemeral shared secret point is calculated ${ZZ_E}=[{d_E}]{Q_R}=[{d_R}{d_E}]G$ and used as a key:
@@ -34,7 +38,7 @@ SEND_ENC(P)     -> C
 SEND_MAC(N_M)   -> M
 ```
 
-The resulting ciphertext is the concatenation of $E$, $C$, and $M$.
+The resulting ciphertext is the concatenation of $E_1$, $E_2$, $C$, and $M$.
 
 ## Decapsulation
 
@@ -49,12 +53,15 @@ AD(Q_S)
 ```
 
 The static shared secret point is calculated ${ZZ_S}=[{d_R}]{Q_S}=[{d_R}{d_S}]G$ and used as a key to decrypt the
-ephemeral public key $Q_E$:
+ephemeral public key $Q_E$ and signature $S$:
 
 ```text
 KEY(ZZ_S)
-RECV_ENC(E) -> Q_E
+RECV_ENC(E_1) -> Q_E
+RECV_ENC(E_2) -> S
 ```
+
+The signature $S$ is verified with [`veil.dvsig`](dvsig.md). If invalid, the decryption returns an error.
 
 The ephemeral shared secret point is calculated ${ZZ_E}=[{d_R}]{Q_E}=[{d_R}{d_E}]G$ and used as a key to decrypt the
 plaintext and verify the MAC:
@@ -112,7 +119,35 @@ The ephemeral key pair, $d_E$ and $Q_E$, are generated outside of this construct
 multiple recipients. This improves the efficiency of the scheme without reducing its security, per Bellare et al.'s
 treatment of [Randomness Reusing Multi-Recipient Encryption Schemes][rr-mres].
 
+## Key Compromise Impersonation
+
+Per [Strangio][kci]:
+
+> \[S\]uppose an adversary (say Eve) has learned the private key of Alice either by compromising the machine running an
+> instance of the protocol (e.g. with the private key stored in conventional memory as part of the current state) or
+> perhaps by cloning Alice’s smart card while she inadvertently left it unattended. Eve may now be able to mount the
+> following attacks against the protocol:
+> 
+> 1. impersonate Alice in a protocol run;
+> 2. impersonate a different party (e.g. Bob) in a protocol run with Alice;
+> 3. obtain previously generated session keys established in honest-party runs of the protocol.
+> 
+> In case 1. Eve can send messages on behalf of Alice and these will be accepted as authentic, in case 2. Eve could 
+> establish a session with Alice while masquerading as another party; this is known as Key Compromise Impersonation
+> (KCI)...
+
+A static Diffie-Hellman exchange is vulnerable to KCI attacks, in that the shared secret point ${ZZ_S}$ can be 
+calculated as $[{d_S}]{Q_R}$ by an authentic sender or as $[{d_R}]{Q_S}$ by an attacker in possession of the recipient's
+private key $d_S$ and the sender's public key $Q_S$.
+
+`veil.akem` prevents KCI attacks by including a [designated-verifier signature](dvsig.md) of the ephemeral public key.
+The signature can be verified by but not constructed by the recipient; as such, a verified signature proves the 
+ephemeral public key is authentic. Because the signature cannot be verified without the recipient's private key, a
+dishonest recipient cannot prove to a third party that the ephemeral public key was provided by the sender without
+revealing their own private key.
 
 [ik-cca]: https://iacr.org/archive/asiacrypt2001/22480568.pdf
+
+[kci]: https://eprint.iacr.org/2006/252.pdf
 
 [rr-mres]: http://cseweb.ucsd.edu/~Mihir/papers/bbs.pdf

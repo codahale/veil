@@ -22,7 +22,6 @@ pub fn encapsulate(
     q_r: &RistrettoPoint,
     plaintext: &[u8],
 ) -> Vec<u8> {
-    // TODO document this addition
     // Allocate a buffer for output and fill it with the ephemeral public key, a signature of the
     // ephemeral public key with the recipient as the designated verifier, and the plaintext.
     let mut out = vec![0u8; OVERHEAD + plaintext.len()];
