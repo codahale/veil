@@ -51,7 +51,7 @@ AD(Q)
 
 The public ephemeral is re-calculated as $R' = [{-c}]Q + [s]G$ and the challenge scalar is re-derived from PRF output:
 
-```
+```text
 AD(R')
 PRF(64) -> c'
 ```
