@@ -91,7 +91,7 @@ PRF(64) -> r
 RECV_ENC(E_3) -> K
 ```
 
-The counterfactual signature point $K' = [{d_V}](U + [r]{Q_R})$ is calculated, and if $K' \equiv K$, the decryption
+The counterfactual signature point $K' = [{d_R}](U + [r]{Q_S})$ is calculated, and if $K' \equiv K$, the decryption
 continues. At this point, the receiver knows that $Q_E$ is authentic.
 
 The ephemeral shared secret point is calculated ${ZZ_E}=[{d_R}]{Q_E}=[{d_R}{d_E}]G$ and used as a key to decrypt the
