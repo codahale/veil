@@ -6,37 +6,47 @@ use strobe_rs::{SecParam, Strobe};
 use crate::constants::POINT_LEN;
 use crate::strobe::StrobeExt;
 
-// TODO document this construction and these functions
-// https://www.iacr.org/archive/pkc2004/29470087/29470087.pdf
-
+/// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = POINT_LEN * 2;
 
+/// Create a signature of message `m` which is only verifiable with the verifier's private key.
 pub fn sign(
     d_s: &Scalar,
     q_s: &RistrettoPoint,
     q_v: &RistrettoPoint,
     m: &[u8],
 ) -> [u8; SIGNATURE_LEN] {
+    // Initialize the protocol.
     let mut dvsig = Strobe::new(b"veil.dvsig", SecParam::B128);
+
+    // Include the signer and verifier as associated data.
     dvsig.ad_point(q_s);
     dvsig.ad_point(q_v);
 
+    // Hedge a nonce scalar and calculate the commitment point.
     let k = dvsig.hedge(d_s.as_bytes(), StrobeExt::prf_scalar);
     let u = &G * &k;
 
+    // Include the message and commitment point as associated data.
     dvsig.ad(m, false);
     dvsig.ad_point(&u);
 
+    // Extract a challenge scalar and calculate a signature scalar.
     let r = dvsig.prf_scalar();
     let s = k + (r * d_s);
+
+    // Convert the signature scalar to a signature point with the verifier's public key.
     let k = q_v * s;
 
+    // Encode the commitment point and signature point and return.
     let mut sig = [0u8; SIGNATURE_LEN];
     sig[..POINT_LEN].copy_from_slice(u.compress().as_bytes());
     sig[POINT_LEN..].copy_from_slice(k.compress().as_bytes());
     sig
 }
 
+/// Verify the signature and message. Returns `true` iff the signature was created by the signer of
+/// the given message with the designated verifier.
 pub fn verify(
     d_v: &Scalar,
     q_v: &RistrettoPoint,
@@ -44,6 +54,7 @@ pub fn verify(
     m: &[u8],
     sig: [u8; SIGNATURE_LEN],
 ) -> bool {
+    // Decode the commitment point and signature point, if possible.
     let (u, k) = match (
         CompressedRistretto::from_slice(&sig[..POINT_LEN]).decompress(),
         CompressedRistretto::from_slice(&sig[POINT_LEN..]).decompress(),
@@ -52,16 +63,22 @@ pub fn verify(
         _ => return false,
     };
 
+    // Initialize the protocol.
     let mut dvsig = Strobe::new(b"veil.dvsig", SecParam::B128);
+
+    // Include the signer and verifier as associated data.
     dvsig.ad_point(q_s);
     dvsig.ad_point(q_v);
 
+    // Include the message and commitment point as associated data.
     dvsig.ad(m, false);
     dvsig.ad_point(&u);
 
+    // Extract a challenge scalar and calculate the signature point.
     let r = dvsig.prf_scalar();
     let k_p = (u + (q_s * r)) * d_v;
 
+    // Return true iff k' == k.
     k == k_p
 }
 
