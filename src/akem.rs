@@ -81,8 +81,8 @@ pub fn decapsulate(
     q_s: &RistrettoPoint,
     ciphertext: &[u8],
 ) -> Option<(RistrettoPoint, Vec<u8>)> {
-    // Ensure the ciphertext has a point, a signature, and a MAC, at least.
-    if ciphertext.len() < POINT_LEN * 3 + MAC_LEN {
+    // Valid ciphertexts will have a minimum length.
+    if ciphertext.len() < OVERHEAD {
         return None;
     }
 
@@ -119,7 +119,7 @@ pub fn decapsulate(
     akem.recv_enc(&mut k, false);
     let k = CompressedRistretto::from_slice(&k).decompress()?;
 
-    // Calculate the signature point and check k' == k.
+    // Calculate the counterfactual signature point and check k' == k.
     let k_p = (u + (q_s * r)) * d_r;
     if k_p != k {
         return None;
