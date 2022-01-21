@@ -62,11 +62,17 @@ Steinfeld et al.'s modification binds verification of the signature to the holde
 signer to prove the authenticity of a message to a verifier without providing the verifier a way to re-prove that to a
 third party.
 
+## Delegatability
+
+For more information on delegatability, see [`veil.akem`](akem.md).
+
 ## Ephemeral Scalar Hedging
 
 In deriving the ephemeral scalar from a cloned context, `veil.schnorr` uses [Aranha et al.'s
 "hedged signature" technique][hedge] to mitigate against both catastrophic randomness failures and differential fault
 attacks against purely deterministic signature schemes.
+
+[delegatability]: https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.66.1075&rep=rep1&type=pdf
 
 [hedge]: https://eprint.iacr.org/2019/956.pdf
 

@@ -146,6 +146,20 @@ ephemeral public key is authentic. Because the signature cannot be verified with
 dishonest recipient cannot prove to a third party that the ephemeral public key was provided by the sender without
 revealing their own private key.
 
+## Delegatability
+
+`veil.dvsig` is [delegatable][delegatability], which means the delegated form of the signature can be created by someone
+other than the signer. If the signer provides a third party with $s$ and $r$, anyone in possession of the signer and
+verifier's public keys can calculate $U$ and $K$.
+
+Non-delegatability is critical when designing protocols to constrain potentially dishonest signers, but in this context
+`veil.dvsig` is used exclusively to provide deniable authentication of ephemeral public keys in `veil.akem`. The 
+signatures are encrypted using the static Diffie-Hellman shared secret point $ZZ_S$, so a sender attempting to delegate
+verifier designation would either have to reveal their private key to the delegate or encrypt the designated signature
+themselves.
+
+[delegatability]: https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.66.1075&rep=rep1&type=pdf
+
 [ik-cca]: https://iacr.org/archive/asiacrypt2001/22480568.pdf
 
 [kci]: https://eprint.iacr.org/2006/252.pdf
