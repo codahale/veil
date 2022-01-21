@@ -82,7 +82,7 @@ pub fn decapsulate(
     ciphertext: &[u8],
 ) -> Option<(RistrettoPoint, Vec<u8>)> {
     // Ensure the ciphertext has a point, a signature, and a MAC, at least.
-    if ciphertext.len() < POINT_LEN *3 + MAC_LEN {
+    if ciphertext.len() < POINT_LEN * 3 + MAC_LEN {
         return None;
     }
 
@@ -189,7 +189,7 @@ mod tests {
     fn bad_k() {
         let (d_s, q_s, d_e, q_e, d_r, q_r) = setup();
         let mut ciphertext = encapsulate(&d_s, &q_s, &d_e, &q_e, &q_r, b"this is an example");
-        ciphertext[POINT_LEN*2 + 1] ^= 1;
+        ciphertext[POINT_LEN * 2 + 1] ^= 1;
 
         assert_eq!(None, decapsulate(&d_r, &q_r, &q_s, &ciphertext));
     }
@@ -198,7 +198,7 @@ mod tests {
     fn bad_ciphertext() {
         let (d_s, q_s, d_e, q_e, d_r, q_r) = setup();
         let mut ciphertext = encapsulate(&d_s, &q_s, &d_e, &q_e, &q_r, b"this is an example");
-        ciphertext[POINT_LEN *3 + 1] ^= 1;
+        ciphertext[POINT_LEN * 3 + 1] ^= 1;
 
         assert_eq!(None, decapsulate(&d_r, &q_r, &q_s, &ciphertext));
     }
