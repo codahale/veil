@@ -3,6 +3,7 @@
 - [What is Veil?](./about.md)
 - [Design](./design.md)
     - [Key Derivation](./design/hkd.md)
+    - [Designated-Verifier Signatures](./design/dvsig.md)
     - [Key Encapsulation](./design/akem.md)
     - [Digital Signatures](./design/schnorr.md)
     - [Multi-recipient Messages](./design/mres.md)
