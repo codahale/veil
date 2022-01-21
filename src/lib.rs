@@ -70,7 +70,6 @@ pub use self::veil::*;
 
 mod akem;
 mod constants;
-mod dvsig;
 mod mres;
 mod pbenc;
 mod scaldf;
