@@ -31,8 +31,8 @@ pub fn encapsulate(
     akem.meta_ad_u32(MAC_LEN as u32);
 
     // Include the sender and receiver as associated data.
-    akem.ad_point(q_s);
-    akem.ad_point(q_r);
+    akem.ad_bin(q_s);
+    akem.ad_bin(q_r);
 
     // Calculate the static Diffie-Hellman shared secret and key the protocol with it.
     akem.key(&diffie_hellman(d_s, q_r), false);
@@ -98,8 +98,8 @@ pub fn decapsulate(
     akem.meta_ad_u32(MAC_LEN as u32);
 
     // Include the sender and receiver as associated data.
-    akem.ad_point(q_s);
-    akem.ad_point(q_r);
+    akem.ad_bin(q_s);
+    akem.ad_bin(q_r);
 
     // Calculate the static Diffie-Hellman shared secret and key the protocol with it.
     akem.key(&diffie_hellman(d_r, q_s), false);

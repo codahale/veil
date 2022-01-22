@@ -1,17 +1,19 @@
 use std::io::{self, Write};
 
-use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use rand::RngCore;
+use serde::Serialize;
 use strobe_rs::Strobe;
 
 /// An extension trait for [Strobe] instances.
 pub trait StrobeExt {
+    // Serialize `data` as bincode and include it as associated data.
+    fn ad_bin<T: ?Sized>(&mut self, data: &T)
+    where
+        T: Serialize;
+
     /// Add the given `u32` as little endian encoded meta associated data.
     fn meta_ad_u32(&mut self, n: u32);
-
-    /// Add the compressed form of the given point as associated data.
-    fn ad_point(&mut self, q: &RistrettoPoint);
 
     /// Derive a scalar from PRF output.
     #[must_use]
@@ -48,12 +50,15 @@ pub trait StrobeExt {
 }
 
 impl StrobeExt for Strobe {
-    fn meta_ad_u32(&mut self, n: u32) {
-        self.meta_ad(&n.to_le_bytes(), false);
+    fn ad_bin<T: ?Sized>(&mut self, data: &T)
+    where
+        T: Serialize,
+    {
+        self.ad(&bincode::serialize(data).expect("invalid data"), false);
     }
 
-    fn ad_point(&mut self, q: &RistrettoPoint) {
-        self.ad(q.compress().as_bytes(), false);
+    fn meta_ad_u32(&mut self, n: u32) {
+        self.meta_ad(&n.to_le_bytes(), false);
     }
 
     fn prf_scalar(&mut self) -> Scalar {

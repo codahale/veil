@@ -34,7 +34,7 @@ where
         let (mut schnorr, writer) = self.writer.into_inner();
 
         // Add the signer's public key as associated data.
-        schnorr.ad_point(q);
+        schnorr.ad_bin(q);
 
         // Derive an ephemeral scalar from the protocol's current state, the signer's private key,
         // and a random nonce.
@@ -42,7 +42,7 @@ where
 
         // Add the ephemeral public key as associated data.
         let r_g = &G * &r;
-        schnorr.ad_point(&r_g);
+        schnorr.ad_bin(&r_g);
 
         // Derive a challenge scalar from PRF output.
         let c = schnorr.prf_scalar();
@@ -89,7 +89,7 @@ impl Verifier {
     #[must_use]
     pub fn verify(mut self, q: &RistrettoPoint, sig: &[u8; SIGNATURE_LEN]) -> bool {
         // Add the signer's public key as associated data.
-        self.schnorr.ad_point(q);
+        self.schnorr.ad_bin(q);
 
         // Split the signature into parts.
         let c = sig[..SCALAR_LEN].try_into().expect("invalid scalar len");
@@ -103,7 +103,7 @@ impl Verifier {
 
         // Re-calculate the ephemeral public key and add it as associated data.
         let r_g = (&G * &s) + (-c * q);
-        self.schnorr.ad_point(&r_g);
+        self.schnorr.ad_bin(&r_g);
 
         // Re-derive the challenge scalar.
         let c_p = self.schnorr.prf_scalar();
