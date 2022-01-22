@@ -9,7 +9,7 @@ use rand::RngCore;
 use strobe_rs::{SecParam, Strobe};
 
 use crate::akem;
-use crate::constants::{MAC_LEN, U64_LEN};
+use crate::constants::{POINT_LEN, U64_LEN};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::strobe::StrobeExt;
 
@@ -27,19 +27,24 @@ where
     R: Read,
     W: Write,
 {
-    // Initialize a protocol and add the MAC length and sender's public key as associated data.
+    // Initialize a protocol and send the sender's public key as cleartext.
     let mut mres = Strobe::new(b"veil.mres", SecParam::B128);
-    mres.ad_bin(&(MAC_LEN as u32));
-    mres.ad_bin(q_s);
+    mres.meta_ad(b"sender", false);
+    mres.meta_ad(&(POINT_LEN as u32).to_le_bytes(), true);
+    mres.send_clr(q_s.compress().as_bytes(), false);
 
     // Derive a random ephemeral key pair and DEK from the protocol's current state, the sender's
     // private key, and a random nonce.
     let (d_e, q_e, dek) = mres.hedge(d_s.as_bytes(), |clone| {
         // Generate an ephemeral key pair.
+        clone.meta_ad(b"ephemeral-private-key", false);
+        clone.meta_ad(&64u32.to_le_bytes(), true);
         let d_e = clone.prf_scalar();
         let q_e = &G * &d_e;
 
         // Return the key pair and a DEK.
+        clone.meta_ad(b"data-encryption-key", false);
+        clone.meta_ad(&(DEK_LEN as u32).to_le_bytes(), true);
         (d_e, q_e, clone.prf_array::<DEK_LEN>())
     });
 
@@ -54,6 +59,7 @@ where
     let signer = Signer::new(writer);
 
     // Include all encrypted headers and padding as sent cleartext.
+    mres.meta_ad(b"headers", false);
     let mut send_clr = mres.send_clr_writer(signer);
 
     // For each recipient, encrypt a copy of the header.
@@ -70,9 +76,12 @@ where
     let (mut mres, signer) = send_clr.into_inner();
 
     // Key the protocol with the DEK.
+    mres.meta_ad(b"data-encryption-key", false);
+    mres.meta_ad(&(DEK_LEN as u32).to_le_bytes(), true);
     mres.key(&dek, false);
 
     // Encrypt the plaintext, pass it through the signer, and write it.
+    mres.meta_ad(b"message", false);
     let mut send_enc = mres.send_enc_writer(signer);
     written += io::copy(reader, &mut send_enc)?;
 
@@ -83,6 +92,8 @@ where
     let (mut sig, writer) = signer.sign(&d_e, &q_e);
 
     // Encrypt the signature.
+    mres.meta_ad(b"signature", false);
+    mres.meta_ad(&(SIGNATURE_LEN as u32).to_le_bytes(), true);
     mres.send_enc(&mut sig, false);
 
     // Write the encrypted signature.
@@ -105,15 +116,17 @@ where
     R: Read,
     W: Write,
 {
-    // Initialize a protocol and add the MAC length and sender's public key as associated data.
+    // Initialize a protocol and receive the sender's public key as cleartext.
     let mut mres = Strobe::new(b"veil.mres", SecParam::B128);
-    mres.ad_bin(&(MAC_LEN as u32));
-    mres.ad_bin(q_s);
+    mres.meta_ad(b"sender", false);
+    mres.meta_ad(&(POINT_LEN as u32).to_le_bytes(), true);
+    mres.recv_clr(q_s.compress().as_bytes(), false);
 
     // Initialize a verifier for the entire ciphertext.
     let verifier = Verifier::new();
 
     // Include all encrypted headers and padding as received cleartext.
+    mres.meta_ad(b"headers", false);
     let mut mres_writer = mres.recv_clr_writer(verifier);
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the verifier.
@@ -126,6 +139,8 @@ where
     let (mut mres, mut verifier) = mres_writer.into_inner();
 
     // Key the protocol with the recovered DEK.
+    mres.meta_ad(b"data-encryption-key", false);
+    mres.meta_ad(&(DEK_LEN as u32).to_le_bytes(), true);
     mres.key(&dek, false);
 
     // Decrypt the message and get the signature.
@@ -154,6 +169,7 @@ where
     let mut buf = Vec::with_capacity(input.len() + SIGNATURE_LEN);
 
     // Prep for streaming decryption.
+    mres.meta_ad(b"message", false);
     mres.recv_enc(&mut [], false);
 
     // Read through src in 32KiB chunks, keeping the last 64 bytes as the signature.
@@ -182,6 +198,8 @@ where
 
     // Keep the last 64 bytes as the encrypted signature.
     let mut sig: [u8; SIGNATURE_LEN] = buf.try_into().expect("invalid sig len");
+    mres.meta_ad(b"signature", false);
+    mres.meta_ad(&(SIGNATURE_LEN as u32).to_le_bytes(), true);
     mres.recv_enc(&mut sig, false);
 
     // Return the bytes written and the decrypted signature.

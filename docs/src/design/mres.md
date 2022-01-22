@@ -7,18 +7,31 @@ $P_0...P_N$, a list of recipient public keys, $Q_{R^0}...Q_{R^M}$, and a DEK siz
 
 ```text
 INIT('veil.mres', level=128)
-AD(LE_32(N_DEK))
-AD(Q_s)
+AD('sender',    meta=true)
+AD(LE_U32(N_Q), meta=true, more=true)
+SEND_CLR(Q_s)
 ```
 
 The protocol context is cloned and keyed with the sender's private key and a random nonce and used to derive a data
 encryption key, $K_{DEK}$, and an ephemeral private key, $d_E$:
 
 ```text
+AD('secret-value', meta=true)
+AD(LE_U32(N_d),     meta=true, more=true)
 KEY(d_S)
-KEY(rand())
-PRF(32) -> K_DEK
+
+AD('hedged-value', meta=true)
+AD(LE_U32(64),     meta=true, more=true)
+KEY(rand(64))
+
+AD('ephemeral-private-key', meta=true)
+AD(LE_U32(64),              meta=true, more=true)
 PRF(64) -> d_E
+
+AD('data-encryption-key', meta=true)
+AD(LE_U32(N_DEK),         meta=true, more=true)
+PRF(N_DEK) -> K_DEK
+
 ```
 
 The ephemeral public key is computed as $Q_E = [{d_E}]G$, and the cloned context is discarded:
@@ -28,6 +41,7 @@ with `veil.akem` for each recipient using $d_E$ and $Q_E$. Optional random paddi
 resulting blocks $H_0..H_N,H_{pad}$ is written:
 
 ```text
+AD('headers',   meta=true)
 SEND_CLR('')
 SEND_CLR(H_0,   more=true)
 …
@@ -38,7 +52,11 @@ SEND_CLR(H_pad, more=true)
 The protocol is keyed with the DEK and the encrypted message is written:
 
 ```text
+AD('data-encryption-key', meta=true)
+AD(LE_U32(N_DEK),         meta=true, more=true)
 KEY(K_dek)
+
+AD('message', meta=true)
 SEND_ENC('')
 SEND_ENC(P_0, more=true)
 …
@@ -49,6 +67,8 @@ Finally, a Schnorr signature $S$ of the entire ciphertext (headers, padding, and
 and encrypted:
 
 ```text
+AD('signature',   meta=true)
+AD(LE_U32(N_d*2), meta=true, more=true)
 SEND_ENC(S)
 ```
 
@@ -60,9 +80,9 @@ and a Schnorr signature of the headers, padding, and ciphertext.
 Decryption begins as follows, given the recipient's key pair, $d_R$ and $Q_R$, the sender's public key, $Q_S$:
 
 ```text
-INIT('veil.mres', level=128)
-AD(LE_32(N_DEK))
-AD(Q_s)
+AD('sender',    meta=true)
+AD(LE_U32(N_Q), meta=true, more=true)
+RECV_CLR(Q_s)
 ```
 
 The recipient reads through the ciphertext in header-sized blocks, looking for one which is decryptable given their key
@@ -71,6 +91,7 @@ and the ephemeral public key $Q_E$. They then read the remainder of the block of
 $H_0..H_N,H_{pad}$:
 
 ```text
+AD('headers',   meta=true)
 RECV_CLR('')
 RECV_CLR(H_0,   more=true)
 …
@@ -81,7 +102,11 @@ RECV_CLR(H_pad, more=true)
 The protocol is keyed with the DEK, and the plaintext is decrypted:
 
 ```text
+AD('data-encryption-key', meta=true)
+AD(LE_U32(N_DEK),         meta=true, more=true)
 KEY(K_dek)
+
+AD('message',     meta=true)
 RECV_ENC('')
 RECV_ENC(C_0,     more=true)
 …
@@ -91,6 +116,8 @@ RECV_ENC(C_N,     more=true)
 Finally, the signature $S$ is decrypted and verified against the entire ciphertext:
 
 ```text
+AD('signature',   meta=true)
+AD(LE_U32(N_d*2), meta=true, more=true)
 RECV_ENC(S)
 ```
 
