@@ -2,10 +2,15 @@ use std::io::{self, Write};
 
 use curve25519_dalek::scalar::Scalar;
 use rand::RngCore;
+use serde::Serialize;
 use strobe_rs::Strobe;
 
 /// An extension trait for [Strobe] instances.
 pub trait StrobeExt {
+    fn metadata<T: ?Sized>(&mut self, label: &str, data: &T)
+    where
+        T: Serialize;
+
     /// Derive a scalar from PRF output.
     #[must_use]
     fn prf_scalar(&mut self, label: &str) -> Scalar;
@@ -41,13 +46,20 @@ pub trait StrobeExt {
 }
 
 impl StrobeExt for Strobe {
+    fn metadata<T: ?Sized>(&mut self, label: &str, data: &T)
+    where
+        T: Serialize,
+    {
+        self.meta_ad(label.as_bytes(), false);
+        self.meta_ad(&bincode::serialize(data).expect("invalid data"), true);
+    }
+
     fn prf_scalar(&mut self, label: &str) -> Scalar {
         Scalar::from_bytes_mod_order_wide(&self.prf_array(label))
     }
 
     fn prf_array<const N: usize>(&mut self, label: &str) -> [u8; N] {
-        self.meta_ad(label.as_bytes(), false);
-        self.meta_ad(&(N as u32).to_le_bytes(), true);
+        self.metadata(label, &(N as u32));
 
         let mut out = [0u8; N];
         self.prf(&mut out, false);
