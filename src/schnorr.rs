@@ -6,7 +6,7 @@ use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use strobe_rs::{SecParam, Strobe};
 
-use crate::constants::SCALAR_LEN;
+use crate::constants::{POINT_LEN, SCALAR_LEN};
 use crate::strobe::{SendClrWriter, StrobeExt};
 
 /// The length of a signature, in bytes.
@@ -24,7 +24,8 @@ where
 {
     /// Create a new signer which passes writes through to the given writer.
     pub fn new(writer: W) -> Signer<W> {
-        let schnorr = Strobe::new(b"veil.schnorr", SecParam::B128);
+        let mut schnorr = Strobe::new(b"veil.schnorr", SecParam::B128);
+        schnorr.meta_ad(b"message", false);
         Signer { writer: schnorr.send_clr_writer(writer) }
     }
 
@@ -33,18 +34,28 @@ where
     pub fn sign(self, d: &Scalar, q: &RistrettoPoint) -> ([u8; SIGNATURE_LEN], W) {
         let (mut schnorr, writer) = self.writer.into_inner();
 
-        // Add the signer's public key as associated data.
-        schnorr.ad_bin(q);
+        // Send the signer's public key as cleartext.
+        schnorr.meta_ad(b"signer", false);
+        schnorr.meta_ad(&(POINT_LEN as u32).to_le_bytes(), false);
+        schnorr.send_clr(q.compress().as_bytes(), false);
 
-        // Derive an ephemeral scalar from the protocol's current state, the signer's private key,
+        // Derive a commitment scalar from the protocol's current state, the signer's private key,
         // and a random nonce.
-        let r = schnorr.hedge(d.as_bytes(), StrobeExt::prf_scalar);
+        let r = schnorr.hedge(d.as_bytes(), |clone| {
+            clone.meta_ad(b"commitment-scalar", false);
+            clone.meta_ad(&64u32.to_le_bytes(), true);
+            clone.prf_scalar()
+        });
 
-        // Add the ephemeral public key as associated data.
+        // Add the commitment point as associated data.
         let r_g = &G * &r;
-        schnorr.ad_bin(&r_g);
+        schnorr.meta_ad(b"commitment-point", false);
+        schnorr.meta_ad(&(POINT_LEN as u32).to_le_bytes(), false);
+        schnorr.ad(r_g.compress().as_bytes(), false);
 
         // Derive a challenge scalar from PRF output.
+        schnorr.meta_ad(b"challenge-scalar", false);
+        schnorr.meta_ad(&64u32.to_le_bytes(), false);
         let c = schnorr.prf_scalar();
 
         // Calculate the signature scalar.
@@ -77,19 +88,24 @@ pub struct Verifier {
 }
 
 impl Verifier {
-    /// Create a new ver ifier.
+    /// Create a new verifier.
     #[must_use]
     pub fn new() -> Verifier {
         let mut schnorr = Strobe::new(b"veil.schnorr", SecParam::B128);
+        schnorr.meta_ad(b"message", false);
         schnorr.recv_clr(&[], false);
         Verifier { schnorr }
     }
 
     /// Verify the previously-written message contents using the given public key and signature.
     #[must_use]
-    pub fn verify(mut self, q: &RistrettoPoint, sig: &[u8; SIGNATURE_LEN]) -> bool {
+    pub fn verify(self, q: &RistrettoPoint, sig: &[u8; SIGNATURE_LEN]) -> bool {
+        let mut schnorr = self.schnorr;
+
         // Add the signer's public key as associated data.
-        self.schnorr.ad_bin(q);
+        schnorr.meta_ad(b"signer", false);
+        schnorr.meta_ad(&(POINT_LEN as u32).to_le_bytes(), false);
+        schnorr.recv_clr(q.compress().as_bytes(), false);
 
         // Split the signature into parts.
         let c = sig[..SCALAR_LEN].try_into().expect("invalid scalar len");
@@ -101,12 +117,16 @@ impl Verifier {
             _ => return false,
         };
 
-        // Re-calculate the ephemeral public key and add it as associated data.
+        // Re-calculate the commitment point and add it as associated data.
         let r_g = (&G * &s) + (-c * q);
-        self.schnorr.ad_bin(&r_g);
+        schnorr.meta_ad(b"commitment-point", false);
+        schnorr.meta_ad(&(POINT_LEN as u32).to_le_bytes(), false);
+        schnorr.ad(r_g.compress().as_bytes(), false);
 
         // Re-derive the challenge scalar.
-        let c_p = self.schnorr.prf_scalar();
+        schnorr.meta_ad(b"challenge-scalar", false);
+        schnorr.meta_ad(&64u32.to_le_bytes(), false);
+        let c_p = schnorr.prf_scalar();
 
         // Return true iff c' == c.
         c_p == c

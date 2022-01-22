@@ -6,11 +6,16 @@ Signing is as follows, given a message in blocks $M_0...M_N$, a private scalar $
 
 ```text
 INIT('veil.schnorr', level=128)
+
+AD('message', meta=true)
 SEND_CLR('',  more=false)
 SEND_CLR(M_0, more=true)
 SEND_CLR(M_1, more=true)
 …
 SEND_CLR(M_N, more=true)
+
+AD('signer',    meta=true)
+AD(LE_U32(N_Q), meta=true, more=true)
 AD(Q)
 ```
 
@@ -21,15 +26,28 @@ The protocol's state is then cloned, the clone is keyed with both 64 bytes of ra
 an ephemeral scalar is derived from PRF output:
 
 ```text
-KEY(rand(64))
+AD('secret-value', meta=true)
+AD(LE_U32(N_d),     meta=true, more=true)
 KEY(d)
+
+AD('hedged-value', meta=true)
+AD(LE_U32(64),     meta=true, more=true)
+KEY(rand(64))
+
+AD('commitment-scalar', meta=true)
+AD(LE_U32(64),          meta=true, more=true)
 PRF(64) -> r
 ```
 
 The clone's state is discarded, and $r$ is returned to the parent along with $R = [r]G$:
 
 ```text
+AD('commitment-point', meta=true)
+AD(LE_U32(N_Q),        meta=true, more=true)
 AD(R)
+
+AD('challenge-scalar', meta=true)
+AD(LE_U32(64),         meta=true, more=true)
 PRF(64) -> c
 ```
 
@@ -41,18 +59,28 @@ To verify, `veil.schnorr` is run with a message in blocks $M_0...M_N$ and a publ
 
 ```text
 INIT('veil.schnorr', level=128)
+
+AD('message', meta=true)
 RECV_CLR('',  more=false)
 RECV_CLR(M_0, more=true)
 RECV_CLR(M_1, more=true)
 …
 RECV_CLR(M_N, more=true)
+
+AD('signer',    meta=true)
+AD(LE_U32(N_Q), meta=true, more=true)
 AD(Q)
 ```
 
 The public ephemeral is re-calculated as $R' = [{-c}]Q + [s]G$ and the challenge scalar is re-derived from PRF output:
 
 ```text
+AD('commitment-point', meta=true)
+AD(LE_U32(N_Q),        meta=true, more=true)
 AD(R')
+
+AD('challenge-scalar', meta=true)
+AD(LE_U32(64),         meta=true, more=true)
 PRF(64) -> c'
 ```
 
