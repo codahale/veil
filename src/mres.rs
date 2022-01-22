@@ -29,8 +29,7 @@ where
 {
     // Initialize a protocol and send the sender's public key as cleartext.
     let mut mres = Strobe::new(b"veil.mres", SecParam::B128);
-    mres.meta_ad(b"sender", false);
-    mres.meta_ad(&(POINT_LEN as u32).to_le_bytes(), true);
+    mres.metadata("sender", &(POINT_LEN as u32));
     mres.send_clr(q_s.compress().as_bytes(), false);
 
     // Derive a random ephemeral key pair and DEK from the protocol's current state, the sender's
@@ -72,8 +71,7 @@ where
     let (mut mres, signer) = send_clr.into_inner();
 
     // Key the protocol with the DEK.
-    mres.meta_ad(b"data-encryption-key", false);
-    mres.meta_ad(&(DEK_LEN as u32).to_le_bytes(), true);
+    mres.metadata("data-encryption-key", &(DEK_LEN as u32));
     mres.key(&dek, false);
 
     // Encrypt the plaintext, pass it through the signer, and write it.
@@ -88,8 +86,7 @@ where
     let (mut sig, writer) = signer.sign(&d_e, &q_e);
 
     // Encrypt the signature.
-    mres.meta_ad(b"signature", false);
-    mres.meta_ad(&(SIGNATURE_LEN as u32).to_le_bytes(), true);
+    mres.metadata("signature", &(SIGNATURE_LEN as u32));
     mres.send_enc(&mut sig, false);
 
     // Write the encrypted signature.
@@ -114,8 +111,7 @@ where
 {
     // Initialize a protocol and receive the sender's public key as cleartext.
     let mut mres = Strobe::new(b"veil.mres", SecParam::B128);
-    mres.meta_ad(b"sender", false);
-    mres.meta_ad(&(POINT_LEN as u32).to_le_bytes(), true);
+    mres.metadata("sender", &(POINT_LEN as u32));
     mres.recv_clr(q_s.compress().as_bytes(), false);
 
     // Initialize a verifier for the entire ciphertext.
@@ -135,8 +131,7 @@ where
     let (mut mres, mut verifier) = mres_writer.into_inner();
 
     // Key the protocol with the recovered DEK.
-    mres.meta_ad(b"data-encryption-key", false);
-    mres.meta_ad(&(DEK_LEN as u32).to_le_bytes(), true);
+    mres.metadata("data-encryption-key", &(DEK_LEN as u32));
     mres.key(&dek, false);
 
     // Decrypt the message and get the signature.
@@ -194,8 +189,7 @@ where
 
     // Keep the last 64 bytes as the encrypted signature.
     let mut sig: [u8; SIGNATURE_LEN] = buf.try_into().expect("invalid sig len");
-    mres.meta_ad(b"signature", false);
-    mres.meta_ad(&(SIGNATURE_LEN as u32).to_le_bytes(), true);
+    mres.metadata("signature", &(SIGNATURE_LEN as u32));
     mres.recv_enc(&mut sig, false);
 
     // Return the bytes written and the decrypted signature.
