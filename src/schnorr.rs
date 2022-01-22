@@ -36,7 +36,7 @@ where
 
         // Send the signer's public key as cleartext.
         schnorr.meta_ad(b"signer", false);
-        schnorr.meta_ad(&(POINT_LEN as u32).to_le_bytes(), false);
+        schnorr.meta_ad(&(POINT_LEN as u32).to_le_bytes(), true);
         schnorr.send_clr(q.compress().as_bytes(), false);
 
         // Derive a commitment scalar from the protocol's current state, the signer's private key,
@@ -46,7 +46,7 @@ where
         // Add the commitment point as associated data.
         let r_g = &G * &r;
         schnorr.meta_ad(b"commitment-point", false);
-        schnorr.meta_ad(&(POINT_LEN as u32).to_le_bytes(), false);
+        schnorr.meta_ad(&(POINT_LEN as u32).to_le_bytes(), true);
         schnorr.ad(r_g.compress().as_bytes(), false);
 
         // Derive a challenge scalar from PRF output.
@@ -98,7 +98,7 @@ impl Verifier {
 
         // Add the signer's public key as associated data.
         schnorr.meta_ad(b"signer", false);
-        schnorr.meta_ad(&(POINT_LEN as u32).to_le_bytes(), false);
+        schnorr.meta_ad(&(POINT_LEN as u32).to_le_bytes(), true);
         schnorr.recv_clr(q.compress().as_bytes(), false);
 
         // Split the signature into parts.
@@ -114,7 +114,7 @@ impl Verifier {
         // Re-calculate the commitment point and add it as associated data.
         let r_g = (&G * &s) + (-c * q);
         schnorr.meta_ad(b"commitment-point", false);
-        schnorr.meta_ad(&(POINT_LEN as u32).to_le_bytes(), false);
+        schnorr.meta_ad(&(POINT_LEN as u32).to_le_bytes(), true);
         schnorr.ad(r_g.compress().as_bytes(), false);
 
         // Re-derive the challenge scalar.
