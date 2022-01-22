@@ -7,6 +7,7 @@ use strobe_rs::Strobe;
 
 /// An extension trait for [Strobe] instances.
 pub trait StrobeExt {
+    /// Bincodes `data`, appends it to `label`, and passes it to `AD` with the `meta` flag.
     fn metadata<T: ?Sized>(&mut self, label: &str, data: &T)
     where
         T: Serialize;
