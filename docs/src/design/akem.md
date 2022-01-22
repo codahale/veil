@@ -7,20 +7,42 @@ authenticity, and deniability.
 ## Encapsulation
 
 Encapsulation is as follows, given the sender's key pair, $d_S$ and $Q_S$, an ephemeral key pair, $d_E$ and $Q_E$, the
-receiver's public key, $Q_R$, a plaintext message $P$, and MAC size $N_M$:
+receiver's public key, $Q_R$, a plaintext message $P$, message size $N_P$, MAC size $N_M$, compressed point size $N_Q$,
+and scalar size $N_d$:
 
 ```text
 INIT('veil.akem', level=128)
-AD(LE_U32(N_M))
-AD(Q_R)
-AD(Q_S)
 ```
 
-The static shared secret point is calculated ${ZZ_S}=[{d_S}]{Q_R}=[{d_R}{d_S}]G$ and used as a key to encrypt the
-ephemeral public key $Q_E$:
+First, the sender's public key is sent via cleartext:
 
 ```text
+AD('sender-public-key', meta=true)
+AD(LE_U32(N_Q),         meta=true, more=true)
+SEND_CLR(Q_S)
+```
+
+Second, the receiver's public key is received via cleartext:
+
+```text
+AD('receiver-public-key', meta=true)
+AD(LE_U32(N_Q),           meta=true, more=true)
+RECV_CLR(Q_R)
+```
+
+The static shared secret point is calculated ${ZZ_S}=[{d_S}]{Q_R}=[{d_R}{d_S}]G$ and used to key the protocol:
+
+```text
+AD('static-shared-secret', meta=true)
+AD(LE_U32(N_Q),            meta=true, more=true)
 KEY(ZZ_S)
+```
+
+The ephemeral public key $Q_E$ is encrypted and sent:
+
+```text
+AD('ephemeral-public-key', meta=true)
+AD(LE_U32(N_Q),            meta=true, more=true)
 SEND_ENC(Q_E) -> E_1
 ```
 
@@ -28,15 +50,32 @@ The protocol's state is then cloned, the clone is keyed with both 64 bytes of ra
 a commitment scalar $k$ is derived from PRF output:
 
 ```text
-KEY(rand(64))
+AD('secret-value', meta=true)
+AD(LE_U32(N_d),     meta=true, more=true)
 KEY(d_S)
+
+AD('hedged-value', meta=true)
+AD(LE_U32(64),     meta=true, more=true)
+KEY(rand(64))
+
+AD('commitment-scalar', meta=true)
+AD(LE_U32(64),          meta=true, more=true)
 PRF(64) -> k
 ```
 
-The commitment point $U = [k]G$ is calculated and encrypted, and a challenge scalar $r$ is extracted:
+The commitment point $U = [k]G$ is calculated and encrypted:
 
 ```text
+AD('commitment-point', meta=true)
+AD(LE_U32(N_Q),        meta=true, more=true)
 SEND_ENC(U) -> E_2
+```
+
+A challenge scalar $r$ is extracted:
+
+```text
+AD('challenge-scalar', meta=true)
+AD(LE_U32(64),         meta=true, more=true)
 PRF(64) -> r
 ```
 
@@ -44,24 +83,32 @@ The signature scalar $s = k+{d_S}r$ is calculated and bound to the recipient as 
 is then encrypted:
 
 ```text
+AD('signature-point', meta=true)
+AD(LE_U32(N_Q),       meta=true, more=true)
 SEND_ENC(K) -> E_3
 ```
 
 The ephemeral shared secret point is calculated ${ZZ_E}=[{d_E}]{Q_R}=[{d_R}{d_E}]G$ and used as a key:
 
 ```text
+AD('ephemeral-shared-secret', meta=true)
+AD(LE_U32(N_Q),               meta=true, more=true)
 KEY(ZZ_E)
 ```
 
-This is effectively an authenticated ECDH KEM, but instead of returning KDF output for use in a DEM, we use the keyed
-protocol to directly encrypt the ciphertext and create a MAC:
+Finally, the plaintext is encrypted and a MAC created:
 
 ```text
+AD('ciphertext', meta=true)
+AD(LE_U32(N_P),  meta=true, more=true)
 SEND_ENC(P)     -> C
+
+AD('mac',       meta=true)
+AD(LE_U32(N_M), meta=true, more=true)
 SEND_MAC(N_M)   -> M
 ```
 
-The resulting ciphertext is the concatenation of $E_{1..3}$, $C$, and $M$.
+The resulting ciphertext is $E_1 || E_2 || E_3 || C || M$.
 
 ## Decapsulation
 
@@ -70,36 +117,84 @@ public key $Q_S$:
 
 ```text
 INIT('veil.akem', level=128)
-AD(LE_U32(N_M))
-AD(Q_R)
-AD(Q_S)
 ```
 
-The static shared secret point is calculated ${ZZ_S}=[{d_R}]{Q_S}=[{d_R}{d_S}]G$ and used as a key to decrypt the
-ephemeral public key $Q_E$ and commitment point $U$:
+First, the sender's public key is received via cleartext:
 
 ```text
+AD('sender-public-key', meta=true)
+AD(LE_U32(N_Q),         meta=true, more=true)
+RECV_CLR(Q_S)
+```
+
+Second, the receiver's public key is sent via cleartext:
+
+```text
+AD('receiver-public-key', meta=true)
+AD(LE_U32(N_Q),           meta=true, more=true)
+SEND_CLR(Q_R)
+```
+
+The static shared secret point is calculated ${ZZ_S}=[{d_R}]{Q_S}=[{d_R}{d_S}]G$ and used as a key:
+
+```text
+AD('static-shared-secret', meta=true)
+AD(LE_U32(N_Q),            meta=true, more=true)
 KEY(ZZ_S)
-RECV_ENC(E_1) -> Q_E
-RECV_ENC(E_2) -> U
 ```
 
-The challenge scalar $r$ is extracted from PRF output and the signature point $K$ is decrypted:
+The ephemeral public key $Q_E$ is decrypted:
 
 ```text
+AD('ephemeral-public-key', meta=true)
+AD(LE_U32(N_Q),            meta=true, more=true)
+RECV_ENC(E_1) -> Q_E
+```
+
+The commitment point $U$ is decrypted:
+
+```text
+AD('commitment-point', meta=true)
+AD(LE_U32(N_Q),        meta=true, more=true)
+RECV_ENC(E_2) -> U 
+```
+
+The challenge scalar $r$ is extracted from PRF output:
+
+```text
+AD('challenge-scalar', meta=true)
+AD(LE_U32(64),         meta=true, more=true)
 PRF(64) -> r
+```
+
+The signature point $K$ is decrypted:
+
+```text
+AD('signature-point', meta=true)
+AD(LE_U32(N_Q),       meta=true, more=true)
 RECV_ENC(E_3) -> K
 ```
 
 The counterfactual signature point $K' = [{d_R}](U + [r]{Q_S})$ is calculated, and if $K' \equiv K$, the decryption
 continues. At this point, the receiver knows that $Q_E$ is authentic.
 
-The ephemeral shared secret point is calculated ${ZZ_E}=[{d_R}]{Q_E}=[{d_R}{d_E}]G$ and used as a key to decrypt the
-plaintext and verify the MAC:
+The ephemeral shared secret point is calculated ${ZZ_E}=[{d_R}]{Q_E}=[{d_R}{d_E}]G$ and used as a key:
 
 ```text
+AD('ephemeral-shared-secret', meta=true)
+AD(LE_U32(N_Q),               meta=true, more=true)
 KEY(ZZ_E)
-RECV_ENC(C) -> P
+```
+
+Finally, the ciphertext is decrypted and the MAC is verified:
+
+```text
+AD('ciphertext', meta=true)
+AD(LE_U32(N_P),  meta=true, more=true)
+RECV_ENC(C)     -> P
+
+AD('mac',       meta=true)
+AD(LE_U32(N_M), meta=true, more=true)
 RECV_MAC(M)
 ```
 

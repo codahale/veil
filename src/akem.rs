@@ -28,27 +28,44 @@ pub fn encapsulate(
 
     // Initialize the protocol.
     let mut akem = Strobe::new(b"veil.akem", SecParam::B128);
-    akem.ad_bin(&(MAC_LEN as u32));
 
     // Include the sender and receiver as associated data.
-    akem.ad_bin(q_s);
-    akem.ad_bin(q_r);
+    akem.meta_ad(b"sender-public-key", false);
+    akem.meta_ad(&(POINT_LEN as u32).to_le_bytes(), true);
+    akem.send_clr(q_s.compress().as_bytes(), false);
+
+    // Receive the receiver's public key as cleartext.
+    akem.meta_ad(b"receiver-public-key", false);
+    akem.meta_ad(&(POINT_LEN as u32).to_le_bytes(), true);
+    akem.recv_clr(q_r.compress().as_bytes(), false);
 
     // Calculate the static Diffie-Hellman shared secret and key the protocol with it.
+    akem.meta_ad(b"static-shared-secret", false);
+    akem.meta_ad(&(POINT_LEN as u32).to_le_bytes(), true);
     akem.key(&diffie_hellman(d_s, q_r), false);
 
     // Encrypt the ephemeral public key.
+    akem.meta_ad(b"ephemeral-public-key", false);
+    akem.meta_ad(&(POINT_LEN as u32).to_le_bytes(), true);
     akem.send_enc(&mut out[..POINT_LEN], false);
 
-    // Hedge a nonce scalar and calculate the commitment point.
-    let k = akem.hedge(d_s.as_bytes(), StrobeExt::prf_scalar);
+    // Hedge a commitment scalar and calculate the commitment point.
+    let k = akem.hedge(d_s.as_bytes(), |clone| {
+        clone.meta_ad(b"commitment-scalar", false);
+        clone.meta_ad(&64u32.to_le_bytes(), true);
+        clone.prf_scalar()
+    });
     let u = &G * &k;
 
     // Encode the commitment point in the buffer and encrypt it.
     out[POINT_LEN..POINT_LEN * 2].copy_from_slice(u.compress().as_bytes());
+    akem.meta_ad(b"commitment-point", false);
+    akem.meta_ad(&(POINT_LEN as u32).to_le_bytes(), true);
     akem.send_enc(&mut out[POINT_LEN..POINT_LEN * 2], false);
 
     // Extract a challenge scalar and calculate a signature scalar.
+    akem.meta_ad(b"challenge-scalar", false);
+    akem.meta_ad(&64u32.to_le_bytes(), true);
     let r = akem.prf_scalar();
     let s = k + (r * d_s);
 
@@ -57,15 +74,23 @@ pub fn encapsulate(
 
     // Encode the signature point in the buffer and encrypt it.
     out[POINT_LEN * 2..POINT_LEN * 3].copy_from_slice(k.compress().as_bytes());
+    akem.meta_ad(b"signature-point", false);
+    akem.meta_ad(&(POINT_LEN as u32).to_le_bytes(), true);
     akem.send_enc(&mut out[POINT_LEN * 2..POINT_LEN * 3], false);
 
     // Calculate the ephemeral Diffie-Hellman shared secret and key the protocol with it.
+    akem.meta_ad(b"ephemeral-shared-secret", false);
+    akem.meta_ad(&(POINT_LEN as u32).to_le_bytes(), true);
     akem.key(&diffie_hellman(d_e, q_r), false);
 
     // Encrypt the plaintext.
+    akem.meta_ad(b"ciphertext", false);
+    akem.meta_ad(&(plaintext.len() as u32).to_le_bytes(), true);
     akem.send_enc(&mut out[POINT_LEN * 3..POINT_LEN * 3 + plaintext.len()], false);
 
     // Calculate a MAC of the entire operation transcript.
+    akem.meta_ad(b"mac", false);
+    akem.meta_ad(&(MAC_LEN as u32).to_le_bytes(), true);
     akem.send_mac(&mut out[POINT_LEN * 3 + plaintext.len()..], false);
 
     // Return the encrypted ephemeral public key, the ciphertext, and the MAC.
@@ -95,27 +120,42 @@ pub fn decapsulate(
 
     // Initialize the protocol.
     let mut akem = Strobe::new(b"veil.akem", SecParam::B128);
-    akem.ad_bin(&(MAC_LEN as u32));
 
-    // Include the sender and receiver as associated data.
-    akem.ad_bin(q_s);
-    akem.ad_bin(q_r);
+    // Receive the sender's public key as cleartext.
+    akem.meta_ad(b"sender-public-key", false);
+    akem.meta_ad(&(POINT_LEN as u32).to_le_bytes(), true);
+    akem.recv_clr(q_s.compress().as_bytes(), false);
+
+    // Send the receiver's public key as cleartext.
+    akem.meta_ad(b"receiver-public-key", false);
+    akem.meta_ad(&(POINT_LEN as u32).to_le_bytes(), true);
+    akem.send_clr(q_r.compress().as_bytes(), false);
 
     // Calculate the static Diffie-Hellman shared secret and key the protocol with it.
+    akem.meta_ad(b"static-shared-secret", false);
+    akem.meta_ad(&(POINT_LEN as u32).to_le_bytes(), true);
     akem.key(&diffie_hellman(d_r, q_s), false);
 
     // Decrypt and decode the ephemeral public key.
+    akem.meta_ad(b"ephemeral-public-key", false);
+    akem.meta_ad(&(POINT_LEN as u32).to_le_bytes(), true);
     akem.recv_enc(&mut q_e, false);
     let q_e = CompressedRistretto::from_slice(&q_e).decompress()?;
 
     // Decrypt and decode the commitment point.
+    akem.meta_ad(b"commitment-point", false);
+    akem.meta_ad(&(POINT_LEN as u32).to_le_bytes(), true);
     akem.recv_enc(&mut u, false);
     let u = CompressedRistretto::from_slice(&u).decompress()?;
 
     // Extract a challenge scalar.
+    akem.meta_ad(b"challenge-scalar", false);
+    akem.meta_ad(&64u32.to_le_bytes(), true);
     let r = akem.prf_scalar();
 
     // Decrypt and decode the signature point.
+    akem.meta_ad(b"signature-point", false);
+    akem.meta_ad(&(POINT_LEN as u32).to_le_bytes(), true);
     akem.recv_enc(&mut k, false);
     let k = CompressedRistretto::from_slice(&k).decompress()?;
 
@@ -126,13 +166,19 @@ pub fn decapsulate(
     }
 
     // Calculate the ephemeral Diffie-Hellman shared secret and key the protocol with it.
+    akem.meta_ad(b"ephemeral-shared-secret", false);
+    akem.meta_ad(&(POINT_LEN as u32).to_le_bytes(), true);
     akem.key(&diffie_hellman(d_r, &q_e), false);
 
     // Decrypt the plaintext.
+    akem.meta_ad(b"ciphertext", false);
+    akem.meta_ad(&(ciphertext.len() as u32).to_le_bytes(), true);
     akem.recv_enc(&mut ciphertext, false);
     let plaintext = ciphertext;
 
     // Verify the MAC.
+    akem.meta_ad(b"mac", false);
+    akem.meta_ad(&(MAC_LEN as u32).to_le_bytes(), true);
     akem.recv_mac(&mut mac).ok()?;
 
     // Return the ephemeral public key and the plaintext.

@@ -72,11 +72,15 @@ impl StrobeExt for Strobe {
         let mut clone = self.clone();
 
         // Key with the given secret.
+        clone.meta_ad(b"secret-value", false);
+        clone.meta_ad(&(secret.len() as u32).to_le_bytes(), true);
         clone.key(secret, false);
 
         // Key with a random value.
         let mut r = [0u8; 64];
         rand::thread_rng().fill_bytes(&mut r);
+        clone.meta_ad(b"hedged-value", false);
+        clone.meta_ad(&(r.len() as u32).to_le_bytes(), true);
         clone.key(&r, false);
 
         // Call the given function with the clone.
