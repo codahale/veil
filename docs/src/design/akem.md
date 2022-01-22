@@ -11,7 +11,7 @@ receiver's public key, $Q_R$, a plaintext message $P$, and MAC size $N_M$:
 
 ```text
 INIT('veil.akem', level=128)
-AD(LE_U32(N_M),   meta=true)
+AD(LE_U32(N_M))
 AD(Q_R)
 AD(Q_S)
 ```
@@ -70,7 +70,7 @@ public key $Q_S$:
 
 ```text
 INIT('veil.akem', level=128)
-AD(LE_U32(N_M),   meta=true)
+AD(LE_U32(N_M))
 AD(Q_R)
 AD(Q_S)
 ```

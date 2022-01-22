@@ -12,9 +12,6 @@ pub trait StrobeExt {
     where
         T: Serialize;
 
-    /// Add the given `u32` as little endian encoded meta associated data.
-    fn meta_ad_u32(&mut self, n: u32);
-
     /// Derive a scalar from PRF output.
     #[must_use]
     fn prf_scalar(&mut self) -> Scalar;
@@ -55,10 +52,6 @@ impl StrobeExt for Strobe {
         T: Serialize,
     {
         self.ad(&bincode::serialize(data).expect("invalid data"), false);
-    }
-
-    fn meta_ad_u32(&mut self, n: u32) {
-        self.meta_ad(&n.to_le_bytes(), false);
     }
 
     fn prf_scalar(&mut self) -> Scalar {

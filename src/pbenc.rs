@@ -84,11 +84,11 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
     let mut pbenc = Strobe::new(b"veil.pbenc", SecParam::B128);
 
     // Initialize protocol with metadata.
-    pbenc.meta_ad_u32(DELTA as u32);
-    pbenc.meta_ad_u32(N as u32);
-    pbenc.meta_ad_u32(MAC_LEN as u32);
-    pbenc.meta_ad_u32(time);
-    pbenc.meta_ad_u32(space);
+    pbenc.ad_bin(&(DELTA as u32));
+    pbenc.ad_bin(&(N as u32));
+    pbenc.ad_bin(&(MAC_LEN as u32));
+    pbenc.ad_bin(&time);
+    pbenc.ad_bin(&space);
 
     // Key with the passphrase and include the salt as associated data.
     pbenc.key(passphrase, false);

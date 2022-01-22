@@ -29,7 +29,7 @@ where
 {
     // Initialize a protocol and add the MAC length and sender's public key as associated data.
     let mut mres = Strobe::new(b"veil.mres", SecParam::B128);
-    mres.meta_ad_u32(MAC_LEN as u32);
+    mres.ad_bin(&(MAC_LEN as u32));
     mres.ad_bin(q_s);
 
     // Derive a random ephemeral key pair and DEK from the protocol's current state, the sender's
@@ -107,7 +107,7 @@ where
 {
     // Initialize a protocol and add the MAC length and sender's public key as associated data.
     let mut mres = Strobe::new(b"veil.mres", SecParam::B128);
-    mres.meta_ad_u32(MAC_LEN as u32);
+    mres.ad_bin(&(MAC_LEN as u32));
     mres.ad_bin(q_s);
 
     // Initialize a verifier for the entire ciphertext.

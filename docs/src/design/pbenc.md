@@ -9,11 +9,11 @@ $N_S$, time parameter $N_T$, block size $N_B$, and MAC size $N_M$:
 
 ```text
 INIT('veil.kdf.balloon', level=128)
-AD(LE_U32(D),            meta=true)
-AD(LE_U32(N_B),          meta=true)
-AD(LE_U32(N_M),          meta=true)
-AD(LE_U32(N_T),          meta=true)
-AD(LE_U32(N_S),          meta=true)
+AD(LE_U32(D))
+AD(LE_U32(N_B))
+AD(LE_U32(N_M))
+AD(LE_U32(N_T))
+AD(LE_U32(N_S))
 KEY(P)
 AD(S)
 ```

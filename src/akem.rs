@@ -28,7 +28,7 @@ pub fn encapsulate(
 
     // Initialize the protocol.
     let mut akem = Strobe::new(b"veil.akem", SecParam::B128);
-    akem.meta_ad_u32(MAC_LEN as u32);
+    akem.ad_bin(&(MAC_LEN as u32));
 
     // Include the sender and receiver as associated data.
     akem.ad_bin(q_s);
@@ -95,7 +95,7 @@ pub fn decapsulate(
 
     // Initialize the protocol.
     let mut akem = Strobe::new(b"veil.akem", SecParam::B128);
-    akem.meta_ad_u32(MAC_LEN as u32);
+    akem.ad_bin(&(MAC_LEN as u32));
 
     // Include the sender and receiver as associated data.
     akem.ad_bin(q_s);

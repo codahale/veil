@@ -7,7 +7,7 @@ $P_0...P_N$, a list of recipient public keys, $Q_{R^0}...Q_{R^M}$, and a DEK siz
 
 ```text
 INIT('veil.mres', level=128)
-AD(LE_32(N_DEK),  meta=true)
+AD(LE_32(N_DEK))
 AD(Q_s)
 ```
 
@@ -61,7 +61,7 @@ Decryption begins as follows, given the recipient's key pair, $d_R$ and $Q_R$, t
 
 ```text
 INIT('veil.mres', level=128)
-AD(LE_32(N_DEK),  meta=true)
+AD(LE_32(N_DEK))
 AD(Q_s)
 ```
 
