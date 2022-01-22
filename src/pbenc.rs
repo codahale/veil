@@ -5,7 +5,6 @@ use strobe_rs::{SecParam, Strobe};
 use unicode_normalization::UnicodeNormalization;
 
 use crate::constants::{MAC_LEN, U32_LEN, U64_LEN};
-use crate::strobe::StrobeExt;
 
 /// Encrypt the given plaintext using the given passphrase.
 #[must_use]
@@ -29,9 +28,13 @@ pub fn encrypt(passphrase: &str, time: u32, space: u32, plaintext: &[u8]) -> Vec
 
     // Copy the plaintext and encrypt it.
     out[CT_OFFSET..CT_OFFSET + plaintext.len()].copy_from_slice(plaintext);
+    pbenc.meta_ad(b"ciphertext", false);
+    pbenc.meta_ad(&(plaintext.len() as u32).to_le_bytes(), true);
     pbenc.send_enc(&mut out[CT_OFFSET..CT_OFFSET + plaintext.len()], false);
 
     // Generate a MAC.
+    pbenc.meta_ad(b"mac", false);
+    pbenc.meta_ad(&(MAC_LEN as u32).to_le_bytes(), true);
     pbenc.send_mac(&mut out[CT_OFFSET + plaintext.len()..], false);
 
     out
@@ -59,10 +62,14 @@ pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Vec<u8>> {
     let mut pbenc = init(passphrase.nfkc().to_string().as_bytes(), &salt, time, space);
 
     // Decrypt the ciphertext.
+    pbenc.meta_ad(b"ciphertext", false);
+    pbenc.meta_ad(&(ciphertext.len() as u32).to_le_bytes(), true);
     pbenc.recv_enc(&mut ciphertext, false);
     let plaintext = ciphertext;
 
     // Verify the MAC.
+    pbenc.meta_ad(b"mac", false);
+    pbenc.meta_ad(&(MAC_LEN as u32).to_le_bytes(), true);
     pbenc.recv_mac(&mut mac).ok()?;
 
     Some(plaintext)
@@ -72,10 +79,20 @@ macro_rules! hash_counter {
     ($pbenc:ident, $ctr:ident, $left:expr, $right:expr, $out:expr) => {
         $ctr += 1;
 
+        $pbenc.meta_ad(b"counter", false);
+        $pbenc.meta_ad(&(U64_LEN as u32).to_le_bytes(), true);
         $pbenc.ad(&$ctr.to_le_bytes(), false);
+
+        $pbenc.meta_ad(b"left", false);
+        $pbenc.meta_ad(&($left.len() as u32).to_le_bytes(), true);
         $pbenc.ad(&$left, false);
+
+        $pbenc.meta_ad(b"right", false);
+        $pbenc.meta_ad(&($right.len() as u32).to_le_bytes(), true);
         $pbenc.ad(&$right, false);
 
+        $pbenc.meta_ad(b"out", false);
+        $pbenc.meta_ad(&(N as u32).to_le_bytes(), true);
         $pbenc.prf(&mut $out, false);
     };
 }
@@ -83,15 +100,14 @@ macro_rules! hash_counter {
 fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
     let mut pbenc = Strobe::new(b"veil.pbenc", SecParam::B128);
 
-    // Initialize protocol with metadata.
-    pbenc.ad_bin(&(DELTA as u32));
-    pbenc.ad_bin(&(N as u32));
-    pbenc.ad_bin(&(MAC_LEN as u32));
-    pbenc.ad_bin(&time);
-    pbenc.ad_bin(&space);
-
-    // Key with the passphrase and include the salt as associated data.
+    // Key with the passphrase.
+    pbenc.meta_ad(b"passphrase", false);
+    pbenc.meta_ad(&(passphrase.len() as u32).to_le_bytes(), true);
     pbenc.key(passphrase, false);
+
+    // Include the salt as associated data.
+    pbenc.meta_ad(b"salt", false);
+    pbenc.meta_ad(&(salt.len() as u32).to_le_bytes(), true);
     pbenc.ad(salt, false);
 
     // Allocate buffers.
@@ -100,20 +116,35 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
     let mut buf = vec![[0u8; N]; space as usize];
 
     // Step 1: Expand input into buffer.
+    pbenc.meta_ad(b"expand", false);
     hash_counter!(pbenc, ctr, passphrase, salt, buf[0]);
     for m in 1..space as usize {
-        hash_counter!(pbenc, ctr, buf[m - 1], [], buf[m]);
+        pbenc.meta_ad(b"space", false);
+        pbenc.meta_ad(&(m as u32).to_le_bytes(), true);
+        hash_counter!(pbenc, ctr, buf[m - 1], [0u8; 0], buf[m]);
     }
 
     // Step 2: Mix buffer contents.
+    pbenc.meta_ad(b"mix", false);
     for t in 0..time as usize {
+        pbenc.meta_ad(b"time", false);
+        pbenc.meta_ad(&(t as u32).to_le_bytes(), true);
+
         for m in 0..space as usize {
+            pbenc.meta_ad(b"space", false);
+            pbenc.meta_ad(&(m as u32).to_le_bytes(), true);
+
             // Step 2a: Hash last and current blocks.
+            pbenc.meta_ad(b"mix-a", false);
             let prev = (m as isize - 1).rem_euclid(space as isize) as usize; // wrap 0 to last block
             hash_counter!(pbenc, ctr, buf[prev], buf[m], buf[m]);
 
             // Step 2b: Hash in pseudo-randomly chosen blocks.
+            pbenc.meta_ad(b"mix-b", false);
             for i in 0..DELTA {
+                pbenc.meta_ad(b"delta", false);
+                pbenc.meta_ad(&(i as u32).to_le_bytes(), true);
+
                 // Map indexes to a block and hash it and the salt.
                 idx[..U64_LEN].copy_from_slice(&(t as u64).to_le_bytes());
                 idx[U64_LEN..U64_LEN * 2].copy_from_slice(&(m as u64).to_le_bytes());
@@ -122,12 +153,14 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
 
                 // Map the hashed index block back to an index and hash that block.
                 let v = u64::from_le_bytes(idx[..U64_LEN].try_into().expect("invalid u64 len"));
-                hash_counter!(pbenc, ctr, buf[(v % space as u64) as usize], [], buf[m]);
+                hash_counter!(pbenc, ctr, buf[(v % space as u64) as usize], [0u8; 0], buf[m]);
             }
         }
     }
 
     // Step 3: Extract output from buffer.
+    pbenc.meta_ad(b"extract", false);
+    pbenc.meta_ad(&(N as u32).to_le_bytes(), true);
     pbenc.key(&buf[space as usize - 1], false);
 
     pbenc
