@@ -2,16 +2,10 @@ use std::io::{self, Write};
 
 use curve25519_dalek::scalar::Scalar;
 use rand::RngCore;
-use serde::Serialize;
 use strobe_rs::Strobe;
 
 /// An extension trait for [Strobe] instances.
 pub trait StrobeExt {
-    // Serialize `data` as bincode and include it as associated data.
-    fn ad_bin<T: ?Sized>(&mut self, data: &T)
-    where
-        T: Serialize;
-
     /// Derive a scalar from PRF output.
     #[must_use]
     fn prf_scalar(&mut self) -> Scalar;
@@ -47,13 +41,6 @@ pub trait StrobeExt {
 }
 
 impl StrobeExt for Strobe {
-    fn ad_bin<T: ?Sized>(&mut self, data: &T)
-    where
-        T: Serialize,
-    {
-        self.ad(&bincode::serialize(data).expect("invalid data"), false);
-    }
-
     fn prf_scalar(&mut self) -> Scalar {
         Scalar::from_bytes_mod_order_wide(&self.prf_array())
     }
