@@ -5,6 +5,7 @@ use strobe_rs::{SecParam, Strobe};
 use unicode_normalization::UnicodeNormalization;
 
 use crate::constants::{MAC_LEN, U32_LEN, U64_LEN};
+use crate::strobe::StrobeExt;
 
 /// Encrypt the given plaintext using the given passphrase.
 #[must_use]
@@ -28,13 +29,11 @@ pub fn encrypt(passphrase: &str, time: u32, space: u32, plaintext: &[u8]) -> Vec
 
     // Copy the plaintext and encrypt it.
     out[CT_OFFSET..CT_OFFSET + plaintext.len()].copy_from_slice(plaintext);
-    pbenc.meta_ad(b"ciphertext", false);
-    pbenc.meta_ad(&(plaintext.len() as u32).to_le_bytes(), true);
+    pbenc.metadata("ciphertext", &(plaintext.len() as u32));
     pbenc.send_enc(&mut out[CT_OFFSET..CT_OFFSET + plaintext.len()], false);
 
     // Generate a MAC.
-    pbenc.meta_ad(b"mac", false);
-    pbenc.meta_ad(&(MAC_LEN as u32).to_le_bytes(), true);
+    pbenc.metadata("mac", &(MAC_LEN as u32));
     pbenc.send_mac(&mut out[CT_OFFSET + plaintext.len()..], false);
 
     out
@@ -62,14 +61,12 @@ pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Vec<u8>> {
     let mut pbenc = init(passphrase.nfkc().to_string().as_bytes(), &salt, time, space);
 
     // Decrypt the ciphertext.
-    pbenc.meta_ad(b"ciphertext", false);
-    pbenc.meta_ad(&(ciphertext.len() as u32).to_le_bytes(), true);
+    pbenc.metadata("ciphertext", &(ciphertext.len() as u32));
     pbenc.recv_enc(&mut ciphertext, false);
     let plaintext = ciphertext;
 
     // Verify the MAC.
-    pbenc.meta_ad(b"mac", false);
-    pbenc.meta_ad(&(MAC_LEN as u32).to_le_bytes(), true);
+    pbenc.metadata("mac", &(MAC_LEN as u32));
     pbenc.recv_mac(&mut mac).ok()?;
 
     Some(plaintext)
@@ -101,13 +98,11 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Strobe {
     let mut pbenc = Strobe::new(b"veil.pbenc", SecParam::B128);
 
     // Key with the passphrase.
-    pbenc.meta_ad(b"passphrase", false);
-    pbenc.meta_ad(&(passphrase.len() as u32).to_le_bytes(), true);
+    pbenc.metadata("passphrase", &(passphrase.len() as u32));
     pbenc.key(passphrase, false);
 
     // Include the salt as associated data.
-    pbenc.meta_ad(b"salt", false);
-    pbenc.meta_ad(&(salt.len() as u32).to_le_bytes(), true);
+    pbenc.metadata("salt", &(salt.len() as u32));
     pbenc.ad(salt, false);
 
     // Allocate buffers.
