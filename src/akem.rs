@@ -50,11 +50,7 @@ pub fn encapsulate(
     akem.send_enc(&mut out[..POINT_LEN], false);
 
     // Hedge a commitment scalar and calculate the commitment point.
-    let k = akem.hedge(d_s.as_bytes(), |clone| {
-        clone.meta_ad(b"commitment-scalar", false);
-        clone.meta_ad(&64u32.to_le_bytes(), true);
-        clone.prf_scalar()
-    });
+    let k = akem.hedge(d_s.as_bytes(), |clone| clone.prf_scalar("commitment-scalar"));
     let u = &G * &k;
 
     // Encode the commitment point in the buffer and encrypt it.
@@ -64,9 +60,7 @@ pub fn encapsulate(
     akem.send_enc(&mut out[POINT_LEN..POINT_LEN * 2], false);
 
     // Extract a challenge scalar and calculate a signature scalar.
-    akem.meta_ad(b"challenge-scalar", false);
-    akem.meta_ad(&64u32.to_le_bytes(), true);
-    let r = akem.prf_scalar();
+    let r = akem.prf_scalar("challenge-scalar");
     let s = k + (r * d_s);
 
     // Convert the signature scalar to a signature point with the recipient's public key.
@@ -149,9 +143,7 @@ pub fn decapsulate(
     let u = CompressedRistretto::from_slice(&u).decompress()?;
 
     // Extract a challenge scalar.
-    akem.meta_ad(b"challenge-scalar", false);
-    akem.meta_ad(&64u32.to_le_bytes(), true);
-    let r = akem.prf_scalar();
+    let r = akem.prf_scalar("challenge-scalar");
 
     // Decrypt and decode the signature point.
     akem.meta_ad(b"signature-point", false);

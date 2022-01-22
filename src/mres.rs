@@ -37,15 +37,11 @@ where
     // private key, and a random nonce.
     let (d_e, q_e, dek) = mres.hedge(d_s.as_bytes(), |clone| {
         // Generate an ephemeral key pair.
-        clone.meta_ad(b"ephemeral-private-key", false);
-        clone.meta_ad(&64u32.to_le_bytes(), true);
-        let d_e = clone.prf_scalar();
+        let d_e = clone.prf_scalar("ephemeral-private-key");
         let q_e = &G * &d_e;
 
         // Return the key pair and a DEK.
-        clone.meta_ad(b"data-encryption-key", false);
-        clone.meta_ad(&(DEK_LEN as u32).to_le_bytes(), true);
-        (d_e, q_e, clone.prf_array::<DEK_LEN>())
+        (d_e, q_e, clone.prf_array::<DEK_LEN>("data-encryption-key"))
     });
 
     // Encode the DEK and message offset in a header.

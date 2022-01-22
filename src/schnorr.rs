@@ -41,11 +41,7 @@ where
 
         // Derive a commitment scalar from the protocol's current state, the signer's private key,
         // and a random nonce.
-        let r = schnorr.hedge(d.as_bytes(), |clone| {
-            clone.meta_ad(b"commitment-scalar", false);
-            clone.meta_ad(&64u32.to_le_bytes(), true);
-            clone.prf_scalar()
-        });
+        let r = schnorr.hedge(d.as_bytes(), |clone| clone.prf_scalar("commitment-scalar"));
 
         // Add the commitment point as associated data.
         let r_g = &G * &r;
@@ -54,9 +50,7 @@ where
         schnorr.ad(r_g.compress().as_bytes(), false);
 
         // Derive a challenge scalar from PRF output.
-        schnorr.meta_ad(b"challenge-scalar", false);
-        schnorr.meta_ad(&64u32.to_le_bytes(), false);
-        let c = schnorr.prf_scalar();
+        let c = schnorr.prf_scalar("challenge-scalar");
 
         // Calculate the signature scalar.
         let s = d * c + r;
@@ -124,9 +118,7 @@ impl Verifier {
         schnorr.ad(r_g.compress().as_bytes(), false);
 
         // Re-derive the challenge scalar.
-        schnorr.meta_ad(b"challenge-scalar", false);
-        schnorr.meta_ad(&64u32.to_le_bytes(), false);
-        let c_p = schnorr.prf_scalar();
+        let c_p = schnorr.prf_scalar("challenge-scalar");
 
         // Return true iff c' == c.
         c_p == c

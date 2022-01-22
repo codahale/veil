@@ -14,9 +14,7 @@ pub fn derive_root(r: &[u8; 64]) -> Scalar {
     root_df.meta_ad(&(r.len() as u32).to_le_bytes(), true);
     root_df.key(r, false);
 
-    root_df.meta_ad(b"scalar", false);
-    root_df.meta_ad(&64u32.to_le_bytes(), true);
-    root_df.prf_scalar()
+    root_df.prf_scalar("scalar")
 }
 
 /// Derive a scalar from another scalar using the given key ID.
@@ -29,9 +27,7 @@ pub fn derive_scalar(d: Scalar, key_id: &str) -> Scalar {
         label_df.meta_ad(&(label.len() as u32).to_le_bytes(), true);
         label_df.key(label.as_bytes(), false);
 
-        label_df.meta_ad(b"scalar", false);
-        label_df.meta_ad(&64u32.to_le_bytes(), true);
-        d_p + label_df.prf_scalar()
+        d_p + label_df.prf_scalar("scalar")
     })
 }
 

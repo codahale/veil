@@ -8,11 +8,11 @@ use strobe_rs::Strobe;
 pub trait StrobeExt {
     /// Derive a scalar from PRF output.
     #[must_use]
-    fn prf_scalar(&mut self) -> Scalar;
+    fn prf_scalar(&mut self, label: &str) -> Scalar;
 
     /// Derive an array from PRF output.
     #[must_use]
-    fn prf_array<const N: usize>(&mut self) -> [u8; N];
+    fn prf_array<const N: usize>(&mut self, label: &str) -> [u8; N];
 
     /// Clone the current instance, key it with the given secret, key it again with random data, and
     /// pass the clone to the given function.
@@ -41,11 +41,14 @@ pub trait StrobeExt {
 }
 
 impl StrobeExt for Strobe {
-    fn prf_scalar(&mut self) -> Scalar {
-        Scalar::from_bytes_mod_order_wide(&self.prf_array())
+    fn prf_scalar(&mut self, label: &str) -> Scalar {
+        Scalar::from_bytes_mod_order_wide(&self.prf_array(label))
     }
 
-    fn prf_array<const N: usize>(&mut self) -> [u8; N] {
+    fn prf_array<const N: usize>(&mut self, label: &str) -> [u8; N] {
+        self.meta_ad(label.as_bytes(), false);
+        self.meta_ad(&(N as u32).to_le_bytes(), true);
+
         let mut out = [0u8; N];
         self.prf(&mut out, false);
         out
