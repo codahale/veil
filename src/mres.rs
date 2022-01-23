@@ -126,7 +126,7 @@ where
     mres.key("data-encryption-key", &dek);
 
     // Decrypt the message and get the signature.
-    let (written, sig) = decrypt_message(reader, writer, &mut verifier, &mut mres)?;
+    let (written, sig) = decrypt_message(reader, writer, &mut verifier, mres)?;
 
     // Return the signature's validity and the number of bytes of plaintext written.
     Ok((verifier.verify(&q_e, &sig), written))
@@ -140,7 +140,7 @@ fn decrypt_message<R, W>(
     reader: &mut R,
     writer: &mut W,
     verifier: &mut Verifier,
-    mres: &mut Protocol,
+    mres: Protocol,
 ) -> Result<(u64, [u8; SIGNATURE_LEN])>
 where
     R: Read,
@@ -151,8 +151,7 @@ where
     let mut buf = Vec::with_capacity(input.len() + SIGNATURE_LEN);
 
     // Prep for streaming decryption.
-    mres.as_mut().meta_ad(b"message-start", false);
-    mres.as_mut().recv_enc(&mut [], false);
+    let mut message = mres.recv_enc_writer("message", writer);
 
     // Read through src in 32KiB chunks, keeping the last 64 bytes as the signature.
     let mut n = usize::MAX;
@@ -164,22 +163,18 @@ where
         // Process the data if we have at least a signature's worth.
         if buf.len() > SIGNATURE_LEN {
             // Pop the first N-64 bytes off the buffer.
-            let mut block: Vec<u8> = buf.drain(..buf.len() - SIGNATURE_LEN).collect();
+            let block: Vec<u8> = buf.drain(..buf.len() - SIGNATURE_LEN).collect();
 
             // Verify the ciphertext.
             verifier.write_all(&block)?;
 
-            // Decrypt the ciphertext.
-            mres.as_mut().recv_enc(&mut block, true);
-
-            // Write the plaintext.
-            writer.write_all(&block)?;
+            // Decrypt the ciphertext and write the plaintext.
+            message.write_all(&block)?;
             written += block.len() as u64;
         }
     }
 
-    // Terminate the message stream.
-    mres.meta_ad_len("message-end", written);
+    let (mut mres, _) = message.into_inner();
 
     // Keep the last 64 bytes as the encrypted signature.
     let sig = mres.decrypt("signature", &buf);

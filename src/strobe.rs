@@ -160,7 +160,7 @@ impl Protocol {
     }
 
     /// Include the given label and length as associated-metadata.
-    pub fn meta_ad_len(&mut self, label: &str, n: u64) {
+    fn meta_ad_len(&mut self, label: &str, n: u64) {
         self.0.meta_ad(label.as_bytes(), false);
         self.0.meta_ad(&n.to_le_bytes(), true);
     }
