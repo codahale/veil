@@ -72,21 +72,11 @@ macro_rules! hash_counter {
     ($pbenc:ident, $ctr:ident, $left:expr, $right:expr, $out:expr) => {
         $ctr += 1;
 
-        $pbenc.as_mut().meta_ad(b"counter", false);
-        $pbenc.as_mut().meta_ad(&(U64_LEN as u32).to_le_bytes(), true);
-        $pbenc.as_mut().ad(&$ctr.to_le_bytes(), false);
+        $pbenc.ad("counter", &$ctr.to_le_bytes());
+        $pbenc.ad("left", &$left);
+        $pbenc.ad("right", &$right);
 
-        $pbenc.as_mut().meta_ad(b"left", false);
-        $pbenc.as_mut().meta_ad(&($left.len() as u32).to_le_bytes(), true);
-        $pbenc.as_mut().ad(&$left, false);
-
-        $pbenc.as_mut().meta_ad(b"right", false);
-        $pbenc.as_mut().meta_ad(&($right.len() as u32).to_le_bytes(), true);
-        $pbenc.as_mut().ad(&$right, false);
-
-        $pbenc.as_mut().meta_ad(b"out", false);
-        $pbenc.as_mut().meta_ad(&(N as u32).to_le_bytes(), true);
-        $pbenc.as_mut().prf(&mut $out, false);
+        $out = $pbenc.prf("out");
     };
 }
 
@@ -96,8 +86,12 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Protocol {
     // Key with the passphrase.
     pbenc.key("passphrase", passphrase);
 
-    // Include the salt as associated data.
+    // Include the salt, time, space, block size, and delta parameters as associated data.
     pbenc.ad("salt", salt);
+    pbenc.ad("time", &time.to_le_bytes());
+    pbenc.ad("space", &space.to_le_bytes());
+    pbenc.ad("blocksize", &(N as u32).to_le_bytes());
+    pbenc.ad("delta", &(DELTA as u32).to_le_bytes());
 
     // Allocate buffers.
     let mut ctr = 0u64;
@@ -105,35 +99,20 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Protocol {
     let mut buf = vec![[0u8; N]; space as usize];
 
     // Step 1: Expand input into buffer.
-    pbenc.as_mut().meta_ad(b"expand", false);
     hash_counter!(pbenc, ctr, passphrase, salt, buf[0]);
     for m in 1..space as usize {
-        pbenc.as_mut().meta_ad(b"space", false);
-        pbenc.as_mut().meta_ad(&(m as u32).to_le_bytes(), true);
-        hash_counter!(pbenc, ctr, buf[m - 1], [0u8; 0], buf[m]);
+        hash_counter!(pbenc, ctr, buf[m - 1], [], buf[m]);
     }
 
     // Step 2: Mix buffer contents.
-    pbenc.as_mut().meta_ad(b"mix", false);
     for t in 0..time as usize {
-        pbenc.as_mut().meta_ad(b"time", false);
-        pbenc.as_mut().meta_ad(&(t as u32).to_le_bytes(), true);
-
         for m in 0..space as usize {
-            pbenc.as_mut().meta_ad(b"space", false);
-            pbenc.as_mut().meta_ad(&(m as u32).to_le_bytes(), true);
-
             // Step 2a: Hash last and current blocks.
-            pbenc.as_mut().meta_ad(b"mix-a", false);
             let prev = (m as isize - 1).rem_euclid(space as isize) as usize; // wrap 0 to last block
             hash_counter!(pbenc, ctr, buf[prev], buf[m], buf[m]);
 
             // Step 2b: Hash in pseudo-randomly chosen blocks.
-            pbenc.as_mut().meta_ad(b"mix-b", false);
             for i in 0..DELTA {
-                pbenc.as_mut().meta_ad(b"delta", false);
-                pbenc.as_mut().meta_ad(&(i as u32).to_le_bytes(), true);
-
                 // Map indexes to a block and hash it and the salt.
                 idx[..U64_LEN].copy_from_slice(&(t as u64).to_le_bytes());
                 idx[U64_LEN..U64_LEN * 2].copy_from_slice(&(m as u64).to_le_bytes());
@@ -142,7 +121,7 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Protocol {
 
                 // Map the hashed index block back to an index and hash that block.
                 let v = u64::from_le_bytes(idx[..U64_LEN].try_into().expect("invalid u64 len"));
-                hash_counter!(pbenc, ctr, buf[(v % space as u64) as usize], [0u8; 0], buf[m]);
+                hash_counter!(pbenc, ctr, buf[(v % space as u64) as usize], [], buf[m]);
             }
         }
     }

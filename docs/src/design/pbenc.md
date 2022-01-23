@@ -10,13 +10,29 @@ $N_S$, time parameter $N_T$, block size $N_B$, and MAC size $N_M$:
 ```text
 INIT('veil.pbenc', level=128)
 
-AD('passphrase',  meta=true)
-AD(LE_U64(LEN(P), meta=true, more=true)
+AD('passphrase',   meta=true)
+AD(LE_U64(LEN(P)), meta=true, more=true)
 KEY(P)
 
-AD('salt',        meta=true)
-AD(LE_U64(LEN(S), meta=true, more=true)
+AD('salt',         meta=true)
+AD(LE_U64(LEN(S)), meta=true, more=true)
 AD(S)
+
+AD('time',    meta=true)
+AD(LE_U64(8), meta=true, more=true)
+AD(LE_U64(N_T))
+
+AD('space',   meta=true)
+AD(LE_U64(8), meta=true, more=true)
+AD(LE_U64(N_S))
+
+AD('blocksize', meta=true)
+AD(LE_U64(8),   meta=true, more=true)
+AD(LE_U64(N_B))
+
+AD('delta',   meta=true)
+AD(LE_U64(8), meta=true, more=true)
+AD(LE_U64(D))
 ```
 
 For each iteration of the balloon hashing algorithm, given a counter $C$, a left block $L$, and a right block $R$:
@@ -44,11 +60,8 @@ hash_counter(L, R):
 For the expanding phase of the algorithm, the step name and loop variables are included as metadata:
 
 ```text
-AD('expand', meta=true)
 hash_counter(passphrase, salt, buf[0])
 for m in 1..N_S: 
-  AD('space',   meta=true)
-  AD(LE_U64(m), meta=true, more=true)
   hash_counter(buf[m - 1], nil, buf[m])
 
 ```
@@ -56,23 +69,11 @@ for m in 1..N_S:
 For the mixing phase of the algorithm, the step name and loop variables are included as metadata:
 
 ```text
-AD('mix',       meta=true)
 for t in 0..N_T:
-  AD('time',    meta=true)
-  AD(LE_U64(t), meta=true, more=true)
-  
   for m in 0..N_S: 
-    AD('space',   meta=true)
-    AD(LE_U64(m), meta=true, more=true)
-    
-    AD('mix-a', meta=true)
     hash_counter(buf[prev], buf[m], buf[m])
     
-    AD('mix-b', meta=true)
     for i in 0..D:
-      AD('delta',   meta=true)
-      AD(LE_U64(i), meta=true, more=true)
-     
       idx = LE_U64(t) + LE_U64(m) + LE_U64(i) 
       hash_counter(salt, idx, idx)
       
