@@ -102,16 +102,14 @@ impl Protocol {
         let mut clone = Protocol(self.0.clone());
 
         // Key with the given secret.
-        clone.meta_ad_len("secret-value", secret.len() as u64);
-        clone.0.key(secret, false);
+        clone.key("secret-value", secret);
 
         // Generate a random value.
         let mut r = [0u8; 64];
         rand::thread_rng().fill_bytes(&mut r);
 
         // Key with the random value.
-        clone.meta_ad_len("secret-value", r.len() as u64);
-        clone.0.key(&r, false);
+        clone.key("secret-value", &r);
 
         // Call the given function with the clone.
         f(&mut clone)
