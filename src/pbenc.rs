@@ -97,8 +97,7 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Protocol {
     let mut pbenc = Protocol::new("veil.pbenc");
 
     // Key with the passphrase.
-    pbenc.meta_ad_len("passphrase", passphrase.len() as u64);
-    pbenc.as_mut().key(passphrase, false);
+    pbenc.key("passphrase", passphrase);
 
     // Include the salt as associated data.
     pbenc.meta_ad_len("salt", salt.len() as u64);
@@ -153,9 +152,7 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Protocol {
     }
 
     // Step 3: Extract output from buffer.
-    pbenc.as_mut().meta_ad(b"extract", false);
-    pbenc.as_mut().meta_ad(&(N as u32).to_le_bytes(), true);
-    pbenc.as_mut().key(&buf[space as usize - 1], false);
+    pbenc.key("extract", &buf[space as usize - 1]);
 
     pbenc
 }

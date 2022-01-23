@@ -8,10 +8,7 @@ use crate::strobe::Protocol;
 #[must_use]
 pub fn derive_root(r: &[u8; 64]) -> Scalar {
     let mut root_df = Protocol::new("veil.scaldf.root");
-
-    root_df.meta_ad_len("root", r.len() as u64);
-    root_df.as_mut().key(r, false);
-
+    root_df.key("root", r);
     root_df.prf_scalar("scalar")
 }
 
@@ -20,10 +17,7 @@ pub fn derive_root(r: &[u8; 64]) -> Scalar {
 pub fn derive_scalar(d: Scalar, key_id: &str) -> Scalar {
     key_id.trim_matches(KEY_ID_DELIM).split(KEY_ID_DELIM).fold(d, |d_p, label| {
         let mut label_df = Protocol::new("veil.scaldf.label");
-
-        label_df.meta_ad_len("label", label.len() as u64);
-        label_df.as_mut().key(label.as_bytes(), false);
-
+        label_df.key("label", label.as_bytes());
         d_p + label_df.prf_scalar("scalar")
     })
 }

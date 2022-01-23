@@ -70,8 +70,7 @@ where
     let (mut mres, signer) = send_clr.into_inner();
 
     // Key the protocol with the DEK.
-    mres.meta_ad_len("data-encryption-key", DEK_LEN as u64);
-    mres.as_mut().key(&dek, false);
+    mres.key("data-encryption-key", &dek);
 
     // Encrypt the plaintext, pass it through the signer, and write it.
     mres.as_mut().meta_ad(b"message", false);
@@ -130,8 +129,7 @@ where
     let (mut mres, mut verifier) = mres_writer.into_inner();
 
     // Key the protocol with the recovered DEK.
-    mres.meta_ad_len("data-encryption-key", DEK_LEN as u64);
-    mres.as_mut().key(&dek, false);
+    mres.key("data-encryption-key", &dek);
 
     // Decrypt the message and get the signature.
     let (written, sig) = decrypt_message(reader, writer, &mut verifier, &mut mres)?;

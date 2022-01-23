@@ -35,8 +35,7 @@ pub fn encapsulate(
     akem.as_mut().recv_clr(q_r.compress().as_bytes(), false);
 
     // Calculate the static Diffie-Hellman shared secret and key the protocol with it.
-    akem.meta_ad_len("static-shared-secret", POINT_LEN as u64);
-    akem.as_mut().key(&diffie_hellman(d_s, q_r), false);
+    akem.key("static-shared-secret", &diffie_hellman(d_s, q_r));
 
     // Encode and encrypt the ephemeral public key.
     out.extend(akem.encrypt("ephemeral-public-key", q_e.compress().as_bytes()));
@@ -59,8 +58,7 @@ pub fn encapsulate(
     out.extend(akem.encrypt("signature-point", k.compress().as_bytes()));
 
     // Calculate the ephemeral Diffie-Hellman shared secret and key the protocol with it.
-    akem.meta_ad_len("ephemeral-shared-secret", POINT_LEN as u64);
-    akem.as_mut().key(&diffie_hellman(d_e, q_r), false);
+    akem.key("ephemeral-shared-secret", &diffie_hellman(d_e, q_r));
 
     // Encrypt the plaintext.
     out.extend(akem.encrypt("ciphertext", plaintext));
@@ -105,8 +103,7 @@ pub fn decapsulate(
     akem.as_mut().send_clr(q_r.compress().as_bytes(), false);
 
     // Calculate the static Diffie-Hellman shared secret and key the protocol with it.
-    akem.meta_ad_len("static-shared-secret", POINT_LEN as u64);
-    akem.as_mut().key(&diffie_hellman(d_r, q_s), false);
+    akem.key("static-shared-secret", &diffie_hellman(d_r, q_s));
 
     // Decrypt and decode the ephemeral public key.
     let q_e = akem.decrypt("ephemeral-public-key", &q_e);
@@ -130,8 +127,7 @@ pub fn decapsulate(
     }
 
     // Calculate the ephemeral Diffie-Hellman shared secret and key the protocol with it.
-    akem.meta_ad_len("ephemeral-shared-secret", POINT_LEN as u64);
-    akem.as_mut().key(&diffie_hellman(d_r, &q_e), false);
+    akem.key("ephemeral-shared-secret", &diffie_hellman(d_r, &q_e));
 
     // Decrypt the plaintext.
     let plaintext = akem.decrypt("ciphertext", &ciphertext);

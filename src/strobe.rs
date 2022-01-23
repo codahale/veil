@@ -55,6 +55,12 @@ impl Protocol {
         plaintext
     }
 
+    /// Key the protocol with the given key.
+    pub fn key(&mut self, label: &str, key: &[u8]) {
+        self.meta_ad_len(label, key.len() as u64);
+        self.0.key(key, false);
+    }
+
     /// Calculate a MAC of the given length.
     #[must_use]
     pub fn mac<const N: usize>(&mut self, label: &str) -> [u8; N] {
