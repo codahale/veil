@@ -13,12 +13,6 @@ impl Protocol {
         Protocol(Strobe::new(label.as_bytes(), SecParam::B128))
     }
 
-    /// Include the given label and length as associated-metadata.
-    pub fn meta_ad_len(&mut self, label: &str, n: u64) {
-        self.0.meta_ad(label.as_bytes(), false);
-        self.0.meta_ad(&n.to_le_bytes(), true);
-    }
-
     /// Derive a scalar from PRF output.
     #[must_use]
     pub fn prf_scalar(&mut self, label: &str) -> Scalar {
@@ -149,6 +143,12 @@ impl Protocol {
     {
         self.0.recv_clr(&[], false);
         RecvClrWriter(self, w)
+    }
+
+    /// Include the given label and length as associated-metadata.
+    fn meta_ad_len(&mut self, label: &str, n: u64) {
+        self.0.meta_ad(label.as_bytes(), false);
+        self.0.meta_ad(&n.to_le_bytes(), true);
     }
 }
 
