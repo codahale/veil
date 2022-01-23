@@ -35,6 +35,12 @@ impl Protocol {
         out
     }
 
+    /// Include the data as associated data.
+    pub fn ad(&mut self, label: &str, data: &[u8]) {
+        self.meta_ad_len(label, data.len() as u64);
+        self.0.ad(data, false);
+    }
+
     /// Send the data as cleartext.
     pub fn send(&mut self, label: &str, data: &[u8]) {
         self.meta_ad_len(label, data.len() as u64);

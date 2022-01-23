@@ -5,7 +5,7 @@ use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 
-use crate::constants::{POINT_LEN, SCALAR_LEN};
+use crate::constants::SCALAR_LEN;
 use crate::strobe::{Protocol, SendClrWriter};
 
 /// The length of a signature, in bytes.
@@ -42,8 +42,7 @@ where
 
         // Add the commitment point as associated data.
         let r_g = &G * &r;
-        schnorr.meta_ad_len("commitment-point", POINT_LEN as u64);
-        schnorr.as_mut().ad(r_g.compress().as_bytes(), false);
+        schnorr.ad("commitment-point", r_g.compress().as_bytes());
 
         // Derive a challenge scalar from PRF output.
         let c = schnorr.prf_scalar("challenge-scalar");
@@ -107,8 +106,7 @@ impl Verifier {
 
         // Re-calculate the commitment point and add it as associated data.
         let r_g = (&G * &s) + (-c * q);
-        schnorr.meta_ad_len("commitment-point", POINT_LEN as u64);
-        schnorr.as_mut().ad(r_g.compress().as_bytes(), false);
+        schnorr.ad("commitment-point", r_g.compress().as_bytes());
 
         // Re-derive the challenge scalar.
         let c_p = schnorr.prf_scalar("challenge-scalar");

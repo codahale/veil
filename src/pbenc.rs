@@ -100,8 +100,7 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Protocol {
     pbenc.key("passphrase", passphrase);
 
     // Include the salt as associated data.
-    pbenc.meta_ad_len("salt", salt.len() as u64);
-    pbenc.as_mut().ad(salt, false);
+    pbenc.ad("salt", salt);
 
     // Allocate buffers.
     let mut ctr = 0u64;
