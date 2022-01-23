@@ -35,6 +35,12 @@ impl Protocol {
         out
     }
 
+    /// Send the data as cleartext.
+    pub fn send(&mut self, label: &str, data: &[u8]) {
+        self.meta_ad_len(label, data.len() as u64);
+        self.0.send_clr(data, false);
+    }
+
     /// Encrypt the given plaintext and return the ciphertext.
     #[must_use]
     pub fn encrypt(&mut self, label: &str, plaintext: &[u8]) -> Vec<u8> {
@@ -43,6 +49,12 @@ impl Protocol {
         let mut ciphertext = Vec::from(plaintext);
         self.0.send_enc(&mut ciphertext, false);
         ciphertext
+    }
+
+    /// Receive the data as cleartext.
+    pub fn receive(&mut self, label: &str, data: &[u8]) {
+        self.meta_ad_len(label, data.len() as u64);
+        self.0.recv_clr(data, false);
     }
 
     /// Decrypt the given ciphertext and return the plaintext.

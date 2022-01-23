@@ -27,12 +27,10 @@ pub fn encapsulate(
     let mut akem = Protocol::new("veil.akem");
 
     // Include the sender and receiver as associated data.
-    akem.meta_ad_len("sender-public-key", POINT_LEN as u64);
-    akem.as_mut().send_clr(q_s.compress().as_bytes(), false);
+    akem.send("sender-public-key", q_s.compress().as_bytes());
 
     // Receive the receiver's public key as cleartext.
-    akem.meta_ad_len("receiver-public-key", POINT_LEN as u64);
-    akem.as_mut().recv_clr(q_r.compress().as_bytes(), false);
+    akem.receive("receiver-public-key", q_r.compress().as_bytes());
 
     // Calculate the static Diffie-Hellman shared secret and key the protocol with it.
     akem.key("static-shared-secret", &diffie_hellman(d_s, q_r));
@@ -95,12 +93,10 @@ pub fn decapsulate(
     let mut akem = Protocol::new("veil.akem");
 
     // Receive the sender's public key as cleartext.
-    akem.meta_ad_len("sender-public-key", POINT_LEN as u64);
-    akem.as_mut().recv_clr(q_s.compress().as_bytes(), false);
+    akem.receive("sender-public-key", q_s.compress().as_bytes());
 
     // Send the receiver's public key as cleartext.
-    akem.meta_ad_len("receiver-public-key", POINT_LEN as u64);
-    akem.as_mut().send_clr(q_r.compress().as_bytes(), false);
+    akem.send("receiver-public-key", q_r.compress().as_bytes());
 
     // Calculate the static Diffie-Hellman shared secret and key the protocol with it.
     akem.key("static-shared-secret", &diffie_hellman(d_r, q_s));

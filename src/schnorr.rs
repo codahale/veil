@@ -34,8 +34,7 @@ where
         let (mut schnorr, writer) = self.writer.into_inner();
 
         // Send the signer's public key as cleartext.
-        schnorr.meta_ad_len("signer", POINT_LEN as u64);
-        schnorr.as_mut().send_clr(q.compress().as_bytes(), false);
+        schnorr.send("signer", q.compress().as_bytes());
 
         // Derive a commitment scalar from the protocol's current state, the signer's private key,
         // and a random nonce.
@@ -93,9 +92,8 @@ impl Verifier {
     pub fn verify(self, q: &RistrettoPoint, sig: &[u8; SIGNATURE_LEN]) -> bool {
         let mut schnorr = self.schnorr;
 
-        // Add the signer's public key as associated data.
-        schnorr.meta_ad_len("signer", POINT_LEN as u64);
-        schnorr.as_mut().recv_clr(q.compress().as_bytes(), false);
+        // Receive the signer's public key as cleartext.
+        schnorr.receive("signer", q.compress().as_bytes());
 
         // Split the signature into parts.
         let c = sig[..SCALAR_LEN].try_into().expect("invalid scalar len");

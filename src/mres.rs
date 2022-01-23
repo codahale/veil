@@ -8,7 +8,7 @@ use rand::prelude::ThreadRng;
 use rand::RngCore;
 
 use crate::akem;
-use crate::constants::{POINT_LEN, U64_LEN};
+use crate::constants::U64_LEN;
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::strobe::Protocol;
 
@@ -28,8 +28,7 @@ where
 {
     // Initialize a protocol and send the sender's public key as cleartext.
     let mut mres = Protocol::new("veil.mres");
-    mres.meta_ad_len("sender", POINT_LEN as u64);
-    mres.as_mut().send_clr(q_s.compress().as_bytes(), false);
+    mres.send("sender", q_s.compress().as_bytes());
 
     // Derive a random ephemeral key pair and DEK from the protocol's current state, the sender's
     // private key, and a random nonce.
@@ -109,8 +108,7 @@ where
 {
     // Initialize a protocol and receive the sender's public key as cleartext.
     let mut mres = Protocol::new("veil.mres");
-    mres.meta_ad_len("sender", POINT_LEN as u64);
-    mres.as_mut().recv_clr(q_s.compress().as_bytes(), false);
+    mres.receive("sender", q_s.compress().as_bytes());
 
     // Initialize a verifier for the entire ciphertext.
     let verifier = Verifier::new();
