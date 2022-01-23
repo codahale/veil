@@ -80,11 +80,10 @@ where
     let (mut mres, signer) = send_enc.into_inner();
 
     // Sign the encrypted headers and ciphertext with the ephemeral key pair.
-    let (mut sig, writer) = signer.sign(&d_e, &q_e);
+    let (sig, writer) = signer.sign(&d_e, &q_e);
 
     // Encrypt the signature.
-    mres.meta_ad_len("signature", SIGNATURE_LEN as u64);
-    mres.as_mut().send_enc(&mut sig, false);
+    let sig = mres.encrypt("signature", &sig);
 
     // Write the encrypted signature.
     writer.write_all(&sig)?;
@@ -183,9 +182,8 @@ where
     }
 
     // Keep the last 64 bytes as the encrypted signature.
-    let mut sig: [u8; SIGNATURE_LEN] = buf.try_into().expect("invalid sig len");
-    mres.meta_ad_len("signature", SIGNATURE_LEN as u64);
-    mres.as_mut().recv_enc(&mut sig, false);
+    let sig = mres.decrypt("signature", &buf);
+    let sig: [u8; SIGNATURE_LEN] = sig.try_into().expect("invalid sig len");
 
     // Return the bytes written and the decrypted signature.
     Ok((written, sig))
