@@ -31,7 +31,7 @@ where
     /// Create a signature of the previously-written message contents using the given key pair.
     #[allow(clippy::many_single_char_names)]
     pub fn sign(self, d: &Scalar, q: &RistrettoPoint) -> ([u8; SIGNATURE_LEN], W) {
-        let (mut schnorr, writer) = self.writer.into_inner();
+        let (mut schnorr, writer, _) = self.writer.into_inner();
 
         // Send the signer's public key as cleartext.
         schnorr.send("signer", q.compress().as_bytes());
@@ -87,7 +87,7 @@ impl Verifier {
     /// Verify the previously-written message contents using the given public key and signature.
     #[must_use]
     pub fn verify(self, q: &RistrettoPoint, sig: &[u8; SIGNATURE_LEN]) -> bool {
-        let (mut schnorr, _) = self.writer.into_inner();
+        let (mut schnorr, _, _) = self.writer.into_inner();
 
         // Receive the signer's public key as cleartext.
         schnorr.receive("signer", q.compress().as_bytes());

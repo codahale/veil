@@ -173,10 +173,10 @@ macro_rules! protocol_writer {
 
         impl<W: Write> $t<W> {
             #[must_use]
-            pub fn into_inner(self) -> (Protocol, W) {
+            pub fn into_inner(self) -> (Protocol, W, u64) {
                 let mut p = self.0;
                 p.meta_ad_len(&format!("{}-end", self.3), self.2);
-                (p, self.1)
+                (p, self.1, self.2)
             }
         }
 

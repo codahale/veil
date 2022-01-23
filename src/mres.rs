@@ -65,7 +65,7 @@ where
     written += io::copy(&mut RngReader(rand::thread_rng()).take(padding), &mut send_clr)?;
 
     // Unwrap the sent cleartext writer.
-    let (mut mres, signer) = send_clr.into_inner();
+    let (mut mres, signer, _) = send_clr.into_inner();
 
     // Key the protocol with the DEK.
     mres.key("data-encryption-key", &dek);
@@ -75,7 +75,7 @@ where
     written += io::copy(reader, &mut send_enc)?;
 
     // Unwrap the sent encryption writer.
-    let (mut mres, signer) = send_enc.into_inner();
+    let (mut mres, signer, _) = send_enc.into_inner();
 
     // Sign the encrypted headers and ciphertext with the ephemeral key pair.
     let (sig, writer) = signer.sign(&d_e, &q_e);
@@ -120,7 +120,7 @@ where
     };
 
     // Unwrap the received cleartext writer.
-    let (mut mres, mut verifier) = mres_writer.into_inner();
+    let (mut mres, mut verifier, _) = mres_writer.into_inner();
 
     // Key the protocol with the recovered DEK.
     mres.key("data-encryption-key", &dek);
@@ -146,7 +146,6 @@ where
     R: Read,
     W: Write,
 {
-    let mut written = 0u64;
     let mut input = [0u8; 32 * 1024];
     let mut buf = Vec::with_capacity(input.len() + SIGNATURE_LEN);
 
@@ -170,12 +169,11 @@ where
 
             // Decrypt the ciphertext and write the plaintext.
             message.write_all(&block)?;
-            written += block.len() as u64;
         }
     }
 
     // Finish message stream.
-    let (mut mres, _) = message.into_inner();
+    let (mut mres, _, written) = message.into_inner();
 
     // Keep the last 64 bytes as the encrypted signature.
     let sig = mres.decrypt("signature", &buf);
