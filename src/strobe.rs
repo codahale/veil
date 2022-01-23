@@ -121,9 +121,9 @@ impl Protocol {
     where
         W: Write,
     {
-        self.0.meta_ad(label.as_bytes(), false);
+        self.0.meta_ad(format!("{}-start", label).as_bytes(), false);
         self.0.send_clr(&[], false);
-        SendClrWriter(self, w)
+        SendClrWriter(self, w, 0, label.to_string())
     }
 
     /// Create a writer which passes writes through `RECV_CLR` before passing them to the given
@@ -132,9 +132,9 @@ impl Protocol {
     where
         W: Write,
     {
-        self.0.meta_ad(label.as_bytes(), false);
+        self.0.meta_ad(format!("{}-start", label).as_bytes(), false);
         self.0.recv_clr(&[], false);
-        RecvClrWriter(self, w)
+        RecvClrWriter(self, w, 0, label.to_string())
     }
 
     /// Create a writer which passes writes through `SEND_ENC` before passing them to the given
@@ -143,13 +143,13 @@ impl Protocol {
     where
         W: Write,
     {
-        self.0.meta_ad(label.as_bytes(), false);
+        self.0.meta_ad(format!("{}-start", label).as_bytes(), false);
         self.0.send_enc(&mut [], false);
-        SendEncWriter(self, w)
+        SendEncWriter(self, w, 0, label.to_string())
     }
 
     /// Include the given label and length as associated-metadata.
-    fn meta_ad_len(&mut self, label: &str, n: u64) {
+    pub fn meta_ad_len(&mut self, label: &str, n: u64) {
         self.0.meta_ad(label.as_bytes(), false);
         self.0.meta_ad(&n.to_le_bytes(), true);
     }
@@ -165,17 +165,20 @@ impl AsMut<Strobe> for Protocol {
 macro_rules! protocol_writer {
     ($t:ident, $strobe:ident, $buf:ident, $writer:ident, $body:block) => {
         #[must_use]
-        pub struct $t<W: Write>(Protocol, W);
+        pub struct $t<W: Write>(Protocol, W, u64, String);
 
         impl<W: Write> $t<W> {
             #[must_use]
             pub fn into_inner(self) -> (Protocol, W) {
-                (self.0, self.1)
+                let mut p = self.0;
+                p.meta_ad_len(&format!("{}-end", self.3), self.2);
+                (p, self.1)
             }
         }
 
         impl<W: Write> Write for $t<W> {
             fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+                self.2 += buf.len() as u64;
                 let $strobe = &mut self.0 .0;
                 let $buf = buf;
                 let $writer = &mut self.1;

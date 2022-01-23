@@ -151,7 +151,7 @@ where
     let mut buf = Vec::with_capacity(input.len() + SIGNATURE_LEN);
 
     // Prep for streaming decryption.
-    mres.as_mut().meta_ad(b"message", false);
+    mres.as_mut().meta_ad(b"message-start", false);
     mres.as_mut().recv_enc(&mut [], false);
 
     // Read through src in 32KiB chunks, keeping the last 64 bytes as the signature.
@@ -177,6 +177,9 @@ where
             written += block.len() as u64;
         }
     }
+
+    // Terminate the message stream.
+    mres.meta_ad_len("message-end", written);
 
     // Keep the last 64 bytes as the encrypted signature.
     let sig = mres.decrypt("signature", &buf);

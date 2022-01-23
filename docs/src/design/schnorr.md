@@ -7,12 +7,14 @@ Signing is as follows, given a message in blocks $M_0...M_N$, a private scalar $
 ```text
 INIT('veil.schnorr', level=128)
 
-AD('message', meta=true)
-SEND_CLR('',  more=false)
-SEND_CLR(M_0, more=true)
-SEND_CLR(M_1, more=true)
+AD('message-start', meta=true)
+SEND_CLR('',        more=false)
+SEND_CLR(M_0,       more=true)
+SEND_CLR(M_1,       more=true)
 …
-SEND_CLR(M_N, more=true)
+SEND_CLR(M_N,       more=true)
+AD('message-end',   meta=true)
+AD(LE_U64(LEN(M)),  meta=true, more=true)
 
 AD('signer',    meta=true)
 AD(LE_U64(N_Q), meta=true, more=true)
@@ -60,12 +62,14 @@ To verify, `veil.schnorr` is run with a message in blocks $M_0...M_N$ and a publ
 ```text
 INIT('veil.schnorr', level=128)
 
-AD('message', meta=true)
-RECV_CLR('',  more=false)
-RECV_CLR(M_0, more=true)
-RECV_CLR(M_1, more=true)
+AD('message-start', meta=true)
+RECV_CLR('',        more=false)
+RECV_CLR(M_0,       more=true)
+RECV_CLR(M_1,       more=true)
 …
-RECV_CLR(M_N, more=true)
+RECV_CLR(M_N,       more=true)
+AD('message-end',   meta=true)
+AD(LE_U64(LEN(M)),  meta=true, more=true)
 
 AD('signer',    meta=true)
 AD(LE_U64(N_Q), meta=true, more=true)

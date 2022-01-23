@@ -56,11 +56,13 @@ AD('data-encryption-key', meta=true)
 AD(LE_U64(N_DEK),         meta=true, more=true)
 KEY(K_dek)
 
-AD('message', meta=true)
+AD('message-start', meta=true)
 SEND_ENC('')
-SEND_ENC(P_0, more=true)
+SEND_ENC(C_0,       more=true)
 …
-SEND_ENC(P_N, more=true)
+SEND_ENC(C_N,       more=true)
+AD('message-end',   meta=true)
+AD(LE_U64(LEN(C)),  meta=true, more=true)
 ```
 
 Finally, a Schnorr signature $S$ of the entire ciphertext (headers, padding, and DEM ciphertext) is created with $d_E$
@@ -106,11 +108,13 @@ AD('data-encryption-key', meta=true)
 AD(LE_U64(N_DEK),         meta=true, more=true)
 KEY(K_dek)
 
-AD('message',     meta=true)
+AD('message-start', meta=true)
 RECV_ENC('')
-RECV_ENC(C_0,     more=true)
+RECV_ENC(C_0,       more=true)
 …
-RECV_ENC(C_N,     more=true)
+RECV_ENC(C_N,       more=true)
+AD('message-end',   meta=true)
+AD(LE_U64(LEN(C)),  meta=true, more=true)
 ```
 
 Finally, the signature $S$ is decrypted and verified against the entire ciphertext:
