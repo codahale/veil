@@ -24,9 +24,8 @@ where
 {
     /// Create a new signer which passes writes through to the given writer.
     pub fn new(writer: W) -> Signer<W> {
-        let mut schnorr = Protocol::new("veil.schnorr");
-        schnorr.as_mut().meta_ad(b"message", false);
-        Signer { writer: schnorr.send_clr_writer(writer) }
+        let schnorr = Protocol::new("veil.schnorr");
+        Signer { writer: schnorr.send_clr_writer("message", writer) }
     }
 
     /// Create a signature of the previously-written message contents using the given key pair.
@@ -81,9 +80,8 @@ impl Verifier {
     /// Create a new verifier.
     #[must_use]
     pub fn new() -> Verifier {
-        let mut schnorr = Protocol::new("veil.schnorr");
-        schnorr.as_mut().meta_ad(b"message", false);
-        Verifier { writer: schnorr.recv_clr_writer(io::sink()) }
+        let schnorr = Protocol::new("veil.schnorr");
+        Verifier { writer: schnorr.recv_clr_writer("message", io::sink()) }
     }
 
     /// Verify the previously-written message contents using the given public key and signature.

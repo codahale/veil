@@ -117,12 +117,24 @@ impl Protocol {
 
     /// Create a writer which passes writes through `SEND_CLR` before passing them to the given
     /// writer.
-    pub fn send_clr_writer<W>(mut self, w: W) -> SendClrWriter<W>
+    pub fn send_clr_writer<W>(mut self, label: &str, w: W) -> SendClrWriter<W>
     where
         W: Write,
     {
+        self.0.meta_ad(label.as_bytes(), false);
         self.0.send_clr(&[], false);
         SendClrWriter(self, w)
+    }
+
+    /// Create a writer which passes writes through `RECV_CLR` before passing them to the given
+    /// writer.
+    pub fn recv_clr_writer<W>(mut self, label: &str, w: W) -> RecvClrWriter<W>
+    where
+        W: Write,
+    {
+        self.0.meta_ad(label.as_bytes(), false);
+        self.0.recv_clr(&[], false);
+        RecvClrWriter(self, w)
     }
 
     /// Create a writer which passes writes through `SEND_ENC` before passing them to the given
@@ -133,16 +145,6 @@ impl Protocol {
     {
         self.0.send_enc(&mut [], false);
         SendEncWriter(self, w)
-    }
-
-    /// Create a writer which passes writes through `RECV_CLR` before passing them to the given
-    /// writer.
-    pub fn recv_clr_writer<W>(mut self, w: W) -> RecvClrWriter<W>
-    where
-        W: Write,
-    {
-        self.0.recv_clr(&[], false);
-        RecvClrWriter(self, w)
     }
 
     /// Include the given label and length as associated-metadata.

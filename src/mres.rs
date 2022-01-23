@@ -52,8 +52,7 @@ where
     let signer = Signer::new(writer);
 
     // Include all encrypted headers and padding as sent cleartext.
-    mres.as_mut().meta_ad(b"headers", false);
-    let mut send_clr = mres.send_clr_writer(signer);
+    let mut send_clr = mres.send_clr_writer("headers", signer);
 
     // For each recipient, encrypt a copy of the header.
     for q_r in q_rs {
@@ -113,8 +112,7 @@ where
     let verifier = Verifier::new();
 
     // Include all encrypted headers and padding as received cleartext.
-    mres.as_mut().meta_ad(b"headers", false);
-    let mut mres_writer = mres.recv_clr_writer(verifier);
+    let mut mres_writer = mres.recv_clr_writer("headers", verifier);
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the verifier.
     let (dek, q_e) = match decrypt_header(reader, &mut mres_writer, d_r, q_r, q_s)? {
