@@ -8,7 +8,7 @@ $P_0...P_N$, a list of recipient public keys, $Q_{R^0}...Q_{R^M}$, and a DEK siz
 ```text
 INIT('veil.mres', level=128)
 AD('sender',    meta=true)
-AD(LE_U32(N_Q), meta=true, more=true)
+AD(LE_U64(N_Q), meta=true, more=true)
 SEND_CLR(Q_s)
 ```
 
@@ -17,19 +17,19 @@ encryption key, $K_{DEK}$, and an ephemeral private key, $d_E$:
 
 ```text
 AD('secret-value', meta=true)
-AD(LE_U32(N_d),     meta=true, more=true)
+AD(LE_U64(N_d),     meta=true, more=true)
 KEY(d_S)
 
 AD('hedged-value', meta=true)
-AD(LE_U32(64),     meta=true, more=true)
+AD(LE_U64(64),     meta=true, more=true)
 KEY(rand(64))
 
 AD('ephemeral-private-key', meta=true)
-AD(LE_U32(64),              meta=true, more=true)
+AD(LE_U64(64),              meta=true, more=true)
 PRF(64) -> d_E
 
 AD('data-encryption-key', meta=true)
-AD(LE_U32(N_DEK),         meta=true, more=true)
+AD(LE_U64(N_DEK),         meta=true, more=true)
 PRF(N_DEK) -> K_DEK
 
 ```
@@ -53,7 +53,7 @@ The protocol is keyed with the DEK and the encrypted message is written:
 
 ```text
 AD('data-encryption-key', meta=true)
-AD(LE_U32(N_DEK),         meta=true, more=true)
+AD(LE_U64(N_DEK),         meta=true, more=true)
 KEY(K_dek)
 
 AD('message', meta=true)
@@ -68,7 +68,7 @@ and encrypted:
 
 ```text
 AD('signature',   meta=true)
-AD(LE_U32(N_d*2), meta=true, more=true)
+AD(LE_U64(N_d*2), meta=true, more=true)
 SEND_ENC(S)
 ```
 
@@ -81,7 +81,7 @@ Decryption begins as follows, given the recipient's key pair, $d_R$ and $Q_R$, t
 
 ```text
 AD('sender',    meta=true)
-AD(LE_U32(N_Q), meta=true, more=true)
+AD(LE_U64(N_Q), meta=true, more=true)
 RECV_CLR(Q_s)
 ```
 
@@ -103,7 +103,7 @@ The protocol is keyed with the DEK, and the plaintext is decrypted:
 
 ```text
 AD('data-encryption-key', meta=true)
-AD(LE_U32(N_DEK),         meta=true, more=true)
+AD(LE_U64(N_DEK),         meta=true, more=true)
 KEY(K_dek)
 
 AD('message',     meta=true)
@@ -117,7 +117,7 @@ Finally, the signature $S$ is decrypted and verified against the entire cipherte
 
 ```text
 AD('signature',   meta=true)
-AD(LE_U32(N_d*2), meta=true, more=true)
+AD(LE_U64(N_d*2), meta=true, more=true)
 RECV_ENC(S)
 ```
 

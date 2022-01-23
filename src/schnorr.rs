@@ -4,10 +4,9 @@ use std::io::{Result, Write};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
-use strobe_rs::{SecParam, Strobe};
 
 use crate::constants::{POINT_LEN, SCALAR_LEN};
-use crate::strobe::{SendClrWriter, StrobeExt};
+use crate::strobe::{Protocol, SendClrWriter};
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = SCALAR_LEN * 2;
@@ -24,8 +23,8 @@ where
 {
     /// Create a new signer which passes writes through to the given writer.
     pub fn new(writer: W) -> Signer<W> {
-        let mut schnorr = Strobe::new(b"veil.schnorr", SecParam::B128);
-        schnorr.meta_ad(b"message", false);
+        let mut schnorr = Protocol::new("veil.schnorr");
+        schnorr.as_mut().meta_ad(b"message", false);
         Signer { writer: schnorr.send_clr_writer(writer) }
     }
 
@@ -35,8 +34,8 @@ where
         let (mut schnorr, writer) = self.writer.into_inner();
 
         // Send the signer's public key as cleartext.
-        schnorr.metadata("signer", &(POINT_LEN as u32));
-        schnorr.send_clr(q.compress().as_bytes(), false);
+        schnorr.meta_ad_len("signer", POINT_LEN as u64);
+        schnorr.as_mut().send_clr(q.compress().as_bytes(), false);
 
         // Derive a commitment scalar from the protocol's current state, the signer's private key,
         // and a random nonce.
@@ -44,8 +43,8 @@ where
 
         // Add the commitment point as associated data.
         let r_g = &G * &r;
-        schnorr.metadata("commitment-point", &(POINT_LEN as u32));
-        schnorr.ad(r_g.compress().as_bytes(), false);
+        schnorr.meta_ad_len("commitment-point", POINT_LEN as u64);
+        schnorr.as_mut().ad(r_g.compress().as_bytes(), false);
 
         // Derive a challenge scalar from PRF output.
         let c = schnorr.prf_scalar("challenge-scalar");
@@ -76,16 +75,16 @@ where
 
 /// A writer which accumulates message contents for verifying.
 pub struct Verifier {
-    schnorr: Strobe,
+    schnorr: Protocol,
 }
 
 impl Verifier {
     /// Create a new verifier.
     #[must_use]
     pub fn new() -> Verifier {
-        let mut schnorr = Strobe::new(b"veil.schnorr", SecParam::B128);
-        schnorr.meta_ad(b"message", false);
-        schnorr.recv_clr(&[], false);
+        let mut schnorr = Protocol::new("veil.schnorr");
+        schnorr.as_mut().meta_ad(b"message", false);
+        schnorr.as_mut().recv_clr(&[], false);
         Verifier { schnorr }
     }
 
@@ -95,8 +94,8 @@ impl Verifier {
         let mut schnorr = self.schnorr;
 
         // Add the signer's public key as associated data.
-        schnorr.metadata("signer", &(POINT_LEN as u32));
-        schnorr.recv_clr(q.compress().as_bytes(), false);
+        schnorr.meta_ad_len("signer", POINT_LEN as u64);
+        schnorr.as_mut().recv_clr(q.compress().as_bytes(), false);
 
         // Split the signature into parts.
         let c = sig[..SCALAR_LEN].try_into().expect("invalid scalar len");
@@ -110,8 +109,8 @@ impl Verifier {
 
         // Re-calculate the commitment point and add it as associated data.
         let r_g = (&G * &s) + (-c * q);
-        schnorr.metadata("commitment-point", &(POINT_LEN as u32));
-        schnorr.ad(r_g.compress().as_bytes(), false);
+        schnorr.meta_ad_len("commitment-point", POINT_LEN as u64);
+        schnorr.as_mut().ad(r_g.compress().as_bytes(), false);
 
         // Re-derive the challenge scalar.
         let c_p = schnorr.prf_scalar("challenge-scalar");
@@ -123,7 +122,7 @@ impl Verifier {
 
 impl Write for Verifier {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        self.schnorr.recv_clr(buf, true);
+        self.schnorr.as_mut().recv_clr(buf, true);
         Ok(buf.len())
     }
 

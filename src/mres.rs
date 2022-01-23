@@ -6,12 +6,11 @@ use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use rand::prelude::ThreadRng;
 use rand::RngCore;
-use strobe_rs::{SecParam, Strobe};
 
 use crate::akem;
 use crate::constants::{POINT_LEN, U64_LEN};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
-use crate::strobe::StrobeExt;
+use crate::strobe::Protocol;
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
@@ -28,9 +27,9 @@ where
     W: Write,
 {
     // Initialize a protocol and send the sender's public key as cleartext.
-    let mut mres = Strobe::new(b"veil.mres", SecParam::B128);
-    mres.metadata("sender", &(POINT_LEN as u32));
-    mres.send_clr(q_s.compress().as_bytes(), false);
+    let mut mres = Protocol::new("veil.mres");
+    mres.meta_ad_len("sender", POINT_LEN as u64);
+    mres.as_mut().send_clr(q_s.compress().as_bytes(), false);
 
     // Derive a random ephemeral key pair and DEK from the protocol's current state, the sender's
     // private key, and a random nonce.
@@ -40,7 +39,7 @@ where
         let q_e = &G * &d_e;
 
         // Return the key pair and a DEK.
-        (d_e, q_e, clone.prf_array::<DEK_LEN>("data-encryption-key"))
+        (d_e, q_e, clone.prf::<DEK_LEN>("data-encryption-key"))
     });
 
     // Encode the DEK and message offset in a header.
@@ -54,7 +53,7 @@ where
     let signer = Signer::new(writer);
 
     // Include all encrypted headers and padding as sent cleartext.
-    mres.meta_ad(b"headers", false);
+    mres.as_mut().meta_ad(b"headers", false);
     let mut send_clr = mres.send_clr_writer(signer);
 
     // For each recipient, encrypt a copy of the header.
@@ -71,11 +70,11 @@ where
     let (mut mres, signer) = send_clr.into_inner();
 
     // Key the protocol with the DEK.
-    mres.metadata("data-encryption-key", &(DEK_LEN as u32));
-    mres.key(&dek, false);
+    mres.meta_ad_len("data-encryption-key", DEK_LEN as u64);
+    mres.as_mut().key(&dek, false);
 
     // Encrypt the plaintext, pass it through the signer, and write it.
-    mres.meta_ad(b"message", false);
+    mres.as_mut().meta_ad(b"message", false);
     let mut send_enc = mres.send_enc_writer(signer);
     written += io::copy(reader, &mut send_enc)?;
 
@@ -86,8 +85,8 @@ where
     let (mut sig, writer) = signer.sign(&d_e, &q_e);
 
     // Encrypt the signature.
-    mres.metadata("signature", &(SIGNATURE_LEN as u32));
-    mres.send_enc(&mut sig, false);
+    mres.meta_ad_len("signature", SIGNATURE_LEN as u64);
+    mres.as_mut().send_enc(&mut sig, false);
 
     // Write the encrypted signature.
     writer.write_all(&sig)?;
@@ -110,15 +109,15 @@ where
     W: Write,
 {
     // Initialize a protocol and receive the sender's public key as cleartext.
-    let mut mres = Strobe::new(b"veil.mres", SecParam::B128);
-    mres.metadata("sender", &(POINT_LEN as u32));
-    mres.recv_clr(q_s.compress().as_bytes(), false);
+    let mut mres = Protocol::new("veil.mres");
+    mres.meta_ad_len("sender", POINT_LEN as u64);
+    mres.as_mut().recv_clr(q_s.compress().as_bytes(), false);
 
     // Initialize a verifier for the entire ciphertext.
     let verifier = Verifier::new();
 
     // Include all encrypted headers and padding as received cleartext.
-    mres.meta_ad(b"headers", false);
+    mres.as_mut().meta_ad(b"headers", false);
     let mut mres_writer = mres.recv_clr_writer(verifier);
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the verifier.
@@ -131,8 +130,8 @@ where
     let (mut mres, mut verifier) = mres_writer.into_inner();
 
     // Key the protocol with the recovered DEK.
-    mres.metadata("data-encryption-key", &(DEK_LEN as u32));
-    mres.key(&dek, false);
+    mres.meta_ad_len("data-encryption-key", DEK_LEN as u64);
+    mres.as_mut().key(&dek, false);
 
     // Decrypt the message and get the signature.
     let (written, sig) = decrypt_message(reader, writer, &mut verifier, &mut mres)?;
@@ -149,7 +148,7 @@ fn decrypt_message<R, W>(
     reader: &mut R,
     writer: &mut W,
     verifier: &mut Verifier,
-    mres: &mut Strobe,
+    mres: &mut Protocol,
 ) -> Result<(u64, [u8; SIGNATURE_LEN])>
 where
     R: Read,
@@ -160,8 +159,8 @@ where
     let mut buf = Vec::with_capacity(input.len() + SIGNATURE_LEN);
 
     // Prep for streaming decryption.
-    mres.meta_ad(b"message", false);
-    mres.recv_enc(&mut [], false);
+    mres.as_mut().meta_ad(b"message", false);
+    mres.as_mut().recv_enc(&mut [], false);
 
     // Read through src in 32KiB chunks, keeping the last 64 bytes as the signature.
     let mut n = usize::MAX;
@@ -179,7 +178,7 @@ where
             verifier.write_all(&block)?;
 
             // Decrypt the ciphertext.
-            mres.recv_enc(&mut block, true);
+            mres.as_mut().recv_enc(&mut block, true);
 
             // Write the plaintext.
             writer.write_all(&block)?;
@@ -189,8 +188,8 @@ where
 
     // Keep the last 64 bytes as the encrypted signature.
     let mut sig: [u8; SIGNATURE_LEN] = buf.try_into().expect("invalid sig len");
-    mres.metadata("signature", &(SIGNATURE_LEN as u32));
-    mres.recv_enc(&mut sig, false);
+    mres.meta_ad_len("signature", SIGNATURE_LEN as u64);
+    mres.as_mut().recv_enc(&mut sig, false);
 
     // Return the bytes written and the decrypted signature.
     Ok((written, sig))

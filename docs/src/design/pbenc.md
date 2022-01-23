@@ -11,11 +11,11 @@ $N_S$, time parameter $N_T$, block size $N_B$, and MAC size $N_M$:
 INIT('veil.pbenc', level=128)
 
 AD('passphrase',  meta=true)
-AD(LE_U32(LEN(P), meta=true, more=true)
+AD(LE_U64(LEN(P), meta=true, more=true)
 KEY(P)
 
 AD('salt',        meta=true)
-AD(LE_U32(LEN(S), meta=true, more=true)
+AD(LE_U64(LEN(S), meta=true, more=true)
 AD(S)
 ```
 
@@ -24,19 +24,19 @@ For each iteration of the balloon hashing algorithm, given a counter $C$, a left
 ```text
 hash_counter(L, R):
   AD('counter', meta=true)
-  AD(LE_U32(8), meta=true, more=true)
+  AD(LE_U64(8), meta=true, more=true)
   AD(LE_U64(C))
   
   AD('left',      meta=true)
-  AD(LE_U32(N_L), meta=true, more=true)
+  AD(LE_U64(N_L), meta=true, more=true)
   AD(L)
   
   AD('right',      meta=true)
-  AD(LE_U32(N_R),  meta=true, more=true)
+  AD(LE_U64(N_R),  meta=true, more=true)
   AD(R)
   
   AD('out',        meta=true)
-  AD(LE_U32(N_B),  meta=true, more=true)
+  AD(LE_U64(N_B),  meta=true, more=true)
   PRF(N)
 ```
 
@@ -48,7 +48,7 @@ AD('expand', meta=true)
 hash_counter(passphrase, salt, buf[0])
 for m in 1..N_S: 
   AD('space',   meta=true)
-  AD(LE_U32(m), meta=true, more=true)
+  AD(LE_U64(m), meta=true, more=true)
   hash_counter(buf[m - 1], nil, buf[m])
 
 ```
@@ -59,11 +59,11 @@ For the mixing phase of the algorithm, the step name and loop variables are incl
 AD('mix',       meta=true)
 for t in 0..N_T:
   AD('time',    meta=true)
-  AD(LE_U32(t), meta=true, more=true)
+  AD(LE_U64(t), meta=true, more=true)
   
   for m in 0..N_S: 
     AD('space',   meta=true)
-    AD(LE_U32(m), meta=true, more=true)
+    AD(LE_U64(m), meta=true, more=true)
     
     AD('mix-a', meta=true)
     hash_counter(buf[prev], buf[m], buf[m])
@@ -71,7 +71,7 @@ for t in 0..N_T:
     AD('mix-b', meta=true)
     for i in 0..D:
       AD('delta',   meta=true)
-      AD(LE_U32(i), meta=true, more=true)
+      AD(LE_U64(i), meta=true, more=true)
      
       idx = LE_U64(t) + LE_U64(m) + LE_U64(i) 
       hash_counter(salt, idx, idx)
@@ -85,7 +85,7 @@ The final block $B_N$ of the balloon hashing algorithm is then used to key the p
 
 ```text
 AD('extract', meta=true)
-AD(LE_U32(N), meta=true, more=true)
+AD(LE_U64(N), meta=true, more=true)
 KEY(B_N)
 ```
 
@@ -95,11 +95,11 @@ Encryption of a message $P$ is as follows:
 
 ```text
 AD('ciphertext', meta=true)
-AD(LE_U32(N_P),  meta=true, more=true)
+AD(LE_U64(N_P),  meta=true, more=true)
 SEND_ENC(P) -> C
 
 AD('mac',       meta=true)
-AD(LE_U32(N_M), meta=true, more=true)
+AD(LE_U64(N_M), meta=true, more=true)
 SEND_MAC(N_M) -> M
 ```
 
@@ -116,11 +116,11 @@ encryption:
 
 ```text
 AD('ciphertext', meta=true)
-AD(LE_U32(N_C),  meta=true, more=true)
+AD(LE_U64(N_C),  meta=true, more=true)
 RECV_ENC(C) -> P
 
 AD('mac',       meta=true)
-AD(LE_U32(N_M), meta=true, more=true)
+AD(LE_U64(N_M), meta=true, more=true)
 RECV_MAC(M)
 ```
 

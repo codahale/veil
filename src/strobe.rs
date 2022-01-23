@@ -2,134 +2,156 @@ use std::io::{self, Write};
 
 use curve25519_dalek::scalar::Scalar;
 use rand::RngCore;
-use serde::Serialize;
-use strobe_rs::Strobe;
+use strobe_rs::{SecParam, Strobe};
 
-/// An extension trait for [Strobe] instances.
-pub trait StrobeExt {
-    /// Bincodes `data`, appends it to `label`, and passes it to `AD` with the `meta` flag.
-    fn metadata<T: ?Sized>(&mut self, label: &str, data: &T)
-    where
-        T: Serialize;
+/// A Strobe protocol.
+pub struct Protocol(Strobe);
+
+impl Protocol {
+    /// Create a new [Protocol].
+    pub fn new(label: &str) -> Protocol {
+        Protocol(Strobe::new(label.as_bytes(), SecParam::B128))
+    }
+
+    /// Include the given label and length as associated-metadata.
+    pub fn meta_ad_len(&mut self, label: &str, n: u64) {
+        self.0.meta_ad(label.as_bytes(), false);
+        self.0.meta_ad(&n.to_le_bytes(), true);
+    }
 
     /// Derive a scalar from PRF output.
     #[must_use]
-    fn prf_scalar(&mut self, label: &str) -> Scalar;
+    pub fn prf_scalar(&mut self, label: &str) -> Scalar {
+        Scalar::from_bytes_mod_order_wide(&self.prf(label))
+    }
 
     /// Derive an array from PRF output.
     #[must_use]
-    fn prf_array<const N: usize>(&mut self, label: &str) -> [u8; N];
+    pub fn prf<const N: usize>(&mut self, label: &str) -> [u8; N] {
+        self.meta_ad_len(label, N as u64);
+
+        let mut out = [0u8; N];
+        self.0.prf(&mut out, false);
+        out
+    }
+
+    /// Encrypt the given plaintext and return the ciphertext.
+    #[must_use]
+    pub fn encrypt(&mut self, label: &str, plaintext: &[u8]) -> Vec<u8> {
+        self.meta_ad_len(label, plaintext.len() as u64);
+
+        let mut ciphertext = Vec::from(plaintext);
+        self.0.send_enc(&mut ciphertext, false);
+        ciphertext
+    }
+
+    /// Decrypt the given ciphertext and return the plaintext.
+    #[must_use]
+    pub fn decrypt(&mut self, label: &str, ciphertext: &[u8]) -> Vec<u8> {
+        self.meta_ad_len(label, ciphertext.len() as u64);
+
+        let mut plaintext = Vec::from(ciphertext);
+        self.0.recv_enc(&mut plaintext, false);
+        plaintext
+    }
+
+    /// Calculate a MAC of the given length.
+    #[must_use]
+    pub fn mac<const N: usize>(&mut self, label: &str) -> [u8; N] {
+        self.meta_ad_len(label, N as u64);
+
+        let mut out = [0u8; N];
+        self.0.send_mac(&mut out, false);
+        out
+    }
+
+    /// Verify the given MAC.
+    pub fn verify_mac(&mut self, label: &str, mac: &[u8]) -> Option<()> {
+        self.meta_ad_len(label, mac.len() as u64);
+
+        let mut mac = Vec::from(mac);
+        self.0.recv_mac(&mut mac).ok()
+    }
 
     /// Clone the current instance, key it with the given secret, key it again with random data, and
     /// pass the clone to the given function.
     #[must_use]
-    fn hedge<R, F>(&self, secret: &[u8], f: F) -> R
+    pub fn hedge<R, F>(&self, secret: &[u8], f: F) -> R
     where
-        F: Fn(&mut Strobe) -> R;
-
-    /// Create a writer which passes writes through `SEND_CLR` before passing them to the given
-    /// writer.
-    fn send_clr_writer<W>(self, w: W) -> SendClrWriter<W>
-    where
-        W: Write;
-
-    /// Create a writer which passes writes through `SEND_ENC` before passing them to the given
-    /// writer.
-    fn send_enc_writer<W>(self, w: W) -> SendEncWriter<W>
-    where
-        W: Write;
-
-    /// Create a writer which passes writes through `RECV_CLR` before passing them to the given
-    /// writer.
-    fn recv_clr_writer<W>(self, w: W) -> RecvClrWriter<W>
-    where
-        W: Write;
-}
-
-impl StrobeExt for Strobe {
-    fn metadata<T: ?Sized>(&mut self, label: &str, data: &T)
-    where
-        T: Serialize,
-    {
-        self.meta_ad(label.as_bytes(), false);
-        self.meta_ad(&bincode::serialize(data).expect("invalid data"), true);
-    }
-
-    fn prf_scalar(&mut self, label: &str) -> Scalar {
-        Scalar::from_bytes_mod_order_wide(&self.prf_array(label))
-    }
-
-    fn prf_array<const N: usize>(&mut self, label: &str) -> [u8; N] {
-        self.metadata(label, &(N as u32));
-
-        let mut out = [0u8; N];
-        self.prf(&mut out, false);
-        out
-    }
-
-    fn hedge<R, F>(&self, secret: &[u8], f: F) -> R
-    where
-        F: Fn(&mut Strobe) -> R,
+        F: Fn(&mut Protocol) -> R,
     {
         // Clone the protocol's state.
-        let mut clone = self.clone();
+        let mut clone = Protocol(self.0.clone());
 
         // Key with the given secret.
-        clone.metadata("secret-value", &(secret.len() as u32));
-        clone.key(secret, false);
+        clone.meta_ad_len("secret-value", secret.len() as u64);
+        clone.0.key(secret, false);
 
         // Generate a random value.
         let mut r = [0u8; 64];
         rand::thread_rng().fill_bytes(&mut r);
 
         // Key with the random value.
-        clone.metadata("secret-value", &(r.len() as u32));
-        clone.key(&r, false);
+        clone.meta_ad_len("secret-value", r.len() as u64);
+        clone.0.key(&r, false);
 
         // Call the given function with the clone.
         f(&mut clone)
     }
 
-    fn send_clr_writer<W>(mut self, w: W) -> SendClrWriter<W>
+    /// Create a writer which passes writes through `SEND_CLR` before passing them to the given
+    /// writer.
+    pub fn send_clr_writer<W>(mut self, w: W) -> SendClrWriter<W>
     where
         W: Write,
     {
-        self.send_clr(&[], false);
+        self.0.send_clr(&[], false);
         SendClrWriter(self, w)
     }
 
-    fn send_enc_writer<W>(mut self, w: W) -> SendEncWriter<W>
+    /// Create a writer which passes writes through `SEND_ENC` before passing them to the given
+    /// writer.
+    pub fn send_enc_writer<W>(mut self, w: W) -> SendEncWriter<W>
     where
         W: Write,
     {
-        self.send_enc(&mut [], false);
+        self.0.send_enc(&mut [], false);
         SendEncWriter(self, w)
     }
 
-    fn recv_clr_writer<W>(mut self, w: W) -> RecvClrWriter<W>
+    /// Create a writer which passes writes through `RECV_CLR` before passing them to the given
+    /// writer.
+    pub fn recv_clr_writer<W>(mut self, w: W) -> RecvClrWriter<W>
     where
         W: Write,
     {
-        self.recv_clr(&[], false);
+        self.0.recv_clr(&[], false);
         RecvClrWriter(self, w)
     }
 }
 
-macro_rules! strobe_writer {
+impl AsMut<Strobe> for Protocol {
+    #[inline]
+    fn as_mut(&mut self) -> &mut Strobe {
+        &mut self.0
+    }
+}
+
+macro_rules! protocol_writer {
     ($t:ident, $strobe:ident, $buf:ident, $writer:ident, $body:block) => {
         #[must_use]
-        pub struct $t<W: Write>(Strobe, W);
+        pub struct $t<W: Write>(Protocol, W);
 
         impl<W: Write> $t<W> {
             #[must_use]
-            pub fn into_inner(self) -> (Strobe, W) {
+            pub fn into_inner(self) -> (Protocol, W) {
                 (self.0, self.1)
             }
         }
 
         impl<W: Write> Write for $t<W> {
             fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-                let $strobe = &mut self.0;
+                let $strobe = &mut self.0 .0;
                 let $buf = buf;
                 let $writer = &mut self.1;
                 $body
@@ -142,18 +164,18 @@ macro_rules! strobe_writer {
     };
 }
 
-strobe_writer!(SendClrWriter, strobe, buf, w, {
+protocol_writer!(SendClrWriter, strobe, buf, w, {
     strobe.send_clr(buf, true);
     w.write(buf)
 });
 
-strobe_writer!(SendEncWriter, strobe, buf, w, {
+protocol_writer!(SendEncWriter, strobe, buf, w, {
     let mut input = Vec::from(buf);
     strobe.send_enc(&mut input, true);
     w.write(&input)
 });
 
-strobe_writer!(RecvClrWriter, strobe, buf, w, {
+protocol_writer!(RecvClrWriter, strobe, buf, w, {
     strobe.recv_clr(buf, true);
     w.write(buf)
 });

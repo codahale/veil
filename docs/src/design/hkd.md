@@ -6,10 +6,10 @@ key, the secret key is mapped to a ristretto255 scalar $d$ using a STROBE protoc
 ```text
 INIT('veil.scaldf.root', level=128)
 AD('root',      meta=true)
-AD(LE_U32(N_S), meta=true, more=true)
+AD(LE_U64(N_S), meta=true, more=true)
 KEY(S)
 AD('scalar',   meta=true)
-AD(LE_U32(64), meta=true, more=true)
+AD(LE_U64(64), meta=true, more=true)
 PRF(64) -> d
 ```
 
@@ -18,10 +18,10 @@ A delta scalar $r$ is derived from an opaque label value $L$ via another STROBE 
 ```text
 INIT('veil.scaldf.label', level=128)
 AD('label',     meta=true)
-AD(LE_U32(N_L), meta=true, more=true)
+AD(LE_U64(N_L), meta=true, more=true)
 KEY(L)
 AD('scalar',   meta=true)
-AD(LE_U32(64), meta=true, more=true)
+AD(LE_U64(64), meta=true, more=true)
 PRF(64) -> r
 ```
 

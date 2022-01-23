@@ -18,7 +18,7 @@ First, the sender's public key is sent via cleartext:
 
 ```text
 AD('sender-public-key', meta=true)
-AD(LE_U32(N_Q),         meta=true, more=true)
+AD(LE_U64(N_Q),         meta=true, more=true)
 SEND_CLR(Q_S)
 ```
 
@@ -26,7 +26,7 @@ Second, the receiver's public key is received via cleartext:
 
 ```text
 AD('receiver-public-key', meta=true)
-AD(LE_U32(N_Q),           meta=true, more=true)
+AD(LE_U64(N_Q),           meta=true, more=true)
 RECV_CLR(Q_R)
 ```
 
@@ -34,7 +34,7 @@ The static shared secret point is calculated ${ZZ_S}=[{d_S}]{Q_R}=[{d_R}{d_S}]G$
 
 ```text
 AD('static-shared-secret', meta=true)
-AD(LE_U32(N_Q),            meta=true, more=true)
+AD(LE_U64(N_Q),            meta=true, more=true)
 KEY(ZZ_S)
 ```
 
@@ -42,7 +42,7 @@ The ephemeral public key $Q_E$ is encrypted and sent:
 
 ```text
 AD('ephemeral-public-key', meta=true)
-AD(LE_U32(N_Q),            meta=true, more=true)
+AD(LE_U64(N_Q),            meta=true, more=true)
 SEND_ENC(Q_E) -> E_1
 ```
 
@@ -51,15 +51,15 @@ a commitment scalar $k$ is derived from PRF output:
 
 ```text
 AD('secret-value', meta=true)
-AD(LE_U32(N_d),     meta=true, more=true)
+AD(LE_U64(N_d),     meta=true, more=true)
 KEY(d_S)
 
 AD('hedged-value', meta=true)
-AD(LE_U32(64),     meta=true, more=true)
+AD(LE_U64(64),     meta=true, more=true)
 KEY(rand(64))
 
 AD('commitment-scalar', meta=true)
-AD(LE_U32(64),          meta=true, more=true)
+AD(LE_U64(64),          meta=true, more=true)
 PRF(64) -> k
 ```
 
@@ -67,7 +67,7 @@ The commitment point $U = [k]G$ is calculated and encrypted:
 
 ```text
 AD('commitment-point', meta=true)
-AD(LE_U32(N_Q),        meta=true, more=true)
+AD(LE_U64(N_Q),        meta=true, more=true)
 SEND_ENC(U) -> E_2
 ```
 
@@ -75,7 +75,7 @@ A challenge scalar $r$ is extracted:
 
 ```text
 AD('challenge-scalar', meta=true)
-AD(LE_U32(64),         meta=true, more=true)
+AD(LE_U64(64),         meta=true, more=true)
 PRF(64) -> r
 ```
 
@@ -84,7 +84,7 @@ is then encrypted:
 
 ```text
 AD('signature-point', meta=true)
-AD(LE_U32(N_Q),       meta=true, more=true)
+AD(LE_U64(N_Q),       meta=true, more=true)
 SEND_ENC(K) -> E_3
 ```
 
@@ -92,7 +92,7 @@ The ephemeral shared secret point is calculated ${ZZ_E}=[{d_E}]{Q_R}=[{d_R}{d_E}
 
 ```text
 AD('ephemeral-shared-secret', meta=true)
-AD(LE_U32(N_Q),               meta=true, more=true)
+AD(LE_U64(N_Q),               meta=true, more=true)
 KEY(ZZ_E)
 ```
 
@@ -100,11 +100,11 @@ Finally, the plaintext is encrypted and a MAC created:
 
 ```text
 AD('ciphertext', meta=true)
-AD(LE_U32(N_P),  meta=true, more=true)
+AD(LE_U64(N_P),  meta=true, more=true)
 SEND_ENC(P)     -> C
 
 AD('mac',       meta=true)
-AD(LE_U32(N_M), meta=true, more=true)
+AD(LE_U64(N_M), meta=true, more=true)
 SEND_MAC(N_M)   -> M
 ```
 
@@ -123,7 +123,7 @@ First, the sender's public key is received via cleartext:
 
 ```text
 AD('sender-public-key', meta=true)
-AD(LE_U32(N_Q),         meta=true, more=true)
+AD(LE_U64(N_Q),         meta=true, more=true)
 RECV_CLR(Q_S)
 ```
 
@@ -131,7 +131,7 @@ Second, the receiver's public key is sent via cleartext:
 
 ```text
 AD('receiver-public-key', meta=true)
-AD(LE_U32(N_Q),           meta=true, more=true)
+AD(LE_U64(N_Q),           meta=true, more=true)
 SEND_CLR(Q_R)
 ```
 
@@ -139,7 +139,7 @@ The static shared secret point is calculated ${ZZ_S}=[{d_R}]{Q_S}=[{d_R}{d_S}]G$
 
 ```text
 AD('static-shared-secret', meta=true)
-AD(LE_U32(N_Q),            meta=true, more=true)
+AD(LE_U64(N_Q),            meta=true, more=true)
 KEY(ZZ_S)
 ```
 
@@ -147,7 +147,7 @@ The ephemeral public key $Q_E$ is decrypted:
 
 ```text
 AD('ephemeral-public-key', meta=true)
-AD(LE_U32(N_Q),            meta=true, more=true)
+AD(LE_U64(N_Q),            meta=true, more=true)
 RECV_ENC(E_1) -> Q_E
 ```
 
@@ -155,7 +155,7 @@ The commitment point $U$ is decrypted:
 
 ```text
 AD('commitment-point', meta=true)
-AD(LE_U32(N_Q),        meta=true, more=true)
+AD(LE_U64(N_Q),        meta=true, more=true)
 RECV_ENC(E_2) -> U 
 ```
 
@@ -163,7 +163,7 @@ The challenge scalar $r$ is extracted from PRF output:
 
 ```text
 AD('challenge-scalar', meta=true)
-AD(LE_U32(64),         meta=true, more=true)
+AD(LE_U64(64),         meta=true, more=true)
 PRF(64) -> r
 ```
 
@@ -171,7 +171,7 @@ The signature point $K$ is decrypted:
 
 ```text
 AD('signature-point', meta=true)
-AD(LE_U32(N_Q),       meta=true, more=true)
+AD(LE_U64(N_Q),       meta=true, more=true)
 RECV_ENC(E_3) -> K
 ```
 
@@ -182,7 +182,7 @@ The ephemeral shared secret point is calculated ${ZZ_E}=[{d_R}]{Q_E}=[{d_R}{d_E}
 
 ```text
 AD('ephemeral-shared-secret', meta=true)
-AD(LE_U32(N_Q),               meta=true, more=true)
+AD(LE_U64(N_Q),               meta=true, more=true)
 KEY(ZZ_E)
 ```
 
@@ -190,11 +190,11 @@ Finally, the ciphertext is decrypted and the MAC is verified:
 
 ```text
 AD('ciphertext', meta=true)
-AD(LE_U32(N_P),  meta=true, more=true)
+AD(LE_U64(N_P),  meta=true, more=true)
 RECV_ENC(C)     -> P
 
 AD('mac',       meta=true)
-AD(LE_U32(N_M), meta=true, more=true)
+AD(LE_U64(N_M), meta=true, more=true)
 RECV_MAC(M)
 ```
 

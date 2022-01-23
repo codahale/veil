@@ -26,15 +26,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
-name = "bincode"
-version = "1.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -941,7 +932,6 @@ name = "veil"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bincode",
  "bs58",
  "clap 3.0.10",
  "clap_complete",
@@ -952,7 +942,6 @@ dependencies = [
  "mimalloc",
  "rand",
  "rpassword",
- "serde",
  "strobe-rs",
  "tempfile",
  "thiserror",

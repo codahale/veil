@@ -1,17 +1,16 @@
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
-use strobe_rs::{SecParam, Strobe};
 
-use crate::strobe::StrobeExt;
+use crate::strobe::Protocol;
 
 /// Derive a scalar from the given secret key.
 #[must_use]
 pub fn derive_root(r: &[u8; 64]) -> Scalar {
-    let mut root_df = Strobe::new(b"veil.scaldf.root", SecParam::B128);
+    let mut root_df = Protocol::new("veil.scaldf.root");
 
-    root_df.metadata("root", &(r.len() as u32));
-    root_df.key(r, false);
+    root_df.meta_ad_len("root", r.len() as u64);
+    root_df.as_mut().key(r, false);
 
     root_df.prf_scalar("scalar")
 }
@@ -20,10 +19,10 @@ pub fn derive_root(r: &[u8; 64]) -> Scalar {
 #[must_use]
 pub fn derive_scalar(d: Scalar, key_id: &str) -> Scalar {
     key_id.trim_matches(KEY_ID_DELIM).split(KEY_ID_DELIM).fold(d, |d_p, label| {
-        let mut label_df = Strobe::new(b"veil.scaldf.label", SecParam::B128);
+        let mut label_df = Protocol::new("veil.scaldf.label");
 
-        label_df.metadata("label", &(label.len() as u32));
-        label_df.key(label.as_bytes(), false);
+        label_df.meta_ad_len("label", label.len() as u64);
+        label_df.as_mut().key(label.as_bytes(), false);
 
         d_p + label_df.prf_scalar("scalar")
     })

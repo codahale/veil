@@ -15,7 +15,7 @@ SEND_CLR(M_1, more=true)
 SEND_CLR(M_N, more=true)
 
 AD('signer',    meta=true)
-AD(LE_U32(N_Q), meta=true, more=true)
+AD(LE_U64(N_Q), meta=true, more=true)
 AD(Q)
 ```
 
@@ -27,15 +27,15 @@ an ephemeral scalar is derived from PRF output:
 
 ```text
 AD('secret-value', meta=true)
-AD(LE_U32(N_d),     meta=true, more=true)
+AD(LE_U64(N_d),     meta=true, more=true)
 KEY(d)
 
 AD('hedged-value', meta=true)
-AD(LE_U32(64),     meta=true, more=true)
+AD(LE_U64(64),     meta=true, more=true)
 KEY(rand(64))
 
 AD('commitment-scalar', meta=true)
-AD(LE_U32(64),          meta=true, more=true)
+AD(LE_U64(64),          meta=true, more=true)
 PRF(64) -> r
 ```
 
@@ -43,11 +43,11 @@ The clone's state is discarded, and $r$ is returned to the parent along with $R 
 
 ```text
 AD('commitment-point', meta=true)
-AD(LE_U32(N_Q),        meta=true, more=true)
+AD(LE_U64(N_Q),        meta=true, more=true)
 AD(R)
 
 AD('challenge-scalar', meta=true)
-AD(LE_U32(64),         meta=true, more=true)
+AD(LE_U64(64),         meta=true, more=true)
 PRF(64) -> c
 ```
 
@@ -68,7 +68,7 @@ RECV_CLR(M_1, more=true)
 RECV_CLR(M_N, more=true)
 
 AD('signer',    meta=true)
-AD(LE_U32(N_Q), meta=true, more=true)
+AD(LE_U64(N_Q), meta=true, more=true)
 AD(Q)
 ```
 
@@ -76,11 +76,11 @@ The public ephemeral is re-calculated as $R' = [{-c}]Q + [s]G$ and the challenge
 
 ```text
 AD('commitment-point', meta=true)
-AD(LE_U32(N_Q),        meta=true, more=true)
+AD(LE_U64(N_Q),        meta=true, more=true)
 AD(R')
 
 AD('challenge-scalar', meta=true)
-AD(LE_U32(64),         meta=true, more=true)
+AD(LE_U64(64),         meta=true, more=true)
 PRF(64) -> c'
 ```
 
