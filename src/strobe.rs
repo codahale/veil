@@ -166,13 +166,6 @@ impl Protocol {
     }
 }
 
-impl AsMut<Strobe> for Protocol {
-    #[inline]
-    fn as_mut(&mut self) -> &mut Strobe {
-        &mut self.0
-    }
-}
-
 macro_rules! protocol_writer {
     ($t:ident, $strobe:ident, $buf:ident, $writer:ident, $body:block) => {
         #[must_use]
