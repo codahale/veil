@@ -191,16 +191,19 @@ macro_rules! protocol_writer {
 
 protocol_writer!(SendClrWriter, strobe, buf, w, {
     strobe.send_clr(buf, true);
-    w.write(buf)
+    w.write_all(buf)?;
+    Ok(buf.len())
 });
 
 protocol_writer!(SendEncWriter, strobe, buf, w, {
     let mut input = Vec::from(buf);
     strobe.send_enc(&mut input, true);
-    w.write(&input)
+    w.write_all(&input)?;
+    Ok(buf.len())
 });
 
 protocol_writer!(RecvClrWriter, strobe, buf, w, {
     strobe.recv_clr(buf, true);
-    w.write(buf)
+    w.write_all(buf)?;
+    Ok(buf.len())
 });
