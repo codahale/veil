@@ -71,8 +71,7 @@ where
     mres.key("data-encryption-key", &dek);
 
     // Encrypt the plaintext, pass it through the signer, and write it.
-    mres.as_mut().meta_ad(b"message", false);
-    let mut send_enc = mres.send_enc_writer(signer);
+    let mut send_enc = mres.send_enc_writer("message", signer);
     written += io::copy(reader, &mut send_enc)?;
 
     // Unwrap the sent encryption writer.

@@ -139,10 +139,11 @@ impl Protocol {
 
     /// Create a writer which passes writes through `SEND_ENC` before passing them to the given
     /// writer.
-    pub fn send_enc_writer<W>(mut self, w: W) -> SendEncWriter<W>
+    pub fn send_enc_writer<W>(mut self, label: &str, w: W) -> SendEncWriter<W>
     where
         W: Write,
     {
+        self.0.meta_ad(label.as_bytes(), false);
         self.0.send_enc(&mut [], false);
         SendEncWriter(self, w)
     }
