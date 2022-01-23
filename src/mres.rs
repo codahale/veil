@@ -174,6 +174,7 @@ where
         }
     }
 
+    // Finish message stream.
     let (mut mres, _) = message.into_inner();
 
     // Keep the last 64 bytes as the encrypted signature.
