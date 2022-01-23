@@ -6,6 +6,9 @@ use unicode_normalization::UnicodeNormalization;
 use crate::constants::{MAC_LEN, U32_LEN, U64_LEN};
 use crate::strobe::Protocol;
 
+/// The number of bytes encryption adds to a plaintext.
+pub const OVERHEAD: usize = U32_LEN + U32_LEN + SALT_LEN + MAC_LEN;
+
 /// Encrypt the given plaintext using the given passphrase.
 #[must_use]
 pub fn encrypt(passphrase: &str, time: u32, space: u32, plaintext: &[u8]) -> Vec<u8> {
@@ -17,23 +20,20 @@ pub fn encrypt(passphrase: &str, time: u32, space: u32, plaintext: &[u8]) -> Vec
     let mut pbenc = init(passphrase.nfkc().to_string().as_bytes(), &salt, time, space);
 
     // Allocate an output buffer.
-    let mut out = vec![0u8; CT_OFFSET + plaintext.len() + MAC_LEN];
+    let mut out = Vec::with_capacity(plaintext.len() + OVERHEAD);
 
     // Encode the time and space parameters.
-    out[TIME_OFFSET..SPACE_OFFSET].copy_from_slice(&time.to_le_bytes());
-    out[SPACE_OFFSET..SALT_OFFSET].copy_from_slice(&space.to_le_bytes());
+    out.extend(time.to_le_bytes());
+    out.extend(space.to_le_bytes());
 
     // Copy the salt.
-    out[SALT_OFFSET..CT_OFFSET].copy_from_slice(&salt);
+    out.extend(salt);
 
-    // Copy the plaintext and encrypt it.
-    out[CT_OFFSET..CT_OFFSET + plaintext.len()].copy_from_slice(plaintext);
-    pbenc.meta_ad_len("ciphertext", plaintext.len() as u64);
-    pbenc.as_mut().send_enc(&mut out[CT_OFFSET..CT_OFFSET + plaintext.len()], false);
+    // Encrypt the ciphertext.
+    out.extend(pbenc.encrypt("ciphertext", plaintext));
 
     // Generate a MAC.
-    pbenc.meta_ad_len("mac", MAC_LEN as u64);
-    pbenc.as_mut().send_mac(&mut out[CT_OFFSET + plaintext.len()..], false);
+    out.extend(pbenc.mac::<MAC_LEN>("mac"));
 
     out
 }
@@ -50,7 +50,7 @@ pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Vec<u8>> {
     let mut space = time.split_off(U32_LEN);
     let mut salt = space.split_off(U32_LEN);
     let mut ciphertext = salt.split_off(SALT_LEN);
-    let mut mac = ciphertext.split_off(ciphertext.len() - MAC_LEN);
+    let mac = ciphertext.split_off(ciphertext.len() - MAC_LEN);
 
     // Decode the time and space parameters.
     let time = u32::from_le_bytes(time.try_into().ok()?);
@@ -60,13 +60,10 @@ pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Vec<u8>> {
     let mut pbenc = init(passphrase.nfkc().to_string().as_bytes(), &salt, time, space);
 
     // Decrypt the ciphertext.
-    pbenc.meta_ad_len("ciphertext", ciphertext.len() as u64);
-    pbenc.as_mut().recv_enc(&mut ciphertext, false);
-    let plaintext = ciphertext;
+    let plaintext = pbenc.decrypt("ciphertext", &ciphertext);
 
     // Verify the MAC.
-    pbenc.meta_ad_len("mac", MAC_LEN as u64);
-    pbenc.as_mut().recv_mac(&mut mac).ok()?;
+    pbenc.verify_mac("mac", &mac)?;
 
     Some(plaintext)
 }
@@ -157,10 +154,6 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Protocol {
 }
 
 const SALT_LEN: usize = 16;
-const TIME_OFFSET: usize = 0;
-const SPACE_OFFSET: usize = U32_LEN;
-const SALT_OFFSET: usize = SPACE_OFFSET + U32_LEN;
-const CT_OFFSET: usize = SALT_OFFSET + SALT_LEN;
 const N: usize = 32;
 const DELTA: usize = 3;
 
