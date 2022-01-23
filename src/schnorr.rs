@@ -1,4 +1,5 @@
 use std::convert::TryInto;
+use std::io;
 use std::io::{Result, Write};
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
@@ -6,7 +7,7 @@ use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 
 use crate::constants::SCALAR_LEN;
-use crate::strobe::{Protocol, SendClrWriter};
+use crate::strobe::{Protocol, RecvClrWriter, SendClrWriter};
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = SCALAR_LEN * 2;
@@ -73,7 +74,7 @@ where
 
 /// A writer which accumulates message contents for verifying.
 pub struct Verifier {
-    schnorr: Protocol,
+    writer: RecvClrWriter<io::Sink>,
 }
 
 impl Verifier {
@@ -82,14 +83,13 @@ impl Verifier {
     pub fn new() -> Verifier {
         let mut schnorr = Protocol::new("veil.schnorr");
         schnorr.as_mut().meta_ad(b"message", false);
-        schnorr.as_mut().recv_clr(&[], false);
-        Verifier { schnorr }
+        Verifier { writer: schnorr.recv_clr_writer(io::sink()) }
     }
 
     /// Verify the previously-written message contents using the given public key and signature.
     #[must_use]
     pub fn verify(self, q: &RistrettoPoint, sig: &[u8; SIGNATURE_LEN]) -> bool {
-        let mut schnorr = self.schnorr;
+        let (mut schnorr, _) = self.writer.into_inner();
 
         // Receive the signer's public key as cleartext.
         schnorr.receive("signer", q.compress().as_bytes());
@@ -118,12 +118,11 @@ impl Verifier {
 
 impl Write for Verifier {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        self.schnorr.as_mut().recv_clr(buf, true);
-        Ok(buf.len())
+        self.writer.write(buf)
     }
 
     fn flush(&mut self) -> Result<()> {
-        Ok(())
+        self.writer.flush()
     }
 }
 
