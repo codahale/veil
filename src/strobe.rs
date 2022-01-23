@@ -151,8 +151,8 @@ impl Protocol {
     /// Create a writer which passes writes through `RECV_ENC` before passing them to the given
     /// writer.
     pub fn recv_enc_writer<W>(mut self, label: &str, w: W) -> RecvEncWriter<W>
-        where
-            W: Write,
+    where
+        W: Write,
     {
         self.0.meta_ad(format!("{}-start", label).as_bytes(), false);
         self.0.recv_enc(&mut [], false);
