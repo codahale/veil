@@ -1,3 +1,4 @@
+use primitive_types::U256;
 use std::convert::TryInto;
 
 use rand::RngCore;
@@ -70,9 +71,9 @@ pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Vec<u8>> {
 
 macro_rules! hash_counter {
     ($pbenc:ident, $ctr:ident, $left:expr, $right:expr, $out:expr) => {
+        $pbenc.ad("counter", &$ctr.to_le_bytes());
         $ctr += 1;
 
-        $pbenc.ad("counter", &$ctr.to_le_bytes());
         $pbenc.ad("left", &$left);
         $pbenc.ad("right", &$right);
 
@@ -96,6 +97,7 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Protocol {
     // Allocate buffers.
     let mut ctr = 0u64;
     let mut buf = vec![[0u8; N]; space as usize];
+    let space_256 = U256::from(space);
 
     // Step 1: Expand input into buffer.
     hash_counter!(pbenc, ctr, passphrase, salt, buf[0]);
@@ -120,12 +122,10 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Protocol {
                 hash_counter!(pbenc, ctr, salt, idx, idx);
 
                 // Map the hashed index block back to an index.
-                let mut v = [0u8; U64_LEN];
-                v.copy_from_slice(&idx[..U64_LEN]);
-                let idx = u64::from_le_bytes(v);
+                let idx = U256::from_little_endian(&idx);
 
                 // Hash the pseudo-randomly selected block.
-                hash_counter!(pbenc, ctr, buf[(idx % space as u64) as usize], [], buf[m]);
+                hash_counter!(pbenc, ctr, buf[(idx % space_256).as_usize()], [], buf[m]);
             }
         }
     }
