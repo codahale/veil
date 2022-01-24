@@ -11,18 +11,13 @@ pub const OVERHEAD: usize = U32_LEN + U32_LEN + SALT_LEN + MAC_LEN;
 
 /// Encrypt the given plaintext using the given passphrase.
 #[must_use]
-pub fn encrypt<const N: usize>(
-    passphrase: &str,
-    time: u32,
-    space: u32,
-    plaintext: &[u8],
-) -> Vec<u8> {
+pub fn encrypt(passphrase: &str, time: u32, space: u32, n: u32, plaintext: &[u8]) -> Vec<u8> {
     // Generate a random salt.
     let mut salt = [0u8; SALT_LEN];
     rand::thread_rng().fill_bytes(&mut salt);
 
     // Perform the balloon hashing.
-    let mut pbenc = init::<N>(passphrase.nfkc().to_string().as_bytes(), &salt, time, space);
+    let mut pbenc = init(passphrase.nfkc().to_string().as_bytes(), &salt, time, space, n);
 
     // Allocate an output buffer.
     let mut out = Vec::with_capacity(plaintext.len() + OVERHEAD);
@@ -45,7 +40,7 @@ pub fn encrypt<const N: usize>(
 
 /// Decrypt the given ciphertext using the given passphrase.
 #[must_use]
-pub fn decrypt<const N: usize>(passphrase: &str, ciphertext: &[u8]) -> Option<Vec<u8>> {
+pub fn decrypt(passphrase: &str, n: u32, ciphertext: &[u8]) -> Option<Vec<u8>> {
     if ciphertext.len() < U32_LEN + U32_LEN + SALT_LEN + MAC_LEN {
         return None;
     }
@@ -62,7 +57,7 @@ pub fn decrypt<const N: usize>(passphrase: &str, ciphertext: &[u8]) -> Option<Ve
     let space = u32::from_le_bytes(space.try_into().ok()?);
 
     // Perform the balloon hashing.
-    let mut pbenc = init::<N>(passphrase.nfkc().to_string().as_bytes(), &salt, time, space);
+    let mut pbenc = init(passphrase.nfkc().to_string().as_bytes(), &salt, time, space, n);
 
     // Decrypt the ciphertext.
     let plaintext = pbenc.decrypt("ciphertext", &ciphertext);
@@ -81,7 +76,7 @@ macro_rules! hash_counter {
         $pbenc.ad("left", &$left);
         $pbenc.ad("right", &$right);
 
-        $out = $pbenc.prf("out");
+        $pbenc.prf_fill("out", &mut $out);
     };
     ($pbenc:ident, $ctr:ident, $left:expr, $right:expr) => {
         $pbenc.ad("counter", &$ctr.to_le_bytes());
@@ -92,7 +87,7 @@ macro_rules! hash_counter {
     };
 }
 
-fn init<const N: usize>(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Protocol {
+fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32, n: u32) -> Protocol {
     let mut pbenc = Protocol::new("veil.pbenc");
 
     // Key with the passphrase.
@@ -102,7 +97,7 @@ fn init<const N: usize>(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -
     pbenc.ad("salt", salt);
     pbenc.ad("time", &time.to_le_bytes());
     pbenc.ad("space", &space.to_le_bytes());
-    pbenc.ad("blocksize", &(N as u32).to_le_bytes());
+    pbenc.ad("blocksize", &(n as u32).to_le_bytes());
     pbenc.ad("delta", &(DELTA as u32).to_le_bytes());
 
     // Convert params.
@@ -111,7 +106,7 @@ fn init<const N: usize>(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -
 
     // Allocate buffers.
     let mut ctr = 0u64;
-    let mut buf = vec![[0u8; N]; space];
+    let mut buf = vec![vec![0u8; n as usize]; space];
 
     // Step 1: Expand input into buffer.
     hash_counter!(pbenc, ctr, passphrase, salt, buf[0]);
@@ -161,8 +156,8 @@ mod tests {
     pub fn round_trip() {
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let ciphertext = encrypt::<16>(passphrase, 5, 3, message);
-        let plaintext = decrypt::<16>(passphrase, &ciphertext);
+        let ciphertext = encrypt(passphrase, 5, 3, 16, message);
+        let plaintext = decrypt(passphrase, 16, &ciphertext);
 
         assert_eq!(Some(message.to_vec()), plaintext);
     }
@@ -171,58 +166,58 @@ mod tests {
     pub fn bad_n() {
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let ciphertext = encrypt::<32>(passphrase, 5, 3, message);
+        let ciphertext = encrypt(passphrase, 5, 3, 32, message);
 
-        assert_eq!(None, decrypt::<16>(passphrase, &ciphertext));
+        assert_eq!(None, decrypt(passphrase, 16, &ciphertext));
     }
 
     #[test]
     pub fn bad_time() {
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt::<16>(passphrase, 5, 3, message);
+        let mut ciphertext = encrypt(passphrase, 5, 3, 16, message);
         ciphertext[0] ^= 1;
 
-        assert_eq!(None, decrypt::<16>(passphrase, &ciphertext));
+        assert_eq!(None, decrypt(passphrase, 16, &ciphertext));
     }
 
     #[test]
     pub fn bad_space() {
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt::<16>(passphrase, 5, 3, message);
+        let mut ciphertext = encrypt(passphrase, 5, 3, 16, message);
         ciphertext[5] ^= 1;
 
-        assert_eq!(None, decrypt::<16>(passphrase, &ciphertext));
+        assert_eq!(None, decrypt(passphrase, 16, &ciphertext));
     }
 
     #[test]
     pub fn bad_salt() {
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt::<16>(passphrase, 5, 3, message);
+        let mut ciphertext = encrypt(passphrase, 5, 3, 16, message);
         ciphertext[12] ^= 1;
 
-        assert_eq!(None, decrypt::<16>(passphrase, &ciphertext));
+        assert_eq!(None, decrypt(passphrase, 16, &ciphertext));
     }
 
     #[test]
     pub fn bad_ciphertext() {
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt::<16>(passphrase, 5, 3, message);
+        let mut ciphertext = encrypt(passphrase, 5, 3, 16, message);
         ciphertext[37] ^= 1;
 
-        assert_eq!(None, decrypt::<16>(passphrase, &ciphertext));
+        assert_eq!(None, decrypt(passphrase, 16, &ciphertext));
     }
 
     #[test]
     pub fn bad_mac() {
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt::<16>(passphrase, 5, 3, message);
+        let mut ciphertext = encrypt(passphrase, 5, 3, 16, message);
         ciphertext[49] ^= 1;
 
-        assert_eq!(None, decrypt::<16>(passphrase, &ciphertext));
+        assert_eq!(None, decrypt(passphrase, 16, &ciphertext));
     }
 }
