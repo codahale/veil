@@ -1,4 +1,3 @@
-use primitive_types::U256;
 use std::convert::TryInto;
 
 use rand::RngCore;
@@ -101,7 +100,6 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Protocol {
     // Allocate buffers.
     let mut ctr = 0u64;
     let mut buf = vec![[0u8; N]; space];
-    let space_256 = U256::from(space);
 
     // Step 1: Expand input into buffer.
     hash_counter!(pbenc, ctr, passphrase, salt, buf[0]);
@@ -126,10 +124,10 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Protocol {
                 hash_counter!(pbenc, ctr, salt, idx, idx);
 
                 // Map the hashed index block back to an index.
-                let idx = U256::from_little_endian(&idx);
+                let idx = reduce(idx, space);
 
                 // Hash the pseudo-randomly selected block.
-                hash_counter!(pbenc, ctr, buf[(idx % space_256).as_usize()], [], buf[m]);
+                hash_counter!(pbenc, ctr, buf[idx], [], buf[m]);
             }
         }
     }
@@ -138,6 +136,15 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Protocol {
     pbenc.key("extract", &buf[space - 1]);
 
     pbenc
+}
+
+#[inline]
+fn reduce(idx: [u8; N], space: usize) -> usize {
+    debug_assert_eq!(N, 32);
+    let space = space as u128;
+    let a = u128::from_le_bytes(idx[..16].try_into().unwrap());
+    let b = u128::from_le_bytes(idx[16..].try_into().unwrap());
+    (((a % space) + (b % space)) % space) as usize
 }
 
 const SALT_LEN: usize = 16;
