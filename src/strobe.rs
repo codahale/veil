@@ -29,6 +29,13 @@ impl Protocol {
         out
     }
 
+    /// Fill a slice with PRF output.
+    pub fn prf_fill(&mut self, label: &str, out: &mut [u8]) {
+        self.meta_ad_len(label, out.len() as u64);
+
+        self.0.prf(out, false);
+    }
+
     /// Include the data as associated data.
     pub fn ad(&mut self, label: &str, data: &[u8]) {
         self.meta_ad_len(label, data.len() as u64);
