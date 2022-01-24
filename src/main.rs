@@ -69,6 +69,10 @@ struct SecretKeyArgs {
     #[clap(long, default_value = "1024")]
     space: u32,
 
+    /// The block size parameter for encryption.
+    #[clap(long, default_value = "32")]
+    block_size: u32,
+
     /// The path to read the passphrase from
     #[clap(long, value_hint = ValueHint::FilePath)]
     passphrase_file: Option<PathBuf>,
@@ -78,7 +82,7 @@ impl Cmd for SecretKeyArgs {
     fn run(self) -> Result<()> {
         let passphrase = prompt_passphrase(&self.passphrase_file)?;
         let secret_key = SecretKey::new();
-        let ciphertext = secret_key.encrypt(&passphrase, self.time, self.space);
+        let ciphertext = secret_key.encrypt(&passphrase, self.time, self.space, self.block_size);
         fs::write(self.output, ciphertext)?;
         Ok(())
     }

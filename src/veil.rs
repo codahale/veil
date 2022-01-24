@@ -73,13 +73,13 @@ impl SecretKey {
 
     /// Encrypt the secret key with the given passphrase and pbenc parameters.
     #[must_use]
-    pub fn encrypt(&self, passphrase: &str, time: u32, space: u32) -> Vec<u8> {
-        pbenc::encrypt(passphrase, time, space, Self::BLOCK_SIZE, &self.r)
+    pub fn encrypt(&self, passphrase: &str, time: u32, space: u32, block_size: u32) -> Vec<u8> {
+        pbenc::encrypt(passphrase, time, space, block_size, &self.r)
     }
 
     /// Decrypt the secret key with the given passphrase and pbenc parameters.
     pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Result<SecretKey, DecryptionError> {
-        pbenc::decrypt(passphrase, Self::BLOCK_SIZE, ciphertext)
+        pbenc::decrypt(passphrase, ciphertext)
             .and_then(|b| b.try_into().ok())
             .map(|r| SecretKey { r })
             .ok_or(DecryptionError::InvalidCiphertext)
@@ -108,8 +108,6 @@ impl SecretKey {
         let d = scaldf::derive_root(&self.r);
         PrivateKey { d, pk: PublicKey { q: &G * &d } }
     }
-
-    const BLOCK_SIZE: u32 = 32;
 }
 
 impl Default for SecretKey {

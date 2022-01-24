@@ -7,23 +7,30 @@ use crate::constants::{MAC_LEN, U32_LEN, U64_LEN};
 use crate::strobe::Protocol;
 
 /// The number of bytes encryption adds to a plaintext.
-pub const OVERHEAD: usize = U32_LEN + U32_LEN + SALT_LEN + MAC_LEN;
+pub const OVERHEAD: usize = U32_LEN + U32_LEN + U32_LEN + SALT_LEN + MAC_LEN;
 
 /// Encrypt the given plaintext using the given passphrase.
 #[must_use]
-pub fn encrypt(passphrase: &str, time: u32, space: u32, n: u32, plaintext: &[u8]) -> Vec<u8> {
+pub fn encrypt(
+    passphrase: &str,
+    time: u32,
+    space: u32,
+    block_size: u32,
+    plaintext: &[u8],
+) -> Vec<u8> {
     // Generate a random salt.
     let mut salt = [0u8; SALT_LEN];
     rand::thread_rng().fill_bytes(&mut salt);
 
     // Perform the balloon hashing.
-    let mut pbenc = init(passphrase.nfkc().to_string().as_bytes(), &salt, time, space, n);
+    let mut pbenc = init(passphrase.nfkc().to_string().as_bytes(), &salt, time, space, block_size);
 
     // Allocate an output buffer.
     let mut out = Vec::with_capacity(plaintext.len() + OVERHEAD);
 
-    // Encode the time and space parameters.
+    // Encode the time, space, and block size parameters.
     out.extend(time.to_le_bytes());
+    out.extend(block_size.to_le_bytes());
     out.extend(space.to_le_bytes());
 
     // Copy the salt.
@@ -40,24 +47,26 @@ pub fn encrypt(passphrase: &str, time: u32, space: u32, n: u32, plaintext: &[u8]
 
 /// Decrypt the given ciphertext using the given passphrase.
 #[must_use]
-pub fn decrypt(passphrase: &str, n: u32, ciphertext: &[u8]) -> Option<Vec<u8>> {
+pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Vec<u8>> {
     if ciphertext.len() < U32_LEN + U32_LEN + SALT_LEN + MAC_LEN {
         return None;
     }
 
     // Split the input into parts.
     let mut time = Vec::from(ciphertext);
-    let mut space = time.split_off(U32_LEN);
+    let mut block_size = time.split_off(U32_LEN);
+    let mut space = block_size.split_off(U32_LEN);
     let mut salt = space.split_off(U32_LEN);
     let mut ciphertext = salt.split_off(SALT_LEN);
     let mac = ciphertext.split_off(ciphertext.len() - MAC_LEN);
 
     // Decode the time and space parameters.
+    let block_size = u32::from_le_bytes(block_size.try_into().ok()?);
     let time = u32::from_le_bytes(time.try_into().ok()?);
     let space = u32::from_le_bytes(space.try_into().ok()?);
 
     // Perform the balloon hashing.
-    let mut pbenc = init(passphrase.nfkc().to_string().as_bytes(), &salt, time, space, n);
+    let mut pbenc = init(passphrase.nfkc().to_string().as_bytes(), &salt, time, space, block_size);
 
     // Decrypt the ciphertext.
     let plaintext = pbenc.decrypt("ciphertext", &ciphertext);
@@ -87,7 +96,7 @@ macro_rules! hash_counter {
     };
 }
 
-fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32, n: u32) -> Protocol {
+fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32, block_size: u32) -> Protocol {
     let mut pbenc = Protocol::new("veil.pbenc");
 
     // Key with the passphrase.
@@ -97,7 +106,7 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32, n: u32) -> Protoc
     pbenc.ad("salt", salt);
     pbenc.ad("time", &time.to_le_bytes());
     pbenc.ad("space", &space.to_le_bytes());
-    pbenc.ad("blocksize", &(n as u32).to_le_bytes());
+    pbenc.ad("block-size", &block_size.to_le_bytes());
     pbenc.ad("delta", &(DELTA as u32).to_le_bytes());
 
     // Convert params.
@@ -106,7 +115,7 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32, n: u32) -> Protoc
 
     // Allocate buffers.
     let mut ctr = 0u64;
-    let mut buf = vec![vec![0u8; n as usize]; space];
+    let mut buf = vec![vec![0u8; block_size as usize]; space];
 
     // Step 1: Expand input into buffer.
     hash_counter!(pbenc, ctr, passphrase, salt, buf[0]);
@@ -157,18 +166,9 @@ mod tests {
         let passphrase = "this is a secret";
         let message = b"this is too";
         let ciphertext = encrypt(passphrase, 5, 3, 16, message);
-        let plaintext = decrypt(passphrase, 16, &ciphertext);
+        let plaintext = decrypt(passphrase, &ciphertext);
 
         assert_eq!(Some(message.to_vec()), plaintext);
-    }
-
-    #[test]
-    pub fn bad_n() {
-        let passphrase = "this is a secret";
-        let message = b"this is too";
-        let ciphertext = encrypt(passphrase, 5, 3, 32, message);
-
-        assert_eq!(None, decrypt(passphrase, 16, &ciphertext));
     }
 
     #[test]
@@ -178,7 +178,17 @@ mod tests {
         let mut ciphertext = encrypt(passphrase, 5, 3, 16, message);
         ciphertext[0] ^= 1;
 
-        assert_eq!(None, decrypt(passphrase, 16, &ciphertext));
+        assert_eq!(None, decrypt(passphrase, &ciphertext));
+    }
+
+    #[test]
+    pub fn bad_block_size() {
+        let passphrase = "this is a secret";
+        let message = b"this is too";
+        let mut ciphertext = encrypt(passphrase, 5, 3, 16, message);
+        ciphertext[5] ^= 1;
+
+        assert_eq!(None, decrypt(passphrase, &ciphertext));
     }
 
     #[test]
@@ -186,9 +196,9 @@ mod tests {
         let passphrase = "this is a secret";
         let message = b"this is too";
         let mut ciphertext = encrypt(passphrase, 5, 3, 16, message);
-        ciphertext[5] ^= 1;
+        ciphertext[9] ^= 1;
 
-        assert_eq!(None, decrypt(passphrase, 16, &ciphertext));
+        assert_eq!(None, decrypt(passphrase, &ciphertext));
     }
 
     #[test]
@@ -196,9 +206,9 @@ mod tests {
         let passphrase = "this is a secret";
         let message = b"this is too";
         let mut ciphertext = encrypt(passphrase, 5, 3, 16, message);
-        ciphertext[12] ^= 1;
+        ciphertext[13] ^= 1;
 
-        assert_eq!(None, decrypt(passphrase, 16, &ciphertext));
+        assert_eq!(None, decrypt(passphrase, &ciphertext));
     }
 
     #[test]
@@ -208,7 +218,7 @@ mod tests {
         let mut ciphertext = encrypt(passphrase, 5, 3, 16, message);
         ciphertext[37] ^= 1;
 
-        assert_eq!(None, decrypt(passphrase, 16, &ciphertext));
+        assert_eq!(None, decrypt(passphrase, &ciphertext));
     }
 
     #[test]
@@ -216,8 +226,8 @@ mod tests {
         let passphrase = "this is a secret";
         let message = b"this is too";
         let mut ciphertext = encrypt(passphrase, 5, 3, 16, message);
-        ciphertext[49] ^= 1;
+        ciphertext[54] ^= 1;
 
-        assert_eq!(None, decrypt(passphrase, 16, &ciphertext));
+        assert_eq!(None, decrypt(passphrase, &ciphertext));
     }
 }
