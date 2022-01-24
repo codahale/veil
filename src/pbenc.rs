@@ -94,20 +94,24 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Protocol {
     pbenc.ad("blocksize", &(N as u32).to_le_bytes());
     pbenc.ad("delta", &(DELTA as u32).to_le_bytes());
 
+    // Convert params.
+    let time = time as usize;
+    let space = space as usize;
+
     // Allocate buffers.
     let mut ctr = 0u64;
-    let mut buf = vec![[0u8; N]; space as usize];
+    let mut buf = vec![[0u8; N]; space];
     let space_256 = U256::from(space);
 
     // Step 1: Expand input into buffer.
     hash_counter!(pbenc, ctr, passphrase, salt, buf[0]);
-    for m in 1..space as usize {
+    for m in 1..space {
         hash_counter!(pbenc, ctr, buf[m - 1], [], buf[m]);
     }
 
     // Step 2: Mix buffer contents.
-    for t in 0..time as usize {
-        for m in 0..space as usize {
+    for t in 0..time {
+        for m in 0..space {
             // Step 2a: Hash last and current blocks.
             let prev = (m as isize - 1).rem_euclid(space as isize) as usize; // wrap 0 to last block
             hash_counter!(pbenc, ctr, buf[prev], buf[m], buf[m]);
@@ -131,7 +135,7 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Protocol {
     }
 
     // Step 3: Extract output from buffer.
-    pbenc.key("extract", &buf[space as usize - 1]);
+    pbenc.key("extract", &buf[space - 1]);
 
     pbenc
 }
