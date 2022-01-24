@@ -95,7 +95,6 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Protocol {
 
     // Allocate buffers.
     let mut ctr = 0u64;
-    let mut idx = [0u8; N];
     let mut buf = vec![[0u8; N]; space as usize];
 
     // Step 1: Expand input into buffer.
@@ -114,14 +113,19 @@ fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Protocol {
             // Step 2b: Hash in pseudo-randomly chosen blocks.
             for i in 0..DELTA {
                 // Map indexes to a block and hash it and the salt.
+                let mut idx = [0u8; N];
                 idx[..U64_LEN].copy_from_slice(&(t as u64).to_le_bytes());
                 idx[U64_LEN..U64_LEN * 2].copy_from_slice(&(m as u64).to_le_bytes());
                 idx[U64_LEN * 2..U64_LEN * 3].copy_from_slice(&(i as u64).to_le_bytes());
                 hash_counter!(pbenc, ctr, salt, idx, idx);
 
-                // Map the hashed index block back to an index and hash that block.
-                let v = u64::from_le_bytes(idx[..U64_LEN].try_into().expect("invalid u64 len"));
-                hash_counter!(pbenc, ctr, buf[(v % space as u64) as usize], [], buf[m]);
+                // Map the hashed index block back to an index.
+                let mut v = [0u8; U64_LEN];
+                v.copy_from_slice(&idx[..U64_LEN]);
+                let idx = u64::from_le_bytes(v);
+
+                // Hash the pseudo-randomly selected block.
+                hash_counter!(pbenc, ctr, buf[(idx % space as u64) as usize], [], buf[m]);
             }
         }
     }
