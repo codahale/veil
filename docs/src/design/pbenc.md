@@ -75,12 +75,13 @@ for t in 0..N_T:
     
     for i in 0..D:
       idx = LE_U64(t) + LE_U64(m) + LE_U64(i) 
-      hash_counter(salt, idx, idx)
+      hash_counter(salt, idx) // output step is skipped
       
-      v = idx[0..8] AS U64
+      AD('idx',      meta=true)
+      AD(LE_U64(16), meta=true, more=true)
+      PRF(16) AS U128 -> v
       hash_counter(buf[v % space], nil, buf[m])
 ```
-
 
 The final block $B_N$ of the balloon hashing algorithm is then used to key the protocol:
 

@@ -74,12 +74,12 @@ impl SecretKey {
     /// Encrypt the secret key with the given passphrase and pbenc parameters.
     #[must_use]
     pub fn encrypt(&self, passphrase: &str, time: u32, space: u32) -> Vec<u8> {
-        pbenc::encrypt(passphrase, time, space, &self.r)
+        pbenc::encrypt::<PBENC_BLOCK_SIZE>(passphrase, time, space, &self.r)
     }
 
     /// Decrypt the secret key with the given passphrase and pbenc parameters.
     pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Result<SecretKey, DecryptionError> {
-        pbenc::decrypt(passphrase, ciphertext)
+        pbenc::decrypt::<PBENC_BLOCK_SIZE>(passphrase, ciphertext)
             .and_then(|b| b.try_into().ok())
             .map(|r| SecretKey { r })
             .ok_or(DecryptionError::InvalidCiphertext)
@@ -302,6 +302,8 @@ impl FromStr for PublicKey {
             .ok_or(PublicKeyError)
     }
 }
+
+const PBENC_BLOCK_SIZE: usize = 32;
 
 #[cfg(test)]
 mod tests {
