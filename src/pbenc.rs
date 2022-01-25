@@ -62,14 +62,14 @@ pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Vec<u8>> {
 
     // Perform the balloon hashing.
     let (salt, ciphertext) = ciphertext.split_at(SALT_LEN);
-    let mut pbenc = init(passphrase.nfkc().to_string().as_bytes(), &salt, time, space, block_size);
+    let mut pbenc = init(passphrase.nfkc().to_string().as_bytes(), salt, time, space, block_size);
 
     // Decrypt the ciphertext.
     let (ciphertext, mac) = ciphertext.split_at(ciphertext.len() - MAC_LEN);
-    let plaintext = pbenc.decrypt("ciphertext", &ciphertext);
+    let plaintext = pbenc.decrypt("ciphertext", ciphertext);
 
     // Verify the MAC.
-    pbenc.verify_mac("mac", &mac)?;
+    pbenc.verify_mac("mac", mac)?;
 
     Some(plaintext)
 }
