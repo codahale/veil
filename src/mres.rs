@@ -48,7 +48,6 @@ where
     header.extend(&msg_offset.to_le_bytes());
 
     // Count and sign all of the bytes written to `writer`.
-    let mut written = 0u64;
     let signer = Signer::new(writer);
 
     // Include all encrypted headers and padding as sent cleartext.
@@ -58,24 +57,23 @@ where
     for q_r in q_rs {
         let ciphertext = akem::encapsulate(d_s, q_s, &d_e, &q_e, &q_r, &header);
         send_clr.write_all(&ciphertext)?;
-        written += ciphertext.len() as u64;
     }
 
     // Add random padding to the end of the headers.
-    written += io::copy(&mut RngReader(rand::thread_rng()).take(padding), &mut send_clr)?;
+    io::copy(&mut RngReader(rand::thread_rng()).take(padding), &mut send_clr)?;
 
     // Unwrap the sent cleartext writer.
-    let (mut mres, signer, _) = send_clr.into_inner();
+    let (mut mres, signer, header_len) = send_clr.into_inner();
 
     // Key the protocol with the DEK.
     mres.key("data-encryption-key", &dek);
 
     // Encrypt the plaintext, pass it through the signer, and write it.
     let mut send_enc = mres.send_enc_writer("message", signer);
-    written += io::copy(reader, &mut send_enc)?;
+    io::copy(reader, &mut send_enc)?;
 
     // Unwrap the sent encryption writer.
-    let (mut mres, signer, _) = send_enc.into_inner();
+    let (mut mres, signer, ciphertext_len) = send_enc.into_inner();
 
     // Sign the encrypted headers and ciphertext with the ephemeral key pair.
     let (sig, writer) = signer.sign(&d_e, &q_e);
@@ -85,9 +83,8 @@ where
 
     // Write the encrypted signature.
     writer.write_all(&sig)?;
-    written += sig.len() as u64;
 
-    Ok(written)
+    Ok(header_len + ciphertext_len + sig.len() as u64)
 }
 
 /// Decrypt the contents of `reader` iff they were originally encrypted by `q_s` for `q_r` and write
