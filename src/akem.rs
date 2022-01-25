@@ -82,13 +82,6 @@ pub fn decapsulate(
         return None;
     }
 
-    // Break the input up into its components.
-    let mut q_e = Vec::from(ciphertext);
-    let mut u = q_e.split_off(POINT_LEN);
-    let mut k = u.split_off(POINT_LEN);
-    let mut ciphertext = k.split_off(POINT_LEN);
-    let mac = ciphertext.split_off(ciphertext.len() - MAC_LEN);
-
     // Initialize the protocol.
     let mut akem = Protocol::new("veil.akem");
 
@@ -102,10 +95,12 @@ pub fn decapsulate(
     akem.key("static-shared-secret", &diffie_hellman(d_r, q_s));
 
     // Decrypt and decode the ephemeral public key.
+    let (q_e, ciphertext) = ciphertext.split_at(POINT_LEN);
     let q_e = akem.decrypt("ephemeral-public-key", &q_e);
     let q_e = CompressedRistretto::from_slice(&q_e).decompress()?;
 
     // Decrypt and decode the commitment point.
+    let (u, ciphertext) = ciphertext.split_at(POINT_LEN);
     let u = akem.decrypt("commitment-point", &u);
     let u = CompressedRistretto::from_slice(&u).decompress()?;
 
@@ -113,6 +108,7 @@ pub fn decapsulate(
     let r = akem.prf_scalar("challenge-scalar");
 
     // Decrypt and decode the signature point.
+    let (k, ciphertext) = ciphertext.split_at(POINT_LEN);
     let k = akem.decrypt("signature-point", &k);
     let k = CompressedRistretto::from_slice(&k).decompress()?;
 
@@ -126,6 +122,7 @@ pub fn decapsulate(
     akem.key("ephemeral-shared-secret", &diffie_hellman(d_r, &q_e));
 
     // Decrypt the plaintext.
+    let (ciphertext, mac) = ciphertext.split_at(ciphertext.len() - MAC_LEN);
     let plaintext = akem.decrypt("ciphertext", &ciphertext);
 
     // Verify the MAC.
