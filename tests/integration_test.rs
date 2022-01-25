@@ -1,7 +1,7 @@
 #![cfg(feature = "cli")]
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::Path;
 
 use anyhow::Result;
 use duct::cmd;
@@ -116,8 +116,8 @@ fn sign_and_verify_message() -> Result<()> {
 }
 
 fn generate_public_key(
-    secret_key_path: &PathBuf,
-    passphrase_path: &PathBuf,
+    secret_key_path: &Path,
+    passphrase_path: &Path,
     key_id: &str,
 ) -> Result<String> {
     let out = cmd!(
@@ -132,7 +132,7 @@ fn generate_public_key(
     Ok(out)
 }
 
-fn create_secret_key(secret_key_path: &PathBuf, passphrase_path: &PathBuf) -> Result<()> {
+fn create_secret_key(secret_key_path: &Path, passphrase_path: &Path) -> Result<()> {
     cmd!(
         VEIL_PATH,
         "secret-key",
