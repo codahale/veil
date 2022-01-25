@@ -56,3 +56,9 @@ jobs:
         with:
           command: clippy
           args: --all-features -- -D warnings
+      - uses: actions-rs/cargo@v1.0.3
+        name: 'clippy-tests'
+        if: always()
+        with:
+          command: clippy
+          args: --all-features --tests -- -D warnings
