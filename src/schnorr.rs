@@ -137,19 +137,19 @@ mod tests {
         let q = &G * &d;
 
         let mut signer = Signer::new(io::sink());
-        signer.write(b"this is a message that")?;
-        signer.write(b" is in multiple pieces")?;
+        assert_eq!(22, signer.write(b"this is a message that")?);
+        assert_eq!(30, signer.write(b" is written in multiple pieces")?);
         signer.flush()?;
 
         let (sig, _) = signer.sign(&d, &q);
 
         let mut verifier = Verifier::new();
-        verifier.write(b"this is a message that")?;
-        verifier.write(b" is in multiple")?;
-        verifier.write(b" pieces")?;
+        assert_eq!(22, verifier.write(b"this is a message that")?);
+        assert_eq!(23, verifier.write(b" is written in multiple")?);
+        assert_eq!(7, verifier.write(b" pieces")?);
         verifier.flush()?;
 
-        assert_eq!(true, verifier.verify(&q, &sig));
+        assert!(verifier.verify(&q, &sig));
 
         Ok(())
     }
@@ -160,19 +160,19 @@ mod tests {
         let q = &G * &d;
 
         let mut signer = Signer::new(io::sink());
-        signer.write(b"this is a message that")?;
-        signer.write(b" is in multiple pieces")?;
+        assert_eq!(22, signer.write(b"this is a message that")?);
+        assert_eq!(30, signer.write(b" is written in multiple pieces")?);
         signer.flush()?;
 
         let (sig, _) = signer.sign(&d, &q);
 
         let mut verifier = Verifier::new();
-        verifier.write(b"this is NOT a message that")?;
-        verifier.write(b" is in multiple")?;
-        verifier.write(b" pieces")?;
+        assert_eq!(26, verifier.write(b"this NOT is a message that")?);
+        assert_eq!(23, verifier.write(b" is written in multiple")?);
+        assert_eq!(7, verifier.write(b" pieces")?);
         verifier.flush()?;
 
-        assert_eq!(false, verifier.verify(&q, &sig));
+        assert!(!verifier.verify(&q, &sig));
 
         Ok(())
     }
@@ -183,19 +183,19 @@ mod tests {
         let q = &G * &d;
 
         let mut signer = Signer::new(io::sink());
-        signer.write(b"this is a message that")?;
-        signer.write(b" is in multiple pieces")?;
+        assert_eq!(22, signer.write(b"this is a message that")?);
+        assert_eq!(30, signer.write(b" is written in multiple pieces")?);
         signer.flush()?;
 
         let (sig, _) = signer.sign(&d, &q);
 
         let mut verifier = Verifier::new();
-        verifier.write(b"this is a message that")?;
-        verifier.write(b" is in multiple")?;
-        verifier.write(b" pieces")?;
+        assert_eq!(22, verifier.write(b"this is a message that")?);
+        assert_eq!(23, verifier.write(b" is written in multiple")?);
+        assert_eq!(7, verifier.write(b" pieces")?);
         verifier.flush()?;
 
-        assert_eq!(false, verifier.verify(&G.basepoint(), &sig));
+        assert!(!verifier.verify(&G.basepoint(), &sig));
 
         Ok(())
     }
@@ -206,20 +206,20 @@ mod tests {
         let q = &G * &d;
 
         let mut signer = Signer::new(io::sink());
-        signer.write(b"this is a message that")?;
-        signer.write(b" is in multiple pieces")?;
+        assert_eq!(22, signer.write(b"this is a message that")?);
+        assert_eq!(30, signer.write(b" is written in multiple pieces")?);
         signer.flush()?;
 
         let (mut sig, _) = signer.sign(&d, &q);
         sig[22] ^= 1;
 
         let mut verifier = Verifier::new();
-        verifier.write(b"this is a message that")?;
-        verifier.write(b" is in multiple")?;
-        verifier.write(b" pieces")?;
+        assert_eq!(22, verifier.write(b"this is a message that")?);
+        assert_eq!(23, verifier.write(b" is written in multiple")?);
+        assert_eq!(7, verifier.write(b" pieces")?);
         verifier.flush()?;
 
-        assert_eq!(false, verifier.verify(&q, &sig));
+        assert!(!verifier.verify(&q, &sig));
 
         Ok(())
     }
