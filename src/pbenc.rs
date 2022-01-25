@@ -75,21 +75,17 @@ pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Vec<u8>> {
 }
 
 macro_rules! hash_counter {
-    ($pbenc:ident, $ctr:ident, $left:expr, $right:expr, $out:expr) => {
-        $pbenc.ad("counter", &$ctr.to_le_bytes());
-        $ctr += 1;
-
-        $pbenc.ad("left", &$left);
-        $pbenc.ad("right", &$right);
-
-        $pbenc.prf_fill("out", &mut $out);
-    };
     ($pbenc:ident, $ctr:ident, $left:expr, $right:expr) => {
         $pbenc.ad("counter", &$ctr.to_le_bytes());
         $ctr += 1;
 
         $pbenc.ad("left", &$left);
         $pbenc.ad("right", &$right);
+    };
+    ($pbenc:ident, $ctr:ident, $left:expr, $right:expr, $out:expr) => {
+        hash_counter!($pbenc, $ctr, $left, $right);
+
+        $pbenc.prf_fill("out", &mut $out);
     };
 }
 
