@@ -202,7 +202,8 @@ where
                 verifier.write_all(&buf)?;
                 hdr_offset += buf.len() as u64;
 
-                if let Some((p, header)) = akem::decapsulate(d_r, q_r, q_s, &buf) {
+                // Try to decapsulate the encrypted header.
+                if let Some((q_e, header)) = akem::decapsulate(d_r, q_r, q_s, &buf) {
                     // Recover the ephemeral public key, the DEK, and the message offset.
                     let dek: [u8; DEK_LEN] = header[..DEK_LEN].try_into().expect("invalid DEK len");
                     let msg_offset =
@@ -213,7 +214,7 @@ where
                     io::copy(&mut remainder, verifier)?;
 
                     // Return the DEK and ephemeral public key.
-                    return Ok(Some((dek, p)));
+                    return Ok(Some((dek, q_e)));
                 }
             }
 
