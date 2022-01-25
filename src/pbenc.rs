@@ -52,23 +52,20 @@ pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Vec<u8>> {
         return None;
     }
 
-    // Split the input into parts.
-    let mut time = Vec::from(ciphertext);
-    let mut block_size = time.split_off(U32_LEN);
-    let mut space = block_size.split_off(U32_LEN);
-    let mut salt = space.split_off(U32_LEN);
-    let mut ciphertext = salt.split_off(SALT_LEN);
-    let mac = ciphertext.split_off(ciphertext.len() - MAC_LEN);
-
-    // Decode the time and space parameters.
-    let block_size = u32::from_le_bytes(block_size.try_into().ok()?);
+    // Decode the parameters.
+    let (time, ciphertext) = ciphertext.split_at(U32_LEN);
     let time = u32::from_le_bytes(time.try_into().ok()?);
+    let (block_size, ciphertext) = ciphertext.split_at(U32_LEN);
+    let block_size = u32::from_le_bytes(block_size.try_into().ok()?);
+    let (space, ciphertext) = ciphertext.split_at(U32_LEN);
     let space = u32::from_le_bytes(space.try_into().ok()?);
 
     // Perform the balloon hashing.
+    let (salt, ciphertext) = ciphertext.split_at(SALT_LEN);
     let mut pbenc = init(passphrase.nfkc().to_string().as_bytes(), &salt, time, space, block_size);
 
     // Decrypt the ciphertext.
+    let (ciphertext, mac) = ciphertext.split_at(ciphertext.len() - MAC_LEN);
     let plaintext = pbenc.decrypt("ciphertext", &ciphertext);
 
     // Verify the MAC.
