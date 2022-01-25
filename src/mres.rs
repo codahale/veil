@@ -263,7 +263,7 @@ mod tests {
         let mut dst = Cursor::new(Vec::new());
 
         let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
-        assert_eq!(true, verified);
+        assert!(verified);
         assert_eq!(dst.position(), ptx_len);
         assert_eq!(message.to_vec(), dst.into_inner());
 
@@ -289,7 +289,7 @@ mod tests {
         let mut dst = Cursor::new(Vec::new());
 
         let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
-        assert_eq!(true, verified);
+        assert!(verified);
         assert_eq!(dst.position(), ptx_len);
         assert_eq!(message.to_vec(), dst.into_inner());
 
@@ -315,7 +315,7 @@ mod tests {
         let mut dst = Cursor::new(Vec::new());
 
         let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
-        assert_eq!(true, verified);
+        assert!(verified);
         assert_eq!(dst.position(), ptx_len);
         assert_eq!(message.to_vec(), dst.into_inner());
 
@@ -344,7 +344,7 @@ mod tests {
         let mut dst = Cursor::new(Vec::new());
 
         let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
-        assert_eq!(false, verified);
+        assert!(!verified);
         assert_eq!(dst.position(), ptx_len);
 
         Ok(())
