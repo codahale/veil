@@ -296,6 +296,12 @@ encrypted using the static Diffie-Hellman shared secret point $ZZ_S$, so a sende
 designation would either have to reveal their private key to the delegate or encrypt the designated signature
 themselves.
 
+Another risk with delegatability is an attacker re-using a legitimate $(s,r)$ pair from one domain (e.g. a confused 
+deputy signing arbitrary values or a signature of a public key to which the attacker has the private key) to forge a
+designated-verifier signature in the context of another domain. In this case, `veil.akem` includes all data in the
+STROBE transcript, so the challenge scalar $r$ is cryptographically dependent on $Q_S$, $Q_R$, $ZZ_S$, and the
+`veil.akem` metadata, in addition to $Q_E$. It is not simply a signature of a point.
+
 ## Ephemeral Scalar Hedging
 
 In deriving the ephemeral scalar from a cloned context, `veil.akem` uses [Aranha et al.'s
