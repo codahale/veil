@@ -54,11 +54,11 @@ pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Vec<u8>> {
 
     // Decode the parameters.
     let (time, ciphertext) = ciphertext.split_at(U32_LEN);
-    let time = u32::from_le_bytes(time.try_into().ok()?);
+    let time = u32::from_le_bytes(time.try_into().expect("invalid u32 len"));
     let (block_size, ciphertext) = ciphertext.split_at(U32_LEN);
-    let block_size = u32::from_le_bytes(block_size.try_into().ok()?);
+    let block_size = u32::from_le_bytes(block_size.try_into().expect("invalid u32 len"));
     let (space, ciphertext) = ciphertext.split_at(U32_LEN);
-    let space = u32::from_le_bytes(space.try_into().ok()?);
+    let space = u32::from_le_bytes(space.try_into().expect("invalid u32 len"));
 
     // Perform the balloon hashing.
     let (salt, ciphertext) = ciphertext.split_at(SALT_LEN);
