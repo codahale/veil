@@ -99,7 +99,7 @@ fn bench_pbenc(c: &mut Criterion) {
     let sk = SecretKey::new();
 
     c.bench_function("pbenc", |b| {
-        b.iter(|| sk.encrypt(black_box("passphrase"), black_box(10), black_box(10), black_box(32)))
+        b.iter(|| sk.encrypt(black_box("passphrase"), black_box(10), black_box(10)))
     });
 }
 

@@ -73,8 +73,8 @@ impl SecretKey {
 
     /// Encrypt the secret key with the given passphrase and pbenc parameters.
     #[must_use]
-    pub fn encrypt(&self, passphrase: &str, time: u32, space: u32, block_size: u32) -> Vec<u8> {
-        pbenc::encrypt(passphrase, time, space, block_size, &self.r)
+    pub fn encrypt(&self, passphrase: &str, time: u32, space: u32) -> Vec<u8> {
+        pbenc::encrypt(passphrase, time, space, &self.r)
     }
 
     /// Decrypt the secret key with the given passphrase and pbenc parameters.

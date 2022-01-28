@@ -14,3 +14,6 @@ pub const U32_LEN: usize = mem::size_of::<u32>();
 
 /// The length of a `u64` in bytes.
 pub const U64_LEN: usize = mem::size_of::<u64>();
+
+/// The length of a `usize` in bytes.
+pub const USIZE_LEN: usize = mem::size_of::<usize>();
