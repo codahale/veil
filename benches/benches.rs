@@ -13,7 +13,7 @@ fn bench_encrypt(c: &mut Criterion) {
     let pk_b = sk_b.private_key("/three/four");
 
     let mut encrypt = c.benchmark_group("encrypt");
-    for n in vec![0 * KB, 1 * KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
+    for n in [0, KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
         encrypt.throughput(Throughput::Elements(n));
         encrypt.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &n| {
             b.iter(|| {
@@ -39,7 +39,7 @@ fn bench_decrypt(c: &mut Criterion) {
     let pk_b = sk_b.private_key("/three/four");
 
     let mut decrypt = c.benchmark_group("decrypt");
-    for n in vec![0 * KB, 1 * KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
+    for n in [0, KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
         let mut ciphertext = Cursor::new(Vec::new());
         pk_a.encrypt(
             &mut io::repeat(0).take(n),
@@ -71,7 +71,7 @@ fn bench_sign(c: &mut Criterion) {
     let pk_a = sk_a.private_key("/one/two");
 
     let mut sign = c.benchmark_group("sign");
-    for n in vec![0 * KB, 1 * KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
+    for n in [0, KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
         sign.throughput(Throughput::Elements(n));
         sign.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &n| {
             b.iter(|| pk_a.sign(&mut io::repeat(0).take(n)).unwrap());
@@ -85,7 +85,7 @@ fn bench_verify(c: &mut Criterion) {
     let pk_a = sk_a.private_key("/one/two");
 
     let mut verify = c.benchmark_group("verify");
-    for n in vec![0 * KB, 1 * KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
+    for n in [0, KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
         let sig = pk_a.sign(&mut io::repeat(0).take(n)).unwrap();
         verify.throughput(Throughput::Elements(n));
         verify.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &n| {
