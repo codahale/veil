@@ -76,7 +76,7 @@ struct SecretKeyArgs {
 
 impl Cmd for SecretKeyArgs {
     fn run(self) -> Result<()> {
-        let passphrase = prompt_passphrase(&self.passphrase_file)?;
+        let passphrase = prompt_passphrase(&self.passphrase_file)?.into();
         let secret_key = SecretKey::new();
         let ciphertext = secret_key.encrypt(&passphrase, self.time, self.space);
         fs::write(self.output, ciphertext)?;
@@ -298,7 +298,7 @@ impl Cmd for CompleteArgs {
 }
 
 fn decrypt_secret_key(passphrase_file: &Option<PathBuf>, path: &Path) -> Result<SecretKey> {
-    let passphrase = prompt_passphrase(passphrase_file)?;
+    let passphrase = prompt_passphrase(passphrase_file)?.into();
     let ciphertext = fs::read(path)?;
     let sk = SecretKey::decrypt(&passphrase, &ciphertext)?;
     Ok(sk)
