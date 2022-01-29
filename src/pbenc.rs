@@ -2,6 +2,7 @@ use std::convert::TryInto;
 
 use crypto_bigint::{Encoding, NonZero, U512};
 use rand::RngCore;
+use secrecy::Zeroize;
 use unicode_normalization::UnicodeNormalization;
 
 use crate::constants::{MAC_LEN, U32_LEN, U64_LEN, USIZE_LEN};
@@ -105,7 +106,7 @@ fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> Protocol {
     let mut buf = vec![[0u8; N]; space];
 
     // Step 1: Expand input into buffer.
-    hash_counter!(pbenc, ctr, passphrase, salt, buf[0]);
+    hash_counter!(pbenc, ctr, &passphrase, salt, buf[0]);
     for m in 1..space {
         hash_counter!(pbenc, ctr, buf[m - 1], [], buf[m]);
     }
@@ -140,6 +141,10 @@ fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> Protocol {
 
     // Step 3: Extract output from buffer.
     pbenc.key("extract", &buf[space - 1]);
+
+    // Zeroize buffers.
+    passphrase.zeroize();
+    buf.zeroize();
 
     pbenc
 }
