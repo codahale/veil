@@ -9,6 +9,7 @@ use clap_complete::generate_to;
 use clap_complete::Shell;
 use clio::{Input, Output};
 use mimalloc::MiMalloc;
+use secrecy::Secret;
 
 use veil::{PublicKey, SecretKey, Signature};
 
@@ -76,7 +77,7 @@ struct SecretKeyArgs {
 
 impl Cmd for SecretKeyArgs {
     fn run(self) -> Result<()> {
-        let passphrase = prompt_passphrase(&self.passphrase_file)?.into();
+        let passphrase = prompt_passphrase(&self.passphrase_file)?;
         let secret_key = SecretKey::new();
         let ciphertext = secret_key.encrypt(&passphrase, self.time, self.space);
         fs::write(self.output, ciphertext)?;
@@ -298,16 +299,16 @@ impl Cmd for CompleteArgs {
 }
 
 fn decrypt_secret_key(passphrase_file: &Option<PathBuf>, path: &Path) -> Result<SecretKey> {
-    let passphrase = prompt_passphrase(passphrase_file)?.into();
+    let passphrase = prompt_passphrase(passphrase_file)?;
     let ciphertext = fs::read(path)?;
     let sk = SecretKey::decrypt(&passphrase, &ciphertext)?;
     Ok(sk)
 }
 
-fn prompt_passphrase(passphrase_file: &Option<PathBuf>) -> Result<String> {
+fn prompt_passphrase(passphrase_file: &Option<PathBuf>) -> Result<Secret<String>> {
     match passphrase_file {
-        Some(p) => Ok(fs::read_to_string(p)?),
-        None => Ok(rpassword::read_password_from_tty(Some("Enter passphrase: "))?),
+        Some(p) => Ok(fs::read_to_string(p)?.into()),
+        None => Ok(rpassword::read_password_from_tty(Some("Enter passphrase: "))?.into()),
     }
 }
 
