@@ -159,6 +159,15 @@ mod tests {
     }
 
     #[test]
+    pub fn bad_passphrase() {
+        let passphrase = "this is a secret";
+        let message = b"this is too";
+        let ciphertext = encrypt(passphrase, 5, 3, message);
+
+        assert_eq!(None, decrypt("whoops", &ciphertext));
+    }
+
+    #[test]
     pub fn bad_time() {
         let passphrase = "this is a secret";
         let message = b"this is too";
