@@ -18,7 +18,7 @@ pub fn encrypt(passphrase: &str, time: u32, space: u32, plaintext: &[u8]) -> Vec
     rand::thread_rng().fill_bytes(&mut salt);
 
     // Perform the balloon hashing.
-    let mut pbenc = init(passphrase.nfkc().to_string().as_bytes(), &salt, time, space);
+    let mut pbenc = init(passphrase, &salt, time, space);
 
     // Allocate an output buffer.
     let mut out = Vec::with_capacity(plaintext.len() + OVERHEAD);
@@ -54,7 +54,7 @@ pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Vec<u8>> {
 
     // Perform the balloon hashing.
     let (salt, ciphertext) = ciphertext.split_at(SALT_LEN);
-    let mut pbenc = init(passphrase.nfkc().to_string().as_bytes(), salt, time, space);
+    let mut pbenc = init(passphrase, salt, time, space);
 
     // Decrypt the ciphertext.
     let (ciphertext, mac) = ciphertext.split_at(ciphertext.len() - MAC_LEN);
@@ -78,11 +78,15 @@ macro_rules! hash_counter {
     };
 }
 
-fn init(passphrase: &[u8], salt: &[u8], time: u32, space: u32) -> Protocol {
+fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> Protocol {
+    // Normalize the passphrase into NFKC form.
+    let mut passphrase = passphrase.nfkc().to_string().bytes().collect::<Vec<u8>>();
+
+    // Initialize the protocol.
     let mut pbenc = Protocol::new("veil.pbenc");
 
     // Key with the passphrase.
-    pbenc.key("passphrase", passphrase);
+    pbenc.key("passphrase", &passphrase);
 
     // Include the salt, time, space, block size, and delta parameters as associated data.
     pbenc.ad("salt", salt);
