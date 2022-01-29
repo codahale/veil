@@ -2,7 +2,7 @@ use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::IsIdentity;
-use secrecy::ExposeSecret;
+use secrecy::{ExposeSecret, Secret, Zeroize};
 
 use crate::constants::{MAC_LEN, POINT_LEN};
 use crate::strobe::Protocol;
@@ -34,7 +34,7 @@ pub fn encapsulate(
     akem.receive("receiver-public-key", q_r.compress().as_bytes());
 
     // Calculate the static Diffie-Hellman shared secret and key the protocol with it.
-    akem.key("static-shared-secret", &diffie_hellman(d_s, q_r));
+    akem.key("static-shared-secret", diffie_hellman(d_s, q_r).expose_secret());
 
     // Encode and encrypt the ephemeral public key.
     out.extend(akem.encrypt("ephemeral-public-key", q_e.compress().as_bytes()));
@@ -58,7 +58,7 @@ pub fn encapsulate(
     out.extend(akem.encrypt("signature-point", k.compress().as_bytes()));
 
     // Calculate the ephemeral Diffie-Hellman shared secret and key the protocol with it.
-    akem.key("ephemeral-shared-secret", &diffie_hellman(d_e, q_r));
+    akem.key("ephemeral-shared-secret", diffie_hellman(d_e, q_r).expose_secret());
 
     // Encrypt the plaintext.
     out.extend(akem.encrypt("ciphertext", plaintext));
@@ -94,7 +94,7 @@ pub fn decapsulate(
     akem.send("receiver-public-key", q_r.compress().as_bytes());
 
     // Calculate the static Diffie-Hellman shared secret and key the protocol with it.
-    akem.key("static-shared-secret", &diffie_hellman(d_r, q_s));
+    akem.key("static-shared-secret", diffie_hellman(d_r, q_s).expose_secret());
 
     // Decrypt and decode the ephemeral public key.
     let (q_e, ciphertext) = ciphertext.split_at(POINT_LEN);
@@ -121,7 +121,7 @@ pub fn decapsulate(
     }
 
     // Calculate the ephemeral Diffie-Hellman shared secret and key the protocol with it.
-    akem.key("ephemeral-shared-secret", &diffie_hellman(d_r, &q_e));
+    akem.key("ephemeral-shared-secret", diffie_hellman(d_r, &q_e).expose_secret());
 
     // Decrypt the plaintext.
     let (ciphertext, mac) = ciphertext.split_at(ciphertext.len() - MAC_LEN);
@@ -135,13 +135,15 @@ pub fn decapsulate(
 }
 
 #[must_use]
-fn diffie_hellman(d: &Scalar, q: &RistrettoPoint) -> [u8; 32] {
-    let zz = q * d;
+fn diffie_hellman(d: &Scalar, q: &RistrettoPoint) -> Secret<[u8; 32]> {
+    let mut zz = q * d;
     if zz.is_identity() {
         panic!("non-contributory ECDH");
     }
 
-    zz.compress().to_bytes()
+    let km = zz.compress().to_bytes().into();
+    zz.zeroize();
+    km
 }
 
 #[cfg(test)]
