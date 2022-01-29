@@ -47,10 +47,10 @@ where
         // Derive a challenge scalar from PRF output.
         let r = schnorr.prf_scalar("challenge-scalar");
 
-        // Calculate the signature scalar.
+        // Calculate the proof scalar.
         let s = d * r + k;
 
-        // Return the challenge and signature scalars, plus the underlying writer.
+        // Return the challenge and proof scalars, plus the underlying writer.
         let mut sig = [0u8; SIGNATURE_LEN];
         sig[..SCALAR_LEN].copy_from_slice(r.as_bytes());
         sig[SCALAR_LEN..].copy_from_slice(s.as_bytes());
@@ -96,7 +96,7 @@ impl Verifier {
         let r = sig[..SCALAR_LEN].try_into().expect("invalid scalar len");
         let s = sig[SCALAR_LEN..].try_into().expect("invalid scalar len");
 
-        // Decode the challenge and signature scalars.
+        // Decode the challenge and proof scalars.
         let (r, s) = match (Scalar::from_canonical_bytes(r), Scalar::from_canonical_bytes(s)) {
             (Some(r), Some(s)) => (r, s),
             _ => return false,

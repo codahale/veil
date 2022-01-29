@@ -55,11 +55,11 @@ AD(LE_U64(64),         meta=true, more=true)
 PRF(64) -> r
 ```
 
-The resulting signature consists of the two scalars, $r$ and $s = dr + k$.
+The resulting signature consists of the challenge scalar $r$ and a proof scalar $s = dr + k$.
 
 ## Verifying A Signature
 
-To verify, `veil.schnorr` is run with a message in blocks $M_0...M_N$ and a public point $Q$:
+To verify, `veil.schnorr` is run with a message in blocks $M_0...M_N$, a public point $Q$, and a signature $(r,s)$:
 
 ```text
 INIT('veil.schnorr', level=128)
