@@ -2,6 +2,7 @@ use std::io::{self, Write};
 
 use curve25519_dalek::scalar::Scalar;
 use rand::RngCore;
+use secrecy::{Secret, Zeroize};
 use strobe_rs::{SecParam, Strobe};
 
 /// A Strobe protocol.
@@ -101,9 +102,10 @@ impl Protocol {
     /// Clone the current instance, key it with the given secret, key it again with random data, and
     /// pass the clone to the given function.
     #[must_use]
-    pub fn hedge<R, F>(&self, secret: &[u8], f: F) -> R
+    pub fn hedge<R, F>(&self, secret: &[u8], f: F) -> Secret<R>
     where
         F: Fn(&mut Protocol) -> R,
+        R: Zeroize,
     {
         // Clone the protocol's state.
         let mut clone = Protocol(self.0.clone());
@@ -119,7 +121,7 @@ impl Protocol {
         clone.key("secret-value", &r);
 
         // Call the given function with the clone.
-        f(&mut clone)
+        f(&mut clone).into()
     }
 
     /// Create a writer which passes writes through `SEND_CLR` before passing them to the given

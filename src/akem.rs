@@ -2,6 +2,7 @@ use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::IsIdentity;
+use secrecy::ExposeSecret;
 
 use crate::constants::{MAC_LEN, POINT_LEN};
 use crate::strobe::Protocol;
@@ -40,14 +41,14 @@ pub fn encapsulate(
 
     // Hedge a commitment scalar and calculate the commitment point.
     let k = akem.hedge(d_s.as_bytes(), |clone| clone.prf_scalar("commitment-scalar"));
-    let u = &G * &k;
+    let u = &G * k.expose_secret();
 
     // Encode the commitment point in the buffer and encrypt it.
     out.extend(akem.encrypt("commitment-point", u.compress().as_bytes()));
 
     // Extract a challenge scalar and calculate a proof scalar.
     let r = akem.prf_scalar("challenge-scalar");
-    let s = d_s * r + k;
+    let s = d_s * r + k.expose_secret();
 
     // Convert the proof scalar to a designated-verifier proof point with the recipient's public
     // key.

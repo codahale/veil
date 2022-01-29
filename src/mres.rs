@@ -6,6 +6,7 @@ use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use rand::prelude::ThreadRng;
 use rand::RngCore;
+use secrecy::ExposeSecret;
 
 use crate::akem;
 use crate::constants::U64_LEN;
@@ -30,21 +31,19 @@ where
     let mut mres = Protocol::new("veil.mres");
     mres.send("sender", q_s.compress().as_bytes());
 
-    // Derive a random ephemeral key pair and DEK from the protocol's current state, the sender's
-    // private key, and a random nonce.
-    let (d_e, q_e, dek) = mres.hedge(d_s.as_bytes(), |clone| {
-        // Generate an ephemeral key pair.
-        let d_e = clone.prf_scalar("ephemeral-private-key");
-        let q_e = &G * &d_e;
+    // Derive a random ephemeral key pair from the protocol's current state, the sender's private
+    // key, and a random nonce.
+    let d_e = mres.hedge(d_s.as_bytes(), |clone| clone.prf_scalar("ephemeral-private-key"));
+    let q_e = &G * d_e.expose_secret();
 
-        // Return the key pair and a DEK.
-        (d_e, q_e, clone.prf::<DEK_LEN>("data-encryption-key"))
-    });
+    // Derive a random DEK from the protocol's current state, the sender's private key, and a random
+    // nonce.
+    let dek = mres.hedge(d_s.as_bytes(), |clone| clone.prf::<DEK_LEN>("data-encryption-key"));
 
     // Encode the DEK and message offset in a header.
     let msg_offset = ((q_rs.len() as u64) * ENC_HEADER_LEN as u64) + padding;
     let mut header = Vec::with_capacity(HEADER_LEN);
-    header.extend(&dek);
+    header.extend(dek.expose_secret());
     header.extend(&msg_offset.to_le_bytes());
 
     // Count and sign all of the bytes written to `writer`.
@@ -55,7 +54,7 @@ where
 
     // For each recipient, encrypt a copy of the header.
     for q_r in q_rs {
-        let ciphertext = akem::encapsulate(d_s, q_s, &d_e, &q_e, &q_r, &header);
+        let ciphertext = akem::encapsulate(d_s, q_s, d_e.expose_secret(), &q_e, &q_r, &header);
         send_clr.write_all(&ciphertext)?;
     }
 
@@ -66,7 +65,7 @@ where
     let (mut mres, signer, header_len) = send_clr.into_inner();
 
     // Key the protocol with the DEK.
-    mres.key("data-encryption-key", &dek);
+    mres.key("data-encryption-key", dek.expose_secret());
 
     // Encrypt the plaintext, pass it through the signer, and write it.
     let mut send_enc = mres.send_enc_writer("message", signer);
@@ -76,7 +75,7 @@ where
     let (mut mres, signer, ciphertext_len) = send_enc.into_inner();
 
     // Sign the encrypted headers and ciphertext with the ephemeral key pair.
-    let (sig, writer) = signer.sign(&d_e, &q_e);
+    let (sig, writer) = signer.sign(d_e.expose_secret(), &q_e);
 
     // Encrypt the signature.
     let sig = mres.encrypt("signature", &sig);

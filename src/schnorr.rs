@@ -5,6 +5,7 @@ use std::io::{Result, Write};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
+use secrecy::ExposeSecret;
 
 use crate::constants::SCALAR_LEN;
 use crate::strobe::{Protocol, RecvClrWriter, SendClrWriter};
@@ -41,14 +42,14 @@ where
         let k = schnorr.hedge(d.as_bytes(), |clone| clone.prf_scalar("commitment-scalar"));
 
         // Add the commitment point as associated data.
-        let i = &G * &k;
+        let i = &G * k.expose_secret();
         schnorr.ad("commitment-point", i.compress().as_bytes());
 
         // Derive a challenge scalar from PRF output.
         let r = schnorr.prf_scalar("challenge-scalar");
 
         // Calculate the proof scalar.
-        let s = d * r + k;
+        let s = d * r + k.expose_secret();
 
         // Return the challenge and proof scalars, plus the underlying writer.
         let mut sig = [0u8; SIGNATURE_LEN];
