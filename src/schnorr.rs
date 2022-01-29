@@ -38,21 +38,21 @@ where
 
         // Derive a commitment scalar from the protocol's current state, the signer's private key,
         // and a random nonce.
-        let r = schnorr.hedge(d.as_bytes(), |clone| clone.prf_scalar("commitment-scalar"));
+        let k = schnorr.hedge(d.as_bytes(), |clone| clone.prf_scalar("commitment-scalar"));
 
         // Add the commitment point as associated data.
-        let r_g = &G * &r;
-        schnorr.ad("commitment-point", r_g.compress().as_bytes());
+        let i = &G * &k;
+        schnorr.ad("commitment-point", i.compress().as_bytes());
 
         // Derive a challenge scalar from PRF output.
-        let c = schnorr.prf_scalar("challenge-scalar");
+        let r = schnorr.prf_scalar("challenge-scalar");
 
         // Calculate the signature scalar.
-        let s = d * c + r;
+        let s = d * r + k;
 
         // Return the challenge and signature scalars, plus the underlying writer.
         let mut sig = [0u8; SIGNATURE_LEN];
-        sig[..SCALAR_LEN].copy_from_slice(c.as_bytes());
+        sig[..SCALAR_LEN].copy_from_slice(r.as_bytes());
         sig[SCALAR_LEN..].copy_from_slice(s.as_bytes());
         (sig, writer)
     }
@@ -93,24 +93,24 @@ impl Verifier {
         schnorr.receive("signer", q.compress().as_bytes());
 
         // Split the signature into parts.
-        let c = sig[..SCALAR_LEN].try_into().expect("invalid scalar len");
+        let r = sig[..SCALAR_LEN].try_into().expect("invalid scalar len");
         let s = sig[SCALAR_LEN..].try_into().expect("invalid scalar len");
 
         // Decode the challenge and signature scalars.
-        let (c, s) = match (Scalar::from_canonical_bytes(c), Scalar::from_canonical_bytes(s)) {
-            (Some(c), Some(s)) => (c, s),
+        let (r, s) = match (Scalar::from_canonical_bytes(r), Scalar::from_canonical_bytes(s)) {
+            (Some(r), Some(s)) => (r, s),
             _ => return false,
         };
 
         // Re-calculate the commitment point and add it as associated data.
-        let r_g = (&G * &s) + (-c * q);
-        schnorr.ad("commitment-point", r_g.compress().as_bytes());
+        let i = (&G * &s) + (q * -r);
+        schnorr.ad("commitment-point", i.compress().as_bytes());
 
         // Re-derive the challenge scalar.
-        let c_p = schnorr.prf_scalar("challenge-scalar");
+        let r_p = schnorr.prf_scalar("challenge-scalar");
 
-        // Return true iff c' == c.
-        c_p == c
+        // Return true iff r' == r.
+        r_p == r
     }
 }
 

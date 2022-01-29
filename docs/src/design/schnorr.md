@@ -25,7 +25,7 @@ AD(Q)
 buffer the results.)
 
 The protocol's state is then cloned, the clone is keyed with both 64 bytes of random data and the signer's private key,
-an ephemeral scalar is derived from PRF output:
+an ephemeral scalar $k$ is derived from PRF output:
 
 ```text
 AD('secret-value', meta=true)
@@ -38,22 +38,24 @@ KEY(rand(64))
 
 AD('commitment-scalar', meta=true)
 AD(LE_U64(64),          meta=true, more=true)
-PRF(64) -> r
+PRF(64) -> k
 ```
 
-The clone's state is discarded, and $r$ is returned to the parent along with $R = [r]G$:
+The clone's state is discarded, and $k$ is returned to the parent along with $I = [k]G$. 
+
+$I$ is added as associated data and a challenge scalar $r$ is extracted from PRF output:
 
 ```text
 AD('commitment-point', meta=true)
-AD(LE_U64(N_Q),        meta=true, more=true)
-AD(R)
+AD(LE_U64(N_I),        meta=true, more=true)
+AD(I)
 
 AD('challenge-scalar', meta=true)
 AD(LE_U64(64),         meta=true, more=true)
-PRF(64) -> c
+PRF(64) -> r
 ```
 
-The resulting signature consists of the two scalars, $c$ and $s = dc + r$.
+The resulting signature consists of the two scalars, $r$ and $s = dr + k$.
 
 ## Verifying A Signature
 
@@ -76,19 +78,20 @@ AD(LE_U64(N_Q), meta=true, more=true)
 AD(Q)
 ```
 
-The public ephemeral is re-calculated as $R' = [{-c}]Q + [s]G$ and the challenge scalar is re-derived from PRF output:
+The public ephemeral is re-calculated as $I' = [s]G + [{-r}]Q$ and the challenge scalar $r'$ is re-derived from PRF
+output:
 
 ```text
 AD('commitment-point', meta=true)
-AD(LE_U64(N_Q),        meta=true, more=true)
-AD(R')
+AD(LE_U64(N_I),        meta=true, more=true)
+AD(I')
 
 AD('challenge-scalar', meta=true)
 AD(LE_U64(64),         meta=true, more=true)
-PRF(64) -> c'
+PRF(64) -> r'
 ```
 
-Finally, the verifier compares $c' \equiv c$. If the two scalars are equivalent, the signature is valid.
+Finally, the verifier compares $r' \equiv r$. If the two scalars are equivalent, the signature is valid.
 
 ## Security, Forgeability, and Malleability
 
