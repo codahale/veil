@@ -9,8 +9,8 @@ use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use rand::prelude::SliceRandom;
 use rand::RngCore;
+use secrecy::{ExposeSecret, Secret};
 use thiserror::Error;
-use zeroize::ZeroizeOnDrop;
 
 use crate::constants::POINT_LEN;
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
@@ -57,9 +57,8 @@ pub enum VerificationError {
 }
 
 /// A 512-bit secret from which multiple private keys can be derived.
-#[derive(ZeroizeOnDrop)]
 pub struct SecretKey {
-    r: [u8; 64],
+    r: Secret<[u8; 64]>,
 }
 
 impl SecretKey {
@@ -68,20 +67,20 @@ impl SecretKey {
     pub fn new() -> SecretKey {
         let mut r = [0u8; 64];
         rand::thread_rng().fill_bytes(&mut r);
-        SecretKey { r }
+        SecretKey { r: r.into() }
     }
 
     /// Encrypt the secret key with the given passphrase and pbenc parameters.
     #[must_use]
     pub fn encrypt(&self, passphrase: &str, time: u32, space: u32) -> Vec<u8> {
-        pbenc::encrypt(passphrase, time, space, &self.r)
+        pbenc::encrypt(passphrase, time, space, self.r.expose_secret())
     }
 
     /// Decrypt the secret key with the given passphrase and pbenc parameters.
     pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Result<SecretKey, DecryptionError> {
         pbenc::decrypt(passphrase, ciphertext)
             .and_then(|b| b.try_into().ok())
-            .map(|r| SecretKey { r })
+            .map(|r: [u8; 64]| SecretKey { r: r.into() })
             .ok_or(DecryptionError::InvalidCiphertext)
     }
 
@@ -105,8 +104,9 @@ impl SecretKey {
 
     #[must_use]
     fn root(&self) -> PrivateKey {
-        let d = scaldf::derive_root(&self.r);
-        PrivateKey { d, pk: PublicKey { q: &G * &d } }
+        let d = Secret::new(scaldf::derive_root(self.r.expose_secret()));
+        let q = &G * d.expose_secret();
+        PrivateKey { d, pk: PublicKey { q } }
     }
 }
 
@@ -123,10 +123,8 @@ impl Debug for SecretKey {
 }
 
 /// A derived private key, used to encrypt, decrypt, and sign messages.
-#[derive(Clone, ZeroizeOnDrop)]
 pub struct PrivateKey {
-    d: Scalar,
-    #[zeroize(skip)]
+    d: Secret<Scalar>,
     pk: PublicKey,
 }
 
@@ -167,7 +165,14 @@ impl PrivateKey {
         q_rs.shuffle(&mut rand::thread_rng());
 
         // Finally, encrypt.
-        mres::encrypt(reader, &mut BufWriter::new(writer), &self.d, &self.pk.q, q_rs, padding)
+        mres::encrypt(
+            reader,
+            &mut BufWriter::new(writer),
+            self.d.expose_secret(),
+            &self.pk.q,
+            q_rs,
+            padding,
+        )
     }
 
     /// Decrypt the contents of the reader, if possible, and writes the plaintext to the writer.
@@ -184,8 +189,13 @@ impl PrivateKey {
         R: Read,
         W: Write,
     {
-        let (verified, written) =
-            mres::decrypt(reader, &mut BufWriter::new(writer), &self.d, &self.pk.q, &sender.q)?;
+        let (verified, written) = mres::decrypt(
+            reader,
+            &mut BufWriter::new(writer),
+            self.d.expose_secret(),
+            &self.pk.q,
+            &sender.q,
+        )?;
 
         if verified {
             Ok(written)
@@ -201,7 +211,7 @@ impl PrivateKey {
     {
         let mut signer = Signer::new(io::sink());
         io::copy(reader, &mut signer)?;
-        let (sig, _) = signer.sign(&self.d, &self.pk.q);
+        let (sig, _) = signer.sign(self.d.expose_secret(), &self.pk.q);
         Ok(Signature { sig: (sig) })
     }
 
@@ -211,8 +221,8 @@ impl PrivateKey {
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     #[must_use]
     pub fn derive(&self, key_id: &str) -> PrivateKey {
-        let d = scaldf::derive_scalar(self.d, key_id);
-        PrivateKey { d, pk: PublicKey { q: &G * &d } }
+        let d = scaldf::derive_scalar(self.d.expose_secret(), key_id);
+        PrivateKey { d: d.into(), pk: PublicKey { q: &G * &d } }
     }
 }
 

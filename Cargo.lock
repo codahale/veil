@@ -727,6 +727,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
+name = "secrecy"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9bd1c54ea06cfd2f6b63219704de0b9b4f72dcc2b8fdef820be6cd799780e91e"
+dependencies = [
+ "zeroize",
+]
+
+[[package]]
 name = "semver"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -953,11 +962,11 @@ dependencies = [
  "mimalloc",
  "rand",
  "rpassword",
+ "secrecy",
  "strobe-rs",
  "tempfile",
  "thiserror",
  "unicode-normalization",
- "zeroize",
 ]
 
 [[package]]

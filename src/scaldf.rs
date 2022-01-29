@@ -14,8 +14,8 @@ pub fn derive_root(r: &[u8; 64]) -> Scalar {
 
 /// Derive a scalar from another scalar using the given key ID.
 #[must_use]
-pub fn derive_scalar(d: Scalar, key_id: &str) -> Scalar {
-    key_id.trim_matches(KEY_ID_DELIM).split(KEY_ID_DELIM).fold(d, |d_p, label| {
+pub fn derive_scalar(d: &Scalar, key_id: &str) -> Scalar {
+    key_id.trim_matches(KEY_ID_DELIM).split(KEY_ID_DELIM).fold(*d, |d_p, label| {
         let mut label_df = Protocol::new("veil.scaldf.label");
         label_df.key("label", label.as_bytes());
         d_p + label_df.prf_scalar("scalar")
@@ -25,7 +25,7 @@ pub fn derive_scalar(d: Scalar, key_id: &str) -> Scalar {
 /// Derive a point from another point using the given key ID.
 #[must_use]
 pub fn derive_point(q: &RistrettoPoint, key_id: &str) -> RistrettoPoint {
-    q + (&G * &derive_scalar(Scalar::zero(), key_id))
+    q + (&G * &derive_scalar(&Scalar::zero(), key_id))
 }
 
 const KEY_ID_DELIM: char = '/';
@@ -37,11 +37,11 @@ mod tests {
     #[test]
     fn scalar_derivation() {
         let d = Scalar::random(&mut rand::thread_rng());
-        let d1 = derive_scalar(d, "/one");
-        let d2 = derive_scalar(d1, "/two");
-        let d3 = derive_scalar(d2, "/three");
+        let d1 = derive_scalar(&d, "/one");
+        let d2 = derive_scalar(&d1, "/two");
+        let d3 = derive_scalar(&d2, "/three");
 
-        let d3_p = derive_scalar(d, "/one/two/three");
+        let d3_p = derive_scalar(&d, "/one/two/three");
 
         assert_eq!(d3_p, d3);
     }

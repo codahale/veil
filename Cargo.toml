@@ -16,10 +16,10 @@ bs58 = "0.4"
 crypto-bigint = "0.3"
 curve25519-dalek = "4.0.0-pre.1"
 rand = "0.8"
+secrecy = "0.8"
 strobe-rs = { git = "https://github.com/codahale/strobe-rs", branch = "zeroize-support" }
 thiserror = "1"
 unicode-normalization = "0.1"
-zeroize = { version = "1", features = ["zeroize_derive"] }
 
 # cli-only deps
 anyhow = { version = "1", optional = true }
