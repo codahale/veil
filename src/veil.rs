@@ -73,7 +73,7 @@ impl SecretKey {
     /// Encrypt the secret key with the given passphrase and `veil.pbenc` parameters.
     #[must_use]
     pub fn encrypt(&self, passphrase: &Secret<String>, time: u32, space: u32) -> Vec<u8> {
-        pbenc::encrypt(passphrase.expose_secret(), time, space, self.r.expose_secret())
+        pbenc::encrypt(passphrase, time, space, &self.r)
     }
 
     /// Decrypt the secret key with the given passphrase and `veil.pbenc` parameters.
@@ -81,9 +81,17 @@ impl SecretKey {
         passphrase: &Secret<String>,
         ciphertext: &[u8],
     ) -> Result<SecretKey, DecryptionError> {
-        pbenc::decrypt(passphrase.expose_secret(), ciphertext)
-            .and_then(|b| b.try_into().ok())
-            .map(|r: [u8; 64]| SecretKey { r: r.into() })
+        pbenc::decrypt(passphrase, ciphertext)
+            .and_then(|b| {
+                let b = b.expose_secret();
+                let mut r = [0u8; 64];
+                if b.len() == r.len() {
+                    r.copy_from_slice(b);
+                    Some(SecretKey { r: r.into() })
+                } else {
+                    None
+                }
+            })
             .ok_or(DecryptionError::InvalidCiphertext)
     }
 
