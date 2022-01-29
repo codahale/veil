@@ -79,7 +79,7 @@ AD(LE_U64(64),         meta=true, more=true)
 PRF(64) -> r
 ```
 
-The signature scalar $s = k+{d_S}r$ is calculated and bound to the recipient as the signature point $K = [s]Q_V$, which
+The signature scalar $s = {d_S}r+k$ is calculated and bound to the recipient as the signature point $K = [s]Q_V$, which
 is then encrypted:
 
 ```text

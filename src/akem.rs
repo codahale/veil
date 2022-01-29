@@ -47,7 +47,7 @@ pub fn encapsulate(
 
     // Extract a challenge scalar and calculate a signature scalar.
     let r = akem.prf_scalar("challenge-scalar");
-    let s = k + (r * d_s);
+    let s = d_s * r + k;
 
     // Convert the signature scalar to a signature point with the recipient's public key.
     let k = q_r * s;
