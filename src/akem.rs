@@ -45,11 +45,12 @@ pub fn encapsulate(
     // Encode the commitment point in the buffer and encrypt it.
     out.extend(akem.encrypt("commitment-point", u.compress().as_bytes()));
 
-    // Extract a challenge scalar and calculate a signature scalar.
+    // Extract a challenge scalar and calculate a proof scalar.
     let r = akem.prf_scalar("challenge-scalar");
     let s = d_s * r + k;
 
-    // Convert the signature scalar to a signature point with the recipient's public key.
+    // Convert the proof scalar to a designated-verifier proof point with the recipient's public
+    // key.
     let k = q_r * s;
 
     // Encode the signature point in the buffer and encrypt it.
