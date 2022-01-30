@@ -59,7 +59,7 @@ pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Secret<Vec<u8>>> {
 
     // Decrypt the ciphertext.
     let (ciphertext, mac) = ciphertext.split_at(ciphertext.len() - MAC_LEN);
-    let plaintext = pbenc.decrypt("ciphertext", ciphertext).into();
+    let plaintext = pbenc.decrypt("ciphertext", ciphertext);
 
     // Verify the MAC.
     pbenc.verify_mac("mac", mac)?;

@@ -99,12 +99,12 @@ pub fn decapsulate(
     // Decrypt and decode the ephemeral public key.
     let (q_e, ciphertext) = ciphertext.split_at(POINT_LEN);
     let q_e = akem.decrypt("ephemeral-public-key", q_e);
-    let q_e = CompressedRistretto::from_slice(&q_e).decompress()?;
+    let q_e = CompressedRistretto::from_slice(q_e.expose_secret()).decompress()?;
 
     // Decrypt and decode the commitment point.
     let (u, ciphertext) = ciphertext.split_at(POINT_LEN);
     let u = akem.decrypt("commitment-point", u);
-    let u = CompressedRistretto::from_slice(&u).decompress()?;
+    let u = CompressedRistretto::from_slice(u.expose_secret()).decompress()?;
 
     // Extract a challenge scalar.
     let r = akem.prf_scalar("challenge-scalar");
@@ -112,7 +112,7 @@ pub fn decapsulate(
     // Decrypt and decode the signature point.
     let (k, ciphertext) = ciphertext.split_at(POINT_LEN);
     let k = akem.decrypt("signature-point", k);
-    let k = CompressedRistretto::from_slice(&k).decompress()?;
+    let k = CompressedRistretto::from_slice(k.expose_secret()).decompress()?;
 
     // Calculate the counterfactual signature point and check k' == k.
     let k_p = (u + (q_s * r)) * d_r;
@@ -125,7 +125,7 @@ pub fn decapsulate(
 
     // Decrypt the plaintext.
     let (ciphertext, mac) = ciphertext.split_at(ciphertext.len() - MAC_LEN);
-    let plaintext = akem.decrypt("ciphertext", ciphertext).into();
+    let plaintext = akem.decrypt("ciphertext", ciphertext);
 
     // Verify the MAC.
     akem.verify_mac("mac", mac)?;

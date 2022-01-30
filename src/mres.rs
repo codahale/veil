@@ -173,7 +173,8 @@ where
 
     // Keep the last 64 bytes as the encrypted signature.
     let sig = mres.decrypt("signature", &buf);
-    let sig: [u8; SIGNATURE_LEN] = sig.try_into().expect("invalid sig len");
+    let sig = sig.expose_secret();
+    let sig: [u8; SIGNATURE_LEN] = sig.as_slice().try_into().expect("invalid sig len");
 
     // Return the bytes written and the decrypted signature.
     Ok((written, sig))

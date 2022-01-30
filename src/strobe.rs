@@ -67,12 +67,12 @@ impl Protocol {
 
     /// Decrypt the given ciphertext and return the plaintext.
     #[must_use]
-    pub fn decrypt(&mut self, label: &str, ciphertext: &[u8]) -> Vec<u8> {
+    pub fn decrypt(&mut self, label: &str, ciphertext: &[u8]) -> Secret<Vec<u8>> {
         self.meta_ad_len(label, ciphertext.len() as u64);
 
         let mut plaintext = Vec::from(ciphertext);
         self.0.recv_enc(&mut plaintext, false);
-        plaintext
+        plaintext.into()
     }
 
     /// Key the protocol with the given key.
