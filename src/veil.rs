@@ -115,7 +115,7 @@ impl SecretKey {
 
     #[must_use]
     fn root(&self) -> PrivateKey {
-        let d = Secret::new(scaldf::derive_root(self.r.expose_secret()));
+        let d = scaldf::derive_root(self.r.expose_secret());
         let q = &G * d.expose_secret();
         PrivateKey { d, pk: PublicKey { q } }
     }
@@ -233,7 +233,8 @@ impl PrivateKey {
     #[must_use]
     pub fn derive(&self, key_id: &str) -> PrivateKey {
         let d = scaldf::derive_scalar(self.d.expose_secret(), key_id);
-        PrivateKey { d: d.into(), pk: PublicKey { q: &G * &d } }
+        let q = &G * d.expose_secret();
+        PrivateKey { d, pk: PublicKey { q } }
     }
 }
 

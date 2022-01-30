@@ -1,31 +1,36 @@
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
+use secrecy::{ExposeSecret, Secret};
 
 use crate::strobe::Protocol;
 
 /// Derive a scalar from the given secret key.
 #[must_use]
-pub fn derive_root(r: &[u8; 64]) -> Scalar {
+pub fn derive_root(r: &[u8; 64]) -> Secret<Scalar> {
     let mut root_df = Protocol::new("veil.scaldf.root");
     root_df.key("root", r);
-    root_df.prf_scalar("scalar")
+    root_df.prf_scalar("scalar").into()
 }
 
 /// Derive a scalar from another scalar using the given key ID.
 #[must_use]
-pub fn derive_scalar(d: &Scalar, key_id: &str) -> Scalar {
-    key_id.trim_matches(KEY_ID_DELIM).split(KEY_ID_DELIM).fold(*d, |d_p, label| {
-        let mut label_df = Protocol::new("veil.scaldf.label");
-        label_df.key("label", label.as_bytes());
-        d_p + label_df.prf_scalar("scalar")
-    })
+pub fn derive_scalar(d: &Scalar, key_id: &str) -> Secret<Scalar> {
+    key_id
+        .trim_matches(KEY_ID_DELIM)
+        .split(KEY_ID_DELIM)
+        .fold(*d, |d_p, label| {
+            let mut label_df = Protocol::new("veil.scaldf.label");
+            label_df.key("label", label.as_bytes());
+            d_p + label_df.prf_scalar("scalar")
+        })
+        .into()
 }
 
 /// Derive a point from another point using the given key ID.
 #[must_use]
 pub fn derive_point(q: &RistrettoPoint, key_id: &str) -> RistrettoPoint {
-    q + (&G * &derive_scalar(&Scalar::zero(), key_id))
+    q + (&G * derive_scalar(&Scalar::zero(), key_id).expose_secret())
 }
 
 const KEY_ID_DELIM: char = '/';
@@ -38,12 +43,12 @@ mod tests {
     fn scalar_derivation() {
         let d = Scalar::random(&mut rand::thread_rng());
         let d1 = derive_scalar(&d, "/one");
-        let d2 = derive_scalar(&d1, "/two");
-        let d3 = derive_scalar(&d2, "/three");
+        let d2 = derive_scalar(d1.expose_secret(), "/two");
+        let d3 = derive_scalar(d2.expose_secret(), "/three");
 
         let d3_p = derive_scalar(&d, "/one/two/three");
 
-        assert_eq!(d3_p, d3);
+        assert_eq!(d3_p.expose_secret(), d3.expose_secret());
     }
 
     #[test]
