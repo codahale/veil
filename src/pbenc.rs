@@ -13,18 +13,7 @@ pub const OVERHEAD: usize = U32_LEN + U32_LEN + SALT_LEN + MAC_LEN;
 
 /// Encrypt the given plaintext using the given passphrase.
 #[must_use]
-pub fn encrypt<B>(
-    passphrase: &Secret<String>,
-    time: u32,
-    space: u32,
-    plaintext: &Secret<B>,
-) -> Vec<u8>
-where
-    B: Zeroize + AsRef<[u8]>,
-{
-    // Borrow the secret plaintext as a slice.
-    let plaintext = plaintext.expose_secret().as_ref();
-
+pub fn encrypt(passphrase: &str, time: u32, space: u32, plaintext: &[u8]) -> Vec<u8> {
     // Generate a random salt.
     let mut salt = [0u8; SALT_LEN];
     rand::thread_rng().fill_bytes(&mut salt);
@@ -53,7 +42,7 @@ where
 
 /// Decrypt the given ciphertext using the given passphrase.
 #[must_use]
-pub fn decrypt(passphrase: &Secret<String>, ciphertext: &[u8]) -> Option<Secret<Vec<u8>>> {
+pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Secret<Vec<u8>>> {
     if ciphertext.len() < OVERHEAD {
         return None;
     }
@@ -90,15 +79,15 @@ macro_rules! hash_counter {
     };
 }
 
-fn init(passphrase: &Secret<String>, salt: &[u8], time: u32, space: u32) -> Protocol {
+fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> Protocol {
     // Normalize the passphrase into NFKC form.
-    let mut passphrase = passphrase.expose_secret().nfkc().to_string().bytes().collect::<Vec<u8>>();
+    let passphrase = Secret::new(passphrase.nfkc().to_string().bytes().collect::<Vec<u8>>());
 
     // Initialize the protocol.
     let mut pbenc = Protocol::new("veil.pbenc");
 
     // Key with the passphrase.
-    pbenc.key("passphrase", &passphrase);
+    pbenc.key("passphrase", passphrase.expose_secret());
 
     // Include the salt, time, space, block size, and delta parameters as associated data.
     pbenc.ad("salt", salt);
@@ -117,7 +106,7 @@ fn init(passphrase: &Secret<String>, salt: &[u8], time: u32, space: u32) -> Prot
     let mut buf = vec![[0u8; N]; space];
 
     // Step 1: Expand input into buffer.
-    hash_counter!(pbenc, ctr, &passphrase, salt, buf[0]);
+    hash_counter!(pbenc, ctr, passphrase.expose_secret(), salt, buf[0]);
     for m in 1..space {
         hash_counter!(pbenc, ctr, buf[m - 1], [], buf[m]);
     }
@@ -153,8 +142,7 @@ fn init(passphrase: &Secret<String>, salt: &[u8], time: u32, space: u32) -> Prot
     // Step 3: Extract output from buffer.
     pbenc.key("extract", &buf[space - 1]);
 
-    // Zeroize buffers.
-    passphrase.zeroize();
+    // Zeroize buffer.
     buf.zeroize();
 
     pbenc
@@ -170,70 +158,70 @@ mod tests {
 
     #[test]
     pub fn round_trip() {
-        let passphrase = "this is a secret".to_string().into();
-        let message = b"this is too".to_vec().into();
-        let ciphertext = encrypt(&passphrase, 5, 3, &message);
-        let plaintext = decrypt(&passphrase, &ciphertext);
+        let passphrase = "this is a secret";
+        let message = b"this is too";
+        let ciphertext = encrypt(passphrase, 5, 3, message);
+        let plaintext = decrypt(passphrase, &ciphertext);
 
-        assert_eq!(message.expose_secret().as_slice(), plaintext.unwrap().expose_secret());
+        assert_eq!(message.as_slice(), plaintext.unwrap().expose_secret());
     }
 
     #[test]
     pub fn bad_passphrase() {
-        let passphrase = "this is a secret".to_string().into();
-        let message = b"this is too".to_vec().into();
-        let ciphertext = encrypt(&passphrase, 5, 3, &message);
+        let passphrase = "this is a secret";
+        let message = b"this is too";
+        let ciphertext = encrypt(passphrase, 5, 3, message);
 
-        assert!(decrypt(&"whoops".to_string().into(), &ciphertext).is_none());
+        assert!(decrypt("whoops", &ciphertext).is_none());
     }
 
     #[test]
     pub fn bad_time() {
-        let passphrase = "this is a secret".to_string().into();
-        let message = b"this is too".to_vec().into();
-        let mut ciphertext = encrypt(&passphrase, 5, 3, &message);
+        let passphrase = "this is a secret";
+        let message = b"this is too";
+        let mut ciphertext = encrypt(passphrase, 5, 3, message);
         ciphertext[0] ^= 1;
 
-        assert!(decrypt(&passphrase, &ciphertext).is_none());
+        assert!(decrypt(passphrase, &ciphertext).is_none());
     }
 
     #[test]
     pub fn bad_space() {
-        let passphrase = "this is a secret".to_string().into();
-        let message = b"this is too".to_vec().into();
-        let mut ciphertext = encrypt(&passphrase, 5, 3, &message);
+        let passphrase = "this is a secret";
+        let message = b"this is too";
+        let mut ciphertext = encrypt(passphrase, 5, 3, message);
         ciphertext[8] ^= 1;
 
-        assert!(decrypt(&passphrase, &ciphertext).is_none());
+        assert!(decrypt(passphrase, &ciphertext).is_none());
     }
 
     #[test]
     pub fn bad_salt() {
-        let passphrase = "this is a secret".to_string().into();
-        let message = b"this is too".to_vec().into();
-        let mut ciphertext = encrypt(&passphrase, 5, 3, &message);
+        let passphrase = "this is a secret";
+        let message = b"this is too";
+        let mut ciphertext = encrypt(passphrase, 5, 3, message);
         ciphertext[9] ^= 1;
 
-        assert!(decrypt(&passphrase, &ciphertext).is_none());
+        assert!(decrypt(passphrase, &ciphertext).is_none());
     }
 
     #[test]
     pub fn bad_ciphertext() {
-        let passphrase = "this is a secret".to_string().into();
-        let message = b"this is too".to_vec().into();
-        let mut ciphertext = encrypt(&passphrase, 5, 3, &message);
+        let passphrase = "this is a secret";
+        let message = b"this is too";
+        let mut ciphertext = encrypt(passphrase, 5, 3, message);
         ciphertext[OVERHEAD - MAC_LEN + 1] ^= 1;
 
-        assert!(decrypt(&passphrase, &ciphertext).is_none());
+        assert!(decrypt(passphrase, &ciphertext).is_none());
     }
 
     #[test]
     pub fn bad_mac() {
-        let passphrase = "this is a secret".to_string().into();
-        let message = b"this is too".to_vec().into();
-        let mut ciphertext = encrypt(&passphrase, 5, 3, &message);
-        ciphertext[message.expose_secret().len() + OVERHEAD - 1] ^= 1;
+        let passphrase = "this is a secret";
+        let message = b"this is too";
+        let mut ciphertext = encrypt(passphrase, 5, 3, message);
+        ciphertext[message.len() + OVERHEAD - 1] ^= 1;
 
-        assert!(decrypt(&passphrase, &ciphertext).is_none());
+        assert!(decrypt(passphrase, &ciphertext).is_none());
     }
 }
