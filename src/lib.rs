@@ -66,8 +66,6 @@
     clippy::needless_borrow
 )]
 
-pub use secrecy::*;
-
 pub use self::veil::*;
 
 mod akem;

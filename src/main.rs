@@ -9,7 +9,7 @@ use clap_complete::generate_to;
 use clap_complete::Shell;
 use clio::{Input, Output};
 use mimalloc::MiMalloc;
-use secrecy::Secret;
+use secrecy::{ExposeSecret, Secret};
 
 use veil::{PublicKey, SecretKey, Signature};
 
@@ -79,7 +79,7 @@ impl Cmd for SecretKeyArgs {
     fn run(self) -> Result<()> {
         let passphrase = prompt_passphrase(&self.passphrase_file)?;
         let secret_key = SecretKey::new();
-        let ciphertext = secret_key.encrypt(&passphrase, self.time, self.space);
+        let ciphertext = secret_key.encrypt(passphrase.expose_secret(), self.time, self.space);
         fs::write(self.output, ciphertext)?;
         Ok(())
     }
@@ -301,7 +301,7 @@ impl Cmd for CompleteArgs {
 fn decrypt_secret_key(passphrase_file: &Option<PathBuf>, path: &Path) -> Result<SecretKey> {
     let passphrase = prompt_passphrase(passphrase_file)?;
     let ciphertext = fs::read(path)?;
-    let sk = SecretKey::decrypt(&passphrase, &ciphertext)?;
+    let sk = SecretKey::decrypt(passphrase.expose_secret(), &ciphertext)?;
     Ok(sk)
 }
 
