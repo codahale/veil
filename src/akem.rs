@@ -2,7 +2,7 @@ use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::IsIdentity;
-use secrecy::{ExposeSecret, Secret, Zeroize};
+use secrecy::{ExposeSecret, Secret, SecretVec, Zeroize};
 
 use crate::constants::{MAC_LEN, POINT_LEN};
 use crate::strobe::Protocol;
@@ -78,7 +78,7 @@ pub fn decapsulate(
     q_r: &RistrettoPoint,
     q_s: &RistrettoPoint,
     ciphertext: &[u8],
-) -> Option<(RistrettoPoint, Vec<u8>)> {
+) -> Option<(RistrettoPoint, SecretVec<u8>)> {
     // Valid ciphertexts will have a minimum length.
     if ciphertext.len() < OVERHEAD {
         return None;
@@ -125,7 +125,7 @@ pub fn decapsulate(
 
     // Decrypt the plaintext.
     let (ciphertext, mac) = ciphertext.split_at(ciphertext.len() - MAC_LEN);
-    let plaintext = akem.decrypt("ciphertext", ciphertext);
+    let plaintext = akem.decrypt("ciphertext", ciphertext).into();
 
     // Verify the MAC.
     akem.verify_mac("mac", mac)?;
@@ -161,7 +161,7 @@ mod tests {
         let (pk, plaintext) = decapsulate(&d_r, &q_r, &q_s, &ciphertext).expect("decapsulate");
 
         assert_eq!(q_e, pk);
-        assert_eq!(b"this is an example".to_vec(), plaintext);
+        assert_eq!(b"this is an example", plaintext.expose_secret().as_slice());
     }
 
     #[test]
@@ -170,7 +170,7 @@ mod tests {
         let mut ciphertext = encapsulate(&d_s, &q_s, &d_e, &q_e, &q_r, b"this is an example");
         ciphertext[0] ^= 1;
 
-        assert_eq!(None, decapsulate(&d_r, &q_r, &q_s, &ciphertext));
+        assert!(decapsulate(&d_r, &q_r, &q_s, &ciphertext).is_none());
     }
 
     #[test]
@@ -179,7 +179,7 @@ mod tests {
         let mut ciphertext = encapsulate(&d_s, &q_s, &d_e, &q_e, &q_r, b"this is an example");
         ciphertext[POINT_LEN + 1] ^= 1;
 
-        assert_eq!(None, decapsulate(&d_r, &q_r, &q_s, &ciphertext));
+        assert!(decapsulate(&d_r, &q_r, &q_s, &ciphertext).is_none());
     }
 
     #[test]
@@ -188,7 +188,7 @@ mod tests {
         let mut ciphertext = encapsulate(&d_s, &q_s, &d_e, &q_e, &q_r, b"this is an example");
         ciphertext[POINT_LEN * 2 + 1] ^= 1;
 
-        assert_eq!(None, decapsulate(&d_r, &q_r, &q_s, &ciphertext));
+        assert!(decapsulate(&d_r, &q_r, &q_s, &ciphertext).is_none());
     }
 
     #[test]
@@ -197,7 +197,7 @@ mod tests {
         let mut ciphertext = encapsulate(&d_s, &q_s, &d_e, &q_e, &q_r, b"this is an example");
         ciphertext[POINT_LEN * 3 + 1] ^= 1;
 
-        assert_eq!(None, decapsulate(&d_r, &q_r, &q_s, &ciphertext));
+        assert!(decapsulate(&d_r, &q_r, &q_s, &ciphertext).is_none());
     }
 
     #[test]
@@ -207,7 +207,7 @@ mod tests {
         let n = ciphertext.len() - MAC_LEN + (MAC_LEN / 2);
         ciphertext[n] ^= 1;
 
-        assert_eq!(None, decapsulate(&d_r, &q_r, &q_s, &ciphertext));
+        assert!(decapsulate(&d_r, &q_r, &q_s, &ciphertext).is_none());
     }
 
     fn setup() -> (Scalar, RistrettoPoint, Scalar, RistrettoPoint, Scalar, RistrettoPoint) {

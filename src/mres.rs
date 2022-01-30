@@ -204,6 +204,7 @@ where
                 // Try to decapsulate the encrypted header.
                 if let Some((q_e, header)) = akem::decapsulate(d_r, q_r, q_s, &buf) {
                     // Recover the ephemeral public key, the DEK, and the message offset.
+                    let header = header.expose_secret();
                     let dek: [u8; DEK_LEN] = header[..DEK_LEN].try_into().expect("invalid DEK len");
                     let msg_offset =
                         u64::from_le_bytes(header[DEK_LEN..].try_into().expect("invalid u64 len"));
