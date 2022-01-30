@@ -118,7 +118,10 @@ impl Protocol {
         rand::thread_rng().fill_bytes(&mut r);
 
         // Key with the random value.
-        clone.key("secret-value", &r);
+        clone.key("random-value", &r);
+
+        // Zeroize the random value.
+        r.zeroize();
 
         // Call the given function with the clone.
         f(&mut clone).into()
