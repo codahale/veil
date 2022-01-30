@@ -228,5 +228,6 @@ protocol_writer!(RecvEncWriter, strobe, buf, w, {
     let mut input = Vec::from(buf);
     strobe.recv_enc(&mut input, true);
     w.write_all(&input)?;
+    input.zeroize();
     Ok(buf.len())
 });
