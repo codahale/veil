@@ -12,7 +12,6 @@ use rand::RngCore;
 use secrecy::{ExposeSecret, Secret};
 use thiserror::Error;
 
-use crate::constants::POINT_LEN;
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::{mres, pbenc, scaldf};
 
@@ -314,9 +313,7 @@ impl FromStr for PublicKey {
         bs58::decode(s)
             .into_vec()
             .ok()
-            .filter(|b| b.len() == POINT_LEN)
-            .map(|b| CompressedRistretto::from_slice(&b))
-            .and_then(|p| p.decompress())
+            .and_then(|b| CompressedRistretto::from_slice(&b).decompress())
             .map(|q| PublicKey { q })
             .ok_or(PublicKeyError)
     }
