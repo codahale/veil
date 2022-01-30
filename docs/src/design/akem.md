@@ -30,12 +30,12 @@ AD(LE_U64(N_Q),           meta=true, more=true)
 RECV_CLR(Q_R)
 ```
 
-The static shared secret point is calculated ${ZZ_S}=[{d_S}]{Q_R}=[{d_R}{d_S}]G$ and used to key the protocol:
+The static shared secret point ${Z^S_R}=[{d_S}]{Q_R}=[{d_R}{d_S}]G$ is used to key the protocol:
 
 ```text
 AD('static-shared-secret', meta=true)
 AD(LE_U64(N_Q),            meta=true, more=true)
-KEY(ZZ_S)
+KEY(Z^S_R)
 ```
 
 The ephemeral public key $Q_E$ is encrypted and sent:
@@ -63,7 +63,7 @@ AD(LE_U64(64),          meta=true, more=true)
 PRF(64) -> k
 ```
 
-The commitment point $I = [k]G$ is calculated and encrypted:
+The commitment point $I = [k]G$ is encrypted and sent:
 
 ```text
 AD('commitment-point', meta=true)
@@ -79,8 +79,8 @@ AD(LE_U64(64),         meta=true, more=true)
 PRF(64) -> r
 ```
 
-The proof scalar $s = {d_S}r+k$ is calculated and bound to the recipient as the signature point $U = [s]Q_V$, which
-is then encrypted:
+The proof scalar $s = {d_S}r+k$ is bound to the recipient as the signature point $U = [s]Q_V$, which is then encrypted
+and sent:
 
 ```text
 AD('proof-point', meta=true)
@@ -88,12 +88,12 @@ AD(LE_U64(N_Q),   meta=true, more=true)
 SEND_ENC(U) -> E_3
 ```
 
-The ephemeral shared secret point is calculated ${ZZ_E}=[{d_E}]{Q_R}=[{d_R}{d_E}]G$ and used as a key:
+The ephemeral shared secret point ${Z^E_R}=[{d_E}]{Q_R}=[{d_R}{d_E}]G$ is used as a key:
 
 ```text
 AD('ephemeral-shared-secret', meta=true)
 AD(LE_U64(N_Q),               meta=true, more=true)
-KEY(ZZ_E)
+KEY(Z^E_R)
 ```
 
 Finally, the plaintext is encrypted and a MAC created:
@@ -135,12 +135,12 @@ AD(LE_U64(N_Q),           meta=true, more=true)
 SEND_CLR(Q_R)
 ```
 
-The static shared secret point is calculated ${ZZ_S}=[{d_R}]{Q_S}=[{d_R}{d_S}]G$ and used as a key:
+The static shared secret point ${Z^R_S}=[{d_R}]{Q_S}=[{d_R}{d_S}]G$ is used to key the protocol:
 
 ```text
 AD('static-shared-secret', meta=true)
 AD(LE_U64(N_Q),            meta=true, more=true)
-KEY(ZZ_S)
+KEY(Z^R_S)
 ```
 
 The ephemeral public key $Q_E$ is decrypted:
@@ -178,12 +178,12 @@ RECV_ENC(E_3) -> U
 The counterfactual signature point $U' = [{d_R}](I + [r]{Q_S})$ is calculated, and if $U' \equiv U$, the decryption
 continues. At this point, the receiver knows that $Q_E$ is authentic.
 
-The ephemeral shared secret point is calculated ${ZZ_E}=[{d_R}]{Q_E}=[{d_R}{d_E}]G$ and used as a key:
+The ephemeral shared secret point ${Z^R_E}=[{d_R}]{Q_E}=[{d_R}{d_E}]G$ is used to key the protocol:
 
 ```text
 AD('ephemeral-shared-secret', meta=true)
 AD(LE_U64(N_Q),               meta=true, more=true)
-KEY(ZZ_E)
+KEY(Z^R_E)
 ```
 
 Finally, the ciphertext is decrypted and the MAC is verified:

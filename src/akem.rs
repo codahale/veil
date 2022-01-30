@@ -136,13 +136,13 @@ pub fn decapsulate(
 
 #[must_use]
 fn diffie_hellman(d: &Scalar, q: &RistrettoPoint) -> Secret<[u8; 32]> {
-    let mut zz = q * d;
-    if zz.is_identity() {
+    let mut z = q * d;
+    if z.is_identity() {
         panic!("non-contributory ECDH");
     }
 
-    let km = zz.compress().to_bytes().into();
-    zz.zeroize();
+    let km = z.compress().to_bytes().into();
+    z.zeroize();
     km
 }
 
