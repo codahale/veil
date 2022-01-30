@@ -63,12 +63,12 @@ AD(LE_U64(64),          meta=true, more=true)
 PRF(64) -> k
 ```
 
-The commitment point $U = [k]G$ is calculated and encrypted:
+The commitment point $I = [k]G$ is calculated and encrypted:
 
 ```text
 AD('commitment-point', meta=true)
 AD(LE_U64(N_Q),        meta=true, more=true)
-SEND_ENC(U) -> E_2
+SEND_ENC(I) -> E_2
 ```
 
 A challenge scalar $r$ is extracted:
@@ -79,13 +79,13 @@ AD(LE_U64(64),         meta=true, more=true)
 PRF(64) -> r
 ```
 
-The proof scalar $s = {d_S}r+k$ is calculated and bound to the recipient as the signature point $K = [s]Q_V$, which
+The proof scalar $s = {d_S}r+k$ is calculated and bound to the recipient as the signature point $U = [s]Q_V$, which
 is then encrypted:
 
 ```text
-AD('signature-point', meta=true)
-AD(LE_U64(N_Q),       meta=true, more=true)
-SEND_ENC(K) -> E_3
+AD('proof-point', meta=true)
+AD(LE_U64(N_Q),   meta=true, more=true)
+SEND_ENC(U) -> E_3
 ```
 
 The ephemeral shared secret point is calculated ${ZZ_E}=[{d_E}]{Q_R}=[{d_R}{d_E}]G$ and used as a key:
@@ -151,12 +151,12 @@ AD(LE_U64(N_Q),            meta=true, more=true)
 RECV_ENC(E_1) -> Q_E
 ```
 
-The commitment point $U$ is decrypted:
+The commitment point $I$ is decrypted:
 
 ```text
 AD('commitment-point', meta=true)
 AD(LE_U64(N_Q),        meta=true, more=true)
-RECV_ENC(E_2) -> U 
+RECV_ENC(E_2) -> I
 ```
 
 The challenge scalar $r$ is extracted from PRF output:
@@ -167,15 +167,15 @@ AD(LE_U64(64),         meta=true, more=true)
 PRF(64) -> r
 ```
 
-The signature point $K$ is decrypted:
+The proof point $U$ is decrypted:
 
 ```text
-AD('signature-point', meta=true)
-AD(LE_U64(N_Q),       meta=true, more=true)
-RECV_ENC(E_3) -> K
+AD('proof-point', meta=true)
+AD(LE_U64(N_Q),   meta=true, more=true)
+RECV_ENC(E_3) -> U
 ```
 
-The counterfactual signature point $K' = [{d_R}](U + [r]{Q_S})$ is calculated, and if $K' \equiv K$, the decryption
+The counterfactual signature point $U' = [{d_R}](I + [r]{Q_S})$ is calculated, and if $U' \equiv U$, the decryption
 continues. At this point, the receiver knows that $Q_E$ is authentic.
 
 The ephemeral shared secret point is calculated ${ZZ_E}=[{d_R}]{Q_E}=[{d_R}{d_E}]G$ and used as a key:

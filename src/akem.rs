@@ -41,10 +41,10 @@ pub fn encapsulate(
 
     // Hedge a commitment scalar and calculate the commitment point.
     let k = akem.hedge(d_s.as_bytes(), |clone| clone.prf_scalar("commitment-scalar"));
-    let u = &G * k.expose_secret();
+    let i = &G * k.expose_secret();
 
     // Encode the commitment point in the buffer and encrypt it.
-    out.extend(akem.encrypt("commitment-point", u.compress().as_bytes()));
+    out.extend(akem.encrypt("commitment-point", i.compress().as_bytes()));
 
     // Extract a challenge scalar and calculate a proof scalar.
     let r = akem.prf_scalar("challenge-scalar");
@@ -52,10 +52,10 @@ pub fn encapsulate(
 
     // Convert the proof scalar to a designated-verifier proof point with the recipient's public
     // key.
-    let k = q_r * s;
+    let u = q_r * s;
 
-    // Encode the signature point in the buffer and encrypt it.
-    out.extend(akem.encrypt("signature-point", k.compress().as_bytes()));
+    // Encode the proof point in the buffer and encrypt it.
+    out.extend(akem.encrypt("proof-point", u.compress().as_bytes()));
 
     // Calculate the ephemeral Diffie-Hellman shared secret and key the protocol with it.
     akem.key("ephemeral-shared-secret", diffie_hellman(d_e, q_r).expose_secret());
@@ -102,21 +102,21 @@ pub fn decapsulate(
     let q_e = CompressedRistretto::from_slice(q_e.expose_secret()).decompress()?;
 
     // Decrypt and decode the commitment point.
-    let (u, ciphertext) = ciphertext.split_at(POINT_LEN);
-    let u = akem.decrypt("commitment-point", u);
-    let u = CompressedRistretto::from_slice(u.expose_secret()).decompress()?;
+    let (i, ciphertext) = ciphertext.split_at(POINT_LEN);
+    let i = akem.decrypt("commitment-point", i);
+    let i = CompressedRistretto::from_slice(i.expose_secret()).decompress()?;
 
     // Extract a challenge scalar.
     let r = akem.prf_scalar("challenge-scalar");
 
-    // Decrypt and decode the signature point.
-    let (k, ciphertext) = ciphertext.split_at(POINT_LEN);
-    let k = akem.decrypt("signature-point", k);
-    let k = CompressedRistretto::from_slice(k.expose_secret()).decompress()?;
+    // Decrypt and decode the proof point.
+    let (u, ciphertext) = ciphertext.split_at(POINT_LEN);
+    let u = akem.decrypt("proof-point", u);
+    let u = CompressedRistretto::from_slice(u.expose_secret()).decompress()?;
 
-    // Calculate the counterfactual signature point and check k' == k.
-    let k_p = (u + (q_s * r)) * d_r;
-    if k_p != k {
+    // Calculate the counterfactual proof point and check U' == U.
+    let u_p = (i + (q_s * r)) * d_r;
+    if u_p != u {
         return None;
     }
 
