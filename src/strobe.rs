@@ -118,7 +118,7 @@ impl Protocol {
         rand::thread_rng().fill_bytes(&mut r);
 
         // Key with the random value.
-        clone.key("random-value", &r);
+        clone.key("hedged-value", &r);
 
         // Zeroize the random value.
         r.zeroize();
