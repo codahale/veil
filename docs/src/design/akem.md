@@ -30,12 +30,12 @@ AD(LE_U64(N_Q),           meta=true, more=true)
 RECV_CLR(Q_R)
 ```
 
-The static shared secret point ${Z^S_R}=[{d_S}]{Q_R}=[{d_R}{d_S}]G$ is used to key the protocol:
+The static shared secret point $Z_S=[{d_S}]{Q_R}=[{d_R}{d_S}]G$ is used to key the protocol:
 
 ```text
 AD('static-shared-secret', meta=true)
 AD(LE_U64(N_Q),            meta=true, more=true)
-KEY(Z^S_R)
+KEY(Z_S)
 ```
 
 The ephemeral public key $Q_E$ is encrypted and sent:
@@ -79,8 +79,8 @@ AD(LE_U64(64),         meta=true, more=true)
 PRF(64) -> r
 ```
 
-The proof scalar $s = {d_S}r+k$ is bound to the recipient as the signature point $U = [s]Q_V$, which is then encrypted
-and sent:
+The proof scalar $s = {d_S}r+k$ is bound to the recipient as the proof point $U = [s]Q_R$, which is then encrypted and
+sent:
 
 ```text
 AD('proof-point', meta=true)
@@ -88,12 +88,12 @@ AD(LE_U64(N_Q),   meta=true, more=true)
 SEND_ENC(U) -> E_3
 ```
 
-The ephemeral shared secret point ${Z^E_R}=[{d_E}]{Q_R}=[{d_R}{d_E}]G$ is used as a key:
+The ephemeral shared secret point $Z_E=[{d_E}]{Q_R}=[{d_R}{d_E}]G$ is used as a key:
 
 ```text
 AD('ephemeral-shared-secret', meta=true)
 AD(LE_U64(N_Q),               meta=true, more=true)
-KEY(Z^E_R)
+KEY(Z_E)
 ```
 
 Finally, the plaintext is encrypted and a MAC created:
@@ -135,12 +135,12 @@ AD(LE_U64(N_Q),           meta=true, more=true)
 SEND_CLR(Q_R)
 ```
 
-The static shared secret point ${Z^R_S}=[{d_R}]{Q_S}=[{d_R}{d_S}]G$ is used to key the protocol:
+The static shared secret point $Z_S=[{d_R}]{Q_S}=[{d_R}{d_S}]G$ is used to key the protocol:
 
 ```text
 AD('static-shared-secret', meta=true)
 AD(LE_U64(N_Q),            meta=true, more=true)
-KEY(Z^R_S)
+KEY(Z_S)
 ```
 
 The ephemeral public key $Q_E$ is decrypted:
@@ -175,15 +175,15 @@ AD(LE_U64(N_Q),   meta=true, more=true)
 RECV_ENC(E_3) -> U
 ```
 
-The counterfactual signature point $U' = [{d_R}](I + [r]{Q_S})$ is calculated, and if $U' \equiv U$, the decryption
-continues. At this point, the receiver knows that $Q_E$ is authentic.
+The counterfactual proof point $U' = [{d_R}](I + [r]{Q_S})$ is calculated, and if $U' \equiv U$, the decryption
+continues. At this point, the receiver knows that $Q_E$ is authentic and by extension, all previously witnessed values.
 
-The ephemeral shared secret point ${Z^R_E}=[{d_R}]{Q_E}=[{d_R}{d_E}]G$ is used to key the protocol:
+The ephemeral shared secret point $Z_E=[{d_R}]{Q_E}=[{d_R}{d_E}]G$ is used to key the protocol:
 
 ```text
 AD('ephemeral-shared-secret', meta=true)
 AD(LE_U64(N_Q),               meta=true, more=true)
-KEY(Z^R_E)
+KEY(Z_E)
 ```
 
 Finally, the ciphertext is decrypted and the MAC is verified:
@@ -236,7 +236,7 @@ about previously sent messages is the ephemeral public key, not the message itse
 
 This construction is secure against insider attacks on authenticity. A recipient attempting to forge a ciphertext which
 appears to be from a sender by re-using the ephemeral public key and encrypting an alternate plaintext will be unable to
-construct the signature point $K$.
+construct the proof point $U$.
 
 ## Randomness Re-Use
 
@@ -275,9 +275,9 @@ Per [Strangio][kci]:
 > establish a session with Alice while masquerading as another party; this is known as Key Compromise Impersonation
 > (KCI)...
 
-A static Diffie-Hellman exchange is vulnerable to KCI attacks, in that the shared secret point ${ZZ_S}$ can be 
-calculated as $[{d_S}]{Q_R}$ by an authentic sender or as $[{d_R}]{Q_S}$ by an attacker in possession of the recipient's
-private key $d_S$ and the sender's public key $Q_S$.
+A static Diffie-Hellman exchange is vulnerable to KCI attacks, in that the shared secret point ${Z_S}$ can be calculated
+as $[{d_S}]{Q_R}$ by an authentic sender or as $[{d_R}]{Q_S}$ by an attacker in possession of the recipient's private
+key $d_S$ and the sender's public key $Q_S$.
 
 `veil.akem` prevents KCI attacks by including a designated-verifier signature of the ephemeral public key. The signature
 can be verified by but not constructed by the recipient; as such, a verified signature proves the ephemeral public key
@@ -288,18 +288,18 @@ prove to a third party that the ephemeral public key was provided by the sender 
 
 [Steinfeld et al.'s][steinfeld] construction is delegatable, which means the delegated form of the signature can be
 created by someone other than the signer. If the signer provides a third party with $s$ and $r$, anyone in possession of
-the signer and verifier's public keys can calculate $U$ and $K$.
+the signer and verifier's public keys can calculate $I$ and $U$.
 
 Non-delegatability is critical when designing protocols to constrain potentially dishonest signers, but in this context
 the signature is used exclusively to provide deniable authentication of ephemeral public keys. The signatures are
-encrypted using the static Diffie-Hellman shared secret point $ZZ_S$, so a sender attempting to delegate verifier
+encrypted using the static Diffie-Hellman shared secret point $Z_S$, so a sender attempting to delegate verifier
 designation would either have to reveal their private key to the delegate or encrypt the designated signature
 themselves.
 
 Another risk with delegatability is an attacker re-using a legitimate $(s,r)$ pair from one domain (e.g. a confused 
 deputy signing arbitrary values or a signature of a public key to which the attacker has the private key) to forge a
 designated-verifier signature in the context of another domain. In this case, `veil.akem` includes all data in the
-STROBE transcript, so the challenge scalar $r$ is cryptographically dependent on $Q_S$, $Q_R$, $ZZ_S$, and the
+STROBE transcript, so the challenge scalar $r$ is cryptographically dependent on $Q_S$, $Q_R$, $Z_S$, and the
 `veil.akem` metadata, in addition to $Q_E$. It is not simply a signature of a point.
 
 ## Ephemeral Scalar Hedging
