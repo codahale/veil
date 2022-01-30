@@ -6,7 +6,7 @@ use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use rand::prelude::ThreadRng;
 use rand::RngCore;
-use secrecy::ExposeSecret;
+use secrecy::{ExposeSecret, Secret};
 
 use crate::akem;
 use crate::constants::U64_LEN;
@@ -119,7 +119,7 @@ where
     let (mut mres, mut verifier, _) = mres_writer.into_inner();
 
     // Key the protocol with the recovered DEK.
-    mres.key("data-encryption-key", &dek);
+    mres.key("data-encryption-key", dek.expose_secret());
 
     // Decrypt the message and get the signature.
     let (written, sig) = decrypt_message(reader, writer, &mut verifier, mres)?;
@@ -185,7 +185,7 @@ fn decrypt_header<R, W>(
     d_r: &Scalar,
     q_r: &RistrettoPoint,
     q_s: &RistrettoPoint,
-) -> Result<Option<([u8; DEK_LEN], RistrettoPoint)>>
+) -> Result<Option<(Secret<[u8; DEK_LEN]>, RistrettoPoint)>>
 where
     R: Read,
     W: Write,
@@ -206,6 +206,7 @@ where
                     // Recover the ephemeral public key, the DEK, and the message offset.
                     let header = header.expose_secret();
                     let dek: [u8; DEK_LEN] = header[..DEK_LEN].try_into().expect("invalid DEK len");
+                    let dek = dek.into();
                     let msg_offset =
                         u64::from_le_bytes(header[DEK_LEN..].try_into().expect("invalid u64 len"));
 
