@@ -1,11 +1,10 @@
 use std::convert::TryInto;
 
-use crypto_bigint::{Encoding, NonZero, U512};
 use rand::RngCore;
 use secrecy::{ExposeSecret, Secret, Zeroize};
 use unicode_normalization::UnicodeNormalization;
 
-use crate::constants::{MAC_LEN, U32_LEN, U64_LEN, USIZE_LEN};
+use crate::constants::{MAC_LEN, U32_LEN, U64_LEN};
 use crate::strobe::Protocol;
 
 /// The number of bytes encryption adds to a plaintext.
@@ -68,13 +67,15 @@ pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Secret<Vec<u8>>> {
 }
 
 macro_rules! hash_counter {
-    ($pbenc:ident, $ctr:ident, $left:expr, $right:expr, $out:expr) => {
+    ($pbenc:ident, $ctr:ident, $left:expr, $right:expr) => {
         $pbenc.ad("counter", &$ctr.to_le_bytes());
         $ctr += 1;
 
         $pbenc.ad("left", &$left);
         $pbenc.ad("right", &$right);
-
+    };
+    ($pbenc:ident, $ctr:ident, $left:expr, $right:expr, $out:expr) => {
+        hash_counter!($pbenc, $ctr, $left, $right);
         $pbenc.prf_fill("out", &mut $out);
     };
 }
@@ -98,7 +99,6 @@ fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> Protocol {
 
     // Convert params.
     let time = time as usize;
-    let big_space = NonZero::new(U512::from(space)).unwrap();
     let space = space as usize;
 
     // Allocate buffers.
@@ -125,16 +125,13 @@ fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> Protocol {
                 idx[..U64_LEN].copy_from_slice(&(t as u64).to_le_bytes());
                 idx[U64_LEN..U64_LEN * 2].copy_from_slice(&(m as u64).to_le_bytes());
                 idx[U64_LEN * 2..U64_LEN * 3].copy_from_slice(&(i as u64).to_le_bytes());
-                hash_counter!(pbenc, ctr, salt, idx, idx);
+                hash_counter!(pbenc, ctr, salt, idx);
 
-                // Map the hashed block to a block index.
-                let idx = U512::from_le_bytes(idx) % big_space;
-                let idx = usize::from_le_bytes(
-                    idx.to_le_bytes()[..USIZE_LEN].try_into().expect("invalid usize len"),
-                );
+                // Map the PRF output to a block index.
+                let idx = u64::from_le_bytes(pbenc.prf("idx")) % space as u64;
 
                 // Hash the pseudo-randomly selected block.
-                hash_counter!(pbenc, ctr, buf[idx], [], buf[m]);
+                hash_counter!(pbenc, ctr, buf[idx as usize], [], buf[m]);
             }
         }
     }

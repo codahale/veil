@@ -79,7 +79,7 @@ for t in 0..N_T:
       
       AD('idx',      meta=true)
       AD(LE_U64(16), meta=true, more=true)
-      PRF(16) AS U128 -> v
+      PRF(8) AS U64 -> v
       hash_counter(buf[v % space], nil, buf[m])
 ```
 

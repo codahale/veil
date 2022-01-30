@@ -13,7 +13,6 @@ cli = ["anyhow", "clap", "clap_complete", "clio", "mimalloc", "rpassword"]
 
 [dependencies]
 bs58 = "0.4"
-crypto-bigint = "0.3"
 curve25519-dalek = "4.0.0-pre.1"
 rand = "0.8"
 secrecy = "0.8"

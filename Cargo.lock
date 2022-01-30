@@ -219,16 +219,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crypto-bigint"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03c6a1d5fa1de37e071642dfa44ec552ca5b299adb128fab16138e24b548fd21"
-dependencies = [
- "rand_core",
- "subtle",
-]
-
-[[package]]
 name = "csv"
 version = "1.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -956,7 +946,6 @@ dependencies = [
  "clap_complete",
  "clio",
  "criterion",
- "crypto-bigint",
  "curve25519-dalek",
  "duct",
  "mimalloc",
