@@ -1,5 +1,6 @@
 use std::io::{self, Write};
 
+use crate::constants::MAC_LEN;
 use curve25519_dalek::scalar::Scalar;
 use rand::RngCore;
 use secrecy::{Secret, Zeroize};
@@ -83,10 +84,10 @@ impl Protocol {
 
     /// Calculate a MAC of the given length.
     #[must_use]
-    pub fn mac<const N: usize>(&mut self, label: &str) -> [u8; N] {
-        self.meta_ad_len(label, N as u64);
+    pub fn mac(&mut self, label: &str) -> [u8; MAC_LEN] {
+        self.meta_ad_len(label, MAC_LEN as u64);
 
-        let mut out = [0u8; N];
+        let mut out = [0u8; MAC_LEN];
         self.0.send_mac(&mut out, false);
         out
     }

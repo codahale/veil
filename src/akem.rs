@@ -64,7 +64,7 @@ pub fn encapsulate(
     out.extend(akem.encrypt("ciphertext", plaintext));
 
     // Calculate a MAC of the entire operation transcript.
-    out.extend(akem.mac::<MAC_LEN>("mac"));
+    out.extend(akem.mac("mac"));
 
     // Return the encrypted ephemeral public key, the ciphertext, and the MAC.
     out

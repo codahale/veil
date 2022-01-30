@@ -35,7 +35,7 @@ pub fn encrypt(passphrase: &str, time: u32, space: u32, plaintext: &[u8]) -> Vec
     out.extend(pbenc.encrypt("ciphertext", plaintext));
 
     // Generate a MAC.
-    out.extend(pbenc.mac::<MAC_LEN>("mac"));
+    out.extend(pbenc.mac("mac"));
 
     out
 }
