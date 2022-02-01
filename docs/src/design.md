@@ -1,8 +1,8 @@
-## Design
+# Design
 
 Veil is designed to be simple, understandable, and robust.
 
-### Cryptographic Minimalism
+## Cryptographic Minimalism
 
 Veil uses just two distinct primitives:
 
@@ -21,7 +21,7 @@ The underlying philosophy is that expressed by [Adam Langley][agl]:
 As a result, the constructions in Veil depend primarily on two relatively stable cryptographic assumptions: the Gap
 Diffie-Hellman assumption for ristretto255 and that Keccak 𝑓-\[1600\] is suitably close to a random permutation.
 
-### Integrated Constructions
+## Integrated Constructions
 
 Because STROBE provides a wide range of capabilities, it's possible to build fully integrated cryptographic
 constructions. Leveraging transcript consistency–the fact that every operation changes a STROBE protocol's state in a
@@ -35,7 +35,7 @@ the need for domain separation identifiers, padding, and framing is eliminated.
 
 Finally, the use of STROBE means all protocols which end in `RECV_MAC` calls are [compactly committing][cce].
 
-### Indistinguishable From Random Noise
+## Indistinguishable From Random Noise
 
 Veil messages are entirely indistinguishable from random noise. They contain no plaintext metadata, no plaintext
 ristretto255 points, no plaintext framing or padding, and have entirely arbitrary lengths. This makes them ideal for
