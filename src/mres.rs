@@ -180,46 +180,22 @@ where
     let mut written = 0;
 
     loop {
-        // Read a block of data.
-        buf.fill_buf()?;
-        let block = buf.buffer();
+        // Read a block of data and pretend we don't see the possible signature at the end.
+        let block = buf.fill_buf()?;
+        let block_len = (block.len() - SIGNATURE_LEN).min(ENC_BLOCK_LEN);
+        let block = &block[..block_len];
 
-        // If the block is undersized, we're at the end of the reader.
-        if block.len() < ENC_BLOCK_LEN + SIGNATURE_LEN {
+        // If the block is empty, we're at the end of the reader and only have the signature left.
+        // Break out of the read loop and go process the signature.
+        if block.is_empty() {
             break;
         }
 
-        // Ignore any possible signatures at the end of the block and add it to the verifier.
-        let block = &block[..ENC_BLOCK_LEN];
+        // Add the block to the verifier.
         verifier.write_all(block)?;
 
         // Split the block into ciphertext and MAC.
-        let (ciphertext, mac) = block.split_at(BLOCK_LEN);
-
-        // Decrypt the block and write the plaintext.
-        writer.write_all(mres.decrypt("block", ciphertext).expose_secret())?;
-        written += BLOCK_LEN as u64;
-
-        // Verify the MAC.
-        if mres.verify_mac("mac", mac).is_none() {
-            return Ok((written, [0u8; SIGNATURE_LEN]));
-        }
-
-        // Mark the encrypted block as consumed.
-        buf.consume(ENC_BLOCK_LEN);
-    }
-
-    // Handle the last bit of data.
-    let block = buf.buffer();
-
-    // Split the block and the sig and add the sig to the verifier.
-    let (block, sig) = block.split_at(block.len() - SIGNATURE_LEN);
-    verifier.write_all(block)?;
-
-    // If the block is bigger than a signature, handle the partial block.
-    if !block.is_empty() {
-        // Split the block into parts.
-        let (ciphertext, mac) = block.split_at(block.len() - MAC_LEN);
+        let (ciphertext, mac) = block.split_at(block_len - MAC_LEN);
 
         // Decrypt the block and write the plaintext.
         writer.write_all(mres.decrypt("block", ciphertext).expose_secret())?;
@@ -229,10 +205,13 @@ where
         if mres.verify_mac("mac", mac).is_none() {
             return Ok((written, [0u8; SIGNATURE_LEN]));
         }
+
+        // Mark the encrypted block as consumed.
+        buf.consume(block_len);
     }
 
     // Decrypt the signature.
-    let sig = mres.decrypt("signature", sig);
+    let sig = mres.decrypt("signature", buf.buffer());
 
     Ok((written, sig.expose_secret().as_slice().try_into().expect("invalid sig len")))
 }
