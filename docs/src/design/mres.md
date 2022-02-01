@@ -1,5 +1,8 @@
 # Multi-recipient Messages
 
+`veil.mres` is a multi-recipient signcryption scheme, using an encrypt-then-sign construction with a CCA2-secure
+encryption construction and a SUF-CMA-secure signature scheme.
+
 ## Encryption
 
 Encrypting a message begins as follows, given the sender's key pair, $d_S$ and $Q_S$, a plaintext message in blocks
@@ -49,20 +52,22 @@ SEND_CLR(H_N,   more=true)
 SEND_CLR(H_pad, more=true)
 ```
 
-The protocol is keyed with $K_{DEK}$ and the encrypted message is written:
+The protocol is keyed with $K_{DEK}$ and the encrypted message is written in blocks of 32KiB with MACs appended:
 
 ```text
 AD('data-encryption-key', meta=true)
 AD(LE_U64(N_DEK),         meta=true, more=true)
 KEY(K_DEK)
 
-AD('message-start', meta=true)
-SEND_ENC('')
-SEND_ENC(C_0,       more=true)
-…
-SEND_ENC(C_N,       more=true)
-AD('message-end',   meta=true)
-AD(LE_U64(LEN(C)),  meta=true, more=true)
+AD('block',          meta=true)
+AD(LE_U64(LEN(P_i)), meta=true, more=true)
+SEND_ENC(P_i) -> C_i
+
+AD('mac',       meta=true)
+AD(LE_U64(N_M), meta=true, more=true)
+SEND_MAC(N_M) -> M_i
+
+...
 ```
 
 Finally, a [`veil.schnorr`](schnorr.md) signature $S$ of the entire ciphertext (headers, padding, and DEM ciphertext) is
@@ -70,12 +75,13 @@ created with $d_E$ and encrypted:
 
 ```text
 AD('signature',   meta=true)
-AD(LE_U64(N_d*2), meta=true, more=true)
+AD(LE_U64(LEN(S)), meta=true, more=true)
 SEND_ENC(S)
 ```
 
-The resulting ciphertext then contains, in order: the [`veil.sres`](sres.md)-encrypted headers, random padding, message
-ciphertext, and a [`veil.schnorr`](schnorr.md) signature of the headers, padding, and ciphertext.
+The resulting ciphertext then contains, in order: the [`veil.sres`](sres.md)-encrypted headers, random padding,
+a series of ciphertext and MAC pairs, and a [`veil.schnorr`](schnorr.md) signature of the headers, padding, and
+ciphertext.
 
 ## Decryption
 
@@ -108,14 +114,18 @@ AD('data-encryption-key', meta=true)
 AD(LE_U64(N_DEK),         meta=true, more=true)
 KEY(K_DEK)
 
-AD('message-start', meta=true)
-RECV_ENC('')
-RECV_ENC(C_0,       more=true)
-…
-RECV_ENC(C_N,       more=true)
-AD('message-end',   meta=true)
-AD(LE_U64(LEN(C)),  meta=true, more=true)
+AD('block',          meta=true)
+AD(LE_U64(LEN(C_i)), meta=true, more=true)
+SEND_ENC(C_i) -> P_i
+
+AD('mac',            meta=true)
+AD(LE_U64(LEN(M_i)), meta=true, more=true)
+RECV_MAC(M_i)
+
+...
 ```
+
+If any `RECV_MAC` operation fails, the decryption is halted with an error.
 
 Finally, the signature $S$ is decrypted and verified against the entire ciphertext:
 
@@ -136,10 +146,9 @@ Each recipient's header is an IND-CCA2-secure [`veil.sres`](sres.md) ciphertext,
 there. Further, the attacker cannot modify the copy of the DEK, the ephemeral public key, or the header length each
 recipient receives.
 
-The encrypted headers and/or padding for other recipients are not IND-CCA2-secure for all recipients, so the attacker
-may modify those without producing invalid headers. Similarly, the encrypted message is only IND-CPA-secure. Any
-attacker attempting to modify any of those, however, will have to forge a valid signature for the overall message to be
-valid. As [`veil.schnorr`](schnorr.md) is SUF-CMA-secure, this is not possible.
+The encrypted headers and padding are IND-CCA2-secure for all recipients, as the first message block MAC essentially
+forms an AEAD with the encrypted headers and padding as authenticated data. Any modification of headers for other
+recipients or of the padding will result in an invalid MAC and thus a decryption error.
 
 ## Multi-Recipient Authenticity
 
@@ -163,18 +172,20 @@ SUF-CMA-secure scheme. The use of an authenticated KEM serves to authenticate th
 message: only the possessor of the sender's private key can calculate the static shared secret used to encrypt the
 ephemeral public key, and the recipient can only forge KEM ciphertexts with themselves as the intended recipient.
 
-## Repudiability
+## Signcryption
 
-The headers are signcrypted with [`veil.sres`](sres.md), which achieves both authentication and repudiability via
-[`veil.akem`](akem.md).
 
-The message itself is encrypted with a randomly-generated symmetric key, which isn't tied to any identity.
+## Deniability
 
-The final [`veil.schnorr`](schnorr.md) signature is created with a randomly-generated ephemeral key.
+The headers are signcrypted with [`veil.sres`](sres.md), which achieves both authentication and deniability via
+[`veil.akem`](akem.md). The message itself is encrypted with a randomly-generated symmetric key, which isn't tied to any
+identity. The final [`veil.schnorr`](schnorr.md) signature is created with a randomly-generated ephemeral key.
+
+Despite providing strong authenticity, `veil.mres` produces fully deniable ciphertexts.
 
 ## Ephemeral Scalar Hedging
 
-In deriving the DEK and ephemeral scalar from a cloned context, `veil.mres`
+In deriving the DEK and ephemeral private key from a cloned context, `veil.mres`
 uses [Aranha et al.'s "hedged signature" technique][hedge] to mitigate against both catastrophic randomness failures and
 differential fault attacks against purely deterministic encryption schemes.
 

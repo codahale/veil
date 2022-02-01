@@ -150,28 +150,6 @@ impl Protocol {
         RecvClrWriter(self, w, 0, label.to_string())
     }
 
-    /// Create a writer which passes writes through `SEND_ENC` before passing them to the given
-    /// writer.
-    pub fn send_enc_writer<W>(mut self, label: &str, w: W) -> SendEncWriter<W>
-    where
-        W: Write,
-    {
-        self.0.meta_ad(format!("{}-start", label).as_bytes(), false);
-        self.0.send_enc(&mut [], false);
-        SendEncWriter(self, w, 0, label.to_string())
-    }
-
-    /// Create a writer which passes writes through `RECV_ENC` before passing them to the given
-    /// writer.
-    pub fn recv_enc_writer<W>(mut self, label: &str, w: W) -> RecvEncWriter<W>
-    where
-        W: Write,
-    {
-        self.0.meta_ad(format!("{}-start", label).as_bytes(), false);
-        self.0.recv_enc(&mut [], false);
-        RecvEncWriter(self, w, 0, label.to_string())
-    }
-
     /// Include the given label and length as associated-metadata.
     fn meta_ad_len(&mut self, label: &str, n: u64) {
         self.0.meta_ad(label.as_bytes(), false);
@@ -215,23 +193,8 @@ protocol_writer!(SendClrWriter, strobe, buf, w, {
     Ok(buf.len())
 });
 
-protocol_writer!(SendEncWriter, strobe, buf, w, {
-    let mut input = Vec::from(buf);
-    strobe.send_enc(&mut input, true);
-    w.write_all(&input)?;
-    Ok(buf.len())
-});
-
 protocol_writer!(RecvClrWriter, strobe, buf, w, {
     strobe.recv_clr(buf, true);
     w.write_all(buf)?;
-    Ok(buf.len())
-});
-
-protocol_writer!(RecvEncWriter, strobe, buf, w, {
-    let mut input = Vec::from(buf);
-    strobe.recv_enc(&mut input, true);
-    w.write_all(&input)?;
-    input.zeroize();
     Ok(buf.len())
 });

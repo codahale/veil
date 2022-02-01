@@ -1,16 +1,17 @@
 //! A multi-recipient, hybrid cryptosystem.
 
 use std::convert::TryInto;
-use std::io::{self, ErrorKind, Read, Result, Write};
+use std::io::{self, BufRead, BufReader, Read, Result, Write};
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
+use ensured_bufreader::EnsuredBufReader;
 use rand::prelude::ThreadRng;
 use rand::RngCore;
 use secrecy::{ExposeSecret, Secret, SecretVec};
 
-use crate::constants::{POINT_LEN, U64_LEN};
+use crate::constants::{MAC_LEN, POINT_LEN, U64_LEN};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::sres;
 use crate::strobe::Protocol;
@@ -65,17 +66,13 @@ where
     io::copy(&mut RngReader(rand::thread_rng()).take(padding), &mut send_clr)?;
 
     // Unwrap the sent cleartext writer.
-    let (mut mres, signer, header_len) = send_clr.into_inner();
+    let (mut mres, mut signer, header_len) = send_clr.into_inner();
 
     // Key the protocol with the DEK.
     mres.key("data-encryption-key", dek.expose_secret());
 
     // Encrypt the plaintext, pass it through the signer, and write it.
-    let mut send_enc = mres.send_enc_writer("message", signer);
-    io::copy(reader, &mut send_enc)?;
-
-    // Unwrap the sent encryption writer.
-    let (mut mres, signer, ciphertext_len) = send_enc.into_inner();
+    let ciphertext_len = encrypt_message(&mut mres, reader, &mut signer)?;
 
     // Sign the encrypted headers and ciphertext with the ephemeral key pair.
     let (sig, writer) = signer.sign(d_e.expose_secret(), &q_e);
@@ -87,6 +84,40 @@ where
     writer.write_all(&sig)?;
 
     Ok(header_len + ciphertext_len + sig.len() as u64)
+}
+
+fn encrypt_message<R, W>(mres: &mut Protocol, reader: &mut R, writer: &mut W) -> Result<u64>
+where
+    R: Read,
+    W: Write,
+{
+    let mut buf = BufReader::with_capacity(BLOCK_LEN, reader);
+    let mut written = 0;
+
+    loop {
+        // Read a block of data.
+        buf.fill_buf()?;
+        let block = buf.buffer();
+        let block_len = block.len();
+
+        // If the block is empty, we're at the end of the reader.
+        if block.is_empty() {
+            break;
+        }
+
+        // Encrypt the block and write the ciphertext.
+        writer.write_all(&mres.encrypt("block", block))?;
+        written += block_len as u64;
+
+        // Generate a MAC and write it.
+        writer.write_all(&mres.mac("mac"))?;
+        written += MAC_LEN as u64;
+
+        // Mark the block as read.
+        buf.consume(block_len);
+    }
+
+    Ok(written)
 }
 
 /// Decrypt the contents of `reader` iff they were originally encrypted by `q_s` for `q_r` and write
@@ -125,62 +156,85 @@ where
     mres.key("data-encryption-key", dek.expose_secret());
 
     // Decrypt the message and get the signature.
-    let (written, sig) = decrypt_message(reader, writer, &mut verifier, mres)?;
+    let (written, sig) = decrypt_message(&mut mres, reader, writer, &mut verifier)?;
 
     // Return the signature's validity and the number of bytes of plaintext written.
     Ok((verifier.verify(&q_e, &sig), written))
 }
 
-const DEK_LEN: usize = 32;
-const HEADER_LEN: usize = DEK_LEN + POINT_LEN + U64_LEN;
-const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
-
 fn decrypt_message<R, W>(
+    mres: &mut Protocol,
     reader: &mut R,
     writer: &mut W,
     verifier: &mut Verifier,
-    mres: Protocol,
 ) -> Result<(u64, [u8; SIGNATURE_LEN])>
 where
     R: Read,
     W: Write,
 {
-    let mut input = [0u8; 32 * 1024];
-    let mut buf = Vec::with_capacity(input.len() + SIGNATURE_LEN);
+    let mut buf = EnsuredBufReader::with_capacity_and_ensured_size(
+        BUFFER_LEN,
+        ENC_BLOCK_LEN + SIGNATURE_LEN,
+        reader,
+    );
+    let mut written = 0;
 
-    // Prep for streaming decryption.
-    let mut message = mres.recv_enc_writer("message", writer);
+    loop {
+        // Read a block of data.
+        buf.fill_buf()?;
+        let block = buf.buffer();
 
-    // Read through src in 32KiB chunks, keeping the last 64 bytes as the signature.
-    let mut n = usize::MAX;
-    while n > 0 {
-        // Read a block of ciphertext and copy it to the buffer.
-        n = reader.read(&mut input)?;
-        buf.extend_from_slice(&input[..n]);
+        // If the block is undersized, we're at the end of the reader.
+        if block.len() < ENC_BLOCK_LEN + SIGNATURE_LEN {
+            break;
+        }
 
-        // Process the data if we have at least a signature's worth.
-        if buf.len() > SIGNATURE_LEN {
-            // Pop the first N-64 bytes off the buffer.
-            let block: Vec<u8> = buf.drain(..buf.len() - SIGNATURE_LEN).collect();
+        // Ignore any possible signatures at the end of the block and add it to the verifier.
+        let block = &block[..ENC_BLOCK_LEN];
+        verifier.write_all(block)?;
 
-            // Verify the ciphertext.
-            verifier.write_all(&block)?;
+        // Split the block into ciphertext and MAC.
+        let (ciphertext, mac) = block.split_at(BLOCK_LEN);
 
-            // Decrypt the ciphertext and write the plaintext.
-            message.write_all(&block)?;
+        // Decrypt the block and write the plaintext.
+        writer.write_all(mres.decrypt("block", ciphertext).expose_secret())?;
+        written += BLOCK_LEN as u64;
+
+        // Verify the MAC.
+        if mres.verify_mac("mac", mac).is_none() {
+            return Ok((written, [0u8; SIGNATURE_LEN]));
+        }
+
+        // Mark the encrypted block as consumed.
+        buf.consume(ENC_BLOCK_LEN);
+    }
+
+    // Handle the last bit of data.
+    let block = buf.buffer();
+
+    // Split the block and the sig and add the sig to the verifier.
+    let (block, sig) = block.split_at(block.len() - SIGNATURE_LEN);
+    verifier.write_all(block)?;
+
+    // If the block is bigger than a signature, handle the partial block.
+    if !block.is_empty() {
+        // Split the block into parts.
+        let (ciphertext, mac) = block.split_at(block.len() - MAC_LEN);
+
+        // Decrypt the block and write the plaintext.
+        writer.write_all(mres.decrypt("block", ciphertext).expose_secret())?;
+        written += ciphertext.len() as u64;
+
+        // Verify the MAC.
+        if mres.verify_mac("mac", mac).is_none() {
+            return Ok((written, [0u8; SIGNATURE_LEN]));
         }
     }
 
-    // Finish message stream.
-    let (mut mres, _, written) = message.into_inner();
+    // Decrypt the signature.
+    let sig = mres.decrypt("signature", sig);
 
-    // Keep the last 64 bytes as the encrypted signature.
-    let sig = mres.decrypt("signature", &buf);
-    let sig = sig.expose_secret();
-    let sig: [u8; SIGNATURE_LEN] = sig.as_slice().try_into().expect("invalid sig len");
-
-    // Return the bytes written and the decrypted signature.
-    Ok((written, sig))
+    Ok((written, sig.expose_secret().as_slice().try_into().expect("invalid sig len")))
 }
 
 fn decrypt_header<R, W>(
@@ -194,38 +248,50 @@ where
     R: Read,
     W: Write,
 {
-    let mut buf = [0u8; ENC_HEADER_LEN];
+    let mut buf = BufReader::with_capacity(ENC_HEADER_LEN, reader);
     let mut hdr_offset = 0u64;
 
     // Iterate through blocks, looking for an encrypted header that can be decrypted.
     loop {
-        match reader.read_exact(&mut buf) {
-            Ok(()) => {
-                // Pass the block to the verifier.
-                verifier.write_all(&buf)?;
-                hdr_offset += buf.len() as u64;
+        // Read a potential encrypted header.
+        buf.fill_buf()?;
+        let header = buf.buffer();
 
-                // Try to decrypt the encrypted header.
-                if let Some((dek, q_e, msg_offset)) =
-                    sres::decrypt(d_r, q_r, q_s, &buf).and_then(decode_header)
-                {
-                    // Read the remainder of the headers and padding and write them to the verifier.
-                    let mut remainder = reader.take(msg_offset - hdr_offset);
-                    io::copy(&mut remainder, verifier)?;
-
-                    // Return the DEK and ephemeral public key.
-                    return Ok(Some((dek, q_e)));
-                }
-            }
-
-            // If no header was found, return none.
-            Err(e) if e.kind() == ErrorKind::UnexpectedEof => return Ok(None),
-
-            // If an error was returned, bubble it up.
-            Err(e) => return Err(e),
+        // If the header is short, we're at the end of the reader.
+        if header.len() < ENC_HEADER_LEN {
+            return Ok(None);
         }
+
+        // Pass the block to the verifier.
+        verifier.write_all(header)?;
+        hdr_offset += ENC_HEADER_LEN as u64;
+
+        // Try to decrypt the encrypted header.
+        if let Some((dek, q_e, msg_offset)) =
+            sres::decrypt(d_r, q_r, q_s, header).and_then(decode_header)
+        {
+            // Unwrap the unbuffered reader.
+            let reader = buf.into_inner();
+
+            // Read the remainder of the headers and padding and write them to the verifier.
+            let mut remainder = reader.take(msg_offset - hdr_offset);
+            io::copy(&mut remainder, verifier)?;
+
+            // Return the DEK and ephemeral public key.
+            return Ok(Some((dek, q_e)));
+        }
+
+        // Otherwise, mark the data as read.
+        buf.consume(ENC_HEADER_LEN);
     }
 }
+
+const DEK_LEN: usize = 32;
+const HEADER_LEN: usize = DEK_LEN + POINT_LEN + U64_LEN;
+const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
+const BLOCK_LEN: usize = 32 * 1024;
+const ENC_BLOCK_LEN: usize = BLOCK_LEN + MAC_LEN;
+const BUFFER_LEN: usize = ENC_BLOCK_LEN * 2;
 
 #[inline]
 fn decode_header(header: Secret<Vec<u8>>) -> Option<(SecretVec<u8>, RistrettoPoint, u64)> {
@@ -277,9 +343,9 @@ mod tests {
         let mut dst = Cursor::new(Vec::new());
 
         let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
-        assert!(verified);
         assert_eq!(dst.position(), ptx_len);
         assert_eq!(message.to_vec(), dst.into_inner());
+        assert!(verified);
 
         Ok(())
     }
@@ -303,9 +369,10 @@ mod tests {
         let mut dst = Cursor::new(Vec::new());
 
         let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
-        assert!(verified);
         assert_eq!(dst.position(), ptx_len);
+        assert_eq!(message.len() as u64, ptx_len);
         assert_eq!(message.to_vec(), dst.into_inner());
+        assert!(verified);
 
         Ok(())
     }
@@ -329,9 +396,9 @@ mod tests {
         let mut dst = Cursor::new(Vec::new());
 
         let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
-        assert!(verified);
         assert_eq!(dst.position(), ptx_len);
         assert_eq!(message.to_vec(), dst.into_inner());
+        assert!(verified);
 
         Ok(())
     }
