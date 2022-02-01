@@ -34,7 +34,7 @@ pub fn encrypt(
 
     // Calculate the static Diffie-Hellman shared secret and use it to key the protocol.
     let z = diffie_hellman(d_s, q_r);
-    sres.key("static-shared-secret", z.expose_secret());
+    sres.key("dh-shared-secret", z.expose_secret());
 
     // Encapsulate the plaintext, returning an encryption key and a two-scalar signature.
     let (k, (r, s)) = akem::encapsulate(d_s, q_s, q_r, plaintext);
@@ -44,7 +44,7 @@ pub fn encrypt(
     out.extend(sres.encrypt("proof-scalar", s.as_bytes()));
 
     // Key the protocol with the AKEM key.
-    sres.key("akem-key", k.expose_secret());
+    sres.key("akem-shared-secret", k.expose_secret());
 
     // Encrypt and send the plaintext.
     out.extend(sres.encrypt("plaintext", plaintext));
@@ -80,7 +80,7 @@ pub fn decrypt(
 
     // Calculate the static Diffie-Hellman shared secret and use it to key the protocol.
     let z = diffie_hellman(d_r, q_s);
-    sres.key("static-shared-secret", z.expose_secret());
+    sres.key("dh-shared-secret", z.expose_secret());
 
     // Decrypt and decode the veil.akem challenge scalar.
     let (r, ciphertext) = ciphertext.split_at(SCALAR_LEN);
@@ -96,7 +96,7 @@ pub fn decrypt(
     let (k, akem) = akem::decapsulate(d_r, q_r, q_s, r.expose_secret(), s.expose_secret());
 
     // Key the protocol with the AKEM key.
-    sres.key("akem-key", k.expose_secret());
+    sres.key("akem-shared-secret", k.expose_secret());
 
     // Decrypt the ciphertext.
     let (ciphertext, mac) = ciphertext.split_at(ciphertext.len() - MAC_LEN);
