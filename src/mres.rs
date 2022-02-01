@@ -1,16 +1,18 @@
+//! A multi-recipient, hybrid cryptosystem.
+
 use std::convert::TryInto;
 use std::io::{self, ErrorKind, Read, Result, Write};
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
-use curve25519_dalek::ristretto::RistrettoPoint;
+use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use rand::prelude::ThreadRng;
 use rand::RngCore;
-use secrecy::{ExposeSecret, Secret};
+use secrecy::{ExposeSecret, Secret, SecretVec};
 
-use crate::akem;
-use crate::constants::U64_LEN;
+use crate::constants::{POINT_LEN, U64_LEN};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
+use crate::sres;
 use crate::strobe::Protocol;
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
@@ -40,10 +42,11 @@ where
     // nonce.
     let dek = mres.hedge(d_s.as_bytes(), |clone| clone.prf::<DEK_LEN>("data-encryption-key"));
 
-    // Encode the DEK and message offset in a header.
+    // Encode the DEK, the ephemeral public key, and the message offset in a header.
     let msg_offset = ((q_rs.len() as u64) * ENC_HEADER_LEN as u64) + padding;
     let mut header = Vec::with_capacity(HEADER_LEN);
     header.extend(dek.expose_secret());
+    header.extend(q_e.compress().as_bytes());
     header.extend(&msg_offset.to_le_bytes());
 
     // Count and sign all of the bytes written to `writer`.
@@ -52,9 +55,9 @@ where
     // Include all encrypted headers and padding as sent cleartext.
     let mut send_clr = mres.send_clr_writer("headers", signer);
 
-    // For each recipient, encrypt a copy of the header.
+    // For each recipient, encrypt a copy of the header with veil.sres.
     for q_r in q_rs {
-        let ciphertext = akem::encapsulate(d_s, q_s, d_e.expose_secret(), &q_e, &q_r, &header);
+        let ciphertext = sres::encrypt(d_s, q_s, &q_r, &header);
         send_clr.write_all(&ciphertext)?;
     }
 
@@ -129,8 +132,8 @@ where
 }
 
 const DEK_LEN: usize = 32;
-const HEADER_LEN: usize = DEK_LEN + U64_LEN;
-const ENC_HEADER_LEN: usize = HEADER_LEN + akem::OVERHEAD;
+const HEADER_LEN: usize = DEK_LEN + POINT_LEN + U64_LEN;
+const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
 
 fn decrypt_message<R, W>(
     reader: &mut R,
@@ -186,7 +189,7 @@ fn decrypt_header<R, W>(
     d_r: &Scalar,
     q_r: &RistrettoPoint,
     q_s: &RistrettoPoint,
-) -> Result<Option<(Secret<[u8; DEK_LEN]>, RistrettoPoint)>>
+) -> Result<Option<(SecretVec<u8>, RistrettoPoint)>>
 where
     R: Read,
     W: Write,
@@ -202,15 +205,10 @@ where
                 verifier.write_all(&buf)?;
                 hdr_offset += buf.len() as u64;
 
-                // Try to decapsulate the encrypted header.
-                if let Some((q_e, header)) = akem::decapsulate(d_r, q_r, q_s, &buf) {
-                    // Recover the ephemeral public key, the DEK, and the message offset.
-                    let header = header.expose_secret();
-                    let dek: [u8; DEK_LEN] = header[..DEK_LEN].try_into().expect("invalid DEK len");
-                    let dek = dek.into();
-                    let msg_offset =
-                        u64::from_le_bytes(header[DEK_LEN..].try_into().expect("invalid u64 len"));
-
+                // Try to decrypt the encrypted header.
+                if let Some((dek, q_e, msg_offset)) =
+                    sres::decrypt(d_r, q_r, q_s, &buf).and_then(decode_header)
+                {
                     // Read the remainder of the headers and padding and write them to the verifier.
                     let mut remainder = reader.take(msg_offset - hdr_offset);
                     io::copy(&mut remainder, verifier)?;
@@ -227,6 +225,22 @@ where
             Err(e) => return Err(e),
         }
     }
+}
+
+#[inline]
+fn decode_header(header: Secret<Vec<u8>>) -> Option<(SecretVec<u8>, RistrettoPoint, u64)> {
+    let header = header.expose_secret();
+    if header.len() < HEADER_LEN {
+        return None;
+    }
+
+    let dek = header[..DEK_LEN].to_vec().into();
+    let q_e =
+        CompressedRistretto::from_slice(&header[DEK_LEN..DEK_LEN + POINT_LEN]).decompress()?;
+    let msg_offset =
+        u64::from_le_bytes(header[DEK_LEN + POINT_LEN..].try_into().expect("invalid u64 len"));
+
+    Some((dek, q_e, msg_offset))
 }
 
 struct RngReader(ThreadRng);

@@ -1,5 +1,9 @@
 # Multi-recipient Messages
 
+TK TK TK
+
+---
+
 ## Encryption
 
 Encrypting a message begins as follows, given the sender's key pair, $d_S$ and $Q_S$, a plaintext message in blocks
@@ -168,12 +172,6 @@ Because the sender's private key is only used to calculate shared secrets, a `ve
 repudiable unless a recipient reveals their public key. The `veil.schnorr` keys are randomly generated for each message
 and all other forms of sender identity which are transmitted are only binding on public information.
 
-## Randomness Re-Use
-
-The ephemeral key pair, $d_E$ and $Q_E$, are used multiple times: once for each `veil.akem`
-header and finally once for the end signature. This improves the efficiency of the scheme without reducing its security,
-per [Bellare et al.'s treatment of Randomness Reusing Multi-Recipient Encryption Schemes][rr-mres].
-
 ## Ephemeral Scalar Hedging
 
 In deriving the DEK and ephemeral scalar from a cloned context, `veil.mres`
@@ -181,7 +179,5 @@ uses [Aranha et al.'s "hedged signature" technique][hedge] to mitigate against b
 differential fault attacks against purely deterministic encryption schemes.
 
 [hpke]: https://eprint.iacr.org/2020/1499.pdf
-
-[rr-mres]: http://cseweb.ucsd.edu/~Mihir/papers/bbs.pdf
 
 [hedge]: https://eprint.iacr.org/2019/956.pdf
