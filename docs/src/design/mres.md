@@ -172,8 +172,20 @@ SUF-CMA-secure scheme. The use of an authenticated KEM serves to authenticate th
 message: only the possessor of the sender's private key can calculate the static shared secret used to encrypt the
 ephemeral public key, and the recipient can only forge KEM ciphertexts with themselves as the intended recipient.
 
-## Signcryption
+## Authenticated Encryption And Partial Decryption
 
+The division of the plaintext stream into blocks takes its inspiration from the [CHAIN construction][oae2], but the
+use of STROBE allows for a significant reduction in complexity. Instead of using the nonce and associated data to create
+a feed-forward ciphertext dependency, the STROBE sponge ensures all encryption operations are cryptographically
+dependent on the ciphertext of all previous encryption operations. Likewise, because the `veil.mres` ciphertext is
+terminated with a [`veil.schnorr`](schnorr.md) signature, using a special operation for the final message block isn't
+required.
+
+The major limitation of such a system is the possibility of the partial decryption of invalid ciphertexts. If an
+attacker flips a bit on the fourth block of a ciphertext, `veil.mres` will successfully decrypt the first three before
+returning an error. If the end-user interface displays that, the attacker may be successful in radically altering the
+semantics of an encrypted message without the user's awareness. The first three blocks of a message, for example, could
+say `PAY MALLORY $100`, `GIVE HER YOUR CAR`, `DO WHAT SHE SAYS`, while the last block might read `JUST KIDDING`.
 
 ## Deniability
 
@@ -192,3 +204,5 @@ differential fault attacks against purely deterministic encryption schemes.
 [hpke]: https://eprint.iacr.org/2020/1499.pdf
 
 [hedge]: https://eprint.iacr.org/2019/956.pdf
+
+[oae2]: https://eprint.iacr.org/2015/189.pdf
