@@ -1,9 +1,5 @@
 # Multi-recipient Messages
 
-TK TK TK
-
----
-
 ## Encryption
 
 Encrypting a message begins as follows, given the sender's key pair, $d_S$ and $Q_S$, a plaintext message in blocks
@@ -40,8 +36,8 @@ PRF(N_DEK) -> K_DEK
 
 The ephemeral public key is computed as $Q_E = [{d_E}]G$, and the cloned context is discarded:
 
-The data encryption key and message offset are encoded into a fixed-length header and copies of it are encrypted
-with `veil.akem` for each recipient using $d_E$ and $Q_E$. Optional random padding is added to the end, and the
+$K_{DEK}$, $Q_E$, and the message offset are encoded into a fixed-length header and copies of it are encrypted with
+[`veil.sres`](sres.md) for each recipient using $(d_S, Q_S)$. Optional random padding is added to the end, and the
 resulting blocks $H_0..H_N,H_{pad}$ is written:
 
 ```text
@@ -53,12 +49,12 @@ SEND_CLR(H_N,   more=true)
 SEND_CLR(H_pad, more=true)
 ```
 
-The protocol is keyed with the DEK and the encrypted message is written:
+The protocol is keyed with $K_{DEK}$ and the encrypted message is written:
 
 ```text
 AD('data-encryption-key', meta=true)
 AD(LE_U64(N_DEK),         meta=true, more=true)
-KEY(K_dek)
+KEY(K_DEK)
 
 AD('message-start', meta=true)
 SEND_ENC('')
@@ -69,8 +65,8 @@ AD('message-end',   meta=true)
 AD(LE_U64(LEN(C)),  meta=true, more=true)
 ```
 
-Finally, a Schnorr signature $S$ of the entire ciphertext (headers, padding, and DEM ciphertext) is created with $d_E$
-and encrypted:
+Finally, a [`veil.schnorr`](schnorr.md) signature $S$ of the entire ciphertext (headers, padding, and DEM ciphertext) is
+created with $d_E$ and encrypted:
 
 ```text
 AD('signature',   meta=true)
@@ -78,8 +74,8 @@ AD(LE_U64(N_d*2), meta=true, more=true)
 SEND_ENC(S)
 ```
 
-The resulting ciphertext then contains, in order: the `veil.akem`-encrypted headers, random padding, message ciphertext,
-and a Schnorr signature of the headers, padding, and ciphertext.
+The resulting ciphertext then contains, in order: the [`veil.sres`](sres.md)-encrypted headers, random padding, message
+ciphertext, and a [`veil.schnorr`](schnorr.md) signature of the headers, padding, and ciphertext.
 
 ## Decryption
 
@@ -92,8 +88,8 @@ RECV_CLR(Q_s)
 ```
 
 The recipient reads through the ciphertext in header-sized blocks, looking for one which is decryptable given their key
-pair and the sender's public key. Having found one, they recover the data encryption key $K_{DEK}$, the message offset,
-and the ephemeral public key $Q_E$. They then read the remainder of the block of encrypted headers and padding 
+pair and the sender's public key. Having found one, they recover the data encryption key $K_{DEK}$, the ephemeral public
+key $Q_E$, and the message offset. They then read the remainder of the block of encrypted headers and padding 
 $H_0..H_N,H_{pad}$:
 
 ```text
@@ -105,12 +101,12 @@ RECV_CLR(H_N,   more=true)
 RECV_CLR(H_pad, more=true)
 ```
 
-The protocol is keyed with the DEK, and the plaintext is decrypted:
+The protocol is keyed with $K_{DEK}$, and the plaintext is decrypted:
 
 ```text
 AD('data-encryption-key', meta=true)
 AD(LE_U64(N_DEK),         meta=true, more=true)
-KEY(K_dek)
+KEY(K_DEK)
 
 AD('message-start', meta=true)
 RECV_ENC('')
@@ -136,24 +132,25 @@ sender's private key and a decryption oracle for each recipient, engaged in an I
 advantage against any individual recipient. The elements available for them to analyze and manipulate are the encrypted
 headers, the random padding, the message ciphertext, and the signature.
 
-Each recipient's header is an IND-CCA2-secure ciphertext, so an attacker can gain no advantage there. Further, the
-attacker cannot modify the copy of the DEK, the ephemeral public key, or the header length each recipient receives.
+Each recipient's header is an IND-CCA2-secure [`veil.sres`](sres.md) ciphertext, so an attacker can gain no advantage
+there. Further, the attacker cannot modify the copy of the DEK, the ephemeral public key, or the header length each
+recipient receives.
 
 The encrypted headers and/or padding for other recipients are not IND-CCA2-secure for all recipients, so the attacker
 may modify those without producing invalid headers. Similarly, the encrypted message is only IND-CPA-secure. Any
 attacker attempting to modify any of those, however, will have to forge a valid signature for the overall message to be
-valid. As `veil.schnorr` is SUF-CMA-secure, this is not possible.
+valid. As [`veil.schnorr`](schnorr.md) is SUF-CMA-secure, this is not possible.
 
 ## Multi-Recipient Authenticity
 
 Similarly, an attacker engaged in parallel CMA games with recipients has negligible advantage in forging messages.
-The `veil.schnorr` signature covers the entirety of the ciphertext.
+The [`veil.schnorr`](schnorr.md) signature covers the entirety of the ciphertext.
 
-The standard KEM/DEM hybrid construction (i.e. Construction 12.20 from Modern Cryptography 3e)
-provides strong confidentiality (per Theorem 12.14), but no authenticity. A compromised recipient can replace the DEM
-component of the ciphertext with an arbitrary message encrypted with the same DEK. Even if the KEM provides strong
-authenticity against insider attacks, the KEM/DEM construction does not. [Alwen et al.][hpke] detail this attack against
-the proposed HPKE standard.
+The standard KEM/DEM hybrid construction (i.e. Construction 12.20 from _Modern Cryptography 3e_) provides strong
+confidentiality (per Theorem 12.14), but no authenticity. A compromised recipient can replace the DEM component of the
+ciphertext with an arbitrary message encrypted with the same DEK. Even if the KEM provides strong authenticity against
+insider attacks, the KEM/DEM construction does not. [Alwen et al.][hpke] detail this attack against the proposed HPKE
+standard.
 
 In the single-recipient setting, the practical advantages of this attack are limited: the attacker can forge messages
 which appear to be from a sender but are only decryptable by the attacker. In the multi-recipient setting, however, the
@@ -168,9 +165,12 @@ ephemeral public key, and the recipient can only forge KEM ciphertexts with them
 
 ## Repudiability
 
-Because the sender's private key is only used to calculate shared secrets, a `veil.mres` ciphertext is entirely
-repudiable unless a recipient reveals their public key. The `veil.schnorr` keys are randomly generated for each message
-and all other forms of sender identity which are transmitted are only binding on public information.
+The headers are signcrypted with [`veil.sres`](sres.md), which achieves both authentication and repudiability via
+[`veil.akem`](akem.md).
+
+The message itself is encrypted with a randomly-generated symmetric key, which isn't tied to any identity.
+
+The final [`veil.schnorr`](schnorr.md) signature is created with a randomly-generated ephemeral key.
 
 ## Ephemeral Scalar Hedging
 
