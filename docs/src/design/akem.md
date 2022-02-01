@@ -176,8 +176,6 @@ be unable to re-calculate the commitment point $X$ and thus unable to re-derive 
 
 [dent]: https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.107.3387&rep=rep1&type=pdf
 
-[ik-cca]: https://iacr.org/archive/asiacrypt2001/22480568.pdf
-
 [kci]: https://eprint.iacr.org/2006/252.pdf
 
 [hedge]: https://eprint.iacr.org/2019/956.pdf
