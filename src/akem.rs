@@ -5,7 +5,7 @@
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
-use secrecy::{ExposeSecret, Secret};
+use secrecy::{ExposeSecret, Secret, SecretVec};
 
 use crate::strobe::Protocol;
 
@@ -57,17 +57,20 @@ pub fn encapsulate(
     (k, (r, s))
 }
 
-/// Given the recipient's key pair, the sender's public key, and the two scalars returned by
-/// [encapsulate], return the same shared secret as returned by [encapsulate] plus a [Protocol]
-/// instance for use with [verify] once the plaintext message has been decrypted.
-#[must_use]
-pub fn decapsulate(
+/// Given the recipient's key pair, the sender's public key, the two scalars returned by
+/// [encapsulate], and a decryption continuation, return the original plaintext iff the plaintext
+/// was originally encapsulated for the given recipient by the given sender.
+pub fn decapsulate<F>(
     d_r: &Scalar,
     q_r: &RistrettoPoint,
     q_s: &RistrettoPoint,
     r: &Scalar,
     s: &Scalar,
-) -> (Secret<[u8; KEY_LEN]>, Protocol) {
+    decrypt: F,
+) -> Option<SecretVec<u8>>
+where
+    F: FnOnce(Secret<[u8; KEY_LEN]>) -> Option<SecretVec<u8>>,
+{
     // Initialize the protocol.
     let mut akem = Protocol::new("veil.akem");
 
@@ -84,21 +87,21 @@ pub fn decapsulate(
     // Extract the shared secret.
     let k = Secret::new(akem.prf::<KEY_LEN>("shared-secret"));
 
-    // Return the shared secret and the protocol in its current state.
-    (k, akem)
-}
+    // Use the shared secret to decrypt the ciphertext externally.
+    let plaintext = decrypt(k)?;
 
-/// Given a [Protocol] returned by [decapsulate] and a decrypted plaintext, verify the signature.
-/// No plaintext can be considered authentic without calling [verify].
-pub fn verify(mut akem: Protocol, r: &Scalar, plaintext: &[u8]) -> bool {
     // Add the plaintext message as associated data.
-    akem.ad("plaintext", plaintext);
+    akem.ad("plaintext", plaintext.expose_secret());
 
     // Extract a challenge scalar from PRF output.
     let r_p = akem.prf_scalar("challenge-scalar");
 
-    // Return true iff r' == r.
-    r == &r_p
+    // Return the plaintext iff r' == r.
+    if r == &r_p {
+        Some(plaintext)
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]
@@ -112,9 +115,12 @@ mod tests {
         let (d_s, q_s, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
         let (k1, (r, s)) = encapsulate(&d_s, &q_s, &q_r, plaintext);
-        let (k2, akem) = decapsulate(&d_r, &q_r, &q_s, &r, &s);
-        assert_eq!(k1.expose_secret(), k2.expose_secret());
-        assert!(verify(akem, &r, plaintext));
+        let recovered = decapsulate(&d_r, &q_r, &q_s, &r, &s, |k2| {
+            assert_eq!(k1.expose_secret(), k2.expose_secret());
+            Some(plaintext.to_vec().into())
+        });
+        assert!(recovered.is_some());
+        assert_eq!(plaintext.as_slice(), recovered.unwrap().expose_secret());
     }
 
     #[test]
@@ -125,8 +131,12 @@ mod tests {
 
         let d_r = Scalar::random(&mut rand::thread_rng());
 
-        let (k2, _) = decapsulate(&d_r, &q_r, &q_s, &r, &s);
-        assert_ne!(k1.expose_secret(), k2.expose_secret());
+        let recovered = decapsulate(&d_r, &q_r, &q_s, &r, &s, |k2| {
+            assert_ne!(k1.expose_secret(), k2.expose_secret());
+            Some(plaintext.to_vec().into())
+        });
+
+        assert!(recovered.is_none());
     }
 
     #[test]
@@ -137,8 +147,12 @@ mod tests {
 
         let q_r = RistrettoPoint::random(&mut rand::thread_rng());
 
-        let (k2, _) = decapsulate(&d_r, &q_r, &q_s, &r, &s);
-        assert_ne!(k1.expose_secret(), k2.expose_secret());
+        let recovered = decapsulate(&d_r, &q_r, &q_s, &r, &s, |k2| {
+            assert_ne!(k1.expose_secret(), k2.expose_secret());
+            Some(plaintext.to_vec().into())
+        });
+
+        assert!(recovered.is_none());
     }
 
     #[test]
@@ -149,8 +163,12 @@ mod tests {
 
         let q_s = RistrettoPoint::random(&mut rand::thread_rng());
 
-        let (k2, _) = decapsulate(&d_r, &q_r, &q_s, &r, &s);
-        assert_ne!(k1.expose_secret(), k2.expose_secret());
+        let recovered = decapsulate(&d_r, &q_r, &q_s, &r, &s, |k2| {
+            assert_ne!(k1.expose_secret(), k2.expose_secret());
+            Some(plaintext.to_vec().into())
+        });
+
+        assert!(recovered.is_none());
     }
 
     #[test]
@@ -160,8 +178,13 @@ mod tests {
         let (k1, (_, s)) = encapsulate(&d_s, &q_s, &q_r, plaintext);
 
         let r = Scalar::random(&mut rand::thread_rng());
-        let (k2, _) = decapsulate(&d_r, &q_r, &q_s, &r, &s);
-        assert_ne!(k1.expose_secret(), k2.expose_secret());
+
+        let recovered = decapsulate(&d_r, &q_r, &q_s, &r, &s, |k2| {
+            assert_ne!(k1.expose_secret(), k2.expose_secret());
+            Some(plaintext.to_vec().into())
+        });
+
+        assert!(recovered.is_none());
     }
 
     #[test]
@@ -171,8 +194,27 @@ mod tests {
         let (k1, (r, _)) = encapsulate(&d_s, &q_s, &q_r, plaintext);
 
         let s = Scalar::random(&mut rand::thread_rng());
-        let (k2, _) = decapsulate(&d_r, &q_r, &q_s, &r, &s);
-        assert_ne!(k1.expose_secret(), k2.expose_secret());
+
+        let recovered = decapsulate(&d_r, &q_r, &q_s, &r, &s, |k2| {
+            assert_ne!(k1.expose_secret(), k2.expose_secret());
+            Some(plaintext.to_vec().into())
+        });
+
+        assert!(recovered.is_none());
+    }
+
+    #[test]
+    fn no_plaintext() {
+        let (d_s, q_s, d_r, q_r) = setup();
+        let plaintext = b"ok this is fun";
+        let (k1, (r, s)) = encapsulate(&d_s, &q_s, &q_r, plaintext);
+
+        let recovered = decapsulate(&d_r, &q_r, &q_s, &r, &s, |k2| {
+            assert_eq!(k1.expose_secret(), k2.expose_secret());
+            None
+        });
+
+        assert!(recovered.is_none());
     }
 
     #[test]
@@ -180,8 +222,12 @@ mod tests {
         let (d_s, q_s, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
         let (k1, (r, s)) = encapsulate(&d_s, &q_s, &q_r, plaintext);
-        let (k2, akem) = decapsulate(&d_r, &q_r, &q_s, &r, &s);
-        assert_eq!(k1.expose_secret(), k2.expose_secret());
-        assert!(!verify(akem, &r, b"oh no"));
+
+        let recovered = decapsulate(&d_r, &q_r, &q_s, &r, &s, |k2| {
+            assert_eq!(k1.expose_secret(), k2.expose_secret());
+            Some(b"this is terrible".to_vec().into())
+        });
+
+        assert!(recovered.is_none());
     }
 }

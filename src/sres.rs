@@ -92,25 +92,20 @@ pub fn decrypt(
     let s = sres.decrypt("proof-scalar", s);
     let s = decode_scalar(s.expose_secret())?;
 
-    // Decapsulate the AKEM key and calculate the verification point.
-    let (k, akem) = akem::decapsulate(d_r, q_r, q_s, r.expose_secret(), s.expose_secret());
+    // Decapsulate the AKEM key and decrypt the ciphertext.
+    akem::decapsulate(d_r, q_r, q_s, r.expose_secret(), s.expose_secret(), |k| {
+        // Key the protocol with the AKEM key.
+        sres.key("akem-shared-secret", k.expose_secret());
 
-    // Key the protocol with the AKEM key.
-    sres.key("akem-shared-secret", k.expose_secret());
+        // Decrypt the ciphertext.
+        let (ciphertext, mac) = ciphertext.split_at(ciphertext.len() - MAC_LEN);
+        let plaintext = sres.decrypt("plaintext", ciphertext);
 
-    // Decrypt the ciphertext.
-    let (ciphertext, mac) = ciphertext.split_at(ciphertext.len() - MAC_LEN);
-    let plaintext = sres.decrypt("plaintext", ciphertext);
+        // Verify the MAC.
+        sres.verify_mac("mac", mac)?;
 
-    // Verify the MAC.
-    sres.verify_mac("mac", mac)?;
-
-    // If the AKEM signature is verified, return the plaintext.
-    if akem::verify(akem, r.expose_secret(), plaintext.expose_secret()) {
         Some(plaintext)
-    } else {
-        None
-    }
+    })
 }
 
 #[must_use]
