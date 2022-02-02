@@ -85,15 +85,19 @@ pub fn decrypt(
     // Decrypt and decode the veil.akem challenge scalar.
     let (r, ciphertext) = ciphertext.split_at(SCALAR_LEN);
     let r = sres.decrypt("challenge-scalar", r);
-    let r = decode_scalar(r.expose_secret())?;
+    let r = Scalar::from_canonical_bytes(
+        r.expose_secret().to_vec().try_into().expect("invalid scalar len"),
+    )?;
 
     // Decrypt and decode the veil.akem proof scalar.
     let (s, ciphertext) = ciphertext.split_at(SCALAR_LEN);
     let s = sres.decrypt("proof-scalar", s);
-    let s = decode_scalar(s.expose_secret())?;
+    let s = Scalar::from_canonical_bytes(
+        s.expose_secret().to_vec().try_into().expect("invalid scalar len"),
+    )?;
 
     // Decapsulate the AKEM key and decrypt the ciphertext.
-    akem::decapsulate(d_r, q_r, q_s, r.expose_secret(), s.expose_secret(), |k| {
+    akem::decapsulate(d_r, q_r, q_s, &r, &s, |k| {
         // Key the protocol with the AKEM key.
         sres.key("akem-shared-secret", k.expose_secret());
 
@@ -106,18 +110,6 @@ pub fn decrypt(
 
         Some(plaintext)
     })
-}
-
-#[must_use]
-fn decode_scalar(b: &[u8]) -> Option<Secret<Scalar>> {
-    if b.len() != SCALAR_LEN {
-        return None;
-    }
-
-    let mut x = [0u8; SCALAR_LEN];
-    x.copy_from_slice(b);
-
-    Scalar::from_canonical_bytes(x).map(Secret::new)
 }
 
 #[must_use]
