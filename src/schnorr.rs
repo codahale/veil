@@ -52,10 +52,10 @@ where
         let s = d * r + k.expose_secret();
 
         // Return the challenge and proof scalars, plus the underlying writer.
-        let mut sig = [0u8; SIGNATURE_LEN];
-        sig[..SCALAR_LEN].copy_from_slice(r.as_bytes());
-        sig[SCALAR_LEN..].copy_from_slice(s.as_bytes());
-        (sig, writer)
+        let mut sig = Vec::with_capacity(SIGNATURE_LEN);
+        sig.extend(r.as_bytes());
+        sig.extend(s.as_bytes());
+        (sig.try_into().expect("invalid sig len"), writer)
     }
 }
 
