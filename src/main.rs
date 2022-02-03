@@ -113,7 +113,7 @@ impl Cmd for PublicKeyArgs {
     }
 }
 
-/// Derive a public key from another public key..
+/// Derive a public key from another public key.
 #[derive(Debug, Parser)]
 struct DeriveKeyArgs {
     /// The public key.
