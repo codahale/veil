@@ -1,15 +1,14 @@
 //! A multi-recipient, hybrid cryptosystem.
 
 use std::convert::TryInto;
-use std::io::{self, BufRead, BufReader, Read, Result, Write};
+use std::io::{self, Read, Result, Write};
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
-use ensured_bufreader::EnsuredBufReader;
 use rand::prelude::ThreadRng;
 use rand::RngCore;
-use secrecy::{ExposeSecret, Secret, SecretVec};
+use secrecy::{ExposeSecret, Secret, SecretVec, Zeroize};
 
 use crate::constants::{MAC_LEN, POINT_LEN, U64_LEN};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
@@ -91,30 +90,29 @@ where
     R: Read,
     W: Write,
 {
-    let mut buf = BufReader::with_capacity(BLOCK_LEN, reader);
+    let mut buf = SecBuf(Vec::with_capacity(BLOCK_LEN));
     let mut written = 0;
 
     loop {
         // Read a block of data.
-        buf.fill_buf()?;
-        let block = buf.buffer();
-        let block_len = block.len();
-
-        // If the block is empty, we're at the end of the reader.
-        if block.is_empty() {
-            break;
-        }
+        let n = reader.take(BLOCK_LEN as u64).read_to_end(&mut buf.0)?;
+        let block = &buf.0[..n];
 
         // Encrypt the block and write the ciphertext.
         writer.write_all(&mres.encrypt("block", block))?;
-        written += block_len as u64;
+        written += n as u64;
 
         // Generate a MAC and write it.
         writer.write_all(&mres.mac("mac"))?;
         written += MAC_LEN as u64;
 
-        // Mark the block as read.
-        buf.consume(block_len);
+        // If the block is undersized, we're at the end of the reader.
+        if n < BLOCK_LEN {
+            break;
+        }
+
+        // Reset the buffer.
+        buf.0.clear();
     }
 
     Ok(written)
@@ -172,30 +170,31 @@ where
     R: Read,
     W: Write,
 {
-    let mut buf = EnsuredBufReader::with_capacity_and_ensured_size(
-        BUFFER_LEN,
-        ENC_BLOCK_LEN + SIGNATURE_LEN,
-        reader,
-    );
+    let mut buf = SecBuf(Vec::with_capacity(ENC_BLOCK_LEN + SIGNATURE_LEN));
     let mut written = 0;
 
     loop {
-        // Read a block of data and pretend we don't see the possible signature at the end.
-        let block = buf.fill_buf()?;
-        let block_len = (block.len() - SIGNATURE_LEN).min(ENC_BLOCK_LEN);
-        let block = &block[..block_len];
+        // Read a block and a possible signature, keeping in mind the unused bit of the buffer from
+        // the last iteration.
+        let n = reader
+            .take((ENC_BLOCK_LEN + SIGNATURE_LEN - buf.0.len()) as u64)
+            .read_to_end(&mut buf.0)?;
 
-        // If the block is empty, we're at the end of the reader and only have the signature left.
-        // Break out of the read loop and go process the signature.
-        if block.is_empty() {
+        // If we're at the end of the reader, we only have the signature left to process. Break out
+        // of the read loop and go process the signature.
+        if n == 0 {
             break;
         }
+
+        // Pretend we don't see the possible signature at the end.
+        let n = buf.0.len() - SIGNATURE_LEN;
+        let block = &buf.0[..n];
 
         // Add the block to the verifier.
         verifier.write_all(block)?;
 
         // Split the block into ciphertext and MAC.
-        let (ciphertext, mac) = block.split_at(block_len - MAC_LEN);
+        let (ciphertext, mac) = block.split_at(n - MAC_LEN);
 
         // Decrypt the block and write the plaintext.
         writer.write_all(mres.decrypt("block", ciphertext).expose_secret())?;
@@ -206,12 +205,12 @@ where
             return Ok((written, [0u8; SIGNATURE_LEN]));
         }
 
-        // Mark the encrypted block as consumed.
-        buf.consume(block_len);
+        // Clear the part of the buffer we used.
+        buf.0.drain(0..n);
     }
 
     // Decrypt the signature.
-    let sig = mres.decrypt("signature", buf.buffer());
+    let sig = mres.decrypt("signature", &buf.0);
 
     Ok((written, sig.expose_secret().as_slice().try_into().expect("invalid sig len")))
 }
@@ -227,14 +226,14 @@ where
     R: Read,
     W: Write,
 {
-    let mut buf = BufReader::with_capacity(ENC_HEADER_LEN, reader);
+    let mut buf = SecBuf(Vec::with_capacity(ENC_HEADER_LEN));
     let mut hdr_offset = 0u64;
 
     // Iterate through blocks, looking for an encrypted header that can be decrypted.
     loop {
         // Read a potential encrypted header.
-        buf.fill_buf()?;
-        let header = buf.buffer();
+        let n = reader.take(ENC_HEADER_LEN as u64).read_to_end(&mut buf.0)?;
+        let header = &buf.0[..n];
 
         // If the header is short, we're at the end of the reader.
         if header.len() < ENC_HEADER_LEN {
@@ -249,9 +248,6 @@ where
         if let Some((dek, q_e, msg_offset)) =
             sres::decrypt(d_r, q_r, q_s, header).and_then(decode_header)
         {
-            // Unwrap the unbuffered reader.
-            let reader = buf.into_inner();
-
             // Read the remainder of the headers and padding and write them to the verifier.
             let mut remainder = reader.take(msg_offset - hdr_offset);
             io::copy(&mut remainder, verifier)?;
@@ -260,8 +256,7 @@ where
             return Ok(Some((dek, q_e)));
         }
 
-        // Otherwise, mark the data as read.
-        buf.consume(ENC_HEADER_LEN);
+        buf.0.clear();
     }
 }
 
@@ -270,7 +265,6 @@ const HEADER_LEN: usize = DEK_LEN + POINT_LEN + U64_LEN;
 const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
 const BLOCK_LEN: usize = 32 * 1024;
 const ENC_BLOCK_LEN: usize = BLOCK_LEN + MAC_LEN;
-const BUFFER_LEN: usize = ENC_BLOCK_LEN * 2;
 
 #[inline]
 fn decode_header(header: Secret<Vec<u8>>) -> Option<(SecretVec<u8>, RistrettoPoint, u64)> {
@@ -286,6 +280,14 @@ fn decode_header(header: Secret<Vec<u8>>) -> Option<(SecretVec<u8>, RistrettoPoi
         u64::from_le_bytes(header[DEK_LEN + POINT_LEN..].try_into().expect("invalid u64 len"));
 
     Some((dek, q_e, msg_offset))
+}
+
+struct SecBuf(Vec<u8>);
+
+impl Drop for SecBuf {
+    fn drop(&mut self) {
+        self.0.zeroize();
+    }
 }
 
 struct RngReader(ThreadRng);
