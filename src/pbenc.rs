@@ -82,7 +82,7 @@ macro_rules! hash_counter {
 
 fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> Protocol {
     // Normalize the passphrase into NFKC form.
-    let passphrase = Secret::new(passphrase.nfkc().to_string().bytes().collect::<Vec<u8>>());
+    let passphrase = normalize(passphrase);
 
     // Initialize the protocol.
     let mut pbenc = Protocol::new("veil.pbenc");
@@ -144,6 +144,14 @@ fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> Protocol {
     buf.zeroize();
 
     pbenc
+}
+
+#[inline]
+fn normalize(passphrase: &str) -> Secret<Vec<u8>> {
+    let mut s = passphrase.nfkc().collect::<String>();
+    let passphrase = Secret::new(s.as_bytes().to_vec());
+    s.zeroize();
+    passphrase
 }
 
 const SALT_LEN: usize = 16;
