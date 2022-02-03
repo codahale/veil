@@ -84,10 +84,10 @@ impl Protocol {
 
     /// Calculate a MAC of the given length.
     #[must_use]
-    pub fn mac(&mut self, label: &str) -> [u8; MAC_LEN] {
+    pub fn mac(&mut self, label: &str) -> Vec<u8> {
         self.meta_ad_len(label, MAC_LEN as u64);
 
-        let mut out = [0u8; MAC_LEN];
+        let mut out = vec![0u8; MAC_LEN];
         self.0.send_mac(&mut out, false);
         out
     }
