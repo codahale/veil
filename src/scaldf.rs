@@ -7,7 +7,7 @@ use crate::strobe::Protocol;
 
 /// Derive a scalar from the given secret key.
 #[must_use]
-pub fn derive_root(r: &[u8; 64]) -> Secret<Scalar> {
+pub fn derive_root(r: &[u8]) -> Secret<Scalar> {
     let mut root_df = Protocol::new("veil.scaldf.root");
     root_df.key("root", r);
     root_df.prf_scalar("scalar").into()

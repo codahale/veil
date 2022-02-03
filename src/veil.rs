@@ -9,7 +9,7 @@ use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use rand::prelude::SliceRandom;
 use rand::RngCore;
-use secrecy::{ExposeSecret, Secret};
+use secrecy::{ExposeSecret, Secret, SecretVec};
 use thiserror::Error;
 
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
@@ -57,14 +57,14 @@ pub enum VerificationError {
 
 /// A 512-bit secret from which multiple private keys can be derived.
 pub struct SecretKey {
-    r: Secret<[u8; 64]>,
+    r: SecretVec<u8>,
 }
 
 impl SecretKey {
     /// Return a randomly generated secret key.
     #[must_use]
     pub fn new() -> SecretKey {
-        let mut r = [0u8; 64];
+        let mut r = vec![0u8; SECRET_KEY_LEN];
         rand::thread_rng().fill_bytes(&mut r);
         SecretKey { r: r.into() }
     }
@@ -77,17 +77,14 @@ impl SecretKey {
 
     /// Decrypt the secret key with the given passphrase and `veil.pbenc` parameters.
     pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Result<SecretKey, DecryptionError> {
+        // Check the ciphertext length.
+        if ciphertext.len() != SECRET_KEY_LEN + pbenc::OVERHEAD {
+            return Err(DecryptionError::InvalidCiphertext);
+        }
+
+        // Decrypt the ciphertext and use the plaintext as the secret key.
         pbenc::decrypt(passphrase, ciphertext)
-            .and_then(|b| {
-                let b = b.expose_secret();
-                let mut r = [0u8; 64];
-                if b.len() == r.len() {
-                    r.copy_from_slice(b);
-                    Some(SecretKey { r: r.into() })
-                } else {
-                    None
-                }
-            })
+            .map(|r| SecretKey { r })
             .ok_or(DecryptionError::InvalidCiphertext)
     }
 
@@ -128,6 +125,8 @@ impl Debug for SecretKey {
         self.root().fmt(f)
     }
 }
+
+const SECRET_KEY_LEN: usize = 64;
 
 /// A derived private key, used to encrypt, decrypt, and sign messages.
 pub struct PrivateKey {
