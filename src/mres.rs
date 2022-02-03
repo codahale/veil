@@ -260,12 +260,6 @@ where
     }
 }
 
-const DEK_LEN: usize = 32;
-const HEADER_LEN: usize = DEK_LEN + POINT_LEN + U64_LEN;
-const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
-const BLOCK_LEN: usize = 32 * 1024;
-const ENC_BLOCK_LEN: usize = BLOCK_LEN + MAC_LEN;
-
 #[inline]
 fn decode_header(header: Secret<Vec<u8>>) -> Option<(SecretVec<u8>, RistrettoPoint, u64)> {
     let header = header.expose_secret();
@@ -281,6 +275,12 @@ fn decode_header(header: Secret<Vec<u8>>) -> Option<(SecretVec<u8>, RistrettoPoi
 
     Some((dek, q_e, msg_offset))
 }
+
+const DEK_LEN: usize = 32;
+const HEADER_LEN: usize = DEK_LEN + POINT_LEN + U64_LEN;
+const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
+const BLOCK_LEN: usize = 32 * 1024;
+const ENC_BLOCK_LEN: usize = BLOCK_LEN + MAC_LEN;
 
 struct SecBuf(Vec<u8>);
 
