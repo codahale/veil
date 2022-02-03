@@ -4,7 +4,7 @@ use rand::RngCore;
 use secrecy::{ExposeSecret, Secret, Zeroize};
 use unicode_normalization::UnicodeNormalization;
 
-use crate::constants::{MAC_LEN, U32_LEN};
+use crate::constants::{MAC_LEN, U32_LEN, U64_LEN};
 use crate::strobe::Protocol;
 
 /// The number of bytes encryption adds to a plaintext.
@@ -121,7 +121,7 @@ fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> Protocol {
             // Step 2b: Hash in pseudo-randomly chosen blocks.
             for i in 0..DELTA {
                 // Map indexes to a block and hash it and the salt.
-                let mut idx = Vec::with_capacity(N);
+                let mut idx = Vec::with_capacity(U64_LEN * 3);
                 idx.extend((t as u64).to_le_bytes());
                 idx.extend((m as u64).to_le_bytes());
                 idx.extend((i as u64).to_le_bytes());
