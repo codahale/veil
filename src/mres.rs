@@ -40,7 +40,7 @@ where
 
     // Derive a random DEK from the protocol's current state, the sender's private key, and a random
     // nonce.
-    let dek = mres.hedge(d_s.as_bytes(), |clone| clone.prf::<DEK_LEN>("data-encryption-key"));
+    let dek = mres.hedge(d_s.as_bytes(), |clone| clone.prf_vec("data-encryption-key", DEK_LEN));
 
     // Encode the DEK, the ephemeral public key, and the message offset in a header.
     let msg_offset = ((q_rs.len() as u64) * ENC_HEADER_LEN as u64) + padding;

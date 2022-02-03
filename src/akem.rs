@@ -20,7 +20,7 @@ pub fn encapsulate(
     q_s: &RistrettoPoint,
     q_r: &RistrettoPoint,
     plaintext: &[u8],
-) -> (Secret<[u8; KEY_LEN]>, (Scalar, Scalar)) {
+) -> (SecretVec<u8>, (Scalar, Scalar)) {
     // Initialize the protocol.
     let mut akem = Protocol::new("veil.akem");
 
@@ -42,7 +42,7 @@ pub fn encapsulate(
     akem.ad("commitment-point", x.compress().as_bytes());
 
     // Extract the shared secret.
-    let k = Secret::new(akem.prf::<KEY_LEN>("shared-secret"));
+    let k = Secret::new(akem.prf_vec("shared-secret", KEY_LEN));
 
     // Add the plaintext message as associated data.
     akem.ad("plaintext", plaintext);
@@ -69,7 +69,7 @@ pub fn decapsulate<F>(
     decrypt: F,
 ) -> Option<SecretVec<u8>>
 where
-    F: FnOnce(Secret<[u8; KEY_LEN]>) -> Option<SecretVec<u8>>,
+    F: FnOnce(SecretVec<u8>) -> Option<SecretVec<u8>>,
 {
     // Initialize the protocol.
     let mut akem = Protocol::new("veil.akem");
@@ -85,7 +85,7 @@ where
     akem.ad("commitment-point", x.compress().as_bytes());
 
     // Extract the shared secret.
-    let k = Secret::new(akem.prf::<KEY_LEN>("shared-secret"));
+    let k = Secret::new(akem.prf_vec("shared-secret", KEY_LEN));
 
     // Use the shared secret to decrypt the ciphertext externally.
     let plaintext = decrypt(k)?;

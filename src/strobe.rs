@@ -24,10 +24,16 @@ impl Protocol {
     /// Derive an array from PRF output.
     #[must_use]
     pub fn prf<const N: usize>(&mut self, label: &str) -> [u8; N] {
-        self.meta_ad_len(label, N as u64);
-
         let mut out = [0u8; N];
-        self.0.prf(&mut out, false);
+        self.prf_fill(label, &mut out);
+        out
+    }
+
+    /// Derive a `Vec` from PRF output.
+    #[must_use]
+    pub fn prf_vec(&mut self, label: &str, n: usize) -> Vec<u8> {
+        let mut out = vec![0u8; n];
+        self.prf_fill(label, &mut out);
         out
     }
 
