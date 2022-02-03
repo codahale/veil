@@ -262,16 +262,20 @@ where
 
 #[inline]
 fn decode_header(header: Secret<Vec<u8>>) -> Option<(SecretVec<u8>, RistrettoPoint, u64)> {
+    // Check header for proper length.
     let header = header.expose_secret();
-    if header.len() < HEADER_LEN {
+    if header.len() != HEADER_LEN {
         return None;
     }
 
-    let dek = header[..DEK_LEN].to_vec().into();
-    let q_e =
-        CompressedRistretto::from_slice(&header[DEK_LEN..DEK_LEN + POINT_LEN]).decompress()?;
-    let msg_offset =
-        u64::from_le_bytes(header[DEK_LEN + POINT_LEN..].try_into().expect("invalid u64 len"));
+    // Split header into components.
+    let (dek, header) = header.split_at(DEK_LEN);
+    let (q_e, msg_offset) = header.split_at(POINT_LEN);
+
+    // Decode components.
+    let dek = dek.to_vec().into();
+    let q_e = CompressedRistretto::from_slice(q_e).decompress()?;
+    let msg_offset = u64::from_le_bytes(msg_offset.try_into().expect("invalid u64 len"));
 
     Some((dek, q_e, msg_offset))
 }
