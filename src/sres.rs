@@ -26,7 +26,7 @@ pub fn encrypt(
     // Initialize the protocol.
     let mut sres = Protocol::new("veil.sres");
 
-    // Include the sender and receiver as associated data.
+    // Send the sender's public key as cleartext.
     sres.send("sender-public-key", q_s.compress().as_bytes());
 
     // Receive the receiver's public key as cleartext.
@@ -72,10 +72,10 @@ pub fn decrypt(
     // Initialize the protocol.
     let mut sres = Protocol::new("veil.sres");
 
-    // Include the sender and receiver as associated data.
+    // Receive the sender's public key as cleartext.
     sres.receive("sender-public-key", q_s.compress().as_bytes());
 
-    // Receive the receiver's public key as cleartext.
+    // Send the receiver's public key as cleartext.
     sres.send("receiver-public-key", q_r.compress().as_bytes());
 
     // Calculate the static Diffie-Hellman shared secret and use it to key the protocol.
@@ -85,16 +85,14 @@ pub fn decrypt(
     // Decrypt and decode the veil.akem challenge scalar.
     let (r, ciphertext) = ciphertext.split_at(SCALAR_LEN);
     let r = sres.decrypt("challenge-scalar", r);
-    let r = Scalar::from_canonical_bytes(
-        r.expose_secret().to_vec().try_into().expect("invalid scalar len"),
-    )?;
+    let r = r.expose_secret().to_vec().try_into().expect("invalid scalar len");
+    let r = Scalar::from_canonical_bytes(r)?;
 
     // Decrypt and decode the veil.akem proof scalar.
     let (s, ciphertext) = ciphertext.split_at(SCALAR_LEN);
     let s = sres.decrypt("proof-scalar", s);
-    let s = Scalar::from_canonical_bytes(
-        s.expose_secret().to_vec().try_into().expect("invalid scalar len"),
-    )?;
+    let s = s.expose_secret().to_vec().try_into().expect("invalid scalar len");
+    let s = Scalar::from_canonical_bytes(s)?;
 
     // Decapsulate the AKEM key and decrypt the ciphertext.
     akem::decapsulate(d_r, q_r, q_s, &r, &s, |k| {
