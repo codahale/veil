@@ -170,15 +170,15 @@ where
     R: Read,
     W: Write,
 {
-    let mut buf = SecBuf(Vec::with_capacity(ENC_BLOCK_LEN + SIGNATURE_LEN));
+    let mut buf = Vec::with_capacity(ENC_BLOCK_LEN + SIGNATURE_LEN);
     let mut written = 0;
 
     loop {
         // Read a block and a possible signature, keeping in mind the unused bit of the buffer from
         // the last iteration.
         let n = reader
-            .take((ENC_BLOCK_LEN + SIGNATURE_LEN - buf.0.len()) as u64)
-            .read_to_end(&mut buf.0)?;
+            .take((ENC_BLOCK_LEN + SIGNATURE_LEN - buf.len()) as u64)
+            .read_to_end(&mut buf)?;
 
         // If we're at the end of the reader, we only have the signature left to process. Break out
         // of the read loop and go process the signature.
@@ -187,8 +187,8 @@ where
         }
 
         // Pretend we don't see the possible signature at the end.
-        let n = buf.0.len() - SIGNATURE_LEN;
-        let block = &buf.0[..n];
+        let n = buf.len() - SIGNATURE_LEN;
+        let block = &buf[..n];
 
         // Add the block to the verifier.
         verifier.write_all(block)?;
@@ -206,11 +206,11 @@ where
         }
 
         // Clear the part of the buffer we used.
-        buf.0.drain(0..n);
+        buf.drain(0..n);
     }
 
     // Decrypt the signature.
-    let sig = mres.decrypt("signature", &buf.0);
+    let sig = mres.decrypt("signature", &buf);
 
     Ok((written, sig.expose_secret().as_slice().try_into().expect("invalid sig len")))
 }
@@ -226,14 +226,14 @@ where
     R: Read,
     W: Write,
 {
-    let mut buf = SecBuf(Vec::with_capacity(ENC_HEADER_LEN));
+    let mut buf = Vec::with_capacity(ENC_HEADER_LEN);
     let mut hdr_offset = 0u64;
 
     // Iterate through blocks, looking for an encrypted header that can be decrypted.
     loop {
         // Read a potential encrypted header.
-        let n = reader.take(ENC_HEADER_LEN as u64).read_to_end(&mut buf.0)?;
-        let header = &buf.0[..n];
+        let n = reader.take(ENC_HEADER_LEN as u64).read_to_end(&mut buf)?;
+        let header = &buf[..n];
 
         // If the header is short, we're at the end of the reader.
         if header.len() < ENC_HEADER_LEN {
@@ -256,7 +256,7 @@ where
             return Ok(Some((dek, q_e)));
         }
 
-        buf.0.clear();
+        buf.clear();
     }
 }
 
