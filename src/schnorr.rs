@@ -94,8 +94,9 @@ impl Verifier {
         schnorr.receive("signer", q.compress().as_bytes());
 
         // Split the signature into parts.
-        let r = sig[..SCALAR_LEN].try_into().expect("invalid scalar len");
-        let s = sig[SCALAR_LEN..].try_into().expect("invalid scalar len");
+        let (r, s) = sig.split_at(SCALAR_LEN);
+        let r = r.try_into().expect("invalid scalar len");
+        let s = s.try_into().expect("invalid scalar len");
 
         // Decode the challenge and proof scalars.
         let (r, s) = match (Scalar::from_canonical_bytes(r), Scalar::from_canonical_bytes(s)) {
