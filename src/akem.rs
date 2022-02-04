@@ -24,7 +24,7 @@ pub fn encapsulate(
     // Initialize the protocol.
     let mut akem = Protocol::new("veil.akem");
 
-    // Include the sender and receiver as associated data.
+    // Send the sender's public key as cleartext.
     akem.send("sender-public-key", q_s.compress().as_bytes());
 
     // Receive the receiver's public key as cleartext.
