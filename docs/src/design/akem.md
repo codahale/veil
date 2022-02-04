@@ -174,7 +174,7 @@ Because the commitment scalar $t$ is discarded after encapsulation, a compromise
 compromise previously-encapsulated ciphertexts. A sender (or an attacker in possession of the sender's private key) will
 be unable to re-calculate the commitment point $X$ and thus unable to re-derive the shared secret.
 
-[dent]: https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.107.3387&rep=rep1&type=pdf
+[dent]: http://www.cogentcryptography.com/papers/inner.pdf
 
 [kci]: https://eprint.iacr.org/2006/252.pdf
 

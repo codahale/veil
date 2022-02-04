@@ -1,6 +1,6 @@
 //! An authenticated key encapsulation mechanism, per [Dent][dent].
 //!
-//! [dent]: https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.107.3387&rep=rep1&type=pdf
+//! [dent]: http://www.cogentcryptography.com/papers/inner.pdf
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::RistrettoPoint;
