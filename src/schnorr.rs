@@ -3,15 +3,15 @@ use std::io;
 use std::io::{Result, Write};
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
-use curve25519_dalek::ristretto::RistrettoPoint;
+use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use secrecy::ExposeSecret;
 
-use crate::constants::SCALAR_LEN;
+use crate::constants::{POINT_LEN, SCALAR_LEN};
 use crate::strobe::{Protocol, RecvClrWriter, SendClrWriter};
 
 /// The length of a signature, in bytes.
-pub const SIGNATURE_LEN: usize = SCALAR_LEN * 2;
+pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
 
 /// A writer which accumulates message contents for signing before passing them along to an inner
 /// writer.
@@ -32,7 +32,11 @@ where
     /// Create a signature of the previously-written message contents using the given key pair.
     #[allow(clippy::many_single_char_names)]
     pub fn sign(self, d: &Scalar, q: &RistrettoPoint) -> ([u8; SIGNATURE_LEN], W) {
+        // Unwrap the SEND_CLR writer.
         let (mut schnorr, writer, _) = self.writer.into_inner();
+
+        // Allocate an output buffer.
+        let mut sig = Vec::with_capacity(SIGNATURE_LEN);
 
         // Send the signer's public key as cleartext.
         schnorr.send("signer", q.compress().as_bytes());
@@ -41,20 +45,18 @@ where
         // and a random nonce.
         let k = schnorr.hedge(d.as_bytes(), |clone| clone.prf_scalar("commitment-scalar"));
 
-        // Add the commitment point as associated data.
+        // Calculate and encrypt the commitment point.
         let i = &G * k.expose_secret();
-        schnorr.ad("commitment-point", i.compress().as_bytes());
+        sig.extend(schnorr.encrypt("commitment-point", i.compress().as_bytes()));
 
         // Derive a challenge scalar from PRF output.
         let r = schnorr.prf_scalar("challenge-scalar");
 
-        // Calculate the proof scalar.
+        // Calculate and encrypt the proof scalar.
         let s = d * r + k.expose_secret();
+        sig.extend(schnorr.encrypt("proof-scalar", s.as_bytes()));
 
-        // Return the challenge and proof scalars, plus the underlying writer.
-        let mut sig = Vec::with_capacity(SIGNATURE_LEN);
-        sig.extend(r.as_bytes());
-        sig.extend(s.as_bytes());
+        // Return the encrypted commitment point and proof scalar, plus the underlying writer.
         (sig.try_into().expect("invalid sig len"), writer)
     }
 }
@@ -94,25 +96,29 @@ impl Verifier {
         schnorr.receive("signer", q.compress().as_bytes());
 
         // Split the signature into parts.
-        let (r, s) = sig.split_at(SCALAR_LEN);
-        let r = r.try_into().expect("invalid scalar len");
-        let s = s.try_into().expect("invalid scalar len");
+        let (i, s) = sig.split_at(POINT_LEN);
 
-        // Decode the challenge and proof scalars.
-        let (r, s) = match (Scalar::from_canonical_bytes(r), Scalar::from_canonical_bytes(s)) {
-            (Some(r), Some(s)) => (r, s),
+        // Decrypt and decode the commitment point.
+        let i = schnorr.decrypt("commitment-point", i);
+        let i = CompressedRistretto::from_slice(i.expose_secret()).decompress();
+
+        // Re-derive the challenge scalar.
+        let r = schnorr.prf_scalar("challenge-scalar");
+
+        // Decrypt and decode the proof scalar.
+        let s = schnorr.decrypt("proof-scalar", s);
+        let s = s.expose_secret().as_slice().try_into().expect("invalid scalar len");
+        let s = Scalar::from_canonical_bytes(s);
+
+        // Early exit if either commitment point or proof scalar are malformed.
+        let (i, s) = match (i, s) {
+            (Some(i), Some(s)) => (i, s),
             _ => return false,
         };
 
-        // Re-calculate the commitment point and add it as associated data.
-        let i = (&G * &s) + (q * -r);
-        schnorr.ad("commitment-point", i.compress().as_bytes());
-
-        // Re-derive the challenge scalar.
-        let r_p = schnorr.prf_scalar("challenge-scalar");
-
-        // Return true iff r' == r.
-        r_p == r
+        // Return true iff I == rG - sQ. Use the variable-time implementation here because the
+        // verifier has no secret data.
+        i == RistrettoPoint::vartime_double_scalar_mul_basepoint(&r, &-q, &s)
     }
 }
 

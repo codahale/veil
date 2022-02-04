@@ -1,5 +1,7 @@
 # Digital Signatures
 
+`veil.schnorr` implements an [EdDSA/Schnorr][eddsa] digital signature algorithm.
+
 ## Signing A Message
 
 Signing is as follows, given a message in blocks $M_0...M_N$, a private scalar $d$, and a public point $Q$:
@@ -28,7 +30,7 @@ The protocol's state is then cloned, the clone is keyed with both 64 bytes of ra
 an ephemeral scalar $k$ is derived from PRF output:
 
 ```text
-AD('secret-value', meta=true)
+AD('secret-value',  meta=true)
 AD(LE_U64(N_d),     meta=true, more=true)
 KEY(d)
 
@@ -43,23 +45,35 @@ PRF(64) -> k
 
 The clone's state is discarded, and $k$ is returned to the parent along with $I = [k]G$. 
 
-$I$ is added as associated data and a challenge scalar $r$ is extracted from PRF output:
+$I$ is encrypted and sent as $S_0$:
 
 ```text
 AD('commitment-point', meta=true)
-AD(LE_U64(N_I),        meta=true, more=true)
-AD(I)
+AD(LE_U64(LEN(I)),     meta=true, more=true)
+SEND_ENC(I) -> S_0
+```
 
+A challenge scalar $r$ is extracted from PRF output:
+
+```text
 AD('challenge-scalar', meta=true)
 AD(LE_U64(64),         meta=true, more=true)
 PRF(64) -> r
 ```
 
-The resulting signature consists of the challenge scalar $r$ and a proof scalar $s = dr + k$.
+The proof scalar $s = dr + k$ is encrypted and sent as $S_1$:
+
+```text
+AD('proof-scalar', meta=true)
+AD(LE_U64(LEN(s)), meta=true, more=true)
+SEND_ENC(s) -> S_1
+```
+
+The final signature is $S_0 || S_1$.
 
 ## Verifying A Signature
 
-To verify, `veil.schnorr` is run with a message in blocks $M_0...M_N$, a public point $Q$, and a signature $(r,s)$:
+To verify, `veil.schnorr` is run with a message in blocks $M_0...M_N$, a public point $Q$, and a signature $S_0 || S_1$:
 
 ```text
 INIT('veil.schnorr', level=128)
@@ -78,37 +92,48 @@ AD(LE_U64(N_Q), meta=true, more=true)
 AD(Q)
 ```
 
-The public ephemeral is re-calculated as $I' = [s]G + [{-r}]Q$ and the challenge scalar $r'$ is re-derived from PRF
-output:
+$S_0$ is decrypted and decoded as $I$:
 
 ```text
 AD('commitment-point', meta=true)
-AD(LE_U64(N_I),        meta=true, more=true)
-AD(I')
-
-AD('challenge-scalar', meta=true)
-AD(LE_U64(64),         meta=true, more=true)
-PRF(64) -> r'
+AD(LE_U64(LEN(S_0)),   meta=true, more=true)
+RECV_ENC(S_0) -> I
 ```
 
-Finally, the verifier compares $r' \equiv r$. If the two scalars are equivalent, the signature is valid.
+The challenge scalar $r$ is extracted from PRF output:
+
+```text
+AD('challenge-scalar', meta=true)
+AD(LE_U64(64),         meta=true, more=true)
+PRF(64) -> r
+```
+
+$S_1$ is decrypted and decoded as $s$:
+
+```text
+AD('proof-scalar',   meta=true)
+AD(LE_U64(LEN(S_1)), meta=true, more=true)
+RECV_ENC(S_1) -> s
+```
+
+The counterfactual commitment point $I' = [r]G - s[Q]$.
+
+The signature is valid if-and-only-if $I' \equiv I$.
 
 ## Security, Forgeability, and Malleability
 
-This construction is equivalent to Construction 13.12 of Modern Cryptography 3e, and is the combination of the
-Fiat-Shamir transform applied to the Schnorr identification scheme, and per Theorem 13.11, secure if the
-discrete-logarithm problem is hard relative to ristretto255.
+This construction is equivalent to the Schnorr variant proposed in the [STROBE][strobe] and [EdDSA][eddsa].
 
-The Schnorr signature scheme
-is [strongly unforgeable under chosen message attack (SUF-CMA) in the random oracle model][schnorr-cma]
-and [even with practical cryptographic hash functions][schnorr-hash]. As a consequence, the signatures are
-non-malleable.
+The Schnorr signature scheme is
+[strongly unforgeable under chosen message attack (SUF-CMA) in the random oracle model][schnorr-cma] (as is
+[EdDSA][eddsa] when using a prime order group) and [even with practical cryptographic hash functions][schnorr-hash]. As
+a consequence, the signatures are non-malleable.
 
 ## Indistinguishability and Pseudorandomness
 
 Per [Fleischhacker et al.][ind-sig], this construction produces indistinguishable signatures (i.e., signatures which do
-not reveal anything about the signing key or signed message). When encrypted with an unrelated key (i.e.,
-via `veil.mres`), the construction is isomorphic to Fleischhacker et al.'s DRPC compiler for producing pseudorandom
+not reveal anything about the signing key or signed message). When encrypted with an unrelated key (i.e., via 
+`SEND_ENC`), the construction is isomorphic to Fleischhacker et al.'s DRPC compiler for producing pseudorandom
 signatures, which are indistinguishable from random.
 
 ## Ephemeral Scalar Hedging
@@ -117,6 +142,7 @@ In deriving the ephemeral scalar from a cloned context, `veil.schnorr` uses [Ara
 "hedged signature" technique][hedge] to mitigate against both catastrophic randomness failures and differential fault
 attacks against purely deterministic signature schemes.
 
+[eddsa]: https://eprint.iacr.org/2020/1244.pdf
 
 [schnorr-cma]: https://www.di.ens.fr/david.pointcheval/Documents/Papers/2000_joc.pdf
 
@@ -125,3 +151,5 @@ attacks against purely deterministic signature schemes.
 [ind-sig]: https://eprint.iacr.org/2011/673.pdf
 
 [hedge]: https://eprint.iacr.org/2019/956.pdf
+
+[strobe]: https://eprint.iacr.org/2017/003.pdf
