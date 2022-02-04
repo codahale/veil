@@ -1,6 +1,6 @@
 # Passphrase-based Encryption
 
-Veil implements memory-hard password-based encryption via STROBE using [balloon hashing][bh].
+`veil.pbenc` implements memory-hard password-based encryption via STROBE using [balloon hashing][bh].
 
 ## Initialization
 
