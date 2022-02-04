@@ -35,11 +35,26 @@ the need for domain separation identifiers, padding, and framing is eliminated.
 
 Finally, the use of STROBE means all protocols which end in `RECV_MAC` calls are [compactly committing][cce].
 
+## Confidentiality & Integrity
+
+Veil messages are designed to provide confidentiality and integrity against all known attacks, providing CCA2
+security against both non-recipients _and_ recipients. 
+
+## Unforgeability & Non-malleability
+
+Veil signatures are strongly unforgeable, non-malleable, and strongly bound to signers.
+
+## Deniable Authenticity
+
+Veil messages are authenticated, in that every recipient can prove to themselves that the message was sent by the owner
+of a given public key and was not altered in any way. Unlike e.g. PGP, however, this authenticity is deniable: the only
+way for a recipient to prove the authenticity of a message to a third party without revealing their own private key.
+
 ## Indistinguishable From Random Noise
 
-Veil messages are entirely indistinguishable from random noise. They contain no plaintext metadata, no plaintext
-ristretto255 points, no plaintext framing or padding, and have entirely arbitrary lengths. This makes them ideal for
-distribution via steganographic channels and very resistant to traffic analysis.
+Both Veil messages and signatures are entirely indistinguishable from random noise. They contain no plaintext metadata,
+no plaintext ristretto255 points, no plaintext framing or padding, and have entirely arbitrary lengths. This makes them
+ideal for distribution via steganographic channels and very resistant to traffic analysis.
 
 [strobe]: https://strobe.sourceforge.io
 
