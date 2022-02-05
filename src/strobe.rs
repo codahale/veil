@@ -1,3 +1,5 @@
+//! High-level operations for STROBE.
+
 use std::io::{self, Write};
 
 use crate::constants::MAC_LEN;

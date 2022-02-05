@@ -1,3 +1,5 @@
+//! Passphrase-based encryption based on Balloon Hashing.
+
 use std::convert::TryInto;
 
 use rand::RngCore;

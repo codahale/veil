@@ -1,3 +1,5 @@
+//! The Veil hybrid cryptosystem.
+
 use std::convert::TryInto;
 use std::fmt::{Debug, Formatter};
 use std::io::{BufWriter, Read, Write};
