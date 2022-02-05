@@ -139,14 +139,28 @@ Theorem 3.29, provided STROBE is a sufficiently strong pseudorandom function.
 The first KEM/DEM construction is equivalent to Construction 12.19 of _Modern Cryptography 3e_, and is CCA-secure per
 Theorem 12.22, provided the gap-CDH problem is hard relative to ristretto255 and STROBE is modeled as a random oracle.
 
-The second KEM/DEM construction is detailed in the [`veil.akem`](akem.md) documentation and is CCA-secure.
+The second KEM/DEM construction is detailed in the [`veil.akem`](akem.md) documentation and is CCA-secure. The inclusion
+of MAC verification before plaintext verification ensures that the DEM component is [committing][cce], which is a
+requirement for the insider-security of the full [signcryption scheme][dent]:
+
+> Since we require a signcryption scheme to have strong unforgeability, we actually require another property from the 
+> DEM. We require that the decryption algorithm is one-to-one, i.e. we require that, for any symmetric key $K$,
+> 
+> $$ {D{\small EC}}_K(C_2) = {D{\small EC}}_K(C_2') \text{ if and only if } C_2 = C_2' $$
+> 
+> This prevents an attacker from creating a forgery $(C_1,C_2')$ from a signcryption $(C_1,C_2)$ by finding another DEM
+> encryption $C_2'$ from the ciphertext $C_2$.
+
+The SUF-CMA security of STROBE's `SEND_MAC`/`VERIFY_MAC` operations preclude an attacker from finding $(C_1, C_2')$ in
+polynomial time.
 
 ## IK-CCA Security
 
-`veil.sres` is IK-CCA (per [Bellare][ik-cca]), in that it is impossible for an attacker in possession of two public keys
-to determine which of the two keys a given ciphertext was encrypted with in either chosen-plaintext or chosen-ciphertext
-attacks. Informally, `veil.sres` ciphertexts consist exclusively of STROBE ciphertext and PRF output; an attacker being
-able to distinguish between ciphertexts based on keying material would imply STROBE's AEAD construction is not IND-CCA2.
+`veil.sres` is IK-CCA secure (per [Bellare][ik-cca]), in that it is impossible for an attacker in possession of two
+public keys to determine which of the two keys a given ciphertext was encrypted with in either chosen-plaintext or
+chosen-ciphertext attacks. Informally, `veil.sres` ciphertexts consist exclusively of STROBE ciphertext and PRF output;
+an attacker being able to distinguish between ciphertexts based on keying material would imply STROBE's AEAD
+construction is not IND-CCA2.
 
 Consequently, a passive adversary scanning for encoded points would first need the parties' static Diffie-Hellman secret
 in order to distinguish messages from random noise.
@@ -156,5 +170,9 @@ in order to distinguish messages from random noise.
 Because [`veil.akem`](akem.md) encapsulation is forward-secure for senders, so are all encrypted values after the
 protocol is keyed with the shared secret $k$. A sender (or an attacker in possession of the sender's private key) will
 be able to recover the two scalars, $(r, s)$, but not the plaintext.
+
+[cce]: https://eprint.iacr.org/2017/664.pdf
+
+[dent]: http://www.cogentcryptography.com/papers/inner.pdf
 
 [ik-cca]: https://iacr.org/archive/asiacrypt2001/22480568.pdf
