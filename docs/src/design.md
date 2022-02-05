@@ -66,4 +66,4 @@ ideal for distribution via steganographic channels and very resistant to traffic
 
 [agl]: https://www.imperialviolet.org/2016/05/16/agility.html
 
-[cce]: https://eprint.iacr.org/2019/016.pdf
+[cce]: https://eprint.iacr.org/2017/664.pdf
