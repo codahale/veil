@@ -102,6 +102,7 @@ impl Protocol {
     }
 
     /// Verify the given MAC.
+    #[must_use]
     pub fn verify_mac(&mut self, label: &str, mac: &[u8]) -> Option<()> {
         self.meta_ad_len(label, mac.len() as u64);
 
