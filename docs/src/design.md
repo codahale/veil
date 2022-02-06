@@ -50,7 +50,7 @@ Veil messages are authenticated, in that every recipient can prove to themselves
 of a given public key and was not altered in any way. Unlike e.g. PGP, however, this authenticity is deniable: the only
 way for a recipient to prove the authenticity of a message to a third party without revealing their own private key.
 
-## Indistinguishable From Random Noise
+## Indistinguishability From Random Noise
 
 Both Veil messages and signatures are entirely indistinguishable from random noise. They contain no plaintext metadata,
 no plaintext ristretto255 points, no plaintext framing or padding, and have entirely arbitrary lengths. This makes them
