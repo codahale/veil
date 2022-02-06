@@ -106,7 +106,7 @@ pub fn decrypt(
     let s = sres.decrypt("proof-scalar", s);
 
     // Verify the MAC of the scalars.
-    sres.verify_mac("dh-mac", dh_mac);
+    sres.verify_mac("dh-mac", dh_mac)?;
 
     // Decode the scalars, having authenticated them with the MAC.
     let r = r.expose_secret().to_vec().try_into().expect("invalid scalar len");
