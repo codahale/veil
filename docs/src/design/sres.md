@@ -22,9 +22,15 @@ AD(LE_U64(LEN(Q_R)),      meta=true, more=true)
 RECV_CLR(Q_R)
 ```
 
-Second, the Diffie-Hellman shared secret point $Z=[d_S]Q_R=[d_Sd_R]G$ is used to key the protocol:
+Second, a random nonce $N$ is generated and sent as cleartext, and the Diffie-Hellman shared secret point
+$Z=[d_S]Q_R=[d_Sd_R]G$ is used to key the protocol:
 
 ```text
+rand(16) -> N
+AD('nonce',        meta=true)
+AD(LE_U64(LEN(N)), meta=true, more=true)
+SEND_CLR(N)
+
 AD('dh-shared-secret', meta=true)
 AD(LE_U64(LEN(Z)),     meta=true, more=true)
 KEY(Z)
@@ -60,12 +66,12 @@ AD(LE_U64(N_M), meta=true, more=true)
 SEND_MAC(N_M) -> M
 ```
 
-The final ciphertext is $S_0 || S_1 || C || M$.
+The final ciphertext is $N || S_0 || S_1 || C || M$.
 
 ## Decryption
 
-Encryption takes a recipient's key pair, $(d_R, Q_R)$, a sender's public key, $Q_S$, two encrypted scalars $(S_0, S_1)$,
-a ciphertext $C$, and a MAC $M$.
+Encryption takes a recipient's key pair, $(d_R, Q_R)$, a sender's public key, $Q_S$, a nonce $N$, two encrypted scalars
+$(S_0, S_1)$, a ciphertext $C$, and a MAC $M$.
 
 First, the protocol is initialized and the sender and recipient's public keys are received and sent, respectively:
 
@@ -81,9 +87,14 @@ AD(LE_U64(LEN(Q_R)),      meta=true, more=true)
 SEND_CLR(Q_R)
 ```
 
-Second, the Diffie-Hellman shared secret point $Z=[d_R]Q_S=[d_Rd_S]G$ is used to key the protocol:
+Second, the nonce $N$ is received as cleartext and the Diffie-Hellman shared secret point $Z=[d_R]Q_S=[d_Rd_S]G$ is used
+to key the protocol:
 
 ```text
+AD('nonce',        meta=true)
+AD(LE_U64(LEN(N)), meta=true, more=true)
+RECV_CLR(N)
+
 AD('dh-shared-secret', meta=true)
 AD(LE_U64(LEN(Z)),     meta=true, more=true)
 KEY(Z)
@@ -134,7 +145,8 @@ AEAD, and a hybrid signcryption KEM combined with a STROBE-based AEAD.
 
 The STROBE-based AEAD is equivalent to Construction 5.6 of _Modern Cryptography 3e_ and is CCA-secure per Theorem 5.7,
 provided STROBE's encryption is CPA-secure. STROBE's `SEND_ENC` is equivalent to Construction 3.31 and is CPA-secure per
-Theorem 3.29, provided STROBE is a sufficiently strong pseudorandom function.
+Theorem 3.29, provided STROBE is a sufficiently strong pseudorandom function. The addition of the random nonce serves to
+ensure the key stream is unique for each plaintext, obscuring any patterns therein.
 
 The first KEM/DEM construction is equivalent to Construction 12.19 of _Modern Cryptography 3e_, and is CCA-secure per
 Theorem 12.22, provided the gap-CDH problem is hard relative to ristretto255 and STROBE is modeled as a random oracle.

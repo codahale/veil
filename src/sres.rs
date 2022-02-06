@@ -3,6 +3,7 @@
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::IsIdentity;
+use rand::RngCore;
 use secrecy::{ExposeSecret, Secret, SecretVec, Zeroize};
 
 use crate::akem;
@@ -10,7 +11,7 @@ use crate::constants::{MAC_LEN, SCALAR_LEN};
 use crate::strobe::Protocol;
 
 /// The number of bytes added to plaintext by [encrypt].
-pub const OVERHEAD: usize = SCALAR_LEN + SCALAR_LEN + MAC_LEN;
+pub const OVERHEAD: usize = NONCE_LEN + SCALAR_LEN + SCALAR_LEN + MAC_LEN;
 
 /// Given the sender's key pair, the recipient's public key, and a plaintext, encrypts the given
 /// plaintext and returns the ciphertext.
@@ -31,6 +32,11 @@ pub fn encrypt(
 
     // Receive the receiver's public key as cleartext.
     sres.receive("receiver-public-key", q_r.compress().as_bytes());
+
+    // Generate a random nonce and send it as cleartext.
+    let mut nonce = vec![0u8; NONCE_LEN];
+    rand::thread_rng().fill_bytes(&mut nonce);
+    out.extend(sres.send("nonce", &nonce));
 
     // Calculate the static Diffie-Hellman shared secret and use it to key the protocol.
     let z = diffie_hellman(d_s, q_r);
@@ -78,6 +84,10 @@ pub fn decrypt(
     // Send the receiver's public key as cleartext.
     sres.send("receiver-public-key", q_r.compress().as_bytes());
 
+    // Split off the nonce and receive it as cleartext.
+    let (nonce, ciphertext) = ciphertext.split_at(NONCE_LEN);
+    sres.receive("nonce", nonce);
+
     // Calculate the static Diffie-Hellman shared secret and use it to key the protocol.
     let z = diffie_hellman(d_r, q_s);
     sres.key("dh-shared-secret", z.expose_secret());
@@ -121,6 +131,8 @@ fn diffie_hellman(d: &Scalar, q: &RistrettoPoint) -> Secret<[u8; 32]> {
     z.zeroize();
     km
 }
+
+const NONCE_LEN: usize = 16;
 
 #[cfg(test)]
 pub mod tests {
