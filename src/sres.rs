@@ -11,7 +11,7 @@ use crate::constants::{MAC_LEN, SCALAR_LEN};
 use crate::strobe::Protocol;
 
 /// The number of bytes added to plaintext by [encrypt].
-pub const OVERHEAD: usize = NONCE_LEN + SCALAR_LEN + SCALAR_LEN + MAC_LEN;
+pub const OVERHEAD: usize = NONCE_LEN + SCALAR_LEN + SCALAR_LEN + MAC_LEN + MAC_LEN;
 
 /// Given the sender's key pair, the recipient's public key, and a plaintext, encrypts the given
 /// plaintext and returns the ciphertext.
@@ -49,14 +49,17 @@ pub fn encrypt(
     out.extend(sres.encrypt("challenge-scalar", r.as_bytes()));
     out.extend(sres.encrypt("proof-scalar", s.as_bytes()));
 
+    // Send the MAC of the scalars.
+    out.extend(sres.mac("dh-mac"));
+
     // Key the protocol with the AKEM key.
     sres.key("akem-shared-secret", k.expose_secret());
 
     // Encrypt and send the plaintext.
     out.extend(sres.encrypt("plaintext", plaintext));
 
-    // Generate and send a MAC.
-    out.extend(sres.mac("mac"));
+    // Generate and send a MAC of the plaintext.
+    out.extend(sres.mac("akem-mac"));
 
     out
 }
@@ -75,6 +78,13 @@ pub fn decrypt(
         return None;
     }
 
+    // Split the ciphertext into its components.
+    let (nonce, ciphertext) = ciphertext.split_at(NONCE_LEN);
+    let (r, ciphertext) = ciphertext.split_at(SCALAR_LEN);
+    let (s, ciphertext) = ciphertext.split_at(SCALAR_LEN);
+    let (dh_mac, ciphertext) = ciphertext.split_at(MAC_LEN);
+    let (ciphertext, akem_mac) = ciphertext.split_at(ciphertext.len() - MAC_LEN);
+
     // Initialize the protocol.
     let mut sres = Protocol::new("veil.sres");
 
@@ -84,23 +94,23 @@ pub fn decrypt(
     // Send the receiver's public key as cleartext.
     sres.send("receiver-public-key", q_r.compress().as_bytes());
 
-    // Split off the nonce and receive it as cleartext.
-    let (nonce, ciphertext) = ciphertext.split_at(NONCE_LEN);
+    // Receive the nonce as plaintext.
     sres.receive("nonce", nonce);
 
     // Calculate the static Diffie-Hellman shared secret and use it to key the protocol.
     let z = diffie_hellman(d_r, q_s);
     sres.key("dh-shared-secret", z.expose_secret());
 
-    // Decrypt and decode the veil.akem challenge scalar.
-    let (r, ciphertext) = ciphertext.split_at(SCALAR_LEN);
+    // Decrypt the veil.akem scalars.
     let r = sres.decrypt("challenge-scalar", r);
+    let s = sres.decrypt("proof-scalar", s);
+
+    // Verify the MAC of the scalars.
+    sres.verify_mac("dh-mac", dh_mac);
+
+    // Decode the scalars, having authenticated them with the MAC.
     let r = r.expose_secret().to_vec().try_into().expect("invalid scalar len");
     let r = Scalar::from_canonical_bytes(r)?;
-
-    // Decrypt and decode the veil.akem proof scalar.
-    let (s, ciphertext) = ciphertext.split_at(SCALAR_LEN);
-    let s = sres.decrypt("proof-scalar", s);
     let s = s.expose_secret().to_vec().try_into().expect("invalid scalar len");
     let s = Scalar::from_canonical_bytes(s)?;
 
@@ -110,11 +120,10 @@ pub fn decrypt(
         sres.key("akem-shared-secret", k.expose_secret());
 
         // Decrypt the ciphertext.
-        let (ciphertext, mac) = ciphertext.split_at(ciphertext.len() - MAC_LEN);
         let plaintext = sres.decrypt("plaintext", ciphertext);
 
         // Verify the MAC.
-        sres.verify_mac("mac", mac)?;
+        sres.verify_mac("akem-mac", akem_mac)?;
 
         Some(plaintext)
     })

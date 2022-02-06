@@ -37,8 +37,8 @@ KEY(Z)
 ```
 
 Third, the plaintext $P$ is encapsulated with [`veil.akem`](akem.md) using $(d_S, Q_S, Q_R)$, yielding the shared secret
-$k$, the challenge scalar $r$, and the proof scalar $s$. $r$ and $s$ are encrypted and sent as $S_0$ and $S_1$, and the
-protocol is keyed with $k$:
+$k$, the challenge scalar $r$, and the proof scalar $s$. $r$ and $s$ are encrypted and sent as $S_0$ and $S_1$, and a
+MAC $M_0$ is generated and sent:
 
 ```text
 AD('challenge-scalar', meta=true)
@@ -49,29 +49,34 @@ AD('proof-scalar', meta=true)
 AD(LE_U64(LEN(s)), meta=true, more=true)
 SEND_ENC(s) -> S_1
 
+AD('dh-mac',    meta=true)
+AD(LE_U64(N_M), meta=true, more=true)
+SEND_MAC(N_M) -> M_0
+```
+
+Finally, the protocol is keyed with $k$, the plaintext $P$ is encrypted and sent as ciphertext $C$, and a MAC $M_1$ is
+generated and sent:
+
+```text
 AD('akem-shared-secret', meta=true)
 AD(LE_U64(LEN(N_K)),     meta=true, more=true)
 KEY(k)
-```
 
-Finally, the plaintext $P$ is encrypted and sent as ciphertext $C$, and a MAC $M$ is generated and sent:
-
-```text
 AD('plaintext',    meta=true)
 AD(LE_U64(LEN(r)), meta=true, more=true)
 SEND_ENC(P) -> C
 
-AD('mac',       meta=true)
+AD('akem-mac',  meta=true)
 AD(LE_U64(N_M), meta=true, more=true)
-SEND_MAC(N_M) -> M
+SEND_MAC(N_M) -> M_1
 ```
 
-The final ciphertext is $N || S_0 || S_1 || C || M$.
+The final ciphertext is $N || S_0 || S_1 || M_0 || C || M_1$.
 
 ## Decryption
 
 Encryption takes a recipient's key pair, $(d_R, Q_R)$, a sender's public key, $Q_S$, a nonce $N$, two encrypted scalars
-$(S_0, S_1)$, a ciphertext $C$, and a MAC $M$.
+$(S_0, S_1)$, a ciphertext $C$, and MACs $M_0$ and $M_1$.
 
 First, the protocol is initialized and the sender and recipient's public keys are received and sent, respectively:
 
@@ -100,7 +105,7 @@ AD(LE_U64(LEN(Z)),     meta=true, more=true)
 KEY(Z)
 ```
 
-Third, the challenge scalar $r$ and the proof scalar $s$ are decrypted:
+Third, the challenge scalar $r$ and the proof scalar $s$ are decrypted and verified:
 
 ```text
 AD('challenge-scalar', meta=true)
@@ -110,7 +115,13 @@ RECV_ENC(S_0) -> r
 AD('proof-scalar', meta=true)
 AD(LE_U64(LEN(S_1)), meta=true, more=true)
 SEND_ENC(S_1) -> s
+
+AD('dh-mac',    meta=true)
+AD(LE_U64(N_M), meta=true, more=true)
+RECV_MAC(M_0)
 ```
+
+If the `RECV_MAC` call is unsuccessful, an error is returned.
 
 Fourth, the scalars are decapsulated with [`veil.akem`](akem.md) using $(d_R, Q_R, Q_S)$, returning a shared secret $k$
 and a verification context $V$. The protocol is keyed with the shared secret $k$:
@@ -130,7 +141,7 @@ RECV_ENC(C) -> P
 
 AD('mac',       meta=true)
 AD(LE_U64(N_M), meta=true, more=true)
-RECV_MAC(M)
+RECV_MAC(M_1)
 ```
 
 If the `RECV_MAC` call is unsuccessful, an error is returned.
