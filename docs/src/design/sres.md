@@ -177,16 +177,24 @@ requirement for the insider-security of the full [signcryption scheme][dent]:
 The SUF-CMA security of STROBE's `SEND_MAC`/`VERIFY_MAC` operations preclude an attacker from finding $(C_1, C_2')$ in
 polynomial time.
 
+## Indistinguishability From Random Noise
+
+`veil.sres` ciphertexts are indistinguishable from random bitstrings. They consist exclusively of random data, STROBE
+`SEND_ENC` output, and STROBE `PRF` output. A passive adversary capable of distinguishing between a valid ciphertext and
+a random bitstring would violate the CPA-security of STROBE.
+
+Consequently, a passive adversary scanning for encoded points would first need the parties' static Diffie-Hellman secret
+in order to distinguish messages from random noise.
+
 ## IK-CCA Security
 
 `veil.sres` is IK-CCA secure (per [Bellare][ik-cca]), in that it is impossible for an attacker in possession of two
 public keys to determine which of the two keys a given ciphertext was encrypted with in either chosen-plaintext or
-chosen-ciphertext attacks. Informally, `veil.sres` ciphertexts consist exclusively of random data, STROBE ciphertext,
-and PRF output; an attacker being able to distinguish between ciphertexts based on keying material would imply STROBE's
-AEAD construction is not IND-CCA2.
+chosen-ciphertext attacks.
 
-Consequently, a passive adversary scanning for encoded points would first need the parties' static Diffie-Hellman secret
-in order to distinguish messages from random noise.
+Informally, `veil.sres` ciphertexts consist exclusively of random data, STROBE ciphertext, and PRF output; an attacker
+being able to distinguish between ciphertexts based on keying material would imply the STROBE AEAD construction is not
+IND-CCA2 or that the discrete-logarithm problem is not hard for ristretto255.
 
 ## Forward Sender Security
 
