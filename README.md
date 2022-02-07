@@ -1,4 +1,4 @@
-# veil-rs
+# veil
 
 _Stupid crypto tricks._
 

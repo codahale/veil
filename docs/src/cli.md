@@ -7,7 +7,7 @@ The Veil cryptosystem is implemented as a command line tool `veil`.
 To install it, check out this repository and build it yourself:
 
 ```shell
-git clone https://github.com/codahale/veil-rs
+git clone https://github.com/codahale/veil
 cargo install
 ```
 
