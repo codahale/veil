@@ -60,9 +60,10 @@ impl Protocol {
     }
 
     /// Receive the data as cleartext.
-    pub fn receive(&mut self, label: &str, data: &[u8]) {
+    pub fn receive<'a>(&mut self, label: &str, data: &'a [u8]) -> &'a [u8] {
         self.meta_ad_len(label, data.len() as u64);
         self.0.recv_clr(data, false);
+        data
     }
 
     /// Encrypt the given plaintext and return the ciphertext.

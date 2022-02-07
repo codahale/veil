@@ -22,61 +22,44 @@ AD(LE_U64(LEN(Q_R)),      meta=true, more=true)
 RECV_CLR(Q_R)
 ```
 
-Second, a random nonce $N$ is generated and sent as cleartext, and the Diffie-Hellman shared secret point
-$Z=[d_S]Q_R=[d_Sd_R]G$ is used to key the protocol:
+Second, the plaintext $P$ is encapsulated with [`veil.akem`](akem.md) using $(d_S, Q_S, Q_R)$, yielding the shared secret
+$k$, the challenge scalar $r$, and the proof scalar $s$.
 
-```text
-rand(16) -> N
-AD('nonce',        meta=true)
-AD(LE_U64(LEN(N)), meta=true, more=true)
-SEND_CLR(N)
-
-AD('dh-shared-secret', meta=true)
-AD(LE_U64(LEN(Z)),     meta=true, more=true)
-KEY(Z)
-```
-
-Third, the plaintext $P$ is encapsulated with [`veil.akem`](akem.md) using $(d_S, Q_S, Q_R)$, yielding the shared secret
-$k$, the challenge scalar $r$, and the proof scalar $s$. $r$ and $s$ are encrypted and sent as $S_0$ and $S_1$, and a
-MAC $M_0$ is generated and sent:
+$r$ and $s$ are masked with random data and sent as $S_0$ and $S_1$:
 
 ```text
 AD('challenge-scalar', meta=true)
 AD(LE_U64(LEN(r)),     meta=true, more=true)
-SEND_ENC(r) -> S_0
+SEND_CLR(mask(r)) -> S_0
 
 AD('proof-scalar', meta=true)
 AD(LE_U64(LEN(s)), meta=true, more=true)
-SEND_ENC(s) -> S_1
-
-AD('dh-mac',    meta=true)
-AD(LE_U64(N_M), meta=true, more=true)
-SEND_MAC(N_M) -> M_0
+SEND_CLR(mask(s)) -> S_1
 ```
 
-Finally, the protocol is keyed with $k$, the plaintext $P$ is encrypted and sent as ciphertext $C$, and a MAC $M_1$ is
+Finally, the protocol is keyed with $k$, the plaintext $P$ is encrypted and sent as ciphertext $C$, and a MAC $M$ is
 generated and sent:
 
 ```text
-AD('akem-shared-secret', meta=true)
-AD(LE_U64(LEN(N_K)),     meta=true, more=true)
+AD('shared-secret',  meta=true)
+AD(LE_U64(LEN(N_K)), meta=true, more=true)
 KEY(k)
 
 AD('plaintext',    meta=true)
 AD(LE_U64(LEN(r)), meta=true, more=true)
 SEND_ENC(P) -> C
 
-AD('akem-mac',  meta=true)
+AD('mac',  meta=true)
 AD(LE_U64(N_M), meta=true, more=true)
-SEND_MAC(N_M) -> M_1
+SEND_MAC(N_M) -> M
 ```
 
-The final ciphertext is $N || S_0 || S_1 || M_0 || C || M_1$.
+The final ciphertext is $S_0 || S_1 || C || M$.
 
 ## Decryption
 
-Encryption takes a recipient's key pair, $(d_R, Q_R)$, a sender's public key, $Q_S$, a nonce $N$, two encrypted scalars
-$(S_0, S_1)$, a ciphertext $C$, and MACs $M_0$ and $M_1$.
+Encryption takes a recipient's key pair, $(d_R, Q_R)$, a sender's public key, $Q_S$, two masked scalars
+$(S_0, S_1)$, a ciphertext $C$, and a MAC $M$.
 
 First, the protocol is initialized and the sender and recipient's public keys are received and sent, respectively:
 
@@ -92,47 +75,28 @@ AD(LE_U64(LEN(Q_R)),      meta=true, more=true)
 SEND_CLR(Q_R)
 ```
 
-Second, the nonce $N$ is received as cleartext and the Diffie-Hellman shared secret point $Z=[d_R]Q_S=[d_Rd_S]G$ is used
-to key the protocol:
-
-```text
-AD('nonce',        meta=true)
-AD(LE_U64(LEN(N)), meta=true, more=true)
-RECV_CLR(N)
-
-AD('dh-shared-secret', meta=true)
-AD(LE_U64(LEN(Z)),     meta=true, more=true)
-KEY(Z)
-```
-
-Third, the challenge scalar $r$ and the proof scalar $s$ are decrypted and verified:
+Second, the challenge scalar $r$ and the proof scalar $s$ are received and unmasked:
 
 ```text
 AD('challenge-scalar', meta=true)
 AD(LE_U64(LEN(S_0)),     meta=true, more=true)
-RECV_ENC(S_0) -> r
+RECV_CLR(S_0) -> r
 
 AD('proof-scalar', meta=true)
 AD(LE_U64(LEN(S_1)), meta=true, more=true)
-SEND_ENC(S_1) -> s
-
-AD('dh-mac',    meta=true)
-AD(LE_U64(N_M), meta=true, more=true)
-RECV_MAC(M_0)
+SEND_CLR(S_1) -> s
 ```
 
-If the `RECV_MAC` call is unsuccessful, an error is returned.
-
-Fourth, the scalars are decapsulated with [`veil.akem`](akem.md) using $(d_R, Q_R, Q_S)$, returning a shared secret $k$
+Third, the scalars are decapsulated with [`veil.akem`](akem.md) using $(d_R, Q_R, Q_S)$, returning a shared secret $k$
 and a verification context $V$. The protocol is keyed with the shared secret $k$:
 
 ```text
-AD('akem-shared-secret', meta=true)
+AD('shared-secret', meta=true)
 AD(LE_U64(LEN(N_K)),     meta=true, more=true)
 KEY(k)
 ```
 
-Fifth, the ciphertext $C$ is decrypted and the MAC $M$ is verified:
+Fourth, the ciphertext $C$ is decrypted and the MAC $M$ is verified:
 
 ```text
 AD('plaintext',    meta=true)
@@ -141,7 +105,7 @@ RECV_ENC(C) -> P
 
 AD('mac',       meta=true)
 AD(LE_U64(N_M), meta=true, more=true)
-RECV_MAC(M_1)
+RECV_MAC(M)
 ```
 
 If the `RECV_MAC` call is unsuccessful, an error is returned.
@@ -151,20 +115,14 @@ plaintext $P$. If the plaintext is verified, $P$ is returned.
 
 ## IND-CCA2 Security
 
-This construction combines two overlapping KEM/DEM constructions: an "El Gamal-like" KEM combined with a STROBE-based
-AEAD, and a hybrid signcryption KEM combined with a STROBE-based AEAD.
+This construction combines the CCA-secure [`veil.akem`](akem.md) KEM with a STROBE-based CCA-secure DEM.
 
 The STROBE-based AEAD is equivalent to Construction 5.6 of _Modern Cryptography 3e_ and is CCA-secure per Theorem 5.7,
 provided STROBE's encryption is CPA-secure. STROBE's `SEND_ENC` is equivalent to Construction 3.31 and is CPA-secure per
-Theorem 3.29, provided STROBE is a sufficiently strong pseudorandom function. The addition of the random nonce serves to
-ensure the key stream is unique for each plaintext, obscuring any patterns therein.
+Theorem 3.29, provided STROBE is a sufficiently strong pseudorandom function.
 
-The first KEM/DEM construction is equivalent to Construction 12.19 of _Modern Cryptography 3e_, and is CCA-secure per
-Theorem 12.22, provided the gap-CDH problem is hard relative to ristretto255 and STROBE is modeled as a random oracle.
-
-The second KEM/DEM construction is detailed in the [`veil.akem`](akem.md) documentation and is CCA-secure. The inclusion
-of MAC verification before plaintext verification ensures that the DEM component is [committing][cce], which is a
-requirement for the insider-security of the full [signcryption scheme][dent]:
+The inclusion of MAC verification before plaintext verification ensures that the DEM component is [committing][cce],
+which is a requirement for the insider-security of the full [signcryption scheme][dent]:
 
 > Since we require a signcryption scheme to have strong unforgeability, we actually require another property from the 
 > DEM. We require that the decryption algorithm is one-to-one, i.e. we require that, for any symmetric key $K$,
@@ -179,12 +137,17 @@ polynomial time.
 
 ## Indistinguishability From Random Noise
 
-`veil.sres` ciphertexts are indistinguishable from random bitstrings. They consist exclusively of random data, STROBE
-`SEND_ENC` output, and STROBE `PRF` output. A passive adversary capable of distinguishing between a valid ciphertext and
-a random bitstring would violate the CPA-security of STROBE.
+`veil.sres` ciphertexts are indistinguishable from random bitstrings.
 
-Consequently, a passive adversary scanning for encoded points would first need the parties' static Diffie-Hellman secret
-in order to distinguish messages from random noise.
+The [`veil.akem`](akem.md) scalars $r$ and $s$ are uniformly distributed modulo
+$\ell = 2^{252} + 27742317777372353535851937790883648493$, which leaves the top four bits of the top byte effectively
+unset. These bits are masked with randomly-generated values before being sent and cleared after being received. As a
+result, they are fully uniformly distributed and indistinguishable from random noise. Any 256-bit string will be decoded
+into a valid scalar, making active distinguishers impossible.
+
+The remainder of the ciphertext consists exclusively of STROBE `SEND_ENC` output, and STROBE `PRF` output. A passive
+adversary capable of distinguishing between a valid ciphertext and a random bitstring would violate the CPA-security of
+STROBE.
 
 ## IK-CCA Security
 
@@ -192,9 +155,8 @@ in order to distinguish messages from random noise.
 public keys to determine which of the two keys a given ciphertext was encrypted with in either chosen-plaintext or
 chosen-ciphertext attacks.
 
-Informally, `veil.sres` ciphertexts consist exclusively of random data, STROBE ciphertext, and PRF output; an attacker
-being able to distinguish between ciphertexts based on keying material would imply the STROBE AEAD construction is not
-IND-CCA2 or that the discrete-logarithm problem is not hard for ristretto255.
+Informally, `veil.sres` ciphertexts consist exclusively of STROBE ciphertext and PRF output; an attacker being able to
+distinguish between ciphertexts based on keying material would imply the STROBE AEAD construction is not IND-CCA2.
 
 ## Forward Sender Security
 
