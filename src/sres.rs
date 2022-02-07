@@ -32,15 +32,14 @@ pub fn encrypt(
     // Receive the receiver's public key as cleartext.
     sres.receive("receiver-public-key", q_r.compress().as_bytes());
 
-    // Generate an ephemeral private key.
+    // Generate a secret commitment scalar.
     let x = sres.hedge(d_s.as_bytes(), |clone| {
         // Also hedge with the plaintext message to ensure (d_s, plaintext, t) uniqueness.
         clone.ad("plaintext", plaintext);
         clone.prf_scalar("commitment-scalar")
     });
 
-    // Calculate the Diffie-Hellman shared secret for the ephemeral private key and the
-    // recipient's public key and key the protocol with it.
+    // Calculate the shared secret and use it to key the protocol.
     let k = q_r * x.expose_secret();
     sres.key("shared-secret", compress_secret(k).expose_secret());
 
