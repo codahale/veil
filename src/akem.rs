@@ -21,40 +21,47 @@ pub fn encapsulate(
     q_r: &RistrettoPoint,
     plaintext: &[u8],
 ) -> (SecretVec<u8>, (Scalar, Scalar)) {
-    // Initialize the protocol.
-    let mut akem = Protocol::new("veil.akem");
+    loop {
+        // Initialize the protocol.
+        let mut akem = Protocol::new("veil.akem");
 
-    // Send the sender's public key as cleartext.
-    akem.send("sender-public-key", q_s.compress().as_bytes());
+        // Send the sender's public key as cleartext.
+        akem.send("sender-public-key", q_s.compress().as_bytes());
 
-    // Receive the receiver's public key as cleartext.
-    akem.receive("receiver-public-key", q_r.compress().as_bytes());
+        // Receive the receiver's public key as cleartext.
+        akem.receive("receiver-public-key", q_r.compress().as_bytes());
 
-    // Generate a secret commitment scalar.
-    let t = akem.hedge(d_s.as_bytes(), |clone| {
-        // Also hedge with the plaintext message to ensure (d_s, plaintext, t) uniqueness.
-        clone.key("plaintext", plaintext);
-        clone.prf_scalar("commitment-scalar")
-    });
+        // Generate a secret commitment scalar.
+        let t = akem.hedge(d_s.as_bytes(), |clone| {
+            // Also hedge with the plaintext message to ensure (d_s, plaintext, t) uniqueness.
+            clone.key("plaintext", plaintext);
+            clone.prf_scalar("commitment-scalar")
+        });
 
-    // Calculate the commitment point and add it as associated data.
-    let x = q_r * t.expose_secret();
-    akem.ad("commitment-point", x.compress().as_bytes());
+        // Calculate the commitment point and add it as associated data.
+        let x = q_r * t.expose_secret();
+        akem.ad("commitment-point", x.compress().as_bytes());
 
-    // Extract the shared secret.
-    let k = Secret::new(akem.prf_vec("shared-secret", KEY_LEN));
+        // Extract the shared secret.
+        let k = Secret::new(akem.prf_vec("shared-secret", KEY_LEN));
 
-    // Add the plaintext message as associated data.
-    akem.ad("plaintext", plaintext);
+        // Add the plaintext message as associated data.
+        akem.ad("plaintext", plaintext);
 
-    // Extract a challenge scalar from PRF output.
-    let r = akem.prf_scalar("challenge-scalar");
+        // Extract a challenge scalar from PRF output.
+        let r = akem.prf_scalar("challenge-scalar");
 
-    // Calculate the proof scalar.
-    let s = t.expose_secret() * (r + d_s).invert();
+        // Calculate the proof scalar, or if the proof scalar is undefined, try again with a
+        // different commitment scalar.
+        let z = r + d_s;
+        if z == Scalar::zero() {
+            continue;
+        }
+        let s = t.expose_secret() * z.invert();
 
-    // Return the shared secret and thw two signature scalars.
-    (k, (r, s))
+        // Return the shared secret and thw two signature scalars.
+        return (k, (r, s));
+    }
 }
 
 /// Given the recipient's key pair, the sender's public key, the two scalars returned by
