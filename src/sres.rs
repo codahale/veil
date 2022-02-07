@@ -20,55 +20,53 @@ pub fn encrypt(
     q_r: &RistrettoPoint,
     plaintext: &[u8],
 ) -> Vec<u8> {
-    loop {
-        // Allocate an output buffer.
-        let mut out = Vec::with_capacity(plaintext.len() + OVERHEAD);
+    // Allocate an output buffer.
+    let mut out = Vec::with_capacity(plaintext.len() + OVERHEAD);
 
-        // Initialize the protocol.
-        let mut sres = Protocol::new("veil.sres");
+    // Initialize the protocol.
+    let mut sres = Protocol::new("veil.sres");
 
-        // Send the sender's public key as cleartext.
-        sres.send("sender-public-key", q_s.compress().as_bytes());
+    // Send the sender's public key as cleartext.
+    sres.send("sender-public-key", q_s.compress().as_bytes());
 
-        // Receive the receiver's public key as cleartext.
-        sres.receive("receiver-public-key", q_r.compress().as_bytes());
+    // Receive the receiver's public key as cleartext.
+    sres.receive("receiver-public-key", q_r.compress().as_bytes());
 
-        // Generate an ephemeral private key.
-        let x = sres.hedge(d_s.as_bytes(), |clone| {
-            // Also hedge with the plaintext message to ensure (d_s, plaintext, t) uniqueness.
-            clone.ad("plaintext", plaintext);
-            clone.prf_scalar("commitment-scalar")
-        });
+    // Generate an ephemeral private key.
+    let x = sres.hedge(d_s.as_bytes(), |clone| {
+        // Also hedge with the plaintext message to ensure (d_s, plaintext, t) uniqueness.
+        clone.ad("plaintext", plaintext);
+        clone.prf_scalar("commitment-scalar")
+    });
 
-        // Calculate the Diffie-Hellman shared secret for the ephemeral private key and the
-        // recipient's public key and key the protocol with it.
-        let k = q_r * x.expose_secret();
-        sres.key("shared-secret", compress_secret(k).expose_secret());
+    // Calculate the Diffie-Hellman shared secret for the ephemeral private key and the
+    // recipient's public key and key the protocol with it.
+    let k = q_r * x.expose_secret();
+    sres.key("shared-secret", compress_secret(k).expose_secret());
 
-        // Encrypt and send the plaintext.
-        out.extend(sres.encrypt("plaintext", plaintext));
+    // Encrypt and send the plaintext.
+    out.extend(sres.encrypt("plaintext", plaintext));
 
-        // Extract a challenge scalar from PRF output.
-        let r = sres.prf_scalar("challenge-scalar");
+    // Extract a challenge scalar from PRF output.
+    let r = sres.prf_scalar("challenge-scalar");
 
-        // Calculate the proof scalar, or if the proof scalar is undefined, try again with a
-        // different commitment scalar.
-        let y = r + d_s;
-        if y == Scalar::zero() {
-            continue;
-        }
-        let s = x.expose_secret() * y.invert();
-
-        // Mask and send the scalars in cleartext.
-        out.extend(sres.send("challenge-scalar", &mask_scalar(&r)));
-        out.extend(sres.send("proof-scalar", &mask_scalar(&s)));
-
-        // Generate and send a MAC.
-        out.extend(sres.mac("mac"));
-
-        // Return the full ciphertext.
-        return out;
+    // Calculate the proof scalar, or if the proof scalar is undefined, try again with a
+    // different commitment scalar.
+    let y = r + d_s;
+    if y == Scalar::zero() {
+        return encrypt(d_s, q_s, q_r, plaintext);
     }
+    let s = x.expose_secret() * y.invert();
+
+    // Mask and send the scalars in cleartext.
+    out.extend(sres.send("challenge-scalar", &mask_scalar(&r)));
+    out.extend(sres.send("proof-scalar", &mask_scalar(&s)));
+
+    // Generate and send a MAC.
+    out.extend(sres.mac("mac"));
+
+    // Return the full ciphertext.
+    out
 }
 
 /// Given the recipient's key pair, the sender's public key, and a ciphertext, decrypts the given
