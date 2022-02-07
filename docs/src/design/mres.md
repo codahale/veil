@@ -189,9 +189,9 @@ say `PAY MALLORY $100`, `GIVE HER YOUR CAR`, `DO WHAT SHE SAYS`, while the last 
 
 ## Deniability
 
-The headers are signcrypted with [`veil.sres`](sres.md), which achieves both authentication and deniability via
-[`veil.akem`](akem.md). The message itself is encrypted with a randomly-generated symmetric key, which isn't tied to any
-identity. The final [`veil.schnorr`](schnorr.md) signature is created with a randomly-generated ephemeral key.
+The headers are signcrypted with [`veil.sres`](sres.md), which achieves both authentication and deniability. The message
+itself is encrypted with a randomly-generated symmetric key, which isn't tied to any identity. The final
+[`veil.schnorr`](schnorr.md) signature is created with a randomly-generated ephemeral key.
 
 Despite providing strong authenticity, `veil.mres` produces fully deniable ciphertexts.
 

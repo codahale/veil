@@ -68,7 +68,6 @@
 
 pub use self::veil::*;
 
-mod akem;
 mod constants;
 mod mres;
 mod pbenc;
