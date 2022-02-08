@@ -74,7 +74,7 @@ pub fn encrypt_and_decrypt_a_message() -> Result<()> {
 
     // Bea reads the message.
     let msg = fs::read_to_string(plaintext_path)?;
-    assert_eq!("this is a secret message", msg);
+    assert_eq!("this is a secret message", msg, "invalid plaintext");
 
     Ok(())
 }
