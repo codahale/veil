@@ -49,13 +49,15 @@ pub fn encrypt(
     // Extract a challenge scalar from PRF output.
     let r = sres.prf_scalar("challenge-scalar");
 
-    // Calculate the proof scalar, or if the proof scalar is undefined, try again with a
-    // different commitment scalar.
-    let y = r + d_s;
-    if y == Scalar::zero() {
-        return encrypt(d_s, q_s, q_r, plaintext);
-    }
-    let s = x.expose_secret() * y.invert();
+    // Calculate the proof scalar.
+    let s = {
+        let y = r + d_s;
+        if y == Scalar::zero() {
+            // If the proof scalar is undefined, try again with a different commitment scalar.
+            return encrypt(d_s, q_s, q_r, plaintext);
+        }
+        x.expose_secret() * y.invert()
+    };
 
     // Mask and send the scalars in cleartext.
     out.extend(sres.send("challenge-scalar", &mask_scalar(&r)));
