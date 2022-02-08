@@ -169,9 +169,10 @@ mod tests {
         let passphrase = "this is a secret";
         let message = b"this is too";
         let ciphertext = encrypt(passphrase, 5, 3, message);
-        let plaintext = decrypt(passphrase, &ciphertext);
 
-        assert_eq!(message.as_slice(), plaintext.unwrap().expose_secret());
+        let plaintext = decrypt(passphrase, &ciphertext);
+        assert!(plaintext.is_some(), "couldn't decrypt valid ciphertext");
+        assert_eq!(message.as_slice(), plaintext.unwrap().expose_secret(), "invalid plaintext");
     }
 
     #[test]
@@ -180,7 +181,9 @@ mod tests {
         let message = b"this is too";
         let ciphertext = encrypt(passphrase, 5, 3, message);
 
-        assert!(decrypt("whoops", &ciphertext).is_none());
+        let plaintext = decrypt("whoops", &ciphertext);
+        let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
+        assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
     #[test]
@@ -190,7 +193,9 @@ mod tests {
         let mut ciphertext = encrypt(passphrase, 5, 3, message);
         ciphertext[0] ^= 1;
 
-        assert!(decrypt(passphrase, &ciphertext).is_none());
+        let plaintext = decrypt(passphrase, &ciphertext);
+        let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
+        assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
     #[test]
@@ -200,7 +205,9 @@ mod tests {
         let mut ciphertext = encrypt(passphrase, 5, 3, message);
         ciphertext[8] ^= 1;
 
-        assert!(decrypt(passphrase, &ciphertext).is_none());
+        let plaintext = decrypt(passphrase, &ciphertext);
+        let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
+        assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
     #[test]
@@ -210,7 +217,9 @@ mod tests {
         let mut ciphertext = encrypt(passphrase, 5, 3, message);
         ciphertext[9] ^= 1;
 
-        assert!(decrypt(passphrase, &ciphertext).is_none());
+        let plaintext = decrypt(passphrase, &ciphertext);
+        let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
+        assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
     #[test]
@@ -220,7 +229,9 @@ mod tests {
         let mut ciphertext = encrypt(passphrase, 5, 3, message);
         ciphertext[OVERHEAD - MAC_LEN + 1] ^= 1;
 
-        assert!(decrypt(passphrase, &ciphertext).is_none());
+        let plaintext = decrypt(passphrase, &ciphertext);
+        let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
+        assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
     #[test]
@@ -230,6 +241,8 @@ mod tests {
         let mut ciphertext = encrypt(passphrase, 5, 3, message);
         ciphertext[message.len() + OVERHEAD - 1] ^= 1;
 
-        assert!(decrypt(passphrase, &ciphertext).is_none());
+        let plaintext = decrypt(passphrase, &ciphertext);
+        let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
+        assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 }
