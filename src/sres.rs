@@ -159,7 +159,7 @@ fn unmask_scalar(mut b: [u8; 32]) -> Scalar {
 }
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 
     use super::*;
@@ -231,7 +231,7 @@ pub mod tests {
         assert_eq!(s, unmasked);
     }
 
-    pub fn setup() -> (Scalar, RistrettoPoint, Scalar, RistrettoPoint) {
+    fn setup() -> (Scalar, RistrettoPoint, Scalar, RistrettoPoint) {
         let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &G * &d_s;
 
