@@ -171,8 +171,8 @@ mod tests {
         let ciphertext = encrypt(&d_s, &q_s, &q_r, plaintext);
 
         let recovered = decrypt(&d_r, &q_r, &q_s, &ciphertext);
-        assert!(recovered.is_some());
-        assert_eq!(plaintext.as_slice(), recovered.unwrap().expose_secret());
+        let recovered = recovered.map(|s| s.expose_secret().to_vec());
+        assert_eq!(Some(plaintext.to_vec()), recovered, "invalid plaintext");
     }
 
     #[test]
@@ -183,7 +183,9 @@ mod tests {
 
         let d_r = Scalar::random(&mut rand::thread_rng());
 
-        assert!(decrypt(&d_r, &q_r, &q_s, &ciphertext).is_none());
+        let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
+        let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
+        assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
     #[test]
@@ -194,7 +196,9 @@ mod tests {
 
         let q_r = RistrettoPoint::random(&mut rand::thread_rng());
 
-        assert!(decrypt(&d_r, &q_r, &q_s, &ciphertext).is_none());
+        let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
+        let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
+        assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
     #[test]
@@ -205,7 +209,9 @@ mod tests {
 
         let q_s = RistrettoPoint::random(&mut rand::thread_rng());
 
-        assert!(decrypt(&d_r, &q_r, &q_s, &ciphertext).is_none());
+        let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
+        let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
+        assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
     #[test]
@@ -218,7 +224,12 @@ mod tests {
             for j in 0u8..8 {
                 let mut ciphertext = ciphertext.clone();
                 ciphertext[i] ^= 1 << j;
-                assert!(decrypt(&d_r, &q_r, &q_s, &ciphertext).is_none(), "byte {}, bit {}", i, j);
+                assert!(
+                    decrypt(&d_r, &q_r, &q_s, &ciphertext).is_none(),
+                    "bit flip at byte {}, bit {} produced a valid message",
+                    i,
+                    j
+                );
             }
         }
     }
@@ -228,7 +239,7 @@ mod tests {
         let s = Scalar::random(&mut rand::thread_rng());
         let masked = mask_scalar(&s);
         let unmasked = unmask_scalar(masked);
-        assert_eq!(s, unmasked);
+        assert_eq!(s, unmasked, "non-bijective unmasking");
     }
 
     fn setup() -> (Scalar, RistrettoPoint, Scalar, RistrettoPoint) {
