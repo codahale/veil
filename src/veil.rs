@@ -1,10 +1,10 @@
 //! The Veil hybrid cryptosystem.
 
+use std::{fmt, io, iter};
 use std::convert::TryInto;
 use std::fmt::{Debug, Formatter};
 use std::io::{BufWriter, Read, Write};
 use std::str::FromStr;
-use std::{fmt, io, iter};
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
@@ -14,8 +14,8 @@ use rand::RngCore;
 use secrecy::{ExposeSecret, Secret, SecretVec};
 use thiserror::Error;
 
-use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::{mres, pbenc, scaldf};
+use crate::schnorr::{SIGNATURE_LEN, Signer, Verifier};
 
 /// Error due to invalid public key format.
 #[derive(Error, Debug, Eq, PartialEq, Copy, Clone)]
@@ -288,7 +288,12 @@ impl PublicKey {
     {
         let mut verifier = Verifier::new();
         io::copy(reader, &mut verifier)?;
-        verifier.verify(&self.q, &sig.sig).then(|| ()).ok_or(VerificationError::InvalidSignature)
+
+        if verifier.verify(&self.q, &sig.sig) {
+            Ok(())
+        } else {
+            Err(VerificationError::InvalidSignature)
+        }
     }
 
     /// Derive a public key with the given key ID.
