@@ -83,9 +83,9 @@ pub fn decrypt(
     }
 
     // Split the ciphertext into its components.
-    let (ciphertext, mac) = ciphertext.split_at(ciphertext.len() - MAC_LEN);
-    let (ciphertext, ms) = ciphertext.split_at(ciphertext.len() - SCALAR_LEN);
-    let (ciphertext, mr) = ciphertext.split_at(ciphertext.len() - SCALAR_LEN);
+    let (ciphertext, mr) = ciphertext.split_at(ciphertext.len() - OVERHEAD);
+    let (mr, ms) = mr.split_at(SCALAR_LEN);
+    let (ms, mac) = ms.split_at(SCALAR_LEN);
 
     // Unmask the scalars.
     let r = unmask_scalar(mr.try_into().expect("invalid scalar len"));
