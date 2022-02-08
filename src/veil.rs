@@ -143,8 +143,7 @@ impl PrivateKey {
         self.pk
     }
 
-    /// Encrypt the contents of the reader such that any of the recipients will be able to decrypt
-    /// it with authenticity and writes the ciphertext to the writer.
+    /// Encrypt the contents of the reader and write the ciphertext to the writer.
     ///
     /// Optionally add a number of fake recipients to disguise the number of true recipients and/or
     /// random padding to disguise the message length.
@@ -183,10 +182,10 @@ impl PrivateKey {
         )
     }
 
-    /// Decrypt the contents of the reader, if possible, and writes the plaintext to the writer.
+    /// Decrypt the contents of the reader, if possible, and write the plaintext to the writer.
     ///
     /// If the ciphertext has been modified, was not sent by the sender, or was not encrypted for
-    /// this private key, will return [DecryptionError::InvalidCiphertext].
+    /// this private key, returns [DecryptionError::InvalidCiphertext].
     pub fn decrypt<R, W>(
         &self,
         reader: &mut R,
@@ -212,7 +211,7 @@ impl PrivateKey {
         }
     }
 
-    /// Read the contents of the reader and returns a digital signature.
+    /// Read the contents of the reader and return a digital signature.
     pub fn sign<R>(&self, reader: &mut R) -> io::Result<Signature>
     where
         R: Read,
