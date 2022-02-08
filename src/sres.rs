@@ -165,6 +165,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn scalar_masking() {
+        let s = Scalar::random(&mut rand::thread_rng());
+        let masked = mask_scalar(&s);
+        let unmasked = unmask_scalar(masked);
+        assert_eq!(s, unmasked, "non-bijective unmasking");
+    }
+
+    #[test]
     fn round_trip() {
         let (d_s, q_s, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
@@ -232,14 +240,6 @@ mod tests {
                 );
             }
         }
-    }
-
-    #[test]
-    fn scalar_masking() {
-        let s = Scalar::random(&mut rand::thread_rng());
-        let masked = mask_scalar(&s);
-        let unmasked = unmask_scalar(masked);
-        assert_eq!(s, unmasked, "non-bijective unmasking");
     }
 
     fn setup() -> (Scalar, RistrettoPoint, Scalar, RistrettoPoint) {
