@@ -322,15 +322,15 @@ mod tests {
         let mut dst = Cursor::new(Vec::new());
 
         let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, vec![q_s, q_r], 123)?;
-        assert_eq!(dst.position(), ctx_len);
+        assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
         let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
-        assert_eq!(dst.position(), ptx_len);
-        assert_eq!(message.to_vec(), dst.into_inner());
-        assert!(verified);
+        assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
+        assert_eq!(message.to_vec(), dst.into_inner(), "incorrect plaintext");
+        assert!(verified, "valid message not verified");
 
         Ok(())
     }
@@ -348,16 +348,15 @@ mod tests {
         let mut dst = Cursor::new(Vec::new());
 
         let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, vec![q_s, q_r], 123)?;
-        assert_eq!(dst.position(), ctx_len);
+        assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
         let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
-        assert_eq!(dst.position(), ptx_len);
-        assert_eq!(message.len() as u64, ptx_len);
-        assert_eq!(message.to_vec(), dst.into_inner());
-        assert!(verified);
+        assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
+        assert_eq!(message.to_vec(), dst.into_inner(), "incorrect plaintext");
+        assert!(verified, "valid message not verified");
 
         Ok(())
     }
@@ -375,15 +374,15 @@ mod tests {
         let mut dst = Cursor::new(Vec::new());
 
         let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, vec![q_s, q_r], 0)?;
-        assert_eq!(dst.position(), ctx_len);
+        assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
         let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
-        assert_eq!(dst.position(), ptx_len);
-        assert_eq!(message.to_vec(), dst.into_inner());
-        assert!(verified);
+        assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
+        assert_eq!(message.to_vec(), dst.into_inner(), "incorrect plaintext");
+        assert!(verified, "valid message not verified");
 
         Ok(())
     }
@@ -411,7 +410,7 @@ mod tests {
                 let mut src = Cursor::new(ciphertext);
 
                 let (verified, _) = decrypt(&mut src, &mut io::sink(), &d_r, &q_r, &q_s)?;
-                assert!(!verified);
+                assert!(!verified, "bit flip at byte {}, bit {} produced a valid message", i, j);
             }
         }
 
