@@ -177,7 +177,7 @@ impl Cmd for EncryptArgs {
         private_key.encrypt(
             &mut self.plaintext.lock(),
             &mut self.ciphertext.lock(),
-            self.recipients,
+            &self.recipients,
             self.fakes,
             self.padding,
         )?;

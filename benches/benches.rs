@@ -20,7 +20,7 @@ fn bench_encrypt(c: &mut Criterion) {
                 pk_a.encrypt(
                     &mut io::repeat(0).take(n),
                     &mut io::sink(),
-                    vec![pk_b.public_key()],
+                    &[pk_b.public_key()],
                     black_box(0),
                     black_box(0),
                 )
@@ -44,7 +44,7 @@ fn bench_decrypt(c: &mut Criterion) {
         pk_a.encrypt(
             &mut io::repeat(0).take(n),
             &mut ciphertext,
-            vec![pk_b.public_key()],
+            &[pk_b.public_key()],
             black_box(0),
             black_box(0),
         )

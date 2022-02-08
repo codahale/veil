@@ -35,7 +35,7 @@
 //! alice_priv.encrypt(
 //!   &mut Cursor::new("this is a secret message"),
 //!   &mut ciphertext,
-//!   vec![bea_pub],
+//!   &[bea_pub],
 //!   20,
 //!   1234,
 //! ).expect("encryption failed");

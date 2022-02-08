@@ -152,7 +152,7 @@ impl PrivateKey {
         &self,
         reader: &mut R,
         writer: &mut W,
-        recipients: Vec<PublicKey>,
+        recipients: &[PublicKey],
         fakes: usize,
         padding: u64,
     ) -> io::Result<u64>
@@ -162,7 +162,7 @@ impl PrivateKey {
     {
         // Add fakes.
         let mut q_rs = recipients
-            .into_iter()
+            .iter()
             .map(|pk| pk.q)
             .chain(
                 iter::repeat_with(|| RistrettoPoint::random(&mut rand::thread_rng())).take(fakes),
@@ -178,7 +178,7 @@ impl PrivateKey {
             &mut BufWriter::new(writer),
             self.d.expose_secret(),
             &self.pk.q,
-            q_rs,
+            &q_rs,
             padding,
         )
     }
@@ -382,7 +382,7 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = priv_a.encrypt(&mut src, &mut dst, vec![priv_b.public_key()], 20, 123)?;
+        let ctx_len = priv_a.encrypt(&mut src, &mut dst, &[priv_b.public_key()], 20, 123)?;
         assert_eq!(dst.position(), ctx_len);
 
         let mut src = Cursor::new(dst.into_inner());
@@ -407,7 +407,7 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = priv_a.encrypt(&mut src, &mut dst, vec![priv_b.public_key()], 20, 123)?;
+        let ctx_len = priv_a.encrypt(&mut src, &mut dst, &[priv_b.public_key()], 20, 123)?;
         assert_eq!(dst.position(), ctx_len);
 
         let mut src = Cursor::new(dst.into_inner());
@@ -428,7 +428,7 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = priv_a.encrypt(&mut src, &mut dst, vec![priv_a.public_key()], 20, 123)?;
+        let ctx_len = priv_a.encrypt(&mut src, &mut dst, &[priv_a.public_key()], 20, 123)?;
         assert_eq!(dst.position(), ctx_len);
 
         let mut src = Cursor::new(dst.into_inner());
@@ -449,7 +449,7 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = priv_a.encrypt(&mut src, &mut dst, vec![priv_b.public_key()], 20, 123)?;
+        let ctx_len = priv_a.encrypt(&mut src, &mut dst, &[priv_b.public_key()], 20, 123)?;
         assert_eq!(dst.position(), ctx_len);
 
         let mut ciphertext = dst.into_inner();

@@ -22,7 +22,7 @@ pub fn encrypt<R, W>(
     writer: &mut W,
     d_s: &Scalar,
     q_s: &RistrettoPoint,
-    q_rs: Vec<RistrettoPoint>,
+    q_rs: &[RistrettoPoint],
     padding: u64,
 ) -> Result<u64>
 where
@@ -57,7 +57,7 @@ where
 
     // For each recipient, encrypt a copy of the header with veil.sres.
     for q_r in q_rs {
-        let ciphertext = sres::encrypt(d_s, q_s, &q_r, &header);
+        let ciphertext = sres::encrypt(d_s, q_s, q_r, &header);
         send_clr.write_all(&ciphertext)?;
     }
 
@@ -321,7 +321,7 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, vec![q_s, q_r], 123)?;
+        let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
@@ -347,7 +347,7 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, vec![q_s, q_r], 123)?;
+        let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
@@ -373,7 +373,7 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, vec![q_s, q_r], 0)?;
+        let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 0)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
@@ -399,7 +399,7 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        encrypt(&mut src, &mut dst, &d_s, &q_s, vec![q_s, q_r], 123)?;
+        encrypt(&mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
 
         let ciphertext = dst.into_inner();
 
