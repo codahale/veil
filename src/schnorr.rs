@@ -156,7 +156,7 @@ mod tests {
         let mut verifier = Verifier::new();
         assert_eq!(22, verifier.write(b"this is a message that")?, "invalid write count");
         assert_eq!(23, verifier.write(b" is written in multiple")?, "invalid write count");
-        assert_eq!(7, verifier.write(b" pieces")?);
+        assert_eq!(7, verifier.write(b" pieces")?, "invalid write count");
         verifier.flush()?;
 
         assert!(verifier.verify(&q, &sig), "should have verified a valid signature");
