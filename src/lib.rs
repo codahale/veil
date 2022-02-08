@@ -49,7 +49,7 @@
 //! ).expect("decryption failed");
 //!
 //! // Having decrypted the message, Bea can read the plaintext.
-//! assert_eq!(b"this is a secret message".to_vec(), plaintext.into_inner());
+//! assert_eq!(b"this is a secret message".to_vec(), plaintext.into_inner(), "invalid plaintext");
 //! ```
 
 #![forbid(unsafe_code)]
