@@ -333,7 +333,7 @@ mod tests {
         let abc = sk.private_key("/a/b/c");
         let abc_p = sk.private_key("/a").derive("b").derive("c");
 
-        assert_eq!(abc, abc_p);
+        assert_eq!(abc, abc_p, "invalid hierarchical derivation");
     }
 
     #[test]
@@ -343,31 +343,45 @@ mod tests {
         let abc = sk.private_key("/a/b/c").public_key();
         let abc_p = sk.public_key("/a").derive("b").derive("c");
 
-        assert_eq!(abc, abc_p);
+        assert_eq!(abc, abc_p, "invalid hierarchical derivation");
     }
 
     #[test]
     fn public_key_encoding() {
         let base = PublicKey { q: G.basepoint() };
-
-        assert_eq!("GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3", base.to_string());
+        assert_eq!(
+            "GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3",
+            base.to_string(),
+            "invalid encoded public key"
+        );
 
         let decoded = "GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3".parse::<PublicKey>();
-        assert_eq!(Ok(base), decoded);
+        assert_eq!(Ok(base), decoded, "error parsing public key");
 
-        assert_eq!(Err(PublicKeyError), "woot woot".parse::<PublicKey>());
+        assert_eq!(
+            Err(PublicKeyError),
+            "woot woot".parse::<PublicKey>(),
+            "decoded invalid public key"
+        );
     }
 
     #[test]
     fn signature_encoding() {
         let sig = Signature { sig: [69u8; SIGNATURE_LEN] };
-
-        assert_eq!("2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC", sig.to_string());
+        assert_eq!(
+            "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC",
+            sig.to_string(),
+            "invalid encoded signature"
+        );
 
         let decoded = "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC".parse::<Signature>();
-        assert_eq!(Ok(sig), decoded);
+        assert_eq!(Ok(sig), decoded, "error parsing signature");
 
-        assert_eq!(Err(SignatureError), "woot woot".parse::<Signature>());
+        assert_eq!(
+            Err(SignatureError),
+            "woot woot".parse::<Signature>(),
+            "parsed invalid signature"
+        );
     }
 
     #[test]
@@ -383,14 +397,14 @@ mod tests {
         let mut dst = Cursor::new(Vec::new());
 
         let ctx_len = priv_a.encrypt(&mut src, &mut dst, &[priv_b.public_key()], 20, 123)?;
-        assert_eq!(dst.position(), ctx_len);
+        assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
         let ptx_len = priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key())?;
-        assert_eq!(dst.position(), ptx_len);
-        assert_eq!(message.to_vec(), dst.into_inner());
+        assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
+        assert_eq!(message.to_vec(), dst.into_inner(), "incorrect plaintext");
 
         Ok(())
     }
@@ -408,7 +422,7 @@ mod tests {
         let mut dst = Cursor::new(Vec::new());
 
         let ctx_len = priv_a.encrypt(&mut src, &mut dst, &[priv_b.public_key()], 20, 123)?;
-        assert_eq!(dst.position(), ctx_len);
+        assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
@@ -429,7 +443,7 @@ mod tests {
         let mut dst = Cursor::new(Vec::new());
 
         let ctx_len = priv_a.encrypt(&mut src, &mut dst, &[priv_a.public_key()], 20, 123)?;
-        assert_eq!(dst.position(), ctx_len);
+        assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
@@ -450,7 +464,7 @@ mod tests {
         let mut dst = Cursor::new(Vec::new());
 
         let ctx_len = priv_a.encrypt(&mut src, &mut dst, &[priv_b.public_key()], 20, 123)?;
-        assert_eq!(dst.position(), ctx_len);
+        assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut ciphertext = dst.into_inner();
         ciphertext[200] ^= 1;
