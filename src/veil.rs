@@ -327,7 +327,7 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn private_key_derivation() {
+    fn private_key_derivation() {
         let sk = SecretKey::new();
 
         let abc = sk.private_key("/a/b/c");
@@ -337,7 +337,7 @@ mod tests {
     }
 
     #[test]
-    pub fn public_key_derivation() {
+    fn public_key_derivation() {
         let sk = SecretKey::new();
 
         let abc = sk.private_key("/a/b/c").public_key();
@@ -347,7 +347,7 @@ mod tests {
     }
 
     #[test]
-    pub fn public_key_encoding() {
+    fn public_key_encoding() {
         let base = PublicKey { q: G.basepoint() };
 
         assert_eq!("GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3", base.to_string());
@@ -359,7 +359,7 @@ mod tests {
     }
 
     #[test]
-    pub fn signature_encoding() {
+    fn signature_encoding() {
         let sig = Signature { sig: [69u8; SIGNATURE_LEN] };
 
         assert_eq!("2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC", sig.to_string());
@@ -371,7 +371,7 @@ mod tests {
     }
 
     #[test]
-    pub fn round_trip() -> Result<(), DecryptionError> {
+    fn round_trip() -> Result<(), DecryptionError> {
         let sk_a = SecretKey::new();
         let priv_a = sk_a.private_key("/one/two");
 
@@ -396,7 +396,7 @@ mod tests {
     }
 
     #[test]
-    pub fn bad_sender_key() -> Result<(), DecryptionError> {
+    fn bad_sender_key() -> Result<(), DecryptionError> {
         let sk_a = SecretKey::new();
         let priv_a = sk_a.private_key("/one/two");
 
@@ -417,7 +417,7 @@ mod tests {
     }
 
     #[test]
-    pub fn bad_recipient() -> Result<(), DecryptionError> {
+    fn bad_recipient() -> Result<(), DecryptionError> {
         let sk_a = SecretKey::new();
         let priv_a = sk_a.private_key("/one/two");
 
@@ -438,7 +438,7 @@ mod tests {
     }
 
     #[test]
-    pub fn bad_ciphertext() -> Result<(), DecryptionError> {
+    fn bad_ciphertext() -> Result<(), DecryptionError> {
         let sk_a = SecretKey::new();
         let priv_a = sk_a.private_key("/one/two");
 
@@ -462,7 +462,7 @@ mod tests {
     }
 
     #[test]
-    pub fn sign_and_verify() -> Result<(), VerificationError> {
+    fn sign_and_verify() -> Result<(), VerificationError> {
         let sk = SecretKey::new();
         let priv_a = sk.private_key("/one/two");
         let pub_a = priv_a.public_key();

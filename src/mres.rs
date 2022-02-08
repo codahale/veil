@@ -310,7 +310,7 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn round_trip() -> Result<()> {
+    fn round_trip() -> Result<()> {
         let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &G * &d_s;
 
@@ -336,7 +336,7 @@ mod tests {
     }
 
     #[test]
-    pub fn multi_block_message() -> Result<()> {
+    fn multi_block_message() -> Result<()> {
         let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &G * &d_s;
 
@@ -363,7 +363,7 @@ mod tests {
     }
 
     #[test]
-    pub fn split_sig() -> Result<()> {
+    fn split_sig() -> Result<()> {
         let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &G * &d_s;
 

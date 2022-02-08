@@ -142,7 +142,7 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn sign_and_verify() -> Result<()> {
+    fn sign_and_verify() -> Result<()> {
         let d = Scalar::random(&mut rand::thread_rng());
         let q = &G * &d;
 
@@ -165,7 +165,7 @@ mod tests {
     }
 
     #[test]
-    pub fn bad_message() -> Result<()> {
+    fn bad_message() -> Result<()> {
         let d = Scalar::random(&mut rand::thread_rng());
         let q = &G * &d;
 
@@ -188,7 +188,7 @@ mod tests {
     }
 
     #[test]
-    pub fn bad_key() -> Result<()> {
+    fn bad_key() -> Result<()> {
         let d = Scalar::random(&mut rand::thread_rng());
         let q = &G * &d;
 
@@ -211,7 +211,7 @@ mod tests {
     }
 
     #[test]
-    pub fn bad_sig() -> Result<()> {
+    fn bad_sig() -> Result<()> {
         let d = Scalar::random(&mut rand::thread_rng());
         let q = &G * &d;
 

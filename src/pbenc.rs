@@ -165,7 +165,7 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn round_trip() {
+    fn round_trip() {
         let passphrase = "this is a secret";
         let message = b"this is too";
         let ciphertext = encrypt(passphrase, 5, 3, message);
@@ -175,7 +175,7 @@ mod tests {
     }
 
     #[test]
-    pub fn bad_passphrase() {
+    fn bad_passphrase() {
         let passphrase = "this is a secret";
         let message = b"this is too";
         let ciphertext = encrypt(passphrase, 5, 3, message);
@@ -184,7 +184,7 @@ mod tests {
     }
 
     #[test]
-    pub fn bad_time() {
+    fn bad_time() {
         let passphrase = "this is a secret";
         let message = b"this is too";
         let mut ciphertext = encrypt(passphrase, 5, 3, message);
@@ -194,7 +194,7 @@ mod tests {
     }
 
     #[test]
-    pub fn bad_space() {
+    fn bad_space() {
         let passphrase = "this is a secret";
         let message = b"this is too";
         let mut ciphertext = encrypt(passphrase, 5, 3, message);
@@ -204,7 +204,7 @@ mod tests {
     }
 
     #[test]
-    pub fn bad_salt() {
+    fn bad_salt() {
         let passphrase = "this is a secret";
         let message = b"this is too";
         let mut ciphertext = encrypt(passphrase, 5, 3, message);
@@ -214,7 +214,7 @@ mod tests {
     }
 
     #[test]
-    pub fn bad_ciphertext() {
+    fn bad_ciphertext() {
         let passphrase = "this is a secret";
         let message = b"this is too";
         let mut ciphertext = encrypt(passphrase, 5, 3, message);
@@ -224,7 +224,7 @@ mod tests {
     }
 
     #[test]
-    pub fn bad_mac() {
+    fn bad_mac() {
         let passphrase = "this is a secret";
         let message = b"this is too";
         let mut ciphertext = encrypt(passphrase, 5, 3, message);
