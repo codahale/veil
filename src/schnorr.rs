@@ -147,19 +147,19 @@ mod tests {
         let q = &G * &d;
 
         let mut signer = Signer::new(io::sink());
-        assert_eq!(22, signer.write(b"this is a message that")?);
-        assert_eq!(30, signer.write(b" is written in multiple pieces")?);
+        assert_eq!(22, signer.write(b"this is a message that")?, "invalid write count");
+        assert_eq!(30, signer.write(b" is written in multiple pieces")?, "invalid write count");
         signer.flush()?;
 
         let (sig, _) = signer.sign(&d, &q);
 
         let mut verifier = Verifier::new();
-        assert_eq!(22, verifier.write(b"this is a message that")?);
-        assert_eq!(23, verifier.write(b" is written in multiple")?);
+        assert_eq!(22, verifier.write(b"this is a message that")?, "invalid write count");
+        assert_eq!(23, verifier.write(b" is written in multiple")?, "invalid write count");
         assert_eq!(7, verifier.write(b" pieces")?);
         verifier.flush()?;
 
-        assert!(verifier.verify(&q, &sig));
+        assert!(verifier.verify(&q, &sig), "should have verified a valid signature");
 
         Ok(())
     }
@@ -170,19 +170,19 @@ mod tests {
         let q = &G * &d;
 
         let mut signer = Signer::new(io::sink());
-        assert_eq!(22, signer.write(b"this is a message that")?);
-        assert_eq!(30, signer.write(b" is written in multiple pieces")?);
+        signer.write_all(b"this is a message that")?;
+        signer.write_all(b" is written in multiple pieces")?;
         signer.flush()?;
 
         let (sig, _) = signer.sign(&d, &q);
 
         let mut verifier = Verifier::new();
-        assert_eq!(26, verifier.write(b"this NOT is a message that")?);
-        assert_eq!(23, verifier.write(b" is written in multiple")?);
-        assert_eq!(7, verifier.write(b" pieces")?);
+        verifier.write_all(b"this NOT is a message that")?;
+        verifier.write_all(b" is written in multiple")?;
+        verifier.write_all(b" pieces")?;
         verifier.flush()?;
 
-        assert!(!verifier.verify(&q, &sig));
+        assert!(!verifier.verify(&q, &sig), "verified an invalid signature");
 
         Ok(())
     }
@@ -193,19 +193,19 @@ mod tests {
         let q = &G * &d;
 
         let mut signer = Signer::new(io::sink());
-        assert_eq!(22, signer.write(b"this is a message that")?);
-        assert_eq!(30, signer.write(b" is written in multiple pieces")?);
+        signer.write_all(b"this is a message that")?;
+        signer.write_all(b" is written in multiple pieces")?;
         signer.flush()?;
 
         let (sig, _) = signer.sign(&d, &q);
 
         let mut verifier = Verifier::new();
-        assert_eq!(22, verifier.write(b"this is a message that")?);
-        assert_eq!(23, verifier.write(b" is written in multiple")?);
-        assert_eq!(7, verifier.write(b" pieces")?);
+        verifier.write_all(b"this is a message that")?;
+        verifier.write_all(b" is written in multiple")?;
+        verifier.write_all(b" pieces")?;
         verifier.flush()?;
 
-        assert!(!verifier.verify(&G.basepoint(), &sig));
+        assert!(!verifier.verify(&G.basepoint(), &sig), "verified an invalid signature");
 
         Ok(())
     }
@@ -216,20 +216,20 @@ mod tests {
         let q = &G * &d;
 
         let mut signer = Signer::new(io::sink());
-        assert_eq!(22, signer.write(b"this is a message that")?);
-        assert_eq!(30, signer.write(b" is written in multiple pieces")?);
+        signer.write_all(b"this is a message that")?;
+        signer.write_all(b" is written in multiple pieces")?;
         signer.flush()?;
 
         let (mut sig, _) = signer.sign(&d, &q);
         sig[22] ^= 1;
 
         let mut verifier = Verifier::new();
-        assert_eq!(22, verifier.write(b"this is a message that")?);
-        assert_eq!(23, verifier.write(b" is written in multiple")?);
-        assert_eq!(7, verifier.write(b" pieces")?);
+        verifier.write_all(b"this is a message that")?;
+        verifier.write_all(b" is written in multiple")?;
+        verifier.write_all(b" pieces")?;
         verifier.flush()?;
 
-        assert!(!verifier.verify(&q, &sig));
+        assert!(!verifier.verify(&q, &sig), "verified an invalid signature");
 
         Ok(())
     }
