@@ -50,7 +50,7 @@ mod tests {
 
         let d3_p = derive_scalar(&d, "/one/two/three");
 
-        assert_eq!(d3_p.expose_secret(), d3.expose_secret());
+        assert_eq!(d3_p.expose_secret(), d3.expose_secret(), "invalid hierarchical derivation");
     }
 
     #[test]
@@ -64,6 +64,6 @@ mod tests {
 
         let q3_p = derive_point(&q, "/one/two/three");
 
-        assert_eq!(q3_p, q3);
+        assert_eq!(q3_p, q3, "invalid hierarchical derivation");
     }
 }
