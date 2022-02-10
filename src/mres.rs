@@ -110,7 +110,7 @@ where
         // reversed in the event of the protocol's state being compromised.
         mres.ratchet("post-block");
 
-        // If the block is undersized, we're at the end of the reader.
+        // If the block was undersized, we're at the end of the reader.
         if n < BLOCK_LEN {
             break;
         }
