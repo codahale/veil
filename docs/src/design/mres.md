@@ -34,7 +34,6 @@ PRF(64) -> d_E
 AD('data-encryption-key', meta=true)
 AD(LE_U64(N_DEK),         meta=true, more=true)
 PRF(N_DEK) -> K_DEK
-
 ```
 
 The ephemeral public key is computed as $Q_E = [{d_E}]G$, and the cloned context is discarded:
@@ -52,13 +51,20 @@ SEND_CLR(H_N,   more=true)
 SEND_CLR(H_pad, more=true)
 ```
 
-The protocol is keyed with $K_{DEK}$ and the encrypted message is written in blocks of 32KiB with MACs appended:
+As the final setup step, the protocol is keyed with $K_{DEK}$:
 
 ```text
 AD('data-encryption-key', meta=true)
 AD(LE_U64(N_DEK),         meta=true, more=true)
 KEY(K_DEK)
+```
 
+The plaintext message is divided into 32KiB-sized blocks $P_0 || P_1 || \dots P_i \dots || P_n$. Each block $P_i$ is
+encrypted as ciphertext $C_i$ and a MAC $M_i$ is generated and appended. After each block, the protocol state is
+ratcheted to prevent rollback:
+
+```text
+...
 AD('block',          meta=true)
 AD(LE_U64(LEN(P_i)), meta=true, more=true)
 SEND_ENC(P_i) -> C_i
@@ -67,6 +73,9 @@ AD('mac',       meta=true)
 AD(LE_U64(N_M), meta=true, more=true)
 SEND_MAC(N_M) -> M_i
 
+AD('post-block', meta=true)
+AD(LE_U64(32),   meta=true, more=true)
+RATCHET(32)
 ...
 ```
 
@@ -80,8 +89,7 @@ SEND_ENC(S)
 ```
 
 The resulting ciphertext then contains, in order: the [`veil.sres`](sres.md)-encrypted headers, random padding,
-a series of ciphertext and MAC pairs, and a [`veil.schnorr`](schnorr.md) signature of the headers, padding, and
-ciphertext.
+a series of ciphertext and MAC block pairs, and a [`veil.schnorr`](schnorr.md) signature of the entire ciphertext.
 
 ## Decryption
 
@@ -107,13 +115,14 @@ RECV_CLR(H_N,   more=true)
 RECV_CLR(H_pad, more=true)
 ```
 
-The protocol is keyed with $K_{DEK}$, and the plaintext is decrypted:
+The protocol is keyed with $K_{DEK}$, and the plaintext is decrypted and verified:
 
 ```text
 AD('data-encryption-key', meta=true)
 AD(LE_U64(N_DEK),         meta=true, more=true)
 KEY(K_DEK)
 
+...
 AD('block',          meta=true)
 AD(LE_U64(LEN(C_i)), meta=true, more=true)
 SEND_ENC(C_i) -> P_i
@@ -122,6 +131,9 @@ AD('mac',            meta=true)
 AD(LE_U64(LEN(M_i)), meta=true, more=true)
 RECV_MAC(M_i)
 
+AD('post-block', meta=true)
+AD(LE_U64(32),   meta=true, more=true)
+RATCHET(32)
 ...
 ```
 

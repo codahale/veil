@@ -106,6 +106,10 @@ where
         writer.write_all(&mres.mac("mac"))?;
         written += MAC_LEN as u64;
 
+        // Ratchet the protocol state to prevent rollback. This protects previous blocks from being
+        // reversed in the event of the protocol's state being compromised.
+        mres.ratchet("post-block");
+
         // If the block is undersized, we're at the end of the reader.
         if n < BLOCK_LEN {
             break;
@@ -202,8 +206,13 @@ where
 
         // Verify the MAC.
         if mres.verify_mac("mac", mac).is_none() {
+            // If the MAC is invalid, return the number of bytes written and an impossible
+            // signature.
             return Ok((written, [0u8; SIGNATURE_LEN]));
         }
+
+        // Ratchet the protocol state.
+        mres.ratchet("post-block");
 
         // Clear the part of the buffer we used.
         buf.drain(0..n);
