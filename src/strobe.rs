@@ -111,6 +111,13 @@ impl Protocol {
         self.0.recv_mac(&mut mac).ok()
     }
 
+    /// Ratchet the protocol state to prevent rollback.
+    pub fn ratchet(&mut self, label: &str) {
+        let n = SecParam::B128 as usize / 8;
+        self.meta_ad_len(label, n as u64);
+        self.0.ratchet(n, false);
+    }
+
     /// Clone the current instance, key it with the given secret, key it again with random data, and
     /// pass the clone to the given function.
     #[must_use]
