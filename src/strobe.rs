@@ -2,11 +2,12 @@
 
 use std::io::{self, Write};
 
-use crate::constants::MAC_LEN;
 use curve25519_dalek::scalar::Scalar;
 use rand::RngCore;
 use secrecy::{Secret, Zeroize};
 use strobe_rs::{SecParam, Strobe};
+
+use crate::constants::MAC_LEN;
 
 /// A Strobe protocol.
 pub struct Protocol(Strobe);
@@ -176,7 +177,7 @@ impl Protocol {
 }
 
 macro_rules! protocol_writer {
-    ($t:ident, $strobe:ident, $buf:ident, $writer:ident, $body:block) => {
+    ($t:ident, $op:ident) => {
         #[must_use]
         pub struct $t<W: Write>(Protocol, W, u64, String);
 
@@ -191,11 +192,11 @@ macro_rules! protocol_writer {
 
         impl<W: Write> Write for $t<W> {
             fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-                self.2 += buf.len() as u64;
-                let $strobe = &mut self.0 .0;
-                let $buf = buf;
-                let $writer = &mut self.1;
-                $body
+                let $t(Protocol(ref mut strobe), ref mut w, ref mut written, ref _msg) = self;
+                *written += buf.len() as u64;
+                strobe.$op(buf, true);
+                w.write_all(buf)?;
+                Ok(buf.len())
             }
 
             fn flush(&mut self) -> io::Result<()> {
@@ -205,14 +206,5 @@ macro_rules! protocol_writer {
     };
 }
 
-protocol_writer!(SendClrWriter, strobe, buf, w, {
-    strobe.send_clr(buf, true);
-    w.write_all(buf)?;
-    Ok(buf.len())
-});
-
-protocol_writer!(RecvClrWriter, strobe, buf, w, {
-    strobe.recv_clr(buf, true);
-    w.write_all(buf)?;
-    Ok(buf.len())
-});
+protocol_writer!(SendClrWriter, send_clr);
+protocol_writer!(RecvClrWriter, recv_clr);
