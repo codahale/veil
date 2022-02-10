@@ -57,16 +57,22 @@ AD(LE_U64(LEN(P)), meta=true, more=true)
 SEND_ENC(P) -> C
 ```
 
-Fifth, a challenge scalar $r$ is derived from PRF output and a proof scalar $s=x/(r+d_S)$ is calculated. (In the rare
-event that $r+d_S=0$, the protocol is re-run with a different $x$.)
+Fifth, the protocol state is ratcheted, a challenge scalar $r$ is derived from PRF output, and a proof scalar 
+$s=x/(r+d_S)$ is calculated. (In the rare event that $r+d_S=0$, the protocol is re-run with a different $x$.)
+
+```text
+AD('ratchet',  meta=true)
+AD(LE_U64(32), meta=true, more=true)
+RATCHET(32)
+
+AD('challenge-scalar', meta=true)
+AD(LE_U64(64),         meta=true, more=true)
+PRF(64) -> r
+```
 
 Both $r$ and $s$ are masked with random data and send in cleartext as $S_0$ and $S_1$:
 
 ```text
-AD('challenge-scalar', meta=true)
-AD(LE_U64(64),         meta=true, more=true)
-PRF(64) -> r
-
 AD('challenge-scalar', meta=true)
 AD(LE_U64(LEN(r)),     meta=true, more=true)
 SEND_CLR(mask(r)) -> S_0
@@ -119,9 +125,13 @@ AD(LE_U64(LEN(C)), meta=true, more=true)
 RECV_ENC(C) -> P'
 ```
 
-Third, a counterfactual challenge scalar $r'$ is derived from PRF output:
+Third, the protocol state is ratcheted and a counterfactual challenge scalar $r'$ is derived from PRF output:
 
 ```text
+AD('ratchet',  meta=true)
+AD(LE_U64(32), meta=true, more=true)
+RATCHET(32)
+
 AD('challenge-scalar', meta=true)
 AD(LE_U64(64),         meta=true, more=true)
 PRF(64) -> r'
@@ -165,8 +175,8 @@ equivalent to the dependency described in _Practical Signcryption_:
 $$r \leftarrow H(\tau || {pk}_S || {pk}_R || \kappa)$$
 
 The end result is a challenge scalar which is cryptographically dependent on the prior values and on the ciphertext as
-sent (and not, as in previous insider-secure signcryption KEM constructions, the plaintext). This ensures the scalar $r$
-and $s$ cannot leak information about the plaintext.
+sent (and not, as in previous insider-secure signcryption KEM constructions, the plaintext). This, and the ratcheting of
+the protocol state, ensures the scalar $r$ and $s$ cannot leak information about the plaintext.
 
 Finally, the inclusion of the masked scalars $S_0$ and $S_1$ prior to the `SEND_MAC` operation makes their masked bits
 non-malleable.

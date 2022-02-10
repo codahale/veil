@@ -46,6 +46,9 @@ pub fn encrypt(
     // Encrypt and send the plaintext.
     out.extend(sres.encrypt("plaintext", plaintext));
 
+    // Ratchet the protocol state to prevent rollback.
+    sres.ratchet("ratchet");
+
     // Extract a challenge scalar from PRF output.
     let r = sres.prf_scalar("challenge-scalar");
 
@@ -108,6 +111,9 @@ pub fn decrypt(
 
     // Decrypt the ciphertext.
     let plaintext = sres.decrypt("plaintext", ciphertext);
+
+    // Ratchet the protocol state.
+    sres.ratchet("ratchet");
 
     // Extract a challenge scalar from PRF output and check it against the received scalar.
     if r != sres.prf_scalar("challenge-scalar") {
