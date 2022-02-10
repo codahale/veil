@@ -155,7 +155,7 @@ impl Protocol {
     {
         self.0.meta_ad(format!("{}-start", label).as_bytes(), false);
         self.0.send_clr(&[], false);
-        SendClrWriter(self, w, 0, label.to_string())
+        SendClrWriter::new(self, w, label)
     }
 
     /// Create a writer which passes writes through `RECV_CLR` before passing them to the given
@@ -166,7 +166,7 @@ impl Protocol {
     {
         self.0.meta_ad(format!("{}-start", label).as_bytes(), false);
         self.0.recv_clr(&[], false);
-        RecvClrWriter(self, w, 0, label.to_string())
+        RecvClrWriter::new(self, w, label)
     }
 
     /// Include the given label and length as associated-metadata.
@@ -179,28 +179,36 @@ impl Protocol {
 macro_rules! protocol_writer {
     ($t:ident, $op:ident) => {
         #[must_use]
-        pub struct $t<W: Write>(Protocol, W, u64, String);
+        pub struct $t<W: Write> {
+            schnorr: Protocol,
+            writer: W,
+            msg: String,
+            written: u64,
+        }
 
         impl<W: Write> $t<W> {
+            pub fn new(schnorr: Protocol, writer: W, msg: &str) -> $t<W> {
+                $t { schnorr, writer, msg: msg.to_string(), written: 0 }
+            }
+
             #[must_use]
             pub fn into_inner(self) -> (Protocol, W, u64) {
-                let mut p = self.0;
-                p.meta_ad_len(&format!("{}-end", self.3), self.2);
-                (p, self.1, self.2)
+                let mut p = self.schnorr;
+                p.meta_ad_len(&format!("{}-end", self.msg), self.written);
+                (p, self.writer, self.written)
             }
         }
 
         impl<W: Write> Write for $t<W> {
             fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-                let $t(Protocol(ref mut strobe), ref mut w, ref mut written, ref _msg) = self;
-                *written += buf.len() as u64;
-                strobe.$op(buf, true);
-                w.write_all(buf)?;
+                self.written += buf.len() as u64;
+                self.schnorr.0.$op(buf, true);
+                self.writer.write_all(buf)?;
                 Ok(buf.len())
             }
 
             fn flush(&mut self) -> io::Result<()> {
-                self.1.flush()
+                self.writer.flush()
             }
         }
     };
