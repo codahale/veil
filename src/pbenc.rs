@@ -78,7 +78,7 @@ fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> XoodyakKeyed {
     // Normalize the passphrase into NFKC form.
     let passphrase = normalize(passphrase);
 
-    // Initialize the hash.
+    // Initialize the duplex.
     let mut pbenc = XoodyakHash::new();
     pbenc.absorb(b"veil.pbenc");
 

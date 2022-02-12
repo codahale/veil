@@ -9,7 +9,7 @@ use xoodyak::{XoodyakCommon, XoodyakHash, XoodyakKeyed};
 const BLOCK_LEN: usize = 32 * 1024;
 
 pub struct AbsorbWriter<W: Write> {
-    hash: XoodyakHash,
+    duplex: XoodyakHash,
     writer: W,
     buffer: Vec<u8>,
     n: u64,
@@ -20,13 +20,13 @@ impl<W: Write> Write for AbsorbWriter<W> {
         self.n += buf.len() as u64;
         self.buffer.extend(buf);
         while self.buffer.len() > BLOCK_LEN {
-            self.hash.absorb(self.buffer.drain(..BLOCK_LEN).as_slice());
+            self.duplex.absorb(self.buffer.drain(..BLOCK_LEN).as_slice());
         }
         self.writer.write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        self.hash.absorb(&self.buffer);
+        self.duplex.absorb(&self.buffer);
         self.writer.flush()
     }
 }
@@ -34,7 +34,7 @@ impl<W: Write> Write for AbsorbWriter<W> {
 impl<W: Write> AbsorbWriter<W> {
     pub fn into_inner(mut self) -> io::Result<(XoodyakHash, W, u64)> {
         self.flush()?;
-        Ok((self.hash, self.writer, self.n))
+        Ok((self.duplex, self.writer, self.n))
     }
 }
 
@@ -94,7 +94,7 @@ impl XoodyakHashExt for XoodyakHash {
         F: Fn(&mut Self) -> R,
         R: Zeroize,
     {
-        // Clone the hash's state.
+        // Clone the duplex's state.
         let mut clone = self.clone();
 
         // Absorb the given secret.
@@ -118,6 +118,6 @@ impl XoodyakHashExt for XoodyakHash {
     where
         W: Write,
     {
-        AbsorbWriter { hash: self, writer, buffer: Vec::with_capacity(BLOCK_LEN), n: 0 }
+        AbsorbWriter { duplex: self, writer, buffer: Vec::with_capacity(BLOCK_LEN), n: 0 }
     }
 }

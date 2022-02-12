@@ -24,7 +24,7 @@ pub fn encrypt(
     // Allocate an output buffer.
     let mut out = Vec::with_capacity(plaintext.len() + OVERHEAD);
 
-    // Initialize a hash.
+    // Initialize a duplex.
     let mut sres = XoodyakHash::new();
     sres.absorb(b"veil.sres");
 
@@ -108,7 +108,7 @@ pub fn decrypt(
     let r = unmask_scalar(mr.try_into().expect("invalid scalar len"));
     let s = unmask_scalar(ms.try_into().expect("invalid scalar len"));
 
-    // Initialize a hash.
+    // Initialize a duplex.
     let mut sres = XoodyakHash::new();
     sres.absorb(b"veil.sres");
 

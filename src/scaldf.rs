@@ -10,7 +10,7 @@ use xoodyak::{XoodyakCommon, XoodyakHash};
 /// Derive a scalar from the given secret key.
 #[must_use]
 pub fn derive_root(r: &[u8]) -> Secret<Scalar> {
-    // Initialize the hash.
+    // Initialize the duplex.
     let mut root_df = XoodyakHash::new();
     root_df.absorb(b"veil.scaldf.root");
 
@@ -28,7 +28,7 @@ pub fn derive_scalar(d: &Scalar, key_id: &str) -> Secret<Scalar> {
         .trim_matches(KEY_ID_DELIM)
         .split(KEY_ID_DELIM)
         .fold(*d, |d, label| {
-            // Initialize the hash.
+            // Initialize the duplex.
             let mut label_df = XoodyakHash::new();
             label_df.absorb(b"veil.scaldf.label");
 

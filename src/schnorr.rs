@@ -28,7 +28,7 @@ where
 {
     /// Create a new signer which passes writes through to the given writer.
     pub fn new(writer: W) -> Signer<W> {
-        // Initialize a hash.
+        // Initialize a duplex.
         let mut schnorr = XoodyakHash::new();
         schnorr.absorb(b"veil.schnorr");
 
@@ -38,7 +38,7 @@ where
     /// Create a signature of the previously-written message contents using the given key pair.
     #[allow(clippy::many_single_char_names)]
     pub fn sign(self, d: &Scalar, q: &RistrettoPoint) -> Result<([u8; SIGNATURE_LEN], W)> {
-        // Unwrap the hash and writer.
+        // Unwrap the duplex and writer.
         let (mut schnorr, writer, _) = self.writer.into_inner()?;
 
         // Allocate an output buffer.
@@ -51,7 +51,7 @@ where
         // and a random nonce.
         let k = schnorr.hedge(d.as_bytes(), XoodyakExt::squeeze_scalar);
 
-        // Convert the hash to a duplex.
+        // Convert the unkeyed duplex to a keyed duplex.
         let mut schnorr = schnorr.to_keyed("veil.schnorr");
 
         // Calculate and encrypt the commitment point.
@@ -92,7 +92,7 @@ impl Verifier {
     /// Create a new verifier.
     #[must_use]
     pub fn new() -> Verifier {
-        // Initialize a hash.
+        // Initialize a duplex.
         let mut schnorr = XoodyakHash::new();
         schnorr.absorb(b"veil.schnorr");
 
@@ -101,13 +101,13 @@ impl Verifier {
 
     /// Verify the previously-written message contents using the given public key and signature.
     pub fn verify(self, q: &RistrettoPoint, sig: &[u8; SIGNATURE_LEN]) -> Result<bool> {
-        // Unwrap hash.
+        // Unwrap duplex.
         let (mut schnorr, _, _) = self.writer.into_inner()?;
 
         // Absorb the signer's public key.
         schnorr.absorb(q.compress().as_bytes());
 
-        // Convert the hash to a duplex.
+        // Convert the unkeyed duplex to a keyed duplex.
         let mut schnorr = schnorr.to_keyed("veil.schnorr");
 
         // Split the signature into parts.

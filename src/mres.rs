@@ -30,17 +30,17 @@ where
     R: Read,
     W: Write,
 {
-    // Initialize a hash and absorb the sender's public key.
+    // Initialize a duplex and absorb the sender's public key.
     let mut mres = XoodyakHash::new();
     mres.absorb(b"veil.mres");
     mres.absorb(q_s.compress().as_bytes());
 
-    // Derive a random ephemeral key pair from the hash's current state, the sender's private key,
+    // Derive a random ephemeral key pair from the duplex's current state, the sender's private key,
     // and a random nonce.
     let d_e = mres.hedge(d_s.as_bytes(), XoodyakExt::squeeze_scalar);
     let q_e = &G * d_e.expose_secret();
 
-    // Derive a random DEK from the hash's current state, the sender's private key, and a random
+    // Derive a random DEK from the duplex's current state, the sender's private key, and a random
     // nonce.
     let dek = mres.hedge(d_s.as_bytes(), |clone| clone.squeeze_to_vec(DEK_LEN));
 
@@ -134,7 +134,7 @@ where
     R: Read,
     W: Write,
 {
-    // Initialize a hash and absorb the sender's public key.
+    // Initialize a duplex and absorb the sender's public key.
     let mut mres = XoodyakHash::new();
     mres.absorb(b"veil.mres");
     mres.absorb(q_s.compress().as_bytes());
