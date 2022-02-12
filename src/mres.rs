@@ -9,7 +9,7 @@ use curve25519_dalek::scalar::Scalar;
 use rand::prelude::ThreadRng;
 use rand::RngCore;
 use secrecy::{ExposeSecret, Secret, SecretVec, Zeroize};
-use xoodyak::{XoodyakCommon, XoodyakHash, XoodyakKeyed, XOODYAK_AUTH_TAG_BYTES};
+use xoodyak::{XoodyakCommon, XoodyakKeyed, XOODYAK_AUTH_TAG_BYTES};
 
 use crate::constants::{POINT_LEN, U64_LEN};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
@@ -31,8 +31,8 @@ where
     W: Write,
 {
     // Initialize a duplex and absorb the sender's public key.
-    let mut mres = XoodyakHash::new();
-    mres.absorb(b"veil.mres");
+    let mut mres =
+        XoodyakKeyed::new(&[], None, None, Some(b"veil.mres")).expect("unable to construct duplex");
     mres.absorb(q_s.compress().as_bytes());
 
     // Derive a random ephemeral key pair from the duplex's current state, the sender's private key,
@@ -69,9 +69,9 @@ where
     // Unwrap the headers and padding writer.
     let (mut mres, mut signer, header_len) = headers_and_padding.into_inner()?;
 
-    // Absorb the DEK and convert to a keyed duplex.
-    mres.absorb(dek.expose_secret());
-    let mut mres = xoodoo::to_keyed(mres, "veil.mres");
+    // Use the DEK to key the duplex.
+    mres.absorb_key_and_nonce(dek.expose_secret(), None, None, None)
+        .expect("unable to construct duplex");
 
     // Encrypt the plaintext, pass it through the signer, and write it.
     let ciphertext_len = encrypt_message(&mut mres, reader, &mut signer)?;
@@ -135,8 +135,8 @@ where
     W: Write,
 {
     // Initialize a duplex and absorb the sender's public key.
-    let mut mres = XoodyakHash::new();
-    mres.absorb(b"veil.mres");
+    let mut mres =
+        XoodyakKeyed::new(&[], None, None, Some(b"veil.mres")).expect("unable to construct duplex");
     mres.absorb(q_s.compress().as_bytes());
 
     // Initialize a verifier for the entire ciphertext.
@@ -154,9 +154,9 @@ where
     // Unwrap the received cleartext writer.
     let (mut mres, mut verifier, _) = mres_writer.into_inner()?;
 
-    // Absorb the DEK and convert to a keyed duplex.
-    mres.absorb(dek.expose_secret());
-    let mut mres = xoodoo::to_keyed(mres, "veil.mres");
+    // Use the DEK to key the duplex.
+    mres.absorb_key_and_nonce(dek.expose_secret(), None, None, None)
+        .expect("unable to construct duplex");
 
     // Decrypt the message and get the signature.
     let (written, sig) = decrypt_message(&mut mres, reader, writer, &mut verifier)?;

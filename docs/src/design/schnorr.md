@@ -9,8 +9,7 @@ Signing is as follows, given a message in 16-byte blocks $M_0...M_N$, a private 
 First, an unkeyed duplex is initialized and used to absorb the message blocks and the signer's public key:
 
 $$
-\text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
-\text{Absorb}(\texttt{veil.schnorr}) \\
+\text{Cyclist}(\epsilon, \epsilon, \texttt{veil.schnorr}) \\
 \text{AbsorbMore}(M_0, 16) \\
 \text{AbsorbMore}(M_1, 16) \\
 \dots \\
@@ -31,16 +30,8 @@ v \overset{R}{\gets} \mathbb{Z}_{2^{512}} \\
 k \gets \text{SqueezeKey}(64) \bmod \ell \\
 $$
 
-The clone's state is discarded, and $k$ is returned to the parent.
-
-A 43-byte key $Z$ is extracted from the duplex and used to initialize a keyed duplex instance:
-
-$$
-Z \gets \text{SqueezeKey}(43) \\
-\text{Cyclist}(Z, \epsilon, \epsilon) \\
-$$
-
-The commitment point $I$ is calculated and encrypted as $S_0$:
+The clone's state is discarded, and $k$ is returned to the parent. The commitment point $I$ is calculated and encrypted
+as $S_0$:
 
 $$
 I = [k]G \\
@@ -65,20 +56,12 @@ $S_0 || S_1$.
 First, an unkeyed duplex is created and used to absorb the message blocks and the signer's public key:
 
 $$
-\text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
-\text{Absorb}(\texttt{veil.schnorr}) \\
+\text{Cyclist}(\epsilon, \epsilon, \texttt{veil.schnorr}) \\
 \text{AbsorbMore}(M_0, 16) \\
 \text{AbsorbMore}(M_1, 16) \\
 \dots \\
 \text{AbsorbMore}(M_N, 16) \\
 \text{Absorb}(Q) \\
-$$
-
-A 43-byte key $Z$ is extracted from the duplex and used to initialize a keyed duplex instance:
-
-$$
-Z \gets \text{SqueezeKey}(43) \\
-\text{Cyclist}(Z, \epsilon, \epsilon) \\
 $$
 
 $S_0$ is decrypted and decoded as $I$ and $r$ is re-derived from output:

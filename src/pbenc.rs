@@ -5,10 +5,9 @@ use std::convert::TryInto;
 use rand::RngCore;
 use secrecy::{ExposeSecret, Secret, Zeroize};
 use unicode_normalization::UnicodeNormalization;
-use xoodyak::{XoodyakCommon, XoodyakHash, XoodyakKeyed, XOODYAK_AUTH_TAG_BYTES};
+use xoodyak::{XoodyakCommon, XoodyakKeyed, XOODYAK_AUTH_TAG_BYTES};
 
 use crate::constants::{U32_LEN, U64_LEN};
-use crate::xoodoo;
 
 /// The number of bytes encryption adds to a plaintext.
 pub const OVERHEAD: usize = U32_LEN + U32_LEN + SALT_LEN + XOODYAK_AUTH_TAG_BYTES;
@@ -79,8 +78,8 @@ fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> XoodyakKeyed {
     let passphrase = normalize(passphrase);
 
     // Initialize the duplex.
-    let mut pbenc = XoodyakHash::new();
-    pbenc.absorb(b"veil.pbenc");
+    let mut pbenc = XoodyakKeyed::new(&[], None, None, Some(b"veil.pbenc"))
+        .expect("unable to construct duplex");
 
     // Absorb the passphrase.
     pbenc.absorb(passphrase.expose_secret());
@@ -136,7 +135,11 @@ fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> XoodyakKeyed {
     }
 
     // Step 3: Extract key from buffer.
-    xoodoo::to_keyed(pbenc, "veil.pbenc")
+    pbenc
+        .absorb_key_and_nonce(&buf[buf.len() - 1], None, None, None)
+        .expect("unable to construct duplex");
+
+    pbenc
 }
 
 #[inline]

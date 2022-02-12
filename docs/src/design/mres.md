@@ -10,8 +10,7 @@ $P_0...P_N$, a list of recipient public keys, $Q_{R^0}...Q_{R^M}$, and a DEK siz
 initialized and used to absorb the sender's public key:
 
 $$
-\text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
-\text{Absorb}(\texttt{veil.mres}) \\
+\text{Cyclist}(\epsilon, \epsilon, \texttt{veil.mres}) \\
 \text{Absorb}(Q_S) \\
 $$
 
@@ -43,20 +42,12 @@ H_{pad} \overset{R}{\gets} \mathbb{Z}_{2^{pad}} \\
 \text{Absorb}(H_{pad}) \\
 $$
 
-As the final setup step, the key $K$ is absorbed, a 43-byte key $Z$ is extracted from the duplex, and used to initialize
-a keyed duplex instance:
+The duplex is keyed with $K$, the plaintext message is divided into 32KiB blocks
+$P_0 || P_1 || \dots P_i \dots || P_n$. Each block $P_i$ is encrypted as ciphertext $C_i$ and an authentication tag 
+$T_i$ is generated and appended. After each block, the duplex state is ratcheted to prevent rollback:
 
 $$
-\text{Absorb}(K) \\
-Z \gets \text{SqueezeKey}(43) \\
-\text{Cyclist}(Z, \epsilon, \epsilon) \\
-$$
-
-The plaintext message is divided into 32KiB-sized blocks $P_0 || P_1 || \dots P_i \dots || P_n$. Each block $P_i$ is
-encrypted as ciphertext $C_i$ and an authentication tag $T_i$ is generated and appended. After each block, the duplex
-state is ratcheted to prevent rollback:
-
-$$
+\text{Cyclist}(K, \epsilon, \epsilon) \\
 \dots \\
 C_i \gets \text{Encrypt}(P_i) \\
 T_i \gets \text{Squeeze}(N_T) \\
@@ -82,8 +73,7 @@ Decryption begins as follows, given the recipient's key pair, $d_R$ and $Q_R$, t
 unkeyed duplex is initialized and used to absorb the sender's public key:
 
 $$
-\text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
-\text{Absorb}(\texttt{veil.mres}) \\
+\text{Cyclist}(\epsilon, \epsilon, \texttt{veil.mres}) \\
 \text{Absorb}(Q_S) \\
 $$
 
@@ -99,17 +89,10 @@ $$
 \text{Absorb}(H_{pad}) \\
 $$
 
-The key $K$ is absorbed, a 43-byte key $Z$ is extracted from the duplex, and used to initialize a keyed duplex instance:
+The duplex is keyed with $K$ and used to decrypt the ciphertext blocks and verify the authentication tags:
 
 $$
-\text{Absorb}(K) \\
-Z \gets \text{SqueezeKey}(43) \\
-\text{Cyclist}(Z, \epsilon, \epsilon) \\
-$$
-
-The keyed duplex is used to decrypt the ciphertext blocks and verify the authentication tags:
-
-$$
+\text{Cyclist}(K, \epsilon, \epsilon) \\
 \dots \\
 P_i \gets \text{Decrypt}(C_i) \\
 T_i' \gets \text{Squeeze}(N_T) \\

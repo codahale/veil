@@ -8,7 +8,7 @@ use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use secrecy::ExposeSecret;
-use xoodyak::{XoodyakCommon, XoodyakHash};
+use xoodyak::{XoodyakCommon, XoodyakKeyed};
 
 use crate::constants::{POINT_LEN, SCALAR_LEN};
 use crate::xoodoo;
@@ -30,8 +30,8 @@ where
     /// Create a new signer which passes writes through to the given writer.
     pub fn new(writer: W) -> Signer<W> {
         // Initialize a duplex.
-        let mut schnorr = XoodyakHash::new();
-        schnorr.absorb(b"veil.schnorr");
+        let schnorr = XoodyakKeyed::new(&[], None, None, Some(b"veil.schnorr"))
+            .expect("unable to construct duplex");
 
         Signer { writer: AbsorbWriter::new(schnorr, writer) }
     }
@@ -51,9 +51,6 @@ where
         // Derive a commitment scalar from the protocol's current state, the signer's private key,
         // and a random nonce.
         let k = xoodoo::hedge(&schnorr, d.as_bytes(), xoodoo::squeeze_scalar);
-
-        // Convert the unkeyed duplex to a keyed duplex.
-        let mut schnorr = xoodoo::to_keyed(schnorr, "veil.schnorr");
 
         // Calculate and encrypt the commitment point.
         let i = &G * k.expose_secret();
@@ -94,8 +91,8 @@ impl Verifier {
     #[must_use]
     pub fn new() -> Verifier {
         // Initialize a duplex.
-        let mut schnorr = XoodyakHash::new();
-        schnorr.absorb(b"veil.schnorr");
+        let schnorr = XoodyakKeyed::new(&[], None, None, Some(b"veil.schnorr"))
+            .expect("unable to construct duplex");
 
         Verifier { writer: AbsorbWriter::new(schnorr, io::sink()) }
     }
@@ -107,9 +104,6 @@ impl Verifier {
 
         // Absorb the signer's public key.
         schnorr.absorb(q.compress().as_bytes());
-
-        // Convert the unkeyed duplex to a keyed duplex.
-        let mut schnorr = xoodoo::to_keyed(schnorr, "veil.schnorr");
 
         // Split the signature into parts.
         let (i, s) = sig.split_at(POINT_LEN);

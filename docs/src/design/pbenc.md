@@ -10,8 +10,7 @@ parameter $N_S$, delta constant $D$, and block size $N_B$. An unkeyed duplex is 
 passphrase and parameters:
 
 $$
-\text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
-\text{Absorb}(\texttt{veil.pbenc}) \\
+\text{Cyclist}(\epsilon, \epsilon, \texttt{veil.pbenc}) \\
 \text{Absorb}(P) \\
 \text{Absorb}(S) \\
 \text{Absorb}(\text{U64}_{LE}(N_T)) \\
@@ -52,13 +51,10 @@ C = C+1 \\
 B_m \gets \text{Squeeze}(N_B) \\
 $$
 
-Finally, the last block $B_N$ of the buffer is absorbed and a 43-byte key $Z$ extracted and used to initialize a keyed
-duplex:
+Finally, the last block $B_n$ of the buffer is used to key the duplex:
 
 $$
-\text{Absorb}(B_N) \\
-Z \gets \text{SqueezeKey}(43) \\
-\text{Cyclist}(Z, \epsilon, \epsilon) \\
+\text{Cyclist}(B_n, \epsilon, \epsilon) \\
 $$
 
 ## Encryption

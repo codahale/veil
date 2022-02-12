@@ -6,8 +6,7 @@ To derive a private key from a secret key, the secret key is absorbed with an un
 from output:
 
 $$
-\text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
-\text{Absorb}(\texttt{veil.scaldf.root}) \\
+\text{Cyclist}(\epsilon, \epsilon, \texttt{veil.scaldf.root}) \\
 \text{Absorb}(S) \\
 d \gets \text{SqueezeKey}(64) \bmod \ell \\
 $$
@@ -16,8 +15,7 @@ To derive a private key $d_n$ from a root scalar $d_0$ and key ID label squence 
 are used to absorb label values $L_i$ and derive delta scalars $r_i$ from output:
 
 $$
-\text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
-\text{Absorb}(\texttt{veil.scaldf.label}) \\
+\text{Cyclist}(\epsilon, \epsilon, \texttt{veil.scaldf.label}) \\
 \dots \\
 \text{Absorb}(L_i) \\
 r_i \gets \text{SqueezeKey}(64) \bmod \ell \\
