@@ -218,7 +218,7 @@ impl PrivateKey {
     {
         let mut signer = Signer::new(io::sink());
         io::copy(reader, &mut signer)?;
-        let (sig, _) = signer.sign(self.d.expose_secret(), &self.pk.q);
+        let (sig, _) = signer.sign(self.d.expose_secret(), &self.pk.q)?;
         Ok(Signature { sig: (sig) })
     }
 
@@ -288,7 +288,7 @@ impl PublicKey {
         let mut verifier = Verifier::new();
         io::copy(reader, &mut verifier)?;
 
-        if verifier.verify(&self.q, &sig.sig) {
+        if verifier.verify(&self.q, &sig.sig)? {
             Ok(())
         } else {
             Err(VerificationError::InvalidSignature)

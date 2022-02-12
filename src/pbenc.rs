@@ -5,12 +5,13 @@ use std::convert::TryInto;
 use rand::RngCore;
 use secrecy::{ExposeSecret, Secret, Zeroize};
 use unicode_normalization::UnicodeNormalization;
+use xoodyak::{XoodyakCommon, XoodyakHash, XoodyakKeyed, XOODYAK_AUTH_TAG_BYTES};
 
-use crate::constants::{MAC_LEN, U32_LEN, U64_LEN};
-use crate::strobe::Protocol;
+use crate::constants::{U32_LEN, U64_LEN};
+use crate::xoodoo::XoodyakHashExt;
 
 /// The number of bytes encryption adds to a plaintext.
-pub const OVERHEAD: usize = U32_LEN + U32_LEN + SALT_LEN + MAC_LEN;
+pub const OVERHEAD: usize = U32_LEN + U32_LEN + SALT_LEN + XOODYAK_AUTH_TAG_BYTES;
 
 /// Encrypt the given plaintext using the given passphrase.
 #[must_use]
@@ -33,10 +34,7 @@ pub fn encrypt(passphrase: &str, time: u32, space: u32, plaintext: &[u8]) -> Vec
     out.extend(salt);
 
     // Encrypt the ciphertext.
-    out.extend(pbenc.encrypt("ciphertext", plaintext));
-
-    // Generate a MAC.
-    out.extend(pbenc.mac("mac"));
+    out.extend(pbenc.aead_encrypt_to_vec(Some(plaintext)).expect("invalid encryption"));
 
     out
 }
@@ -59,45 +57,40 @@ pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Secret<Vec<u8>>> {
     let mut pbenc = init(passphrase, salt, time, space);
 
     // Decrypt the ciphertext.
-    let (ciphertext, mac) = ciphertext.split_at(ciphertext.len() - MAC_LEN);
-    let plaintext = pbenc.decrypt("ciphertext", ciphertext);
-
-    // Verify the MAC.
-    pbenc.verify_mac("mac", mac)?;
-
-    Some(plaintext)
+    pbenc.aead_decrypt_to_vec(ciphertext).ok().map(|p| p.into())
 }
 
 macro_rules! hash_counter {
     ($pbenc:ident, $ctr:ident, $left:expr, $right:expr) => {
-        $pbenc.ad("counter", &$ctr.to_le_bytes());
+        $pbenc.absorb(&$ctr.to_le_bytes());
         $ctr += 1;
 
-        $pbenc.ad("left", &$left);
-        $pbenc.ad("right", &$right);
+        $pbenc.absorb(&$left);
+        $pbenc.absorb(&$right);
     };
     ($pbenc:ident, $ctr:ident, $left:expr, $right:expr, $out:expr) => {
         hash_counter!($pbenc, $ctr, $left, $right);
-        $pbenc.prf_fill("out", &mut $out);
+        $pbenc.squeeze(&mut $out);
     };
 }
 
-fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> Protocol {
+fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> XoodyakKeyed {
     // Normalize the passphrase into NFKC form.
     let passphrase = normalize(passphrase);
 
-    // Initialize the protocol.
-    let mut pbenc = Protocol::new("veil.pbenc");
+    // Initialize the hash.
+    let mut pbenc = XoodyakHash::new();
+    pbenc.absorb(b"veil.pbenc");
 
-    // Key with the passphrase.
-    pbenc.key("passphrase", passphrase.expose_secret());
+    // Absorb the passphrase.
+    pbenc.absorb(passphrase.expose_secret());
 
-    // Include the salt, time, space, block size, and delta parameters as associated data.
-    pbenc.ad("salt", salt);
-    pbenc.ad("time", &time.to_le_bytes());
-    pbenc.ad("space", &space.to_le_bytes());
-    pbenc.ad("block-size", &(N as u32).to_le_bytes());
-    pbenc.ad("delta", &(DELTA as u32).to_le_bytes());
+    // Absorb the salt, time, space, block size, and delta parameters.
+    pbenc.absorb(salt);
+    pbenc.absorb(&time.to_le_bytes());
+    pbenc.absorb(&space.to_le_bytes());
+    pbenc.absorb(&(N as u32).to_le_bytes());
+    pbenc.absorb(&(DELTA as u32).to_le_bytes());
 
     // Convert params.
     let time = time as usize;
@@ -131,7 +124,10 @@ fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> Protocol {
                 hash_counter!(pbenc, ctr, salt, idx);
 
                 // Map the PRF output to a block index.
-                let idx = u64::from_le_bytes(pbenc.prf("idx")) % space as u64;
+                let mut idx_out = [0u8; U64_LEN];
+                pbenc.squeeze(&mut idx_out);
+                let idx = u64::from_le_bytes(idx_out) % space as u64;
+                idx_out.zeroize();
 
                 // Hash the pseudo-randomly selected block.
                 hash_counter!(pbenc, ctr, buf[idx as usize], [], buf[m]);
@@ -139,13 +135,8 @@ fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> Protocol {
         }
     }
 
-    // Step 3: Extract output from buffer.
-    pbenc.key("extract", &buf[space - 1]);
-
-    // Zeroize buffer.
-    buf.zeroize();
-
-    pbenc
+    // Step 3: Extract key from buffer.
+    pbenc.to_keyed("veil.pbenc")
 }
 
 #[inline]
@@ -158,7 +149,7 @@ fn normalize(passphrase: &str) -> Secret<Vec<u8>> {
 
 const SALT_LEN: usize = 16;
 const DELTA: usize = 3;
-const N: usize = 64;
+const N: usize = 32;
 
 #[cfg(test)]
 mod tests {
@@ -227,7 +218,7 @@ mod tests {
         let passphrase = "this is a secret";
         let message = b"this is too";
         let mut ciphertext = encrypt(passphrase, 5, 3, message);
-        ciphertext[OVERHEAD - MAC_LEN + 1] ^= 1;
+        ciphertext[OVERHEAD - XOODYAK_AUTH_TAG_BYTES + 1] ^= 1;
 
         let plaintext = decrypt(passphrase, &ciphertext);
         let plaintext = plaintext.map(|s| s.expose_secret().to_vec());

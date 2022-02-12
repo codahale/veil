@@ -5,9 +5,10 @@ use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use rand::Rng;
 use secrecy::{ExposeSecret, Secret, SecretVec};
+use xoodyak::{XoodyakCommon, XoodyakHash, XoodyakTag, XOODYAK_AUTH_TAG_BYTES};
 
 use crate::constants::{MAC_LEN, SCALAR_LEN};
-use crate::strobe::Protocol;
+use crate::xoodoo::{XoodyakExt, XoodyakHashExt};
 
 /// The number of bytes added to plaintext by [encrypt].
 pub const OVERHEAD: usize = SCALAR_LEN + SCALAR_LEN + MAC_LEN;
@@ -23,34 +24,36 @@ pub fn encrypt(
     // Allocate an output buffer.
     let mut out = Vec::with_capacity(plaintext.len() + OVERHEAD);
 
-    // Initialize the protocol.
-    let mut sres = Protocol::new("veil.sres");
+    // Initialize a hash.
+    let mut sres = XoodyakHash::new();
+    sres.absorb(b"veil.sres");
 
-    // Send the sender's public key as cleartext.
-    sres.send("sender-public-key", q_s.compress().as_bytes());
+    // Absorb the sender's public key.
+    sres.absorb(q_s.compress().as_bytes());
 
-    // Receive the receiver's public key as cleartext.
-    sres.receive("receiver-public-key", q_r.compress().as_bytes());
+    // Absorb the receiver's public key.
+    sres.absorb(q_r.compress().as_bytes());
 
     // Generate a secret commitment scalar.
     let x = sres.hedge(d_s.as_bytes(), |clone| {
         // Also hedge with the plaintext message to ensure (d_s, plaintext, t) uniqueness.
-        clone.ad("plaintext", plaintext);
-        clone.prf_scalar("commitment-scalar")
+        clone.absorb(plaintext);
+        clone.squeeze_scalar()
     });
 
     // Calculate the shared secret and use it to key the protocol.
     let k = q_r * x.expose_secret();
-    sres.key("shared-secret", compress_secret(k).expose_secret());
+    sres.absorb(compress_secret(k).expose_secret());
+    let mut sres = sres.to_keyed("veil.sres");
 
     // Encrypt and send the plaintext.
-    out.extend(sres.encrypt("plaintext", plaintext));
+    out.extend(sres.encrypt_to_vec(plaintext).expect("invalid decryption"));
 
     // Ratchet the protocol state to prevent rollback.
-    sres.ratchet("ratchet");
+    sres.ratchet();
 
     // Extract a challenge scalar from PRF output.
-    let r = sres.prf_scalar("challenge-scalar");
+    let r = sres.squeeze_scalar();
 
     // Calculate the proof scalar.
     let s = {
@@ -62,12 +65,17 @@ pub fn encrypt(
         x.expose_secret() * y.invert()
     };
 
-    // Mask and send the scalars in cleartext.
-    out.extend(sres.send("challenge-scalar", &mask_scalar(&r)));
-    out.extend(sres.send("proof-scalar", &mask_scalar(&s)));
+    // Mask and absorb the scalars in cleartext.
+    let mr = mask_scalar(&r);
+    sres.absorb(&mr);
+    out.extend(&mr);
+
+    let ms = mask_scalar(&s);
+    sres.absorb(&ms);
+    out.extend(&ms);
 
     // Generate and send a MAC.
-    out.extend(sres.mac("mac"));
+    out.extend(sres.squeeze_to_vec(XOODYAK_AUTH_TAG_BYTES));
 
     // Return the full ciphertext.
     out
@@ -90,44 +98,52 @@ pub fn decrypt(
     // Split the ciphertext into its components.
     let (ciphertext, mr) = ciphertext.split_at(ciphertext.len() - OVERHEAD);
     let (mr, ms) = mr.split_at(SCALAR_LEN);
-    let (ms, mac) = ms.split_at(SCALAR_LEN);
+    let (ms, tag) = ms.split_at(SCALAR_LEN);
+    let tag: [u8; XOODYAK_AUTH_TAG_BYTES] = tag.try_into().expect("invalid tag len");
+    let tag = XoodyakTag::from(tag);
 
     // Unmask the scalars.
     let r = unmask_scalar(mr.try_into().expect("invalid scalar len"));
     let s = unmask_scalar(ms.try_into().expect("invalid scalar len"));
 
-    // Initialize the protocol.
-    let mut sres = Protocol::new("veil.sres");
+    // Initialize a hash.
+    let mut sres = XoodyakHash::new();
+    sres.absorb(b"veil.sres");
 
-    // Receive the sender's public key as cleartext.
-    sres.receive("sender-public-key", q_s.compress().as_bytes());
+    // Absorb the sender's public key.
+    sres.absorb(q_s.compress().as_bytes());
 
-    // Send the receiver's public key as cleartext.
-    sres.send("receiver-public-key", q_r.compress().as_bytes());
+    // Absorb the receiver's public key.
+    sres.absorb(q_r.compress().as_bytes());
 
     // Calculate the shared secret and use it to key the protocol.
     let z = (q_s + (&G * &r)) * (d_r * s);
-    sres.key("shared-secret", compress_secret(z).expose_secret());
+    sres.absorb(compress_secret(z).expose_secret());
+    let mut sres = sres.to_keyed("veil.sres");
 
     // Decrypt the ciphertext.
-    let plaintext = sres.decrypt("plaintext", ciphertext);
+    let plaintext = sres.decrypt_to_vec(ciphertext).expect("invalid decryption").into();
 
     // Ratchet the protocol state.
-    sres.ratchet("ratchet");
+    sres.ratchet();
 
     // Extract a challenge scalar from PRF output and check it against the received scalar.
-    if r != sres.prf_scalar("challenge-scalar") {
+    if r != sres.squeeze_scalar() {
         return None;
     }
 
-    // Receive the masked scalars in cleartext.
-    sres.receive("challenge-scalar", mr);
-    sres.receive("proof-scalar", ms);
+    // Absorb the masked scalars.
+    sres.absorb(mr);
+    sres.absorb(ms);
 
     // Verify the MAC.
-    sres.verify_mac("mac", mac)?;
-
-    Some(plaintext)
+    let tag_p: [u8; XOODYAK_AUTH_TAG_BYTES] =
+        sres.squeeze_to_vec(XOODYAK_AUTH_TAG_BYTES).try_into().expect("invalid tag len");
+    if tag.verify(tag_p).is_ok() {
+        Some(plaintext)
+    } else {
+        None
+    }
 }
 
 /// Encode a shared secret point in a way which zeroizes all temporary values.

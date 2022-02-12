@@ -1,18 +1,24 @@
 //! Scalar derivation functions.
 
+use crate::xoodoo::XoodyakExt;
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use secrecy::{ExposeSecret, Secret};
-
-use crate::strobe::Protocol;
+use xoodyak::{XoodyakCommon, XoodyakHash};
 
 /// Derive a scalar from the given secret key.
 #[must_use]
 pub fn derive_root(r: &[u8]) -> Secret<Scalar> {
-    let mut root_df = Protocol::new("veil.scaldf.root");
-    root_df.key("root", r);
-    root_df.prf_scalar("scalar").into()
+    // Initialize the hash.
+    let mut root_df = XoodyakHash::new();
+    root_df.absorb(b"veil.scaldf.root");
+
+    // Absorb the secret key.
+    root_df.absorb(r);
+
+    // Squeeze a scalar.
+    root_df.squeeze_scalar().into()
 }
 
 /// Derive a scalar from another scalar using the given key ID.
@@ -21,10 +27,16 @@ pub fn derive_scalar(d: &Scalar, key_id: &str) -> Secret<Scalar> {
     key_id
         .trim_matches(KEY_ID_DELIM)
         .split(KEY_ID_DELIM)
-        .fold(*d, |d_p, label| {
-            let mut label_df = Protocol::new("veil.scaldf.label");
-            label_df.key("label", label.as_bytes());
-            d_p + label_df.prf_scalar("scalar")
+        .fold(*d, |d, label| {
+            // Initialize the hash.
+            let mut label_df = XoodyakHash::new();
+            label_df.absorb(b"veil.scaldf.label");
+
+            // Absorb the label.
+            label_df.absorb(label.as_bytes());
+
+            // Squeeze a scalar.
+            d + label_df.squeeze_scalar()
         })
         .into()
 }

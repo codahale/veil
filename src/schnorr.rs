@@ -8,9 +8,10 @@ use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use secrecy::ExposeSecret;
+use xoodyak::{XoodyakCommon, XoodyakHash};
 
 use crate::constants::{POINT_LEN, SCALAR_LEN};
-use crate::strobe::{Protocol, RecvClrWriter, SendClrWriter};
+use crate::xoodoo::{AbsorbWriter, XoodyakExt, XoodyakHashExt};
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
@@ -18,7 +19,7 @@ pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
 /// A writer which accumulates message contents for signing before passing them along to an inner
 /// writer.
 pub struct Signer<W: Write> {
-    writer: SendClrWriter<W>,
+    writer: AbsorbWriter<W>,
 }
 
 impl<W> Signer<W>
@@ -27,39 +28,45 @@ where
 {
     /// Create a new signer which passes writes through to the given writer.
     pub fn new(writer: W) -> Signer<W> {
-        let schnorr = Protocol::new("veil.schnorr");
-        Signer { writer: schnorr.send_clr_writer("message", writer) }
+        // Initialize a hash.
+        let mut schnorr = XoodyakHash::new();
+        schnorr.absorb(b"veil.schnorr");
+
+        Signer { writer: schnorr.absorb_writer(writer) }
     }
 
     /// Create a signature of the previously-written message contents using the given key pair.
     #[allow(clippy::many_single_char_names)]
-    pub fn sign(self, d: &Scalar, q: &RistrettoPoint) -> ([u8; SIGNATURE_LEN], W) {
-        // Unwrap the SEND_CLR writer.
-        let (mut schnorr, writer, _) = self.writer.into_inner();
+    pub fn sign(self, d: &Scalar, q: &RistrettoPoint) -> Result<([u8; SIGNATURE_LEN], W)> {
+        // Unwrap the hash and writer.
+        let (mut schnorr, writer, _) = self.writer.into_inner()?;
 
         // Allocate an output buffer.
         let mut sig = Vec::with_capacity(SIGNATURE_LEN);
 
-        // Send the signer's public key as cleartext.
-        schnorr.send("signer", q.compress().as_bytes());
+        // Absorb the signer's public key.
+        schnorr.absorb(q.compress().as_bytes());
 
         // Derive a commitment scalar from the protocol's current state, the signer's private key,
         // and a random nonce.
-        let k = schnorr.hedge(d.as_bytes(), |clone| clone.prf_scalar("commitment-scalar"));
+        let k = schnorr.hedge(d.as_bytes(), XoodyakExt::squeeze_scalar);
+
+        // Convert the hash to a duplex.
+        let mut schnorr = schnorr.to_keyed("veil.schnorr");
 
         // Calculate and encrypt the commitment point.
         let i = &G * k.expose_secret();
-        sig.extend(schnorr.encrypt("commitment-point", i.compress().as_bytes()));
+        sig.extend(schnorr.encrypt_to_vec(i.compress().as_bytes()).expect("invalid encryption"));
 
-        // Derive a challenge scalar from PRF output.
-        let r = schnorr.prf_scalar("challenge-scalar");
+        // Squeeze a challenge scalar.
+        let r = schnorr.squeeze_scalar();
 
         // Calculate and encrypt the proof scalar.
         let s = d * r + k.expose_secret();
-        sig.extend(schnorr.encrypt("proof-scalar", s.as_bytes()));
+        sig.extend(schnorr.encrypt_to_vec(s.as_bytes()).expect("invalid encryption"));
 
         // Return the encrypted commitment point and proof scalar, plus the underlying writer.
-        (sig.try_into().expect("invalid sig len"), writer)
+        Ok((sig.try_into().expect("invalid sig len"), writer))
     }
 }
 
@@ -78,49 +85,55 @@ where
 
 /// A writer which accumulates message contents for verifying.
 pub struct Verifier {
-    writer: RecvClrWriter<io::Sink>,
+    writer: AbsorbWriter<io::Sink>,
 }
 
 impl Verifier {
     /// Create a new verifier.
     #[must_use]
     pub fn new() -> Verifier {
-        let schnorr = Protocol::new("veil.schnorr");
-        Verifier { writer: schnorr.recv_clr_writer("message", io::sink()) }
+        // Initialize a hash.
+        let mut schnorr = XoodyakHash::new();
+        schnorr.absorb(b"veil.schnorr");
+
+        Verifier { writer: schnorr.absorb_writer(io::sink()) }
     }
 
     /// Verify the previously-written message contents using the given public key and signature.
-    #[must_use]
-    pub fn verify(self, q: &RistrettoPoint, sig: &[u8; SIGNATURE_LEN]) -> bool {
-        let (mut schnorr, _, _) = self.writer.into_inner();
+    pub fn verify(self, q: &RistrettoPoint, sig: &[u8; SIGNATURE_LEN]) -> Result<bool> {
+        // Unwrap hash.
+        let (mut schnorr, _, _) = self.writer.into_inner()?;
 
-        // Receive the signer's public key as cleartext.
-        schnorr.receive("signer", q.compress().as_bytes());
+        // Absorb the signer's public key.
+        schnorr.absorb(q.compress().as_bytes());
+
+        // Convert the hash to a duplex.
+        let mut schnorr = schnorr.to_keyed("veil.schnorr");
 
         // Split the signature into parts.
         let (i, s) = sig.split_at(POINT_LEN);
 
         // Decrypt and decode the commitment point.
-        let i = schnorr.decrypt("commitment-point", i);
-        let i = CompressedRistretto::from_slice(i.expose_secret()).decompress();
+        let i = schnorr.decrypt_to_vec(i).expect("invalid decryption");
+        let i = CompressedRistretto::from_slice(&i).decompress();
 
         // Re-derive the challenge scalar.
-        let r = schnorr.prf_scalar("challenge-scalar");
+        let r = schnorr.squeeze_scalar();
 
         // Decrypt and decode the proof scalar.
-        let s = schnorr.decrypt("proof-scalar", s);
-        let s = s.expose_secret().as_slice().try_into().expect("invalid scalar len");
+        let s = schnorr.decrypt_to_vec(s).expect("invalid decryption");
+        let s = s.try_into().expect("invalid scalar len");
         let s = Scalar::from_canonical_bytes(s);
 
         // Early exit if either commitment point or proof scalar are malformed.
         let (i, s) = match (i, s) {
             (Some(i), Some(s)) => (i, s),
-            _ => return false,
+            _ => return Ok(false),
         };
 
         // Return true iff I == rG - sQ. Use the variable-time implementation here because the
         // verifier has no secret data.
-        i == RistrettoPoint::vartime_double_scalar_mul_basepoint(&r, &-q, &s)
+        Ok(i == RistrettoPoint::vartime_double_scalar_mul_basepoint(&r, &-q, &s))
     }
 }
 
@@ -151,7 +164,7 @@ mod tests {
         assert_eq!(30, signer.write(b" is written in multiple pieces")?, "invalid write count");
         signer.flush()?;
 
-        let (sig, _) = signer.sign(&d, &q);
+        let (sig, _) = signer.sign(&d, &q).expect("error signing");
 
         let mut verifier = Verifier::new();
         assert_eq!(22, verifier.write(b"this is a message that")?, "invalid write count");
@@ -159,7 +172,10 @@ mod tests {
         assert_eq!(7, verifier.write(b" pieces")?, "invalid write count");
         verifier.flush()?;
 
-        assert!(verifier.verify(&q, &sig), "should have verified a valid signature");
+        assert!(
+            verifier.verify(&q, &sig).expect("error verifying"),
+            "should have verified a valid signature"
+        );
 
         Ok(())
     }
@@ -174,7 +190,7 @@ mod tests {
         signer.write_all(b" is written in multiple pieces")?;
         signer.flush()?;
 
-        let (sig, _) = signer.sign(&d, &q);
+        let (sig, _) = signer.sign(&d, &q).expect("error signing");
 
         let mut verifier = Verifier::new();
         verifier.write_all(b"this NOT is a message that")?;
@@ -182,7 +198,10 @@ mod tests {
         verifier.write_all(b" pieces")?;
         verifier.flush()?;
 
-        assert!(!verifier.verify(&q, &sig), "verified an invalid signature");
+        assert!(
+            !verifier.verify(&q, &sig).expect("error verifying"),
+            "verified an invalid signature"
+        );
 
         Ok(())
     }
@@ -197,7 +216,7 @@ mod tests {
         signer.write_all(b" is written in multiple pieces")?;
         signer.flush()?;
 
-        let (sig, _) = signer.sign(&d, &q);
+        let (sig, _) = signer.sign(&d, &q).expect("error signing");
 
         let mut verifier = Verifier::new();
         verifier.write_all(b"this is a message that")?;
@@ -205,7 +224,10 @@ mod tests {
         verifier.write_all(b" pieces")?;
         verifier.flush()?;
 
-        assert!(!verifier.verify(&G.basepoint(), &sig), "verified an invalid signature");
+        assert!(
+            !verifier.verify(&G.basepoint(), &sig).expect("error verifying"),
+            "verified an invalid signature"
+        );
 
         Ok(())
     }
@@ -220,7 +242,7 @@ mod tests {
         signer.write_all(b" is written in multiple pieces")?;
         signer.flush()?;
 
-        let (mut sig, _) = signer.sign(&d, &q);
+        let (mut sig, _) = signer.sign(&d, &q).expect("error signing");
         sig[22] ^= 1;
 
         let mut verifier = Verifier::new();
@@ -229,7 +251,10 @@ mod tests {
         verifier.write_all(b" pieces")?;
         verifier.flush()?;
 
-        assert!(!verifier.verify(&q, &sig), "verified an invalid signature");
+        assert!(
+            !verifier.verify(&q, &sig).expect("error verifying"),
+            "verified an invalid signature"
+        );
 
         Ok(())
     }

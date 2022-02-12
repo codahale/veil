@@ -9,11 +9,12 @@ use curve25519_dalek::scalar::Scalar;
 use rand::prelude::ThreadRng;
 use rand::RngCore;
 use secrecy::{ExposeSecret, Secret, SecretVec, Zeroize};
+use xoodyak::{XoodyakCommon, XoodyakHash, XoodyakKeyed, XoodyakTag, XOODYAK_AUTH_TAG_BYTES};
 
 use crate::constants::{MAC_LEN, POINT_LEN, U64_LEN};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::sres;
-use crate::strobe::Protocol;
+use crate::xoodoo::{XoodyakExt, XoodyakHashExt};
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
@@ -29,18 +30,19 @@ where
     R: Read,
     W: Write,
 {
-    // Initialize a protocol and send the sender's public key as cleartext.
-    let mut mres = Protocol::new("veil.mres");
-    mres.send("sender", q_s.compress().as_bytes());
+    // Initialize a hash and absorb the sender's public key.
+    let mut mres = XoodyakHash::new();
+    mres.absorb(b"veil.mres");
+    mres.absorb(q_s.compress().as_bytes());
 
-    // Derive a random ephemeral key pair from the protocol's current state, the sender's private
-    // key, and a random nonce.
-    let d_e = mres.hedge(d_s.as_bytes(), |clone| clone.prf_scalar("ephemeral-private-key"));
+    // Derive a random ephemeral key pair from the hash's current state, the sender's private key,
+    // and a random nonce.
+    let d_e = mres.hedge(d_s.as_bytes(), XoodyakExt::squeeze_scalar);
     let q_e = &G * d_e.expose_secret();
 
-    // Derive a random DEK from the protocol's current state, the sender's private key, and a random
+    // Derive a random DEK from the hash's current state, the sender's private key, and a random
     // nonce.
-    let dek = mres.hedge(d_s.as_bytes(), |clone| clone.prf_vec("data-encryption-key", DEK_LEN));
+    let dek = mres.hedge(d_s.as_bytes(), |clone| clone.squeeze_to_vec(DEK_LEN));
 
     // Encode the DEK, the ephemeral public key, and the message offset in a header.
     let msg_offset = ((q_rs.len() as u64) * ENC_HEADER_LEN as u64) + padding;
@@ -52,32 +54,33 @@ where
     // Count and sign all of the bytes written to `writer`.
     let signer = Signer::new(writer);
 
-    // Include all encrypted headers and padding as sent cleartext.
-    let mut send_clr = mres.send_clr_writer("headers", signer);
+    // Absorb all encrypted headers and padding as they're read.
+    let mut headers_and_padding = mres.absorb_writer(signer);
 
     // For each recipient, encrypt a copy of the header with veil.sres.
     for q_r in q_rs {
         let ciphertext = sres::encrypt(d_s, q_s, q_r, &header);
-        send_clr.write_all(&ciphertext)?;
+        headers_and_padding.write_all(&ciphertext)?;
     }
 
     // Add random padding to the end of the headers.
-    io::copy(&mut RngReader(rand::thread_rng()).take(padding), &mut send_clr)?;
+    io::copy(&mut RngReader(rand::thread_rng()).take(padding), &mut headers_and_padding)?;
 
-    // Unwrap the sent cleartext writer.
-    let (mut mres, mut signer, header_len) = send_clr.into_inner();
+    // Unwrap the headers and padding writer.
+    let (mut mres, mut signer, header_len) = headers_and_padding.into_inner()?;
 
     // Key the protocol with the DEK.
-    mres.key("data-encryption-key", dek.expose_secret());
+    mres.absorb(dek.expose_secret());
+    let mut mres = mres.to_keyed("veil.mres");
 
     // Encrypt the plaintext, pass it through the signer, and write it.
     let ciphertext_len = encrypt_message(&mut mres, reader, &mut signer)?;
 
     // Sign the encrypted headers and ciphertext with the ephemeral key pair.
-    let (sig, writer) = signer.sign(d_e.expose_secret(), &q_e);
+    let (sig, writer) = signer.sign(d_e.expose_secret(), &q_e)?;
 
     // Encrypt the signature.
-    let sig = mres.encrypt("signature", &sig);
+    let sig = mres.encrypt_to_vec(&sig).expect("invalid encryption");
 
     // Write the encrypted signature.
     writer.write_all(&sig)?;
@@ -85,7 +88,7 @@ where
     Ok(header_len + ciphertext_len + sig.len() as u64)
 }
 
-fn encrypt_message<R, W>(mres: &mut Protocol, reader: &mut R, writer: &mut W) -> Result<u64>
+fn encrypt_message<R, W>(mres: &mut XoodyakKeyed, reader: &mut R, writer: &mut W) -> Result<u64>
 where
     R: Read,
     W: Write,
@@ -99,16 +102,16 @@ where
         let block = &buf.0[..n];
 
         // Encrypt the block and write the ciphertext.
-        writer.write_all(&mres.encrypt("block", block))?;
+        writer.write_all(&mres.encrypt_to_vec(block).expect("invalid encryption"))?;
         written += n as u64;
 
-        // Generate a MAC and write it.
-        writer.write_all(&mres.mac("mac"))?;
+        // Squeeze a tag and write it.
+        writer.write_all(&mres.squeeze_to_vec(XOODYAK_AUTH_TAG_BYTES))?;
         written += MAC_LEN as u64;
 
         // Ratchet the protocol state to prevent rollback. This protects previous blocks from being
         // reversed in the event of the protocol's state being compromised.
-        mres.ratchet("post-block");
+        mres.ratchet();
 
         // If the block was undersized, we're at the end of the reader.
         if n < BLOCK_LEN {
@@ -135,15 +138,16 @@ where
     R: Read,
     W: Write,
 {
-    // Initialize a protocol and receive the sender's public key as cleartext.
-    let mut mres = Protocol::new("veil.mres");
-    mres.receive("sender", q_s.compress().as_bytes());
+    // Initialize a hash and absord the sender's public key.
+    let mut mres = XoodyakHash::new();
+    mres.absorb(b"veil.mres");
+    mres.absorb(q_s.compress().as_bytes());
 
     // Initialize a verifier for the entire ciphertext.
     let verifier = Verifier::new();
 
-    // Include all encrypted headers and padding as received cleartext.
-    let mut mres_writer = mres.recv_clr_writer("headers", verifier);
+    // Absorb all encrypted headers and padding as they're read.
+    let mut mres_writer = mres.absorb_writer(verifier);
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the verifier.
     let (dek, q_e) = match decrypt_header(reader, &mut mres_writer, d_r, q_r, q_s)? {
@@ -152,20 +156,21 @@ where
     };
 
     // Unwrap the received cleartext writer.
-    let (mut mres, mut verifier, _) = mres_writer.into_inner();
+    let (mut mres, mut verifier, _) = mres_writer.into_inner()?;
 
     // Key the protocol with the recovered DEK.
-    mres.key("data-encryption-key", dek.expose_secret());
+    mres.absorb(dek.expose_secret());
+    let mut mres = mres.to_keyed("veil.mres");
 
     // Decrypt the message and get the signature.
     let (written, sig) = decrypt_message(&mut mres, reader, writer, &mut verifier)?;
 
     // Return the signature's validity and the number of bytes of plaintext written.
-    Ok((verifier.verify(&q_e, &sig), written))
+    Ok((verifier.verify(&q_e, &sig)?, written))
 }
 
 fn decrypt_message<R, W>(
-    mres: &mut Protocol,
+    mres: &mut XoodyakKeyed,
     reader: &mut R,
     writer: &mut W,
     verifier: &mut Verifier,
@@ -192,36 +197,43 @@ where
 
         // Pretend we don't see the possible signature at the end.
         let n = buf.len() - SIGNATURE_LEN;
-        let block = &buf[..n];
+        let block = &mut buf[..n];
 
         // Add the block to the verifier.
         verifier.write_all(block)?;
 
         // Split the block into ciphertext and MAC.
-        let (ciphertext, mac) = block.split_at(n - MAC_LEN);
+        let (ciphertext, tag) = block.split_at_mut(n - XOODYAK_AUTH_TAG_BYTES);
+        let tag: [u8; XOODYAK_AUTH_TAG_BYTES] = tag.as_ref().try_into().expect("invalid tag len");
+        let tag = XoodyakTag::from(tag);
 
         // Decrypt the block and write the plaintext.
-        writer.write_all(mres.decrypt("block", ciphertext).expose_secret())?;
+        mres.decrypt_in_place(ciphertext);
+        writer.write_all(ciphertext)?;
+        ciphertext.zeroize();
         written += ciphertext.len() as u64;
 
         // Verify the MAC.
-        if mres.verify_mac("mac", mac).is_none() {
+        let mut tag_p = [0u8; XOODYAK_AUTH_TAG_BYTES];
+        mres.squeeze(&mut tag_p);
+
+        if tag.verify(tag_p).is_err() {
             // If the MAC is invalid, return the number of bytes written and an impossible
             // signature.
             return Ok((written, [0u8; SIGNATURE_LEN]));
         }
 
         // Ratchet the protocol state.
-        mres.ratchet("post-block");
+        mres.ratchet();
 
         // Clear the part of the buffer we used.
         buf.drain(0..n);
     }
 
     // Decrypt the signature.
-    let sig = mres.decrypt("signature", &buf);
+    let sig = mres.decrypt_to_vec(&buf).expect("invalid decryption");
 
-    Ok((written, sig.expose_secret().as_slice().try_into().expect("invalid sig len")))
+    Ok((written, sig.try_into().expect("invalid sig len")))
 }
 
 fn decrypt_header<R, W>(

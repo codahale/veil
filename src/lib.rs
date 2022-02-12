@@ -74,5 +74,5 @@ mod pbenc;
 mod scaldf;
 mod schnorr;
 mod sres;
-mod strobe;
 mod veil;
+mod xoodoo;
