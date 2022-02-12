@@ -78,7 +78,7 @@ $$
 
 ## Decryption
 
-Given an initialized, keyed duplex, the encryption of a ciphertext $C$ and authentication tag $T$ is as follows:
+Given an initialized, keyed duplex, the decryption of a ciphertext $C$ and authentication tag $T$ is as follows:
 
 $$
 P' \gets \text{Encrypt}(C) \\
