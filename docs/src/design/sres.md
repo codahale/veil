@@ -10,8 +10,7 @@ Encryption takes a sender's key pair, $(d_S, Q_S)$, a recipient's public key, $Q
 First, an unkeyed duplex is initialized and used to absorb the sender and recipient's public keys:
 
 $$
-\text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
-\text{Absorb}(\texttt{veil.sres}) \\
+\text{Cyclist}(\epsilon, \epsilon, \texttt{veil.sres}) \\
 \text{Absorb}(Q_S) \\
 \text{Absorb}(Q_R) \\
 $$
@@ -27,21 +26,14 @@ v \overset{R}{\gets} \mathbb{Z}_{2^{512}} \\
 x \gets \text{SqueezeKey}(64) \bmod \ell \\
 $$
 
-Third, the shared secret point $K$ is calculated and absorbed.
+Third, the shared secret point $K$ is calculated and used to key the duplex.
 
 $$
 K = [x]Q_R \\
-\text{Absorb}(K) \\
+\text{Cyclist}(K, \epsilon, \epsilon) \\
 $$
 
-Fourth, a 43-byte key $Z$ is extracted from the duplex and used to initialize a keyed duplex instance:
-
-$$
-Z \gets \text{SqueezeKey}(43) \\
-\text{Cyclist}(Z, \epsilon, \epsilon) \\
-$$
-
-Fifth, the duplex is used to encrypt plaintext $P$ as $C$, its state is ratcheted, a challenge scalar $r$ is derived
+Fourth, the duplex is used to encrypt plaintext $P$ as $C$, its state is ratcheted, a challenge scalar $r$ is derived
 from output, and a proof scalar $s$ is calculated:
 
 $$
@@ -53,7 +45,7 @@ $$
 
 (In the rare event that $r+d_S=0$, the procedure is re-run with a different $x$.)
 
-Sixth, the top four bits of both $r$ and $s$ are masked with random data as $S_0$ and $S_1$:
+Fifth, the top four bits of both $r$ and $s$ are masked with random data as $S_0$ and $S_1$:
 
 $$
 m_0 \overset{R}{\gets} \mathbb{Z}_{2^{8}} \\
@@ -80,36 +72,32 @@ $(S_0, S_1)$, a ciphertext $C$, and an authentication tag $T$.
 First, an unkeyed duplex is used to absorb the sender and recipient's public keys:
 
 $$
-\text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
-\text{Absorb}(\texttt{veil.sres}) \\
+\text{Cyclist}(\epsilon, \epsilon, \texttt{veil.sres}) \\
 \text{Absorb}(Q_S) \\
 \text{Absorb}(Q_R) \\
 $$
 
-Second, the challenge scalar $r$ and the proof scalar $s$ are unmasked and used to calculate the shared secret
-$K=$, which is then absorbed:
+Second, the challenge scalar $r$ and the proof scalar $s$ are unmasked and used to calculate the shared secret $K$,
+which is used to key the duplex:
 
 $$
 r = S_0 \land \lnot(2^8 \ll 252) \bmod \ell \\
 s = S_1 \land \lnot(2^8 \ll 252) \bmod \ell \\
 K = [{d_R}s] (Q_S+[r]G) \\
-\text{Absorb}(K) \\
+\text{Cyclist}(K, \epsilon, \epsilon) \\
 $$
 
-Third, a 43-byte key $Z$ is extracted from the duplex and used to initialize a keyed duplex instance, and the ciphertext
-$C$ is decrypted as the unauthenticated plaintext $P'$:
+Third, the ciphertext $C$ is decrypted as the unauthenticated plaintext $P'$ and the duplex's is ratcheted:
 
 $$
-Z \gets \text{SqueezeKey}(43) \\
-\text{Cyclist}(Z, \epsilon, \epsilon) \\
-P' \gets \text{Decrypt}(C)
-$$
-
-Fourth, the duplex's state is ratcheted and a counterfactual challenge scalar $r'$ is derived from output and compared
-to the ciphertext challenge scalar $r$:
-
-$$
+P' \gets \text{Decrypt}(C) \\
 \text{Ratchet}() \\
+$$
+
+Fourth, a counterfactual challenge scalar $r'$ is derived from output and compared to the ciphertext challenge scalar
+$r$:
+
+$$
 r' \gets \text{SqueezeKey}(64) \bmod \ell \\
 r' \stackrel{?}{=} r \\
 $$

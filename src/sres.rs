@@ -5,7 +5,7 @@ use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use rand::Rng;
 use secrecy::{ExposeSecret, Secret, SecretVec};
-use xoodyak::{XoodyakCommon, XoodyakHash, XoodyakTag, XOODYAK_AUTH_TAG_BYTES};
+use xoodyak::{XoodyakCommon, XoodyakKeyed, XoodyakTag, XOODYAK_AUTH_TAG_BYTES};
 
 use crate::constants::SCALAR_LEN;
 use crate::xoodoo;
@@ -25,8 +25,8 @@ pub fn encrypt(
     let mut out = Vec::with_capacity(plaintext.len() + OVERHEAD);
 
     // Initialize a duplex.
-    let mut sres = XoodyakHash::new();
-    sres.absorb(b"veil.sres");
+    let mut sres =
+        XoodyakKeyed::new(&[], None, None, Some(b"veil.sres")).expect("unable to construct duplex");
 
     // Absorb the sender's public key.
     sres.absorb(q_s.compress().as_bytes());
@@ -41,12 +41,10 @@ pub fn encrypt(
         xoodoo::squeeze_scalar(clone)
     });
 
-    // Absorb the shared secret.
+    // Re-key with the shared secret.
     let k = q_r * x.expose_secret();
-    sres.absorb(compress_secret(k).expose_secret());
-
-    // Convert to a keyed duplex.
-    let mut sres = xoodoo::to_keyed(sres, "veil.sres");
+    sres.absorb_key_and_nonce(compress_secret(k).expose_secret(), None, None, None)
+        .expect("unable to construct duplex");
 
     // Encrypt the plaintext.
     out.extend(sres.encrypt_to_vec(plaintext).expect("invalid decryption"));
@@ -109,8 +107,8 @@ pub fn decrypt(
     let s = unmask_scalar(ms.try_into().expect("invalid scalar len"));
 
     // Initialize a duplex.
-    let mut sres = XoodyakHash::new();
-    sres.absorb(b"veil.sres");
+    let mut sres =
+        XoodyakKeyed::new(&[], None, None, Some(b"veil.sres")).expect("unable to construct duplex");
 
     // Absorb the sender's public key.
     sres.absorb(q_s.compress().as_bytes());
@@ -118,12 +116,10 @@ pub fn decrypt(
     // Absorb the receiver's public key.
     sres.absorb(q_r.compress().as_bytes());
 
-    // Absorb the shared secret.
+    // Re-key with the shared secret.
     let z = (q_s + (&G * &r)) * (d_r * s);
-    sres.absorb(compress_secret(z).expose_secret());
-
-    // Convert to a keyed duplex.
-    let mut sres = xoodoo::to_keyed(sres, "veil.sres");
+    sres.absorb_key_and_nonce(compress_secret(z).expose_secret(), None, None, None)
+        .expect("unable to construt duplex");
 
     // Decrypt the ciphertext.
     let plaintext = sres.decrypt_to_vec(ciphertext).expect("invalid decryption").into();
