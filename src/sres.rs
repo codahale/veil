@@ -41,18 +41,20 @@ pub fn encrypt(
         clone.squeeze_scalar()
     });
 
-    // Calculate the shared secret and use it to key the protocol.
+    // Absorb the shared secret.
     let k = q_r * x.expose_secret();
     sres.absorb(compress_secret(k).expose_secret());
+
+    // Convert to a keyed duplex.
     let mut sres = sres.to_keyed("veil.sres");
 
-    // Encrypt and send the plaintext.
+    // Encrypt the plaintext.
     out.extend(sres.encrypt_to_vec(plaintext).expect("invalid decryption"));
 
-    // Ratchet the protocol state to prevent rollback.
+    // Ratchet the duplex state to prevent rollback.
     sres.ratchet();
 
-    // Extract a challenge scalar from PRF output.
+    // Squeeze a challenge scalar.
     let r = sres.squeeze_scalar();
 
     // Calculate the proof scalar.
@@ -65,7 +67,7 @@ pub fn encrypt(
         x.expose_secret() * y.invert()
     };
 
-    // Mask and absorb the scalars in cleartext.
+    // Mask and absorb the scalars.
     let mr = mask_scalar(&r);
     sres.absorb(&mr);
     out.extend(&mr);
@@ -74,7 +76,7 @@ pub fn encrypt(
     sres.absorb(&ms);
     out.extend(&ms);
 
-    // Generate and send a MAC.
+    // Generate and send a tag.
     out.extend(sres.squeeze_to_vec(XOODYAK_AUTH_TAG_BYTES));
 
     // Return the full ciphertext.
@@ -116,9 +118,11 @@ pub fn decrypt(
     // Absorb the receiver's public key.
     sres.absorb(q_r.compress().as_bytes());
 
-    // Calculate the shared secret and use it to key the protocol.
+    // Absorb the shared secret.
     let z = (q_s + (&G * &r)) * (d_r * s);
     sres.absorb(compress_secret(z).expose_secret());
+
+    // Convert to a keyed duplex.
     let mut sres = sres.to_keyed("veil.sres");
 
     // Decrypt the ciphertext.
@@ -127,7 +131,7 @@ pub fn decrypt(
     // Ratchet the protocol state.
     sres.ratchet();
 
-    // Extract a challenge scalar from PRF output and check it against the received scalar.
+    // Squeeze a challenge scalar and check it against the received scalar.
     if r != sres.squeeze_scalar() {
         return None;
     }
@@ -136,7 +140,7 @@ pub fn decrypt(
     sres.absorb(mr);
     sres.absorb(ms);
 
-    // Verify the MAC.
+    // Verify the tag.
     let tag_p: [u8; XOODYAK_AUTH_TAG_BYTES] =
         sres.squeeze_to_vec(XOODYAK_AUTH_TAG_BYTES).try_into().expect("invalid tag len");
     if tag.verify(tag_p).is_ok() {
