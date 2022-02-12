@@ -49,7 +49,7 @@ a keyed duplex instance:
 $$
 \text{Absorb}(K) \\
 Z \gets \text{SqueezeKey}(44) \\
-\text{Cyclist}(K, \epsilon, \epsilon) \\
+\text{Cyclist}(Z, \epsilon, \epsilon) \\
 $$
 
 The plaintext message is divided into 32KiB-sized blocks $P_0 || P_1 || \dots P_i \dots || P_n$. Each block $P_i$ is
@@ -104,7 +104,7 @@ The key $K$ is absorbed, a 44-byte key $Z$ is extracted from the duplex, and use
 $$
 \text{Absorb}(K) \\
 Z \gets \text{SqueezeKey}(44) \\
-\text{Cyclist}(K, \epsilon, \epsilon) \\
+\text{Cyclist}(Z, \epsilon, \epsilon) \\
 $$
 
 The keyed duplex is used to decrypt the ciphertext blocks and verify the authentication tags:

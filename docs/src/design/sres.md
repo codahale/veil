@@ -38,7 +38,7 @@ Fourth, a 32-byte key $Z$ is extracted from the duplex and used to initialize a 
 
 $$
 Z \gets \text{SqueezeKey}(32) \\
-\text{Cyclist}(K, \epsilon, \epsilon) \\
+\text{Cyclist}(Z, \epsilon, \epsilon) \\
 $$
 
 Fifth, the duplex is used to encrypt plaintext $P$ as $C$, its state is ratcheted, a challenge scalar $r$ is derived
@@ -101,7 +101,7 @@ $C$ is decrypted as the unauthenticated plaintext $P'$:
 
 $$
 Z \gets \text{SqueezeKey}(44) \\
-\text{Cyclist}(K, \epsilon, \epsilon) \\
+\text{Cyclist}(Z, \epsilon, \epsilon) \\
 P' \gets \text{Decrypt}(C)
 $$
 

@@ -37,7 +37,7 @@ A 32-byte key $Z$ is extracted from the duplex and used to initialize a keyed du
 
 $$
 Z \gets \text{SqueezeKey}(32) \\
-\text{Cyclist}(K, \epsilon, \epsilon) \\
+\text{Cyclist}(Z, \epsilon, \epsilon) \\
 $$
 
 The commitment point $I$ is calculated and encrypted as $S_0$:
@@ -78,7 +78,7 @@ A 44-byte key $Z$ is extracted from the duplex and used to initialize a keyed du
 
 $$
 Z \gets \text{SqueezeKey}(44) \\
-\text{Cyclist}(K, \epsilon, \epsilon) \\
+\text{Cyclist}(Z, \epsilon, \epsilon) \\
 $$
 
 $S_0$ is decrypted and decoded as $I$ and $r$ is re-derived from output:

@@ -58,7 +58,7 @@ duplex:
 $$
 \text{Absorb}(B_N) \\
 Z \gets \text{SqueezeKey}(44) \\
-\text{Cyclist}(K, \epsilon, \epsilon) \\
+\text{Cyclist}(Z, \epsilon, \epsilon) \\
 $$
 
 ## Encryption
