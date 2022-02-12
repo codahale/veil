@@ -52,12 +52,12 @@ C = C+1 \\
 B_m \gets \text{Squeeze}(N_B) \\
 $$
 
-Finally, the last block $B_N$ of the buffer is absorbed and a 44-byte key $Z$ extracted and used to initialize a keyed
+Finally, the last block $B_N$ of the buffer is absorbed and a 43-byte key $Z$ extracted and used to initialize a keyed
 duplex:
 
 $$
 \text{Absorb}(B_N) \\
-Z \gets \text{SqueezeKey}(44) \\
+Z \gets \text{SqueezeKey}(43) \\
 \text{Cyclist}(Z, \epsilon, \epsilon) \\
 $$
 

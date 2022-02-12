@@ -34,10 +34,10 @@ K = [x]Q_R \\
 \text{Absorb}(K) \\
 $$
 
-Fourth, a 32-byte key $Z$ is extracted from the duplex and used to initialize a keyed duplex instance:
+Fourth, a 43-byte key $Z$ is extracted from the duplex and used to initialize a keyed duplex instance:
 
 $$
-Z \gets \text{SqueezeKey}(32) \\
+Z \gets \text{SqueezeKey}(43) \\
 \text{Cyclist}(Z, \epsilon, \epsilon) \\
 $$
 
@@ -96,11 +96,11 @@ K = [{d_R}s] (Q_S+[r]G) \\
 \text{Absorb}(K) \\
 $$
 
-Third, a 44-byte key $Z$ is extracted from the duplex and used to initialize a keyed duplex instance, and the ciphertext
+Third, a 43-byte key $Z$ is extracted from the duplex and used to initialize a keyed duplex instance, and the ciphertext
 $C$ is decrypted as the unauthenticated plaintext $P'$:
 
 $$
-Z \gets \text{SqueezeKey}(44) \\
+Z \gets \text{SqueezeKey}(43) \\
 \text{Cyclist}(Z, \epsilon, \epsilon) \\
 P' \gets \text{Decrypt}(C)
 $$

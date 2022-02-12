@@ -43,12 +43,12 @@ H_{pad} \overset{R}{\gets} \mathbb{Z}_{2^{pad}} \\
 \text{Absorb}(H_{pad}) \\
 $$
 
-As the final setup step, the key $K$ is absorbed, a 44-byte key $Z$ is extracted from the duplex, and used to initialize
+As the final setup step, the key $K$ is absorbed, a 43-byte key $Z$ is extracted from the duplex, and used to initialize
 a keyed duplex instance:
 
 $$
 \text{Absorb}(K) \\
-Z \gets \text{SqueezeKey}(44) \\
+Z \gets \text{SqueezeKey}(43) \\
 \text{Cyclist}(Z, \epsilon, \epsilon) \\
 $$
 
@@ -99,11 +99,11 @@ $$
 \text{Absorb}(H_{pad}) \\
 $$
 
-The key $K$ is absorbed, a 44-byte key $Z$ is extracted from the duplex, and used to initialize a keyed duplex instance:
+The key $K$ is absorbed, a 43-byte key $Z$ is extracted from the duplex, and used to initialize a keyed duplex instance:
 
 $$
 \text{Absorb}(K) \\
-Z \gets \text{SqueezeKey}(44) \\
+Z \gets \text{SqueezeKey}(43) \\
 \text{Cyclist}(Z, \epsilon, \epsilon) \\
 $$
 

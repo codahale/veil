@@ -33,10 +33,10 @@ $$
 
 The clone's state is discarded, and $k$ is returned to the parent.
 
-A 32-byte key $Z$ is extracted from the duplex and used to initialize a keyed duplex instance:
+A 43-byte key $Z$ is extracted from the duplex and used to initialize a keyed duplex instance:
 
 $$
-Z \gets \text{SqueezeKey}(32) \\
+Z \gets \text{SqueezeKey}(43) \\
 \text{Cyclist}(Z, \epsilon, \epsilon) \\
 $$
 
@@ -74,10 +74,10 @@ $$
 \text{Absorb}(Q) \\
 $$
 
-A 44-byte key $Z$ is extracted from the duplex and used to initialize a keyed duplex instance:
+A 43-byte key $Z$ is extracted from the duplex and used to initialize a keyed duplex instance:
 
 $$
-Z \gets \text{SqueezeKey}(44) \\
+Z \gets \text{SqueezeKey}(43) \\
 \text{Cyclist}(Z, \epsilon, \epsilon) \\
 $$
 
