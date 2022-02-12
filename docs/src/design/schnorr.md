@@ -88,14 +88,16 @@ I \gets \text{Decrypt}(S_0) \\
 r \gets \text{SqueezeKey}(64) \mod \ell \\
 $$
 
-$S_1$ is decrypted and decoded as $s$ and the counterfactual commitment point $I'$ is calculated:
+$S_1$ is decrypted and decoded as $s$ and the counterfactual commitment point $I'$ is calculated and compared to the
+signature commitment point $I$:
 
 $$
 s \gets \text{Decrypt}(S_1) \\
 I' = [r]G - [s]Q \\
+I' \stackrel{?}{=} I \\
 $$
 
-The signature is valid if-and-only-if $I' \equiv I$.
+The signature is valid if-and-only-if $I' = I$.
 
 ## Security, Forgeability, and Malleability
 

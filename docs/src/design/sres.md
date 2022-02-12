@@ -105,25 +105,28 @@ Z \gets \text{SqueezeKey}(44) \\
 P' \gets \text{Decrypt}(C)
 $$
 
-Fourth, the duplex's state is ratcheted and a counterfactual challenge scalar $r'$ is derived from output:
+Fourth, the duplex's state is ratcheted and a counterfactual challenge scalar $r'$ is derived from output and compared
+to the ciphertext challenge scalar $r$:
 
 $$
 \text{Ratchet}() \\
 r' \gets \text{SqueezeKey}(64) \bmod \ell \\
+r' \stackrel{?}{=} r \\
 $$
 
-If $r' \not\equiv r$, an error is returned.
+If $r' \not = r$, an error is returned.
 
 Finally, the masked scalars $S_0$ and $S_1$ are absorbed and a counterfactual authentication tag $T'$ is derived from
-output:
+output and compared to the ciphertext authentication tag $T$:
 
 $$
 \text{Absorb}(S_0) \\
 \text{Absorb}(S_1) \\
 T' \gets \text{Squeeze}(16) \\
+T' \stackrel{?}{=} T \\
 $$
 
-If the $T' \equiv T$, the plaintext $P'$ is returned as authentic.
+If the $T' \not = T$, an error is returned. Otherwise, the plaintext $P'$ is returned as authentic.
 
 ## IND-CCA2 Security
 

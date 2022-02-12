@@ -83,9 +83,10 @@ Given an initialized, keyed duplex, the decryption of a ciphertext $C$ and authe
 $$
 P' \gets \text{Encrypt}(C) \\
 T' \gets \text{Squeeze}(N_T) \\
+T' \stackrel{?}{=} T \\
 $$
 
-If the $T' \equiv T$, the plaintext $P'$ is returned as authentic.
+If the $T' = T$, the plaintext $P'$ is returned as authentic.
 
 It should be noted that there is no standard balloon hashing algorithm, so this protocol is in the very, very tall grass
 of cryptography and should never be used.
