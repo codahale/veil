@@ -4,119 +4,96 @@
 
 ## Signing A Message
 
-Signing is as follows, given a message in blocks $M_0...M_N$, a private scalar $d$, and a public point $Q$:
+Signing is as follows, given a message in 32KiB blocks $M_0...M_N$, a private scalar $d$, and a public point $Q$.
 
-```text
-INIT('veil.schnorr', level=128)
+First, an unkeyed hash is initialized and used to absorb the message blocks and the signer's public key:
 
-AD('message-start', meta=true)
-SEND_CLR('',        more=false)
-SEND_CLR(M_0,       more=true)
-SEND_CLR(M_1,       more=true)
-…
-SEND_CLR(M_N,       more=true)
-AD('message-end',   meta=true)
-AD(LE_U64(LEN(M)),  meta=true, more=true)
+$$
+\text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
+\text{Absorb}(\texttt{veil.schnorr}) \\
+\text{Absorb}(M_0) \\
+\text{Absorb}(M_1) \\
+\dots \\
+\text{Absorb}(M_N) \\
+\text{Absorb}(Q) \\
+$$
 
-AD('signer',    meta=true)
-AD(LE_U64(N_Q), meta=true, more=true)
-AD(Q)
-```
+(The signer's public key is absorbed after the message to allow [`veil.mres`](mres.md) to search for a header without
+having to buffer the results.)
 
-(The signer's public key is included after the message to allow `veil.mres` to search for a header without having to
-buffer the results.)
+The hash's state is cloned, and the clone absorbs the signer's private key and 64 bytes of random data. The
+ephemeral scalar $k$ is then derived from output:
 
-The protocol's state is cloned, and the clone is keyed with the signer's private key and 64 bytes of random data. The
-ephemeral scalar $k$ is then derived from PRF output:
+$$
+\text{Absorb}(d) \\
+v \overset{R}{\gets} \mathbb{Z}_{2^{512}} \\
+\text{Absorb}(v) \\
+k \gets \text{SqueezeKey}(64) \bmod \ell \\
+$$
 
-```text
-AD('secret-value',  meta=true)
-AD(LE_U64(N_d),     meta=true, more=true)
-KEY(d)
+The clone's state is discarded, and $k$ is returned to the parent.
 
-AD('hedged-value', meta=true)
-AD(LE_U64(64),     meta=true, more=true)
-KEY(rand(64))
+A 32-byte key $Z$ is extracted from the hash and used to initialize a keyed duplex instance:
 
-AD('commitment-scalar', meta=true)
-AD(LE_U64(64),          meta=true, more=true)
-PRF(64) -> k
-```
+$$
+Z \gets \text{SqueezeKey}(32) \\
+\text{Cyclist}(K, \epsilon, \epsilon) \\
+$$
 
-The clone's state is discarded, and $k$ is returned to the parent. 
+The commitment point $I$ is calculated and encrypted as $S_0$:
 
-The commitment point $I = [k]G$ is encrypted and sent as $S_0$:
+$$
+I = [k]G \\
+S_0 \gets \text{Encrypt}(I) \\
+$$
 
-```text
-AD('commitment-point', meta=true)
-AD(LE_U64(LEN(I)),     meta=true, more=true)
-SEND_ENC(I) -> S_0
-```
+A challenge scalar $r$ is derived from output and used to calculate the proof scalar $s$ which is encrypted as $S_1$:
 
-A challenge scalar $r$ is extracted from PRF output:
-
-```text
-AD('challenge-scalar', meta=true)
-AD(LE_U64(64),         meta=true, more=true)
-PRF(64) -> r
-```
-
-The proof scalar $s = dr + k$ is encrypted and sent as $S_1$:
-
-```text
-AD('proof-scalar', meta=true)
-AD(LE_U64(LEN(s)), meta=true, more=true)
-SEND_ENC(s) -> S_1
-```
+$$
+r \gets \text{SqueezeKey}(64) \bmod \ell \\
+s = dr + k \\
+S_1 \gets \text{Encrypt}(s)
+$$
 
 The final signature is $S_0 || S_1$.
 
 ## Verifying A Signature
 
-To verify, `veil.schnorr` is run with a message in blocks $M_0...M_N$, a public point $Q$, and a signature $S_0 || S_1$:
+Verification is as follows, given a message in 32KiB blocks $M_0...M_N$, a public point $Q$, and a signature
+$S_0 || S_1$.
 
-```text
-INIT('veil.schnorr', level=128)
+First, an unkeyed hash is created and used to absorb the message blocks and the signer's public key:
 
-AD('message-start', meta=true)
-RECV_CLR('',        more=false)
-RECV_CLR(M_0,       more=true)
-RECV_CLR(M_1,       more=true)
-…
-RECV_CLR(M_N,       more=true)
-AD('message-end',   meta=true)
-AD(LE_U64(LEN(M)),  meta=true, more=true)
+$$
+\text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
+\text{Absorb}(\texttt{veil.schnorr}) \\
+\text{Absorb}(M_0) \\
+\text{Absorb}(M_1) \\
+\dots \\
+\text{Absorb}(M_N) \\
+\text{Absorb}(Q) \\
+$$
 
-AD('signer',    meta=true)
-AD(LE_U64(N_Q), meta=true, more=true)
-AD(Q)
-```
+A 44-byte key $Z$ is extracted from the hash and used to initialize a keyed duplex instance:
 
-$S_0$ is decrypted and decoded as $I$:
+$$
+Z \gets \text{SqueezeKey}(44) \\
+\text{Cyclist}(K, \epsilon, \epsilon) \\
+$$
 
-```text
-AD('commitment-point', meta=true)
-AD(LE_U64(LEN(S_0)),   meta=true, more=true)
-RECV_ENC(S_0) -> I
-```
+$S_0$ is decrypted and decoded as $I$ and $r$ is re-derived from output:
 
-The challenge scalar $r$ is extracted from PRF output:
+$$
+I \gets \text{Decrypt}(S_0) \\
+r \gets \text{SqueezeKey}(64) \mod \ell \\
+$$
 
-```text
-AD('challenge-scalar', meta=true)
-AD(LE_U64(64),         meta=true, more=true)
-PRF(64) -> r
-```
+$S_1$ is decrypted and decoded as $s$ and the counterfactual commitment point $I'$ is calculated:
 
-$S_1$ is decrypted and decoded as $s$:
-
-```text
-AD('proof-scalar',   meta=true)
-AD(LE_U64(LEN(S_1)), meta=true, more=true)
-RECV_ENC(S_1) -> s
-```
-
-The counterfactual commitment point $I' = [r]G - [s]Q$.
+$$
+s \gets \text{Decrypt}(S_1) \\
+I' = [r]G - [s]Q \\
+$$
 
 The signature is valid if-and-only-if $I' \equiv I$.
 
@@ -149,7 +126,7 @@ When implemented with a prime order group and canonical encoding routines, The S
 
 Per [Fleischhacker et al.][ind-sig], this construction produces indistinguishable signatures (i.e., signatures which do
 not reveal anything about the signing key or signed message). When encrypted with an unrelated key (i.e., via 
-`SEND_ENC`), the construction is isomorphic to Fleischhacker et al.'s DRPC compiler for producing pseudorandom
+$\text{Encrypt}$), the construction is isomorphic to Fleischhacker et al.'s DRPC compiler for producing pseudorandom
 signatures, which are indistinguishable from random.
 
 ## Ephemeral Scalar Hedging

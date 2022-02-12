@@ -1,132 +1,91 @@
 # Passphrase-based Encryption
 
-`veil.pbenc` implements memory-hard password-based encryption via STROBE using [balloon hashing][bh].
+`veil.pbenc` implements memory-hard password-based encryption using [balloon hashing][bh] and Xoodyak's AEAD
+construction.
 
 ## Initialization
 
-The protocol is initialized as follows, given a passphrase $P$, a 128-bit salt $S$, delta constant $D$, space parameter
-$N_S$, time parameter $N_T$, block size $N_B$, and MAC size $N_M$:
+The protocol is initialized as follows, given a passphrase $P$, a 128-bit salt $S$, time parameter $N_T$, space
+parameter $N_S$, delta constant $D$, and block size $N_B$. An unkeyed hash is initialized and used to absorb the
+passphrase and parameters:
 
-```text
-INIT('veil.pbenc', level=128)
+$$
+\text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
+\text{Absorb}(\texttt{veil.pbenc}) \\
+\text{Absorb}(P) \\
+\text{Absorb}(S) \\
+\text{Absorb}(\text{U64}_{LE}(N_T)) \\
+\text{Absorb}(\text{U64}_{LE}(N_S)) \\
+\text{Absorb}(\text{U64}_{LE}(N_B)) \\
+\text{Absorb}(\text{U64}_{LE}(D)) \\
+$$
 
-AD('passphrase',   meta=true)
-AD(LE_U64(LEN(P)), meta=true, more=true)
-KEY(P)
+For each iteration of the balloon hashing algorithm, given a counter $C$, input blocks $(B_L, B_R)$, and an output block
+$B_O$, the counter is encoded as a little-endian 64-bit integer and absorbed, the blocks are absorbed left-to-right, and
+the output block is filled with hash output:
 
-AD('salt',         meta=true)
-AD(LE_U64(LEN(S)), meta=true, more=true)
-AD(S)
+$$
+\text{Absorb}(\text{U64}_{LE}(C)) \\
+C = C+1 \\
+\text{Absorb}(B_L) \\
+\text{Absorb}(B_R) \\
+B_O \gets \text{Squeeze}(N_B) \\
+$$
 
-AD('time',    meta=true)
-AD(LE_U64(8), meta=true, more=true)
-AD(LE_U64(N_T))
+The expanding phase of the algorithm is performed as described by [Boneh et al][bh].
 
-AD('space',   meta=true)
-AD(LE_U64(8), meta=true, more=true)
-AD(LE_U64(N_S))
+For the mixing phase of the algorithm, the loop variables $t$, $m$, and $i$ are encoded in a 24-byte block which is
+absorbed along with the salt $S$, and a 64-bit little-endian integer is derived from hash output. That integer is mapped
+to a block, which is absorbed:
 
-AD('blocksize', meta=true)
-AD(LE_U64(8),   meta=true, more=true)
-AD(LE_U64(N_B))
+$$
+b \gets \text{U64}_{LE}(t) || \text{U64}_{LE}(m) || \text{U64}_{LE}(i) \\
+\text{Absorb}(\text{U64}_{LE}(C)) \\
+C = C+1 \\
+\text{Absorb}(S) \\
+\text{Absorb}(b) \\
+v \gets \text{Squeeze}(8) \bmod N_B
+\text{Absorb}(\text{U64}_{LE}(C)) \\
+C = C+1 \\
+\text{Absorb}(B_v) \\
+\text{Absorb}(\empty) \\
+B_m \gets \text{Squeeze}(N_B) \\
+$$
 
-AD('delta',   meta=true)
-AD(LE_U64(8), meta=true, more=true)
-AD(LE_U64(D))
-```
+Finally, the last block $B_N$ of the buffer is absorbed and a 44-byte key $Z$ extracted and used to initialize a keyed
+duplex:
 
-For each iteration of the balloon hashing algorithm, given a counter $C$, a left block $L$, and a right block $R$:
-
-```text
-hash_counter(L, R):
-  AD('counter', meta=true)
-  AD(LE_U64(8), meta=true, more=true)
-  AD(LE_U64(C))
-  
-  AD('left',      meta=true)
-  AD(LE_U64(N_L), meta=true, more=true)
-  AD(L)
-  
-  AD('right',      meta=true)
-  AD(LE_U64(N_R),  meta=true, more=true)
-  AD(R)
-  
-  AD('out',        meta=true)
-  AD(LE_U64(N_B),  meta=true, more=true)
-  PRF(N)
-```
-
-
-For the expanding phase of the algorithm, the step name and loop variables are included as metadata:
-
-```text
-hash_counter(passphrase, salt, buf[0])
-for m in 1..N_S: 
-  hash_counter(buf[m - 1], nil, buf[m])
-
-```
-
-For the mixing phase of the algorithm, the step name and loop variables are included as metadata:
-
-```text
-for t in 0..N_T:
-  for m in 0..N_S: 
-    hash_counter(buf[prev], buf[m], buf[m])
-    
-    for i in 0..D:
-      idx = LE_U64(t) + LE_U64(m) + LE_U64(i) 
-      hash_counter(salt, idx) // output step is skipped
-      
-      AD('idx',      meta=true)
-      AD(LE_U64(16), meta=true, more=true)
-      PRF(8) AS U64 -> v
-      hash_counter(buf[v % space], nil, buf[m])
-```
-
-The final block $B_N$ of the balloon hashing algorithm is then used to key the protocol:
-
-```text
-AD('extract', meta=true)
-AD(LE_U64(N), meta=true, more=true)
-KEY(B_N)
-```
+$$
+\text{Absorb}(B_N) \\
+Z \gets \text{SqueezeKey}(44) \\
+\text{Cyclist}(K, \epsilon, \epsilon) \\
+$$
 
 ## Encryption
 
-Encryption of a message $P$ is as follows:
+Given an initialized, keyed duplex, the encryption of a message $P$ is as follows:
 
-```text
-AD('ciphertext', meta=true)
-AD(LE_U64(N_P),  meta=true, more=true)
-SEND_ENC(P) -> C
+$$
+C \gets \text{Encrypt}(P) \\
+T \gets \text{Squeeze}(N_T) \\
+$$
 
-AD('mac',       meta=true)
-AD(LE_U64(N_M), meta=true, more=true)
-SEND_MAC(N_M) -> M
-```
+The returned ciphertext consists of the following:
 
-The returned ciphertext contains the following:
-
-```text
-LE_U32(N_T) || LE_U32(N_S) || S || C || M
-```
+$$
+\text{U32}_{LE}(N_T) || \text{U32}_{LE}(N_S) || S || C || M
+$$
 
 ## Decryption
 
-Decryption of a ciphertext parses $N_T$, $N_S$, $S$, $C$ and $M$, initializes the protocol, and performs the inverse of
-encryption:
+Given an initialized, keyed duplex, the encryption of a ciphertext $C$ and authentication tag $T$ is as follows:
 
-```text
-AD('ciphertext', meta=true)
-AD(LE_U64(N_C),  meta=true, more=true)
-RECV_ENC(C) -> P
+$$
+P' \gets \text{Encrypt}(C) \\
+T' \gets \text{Squeeze}(N_T) \\
+$$
 
-AD('mac',       meta=true)
-AD(LE_U64(N_M), meta=true, more=true)
-RECV_MAC(M)
-```
-
-If the `RECV_MAC` call is successful, the plaintext $P$ is returned.
+If the $T' \equiv T$, the plaintext $P'$ is returned as authentic.
 
 It should be noted that there is no standard balloon hashing algorithm, so this protocol is in the very, very tall grass
 of cryptography and should never be used.

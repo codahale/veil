@@ -7,179 +7,146 @@ tag-KEM in _Practical Signcryption_ (Zheng-SCTK).
 
 Encryption takes a sender's key pair, $(d_S, Q_S)$, a recipient's public key, $Q_R$, and a plaintext message $P$.
 
-First, the protocol is initialized and the sender and recipient's public keys are sent and received, respectively:
+First, an unkeyed hash is initialized and used to absorb the sender and recipient's public keys:
 
-```text
-INIT('veil.sres', level=128)
+$$
+\text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
+\text{Absorb}(\texttt{veil.sres}) \\
+\text{Absorb}(Q_S) \\
+\text{Absorb}(Q_R) \\
+$$
 
-AD('sender-public-key', meta=true)
-AD(LE_U64(LEN(Q_S)),    meta=true, more=true)
-SEND_CLR(Q_S)
+Second, the hash's state is cloned, and the clone absorbs the sender's private key, 64 bytes of random data, and the
+plaintext. The commitment scalar $x$ is then derived from output:
 
-AD('receiver-public-key', meta=true)
-AD(LE_U64(LEN(Q_R)),      meta=true, more=true)
-RECV_CLR(Q_R)
-```
+$$
+\text{Absorb}(d) \\
+v \overset{R}{\gets} \mathbb{Z}_{2^{512}} \\
+\text{Absorb}(v) \\
+\text{Absorb}(P) \\
+x \gets \text{SqueezeKey}(64) \bmod \ell \\
+$$
 
-Second, the protocol's state is then cloned, the clone is keyed with the sender's private key, 64 bytes of random data,
-and the plaintext message.
+Third, the shared secret point $K$ is calculated and absorbed.
 
-A commitment scalar $x$ is then derived from PRF output:
+$$
+K = [x]Q_R \\
+\text{Absorb}(K) \\
+$$
 
-```text
-AD('secret-value',   meta=true)
-AD(LE_U64(LEN(d_S)), meta=true, more=true)
-KEY(d_S)
+Fourth, a 32-byte key $Z$ is extracted from the hash and used to initialize a keyed duplex instance:
 
-AD('hedged-value', meta=true)
-AD(LE_U64(64),     meta=true, more=true)
-KEY(rand(64))
+$$
+Z \gets \text{SqueezeKey}(32) \\
+\text{Cyclist}(K, \epsilon, \epsilon) \\
+$$
 
-AD('plaintext',    meta=true)
-AD(LE_U64(LEN(P)), meta=true, more=true)
-KEY(P)
+Fifth, the duplex is used to encrypt plaintext $P$ as $C$, its state is ratcheted, a challenge scalar $r$ is derived
+from output, and a proof scalar $s$ is calculated:
 
-AD('commitment-scalar', meta=true)
-AD(LE_U64(64),          meta=true, more=true)
-PRF(64) -> x
-```
+$$
+C \gets \text{Encrypt}(P) \\
+\text{Ratchet}() \\
+r \gets \text{SqueezeKey}(64) \bmod \ell \\
+s = (r+d_S)^{-1}x \\
+$$
 
-Third, the shared secret point $K=[x]Q_R$ is calculated and used to key the protocol and the plaintext $P$ is
-encrypted and sent as ciphertext $C$:
+(In the rare event that $r+d_S=0$, the procedure is re-run with a different $x$.)
 
-```text
-AD('shared-secret',  meta=true)
-AD(LE_U64(LEN(K)), meta=true, more=true)
-KEY(K)
+Sixth, the top four bits of both $r$ and $s$ are masked with random data as $S_0$ and $S_1$:
 
-AD('plaintext',    meta=true)
-AD(LE_U64(LEN(P)), meta=true, more=true)
-SEND_ENC(P) -> C
-```
+$$
+m_0 \overset{R}{\gets} \mathbb{Z}_{2^{8}} \\
+S_0 = r \lor (m_0 \ll 252) \\
+m_1 \overset{R}{\gets} \mathbb{Z}_{2^{8}} \\
+S_1 = s \lor (m_1 \ll 252) \\
+$$
 
-Fifth, the protocol state is ratcheted, a challenge scalar $r$ is derived from PRF output, and a proof scalar 
-$s=x/(r+d_S)$ is calculated. (In the rare event that $r+d_S=0$, the protocol is re-run with a different $x$.)
+Finally, the masked scalars are absorbed and an authentication tag $T$ is derived from output and sent:
 
-```text
-AD('ratchet',  meta=true)
-AD(LE_U64(32), meta=true, more=true)
-RATCHET(32)
+$$
+\text{Absorb}(S_0) \\
+\text{Absorb}(S_1) \\
+T \gets \text{Squeeze}(16)
+$$
 
-AD('challenge-scalar', meta=true)
-AD(LE_U64(64),         meta=true, more=true)
-PRF(64) -> r
-```
-
-Both $r$ and $s$ are masked with random data and send in cleartext as $S_0$ and $S_1$:
-
-```text
-AD('challenge-scalar', meta=true)
-AD(LE_U64(LEN(r)),     meta=true, more=true)
-SEND_CLR(mask(r)) -> S_0
-
-AD('proof-scalar', meta=true)
-AD(LE_U64(LEN(s)), meta=true, more=true)
-SEND_CLR(mask(s)) -> S_1
-```
-
-Finally, a MAC $M$ is generated and sent:
-
-```text
-AD('mac',       meta=true)
-AD(LE_U64(N_M), meta=true, more=true)
-SEND_MAC(N_M) -> M
-```
-
-The final ciphertext is $S_0 || S_1 || C || M$.
+The final ciphertext is $S_0 || S_1 || C || T$.
 
 ## Decryption
 
 Encryption takes a recipient's key pair, $(d_R, Q_R)$, a sender's public key, $Q_S$, two masked scalars
-$(S_0, S_1)$, a ciphertext $C$, and a MAC $M$.
+$(S_0, S_1)$, a ciphertext $C$, and an authentication tag $T$.
 
-First, the protocol is initialized and the sender and recipient's public keys are received and sent, respectively:
+First, an unkeyed hash is used to absorb the sender and recipient's public keys:
 
-```text
-INIT('veil.sres', level=128)
-
-AD('sender-public-key', meta=true)
-AD(LE_U64(LEN(Q_S)),    meta=true, more=true)
-RECV_CLR(Q_S)
-
-AD('receiver-public-key', meta=true)
-AD(LE_U64(LEN(Q_R)),      meta=true, more=true)
-SEND_CLR(Q_R)
-```
+$$
+\text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
+\text{Absorb}(\texttt{veil.sres}) \\
+\text{Absorb}(Q_S) \\
+\text{Absorb}(Q_R) \\
+$$
 
 Second, the challenge scalar $r$ and the proof scalar $s$ are unmasked and used to calculate the shared secret
-$K=[{d_R}s] (Q_S+[r]G)$, which is used to key the protocol. The ciphertext is then decrypted $C$ as the unauthenticated
-plaintext $P'$:
+$K=$, which is then absorbed:
 
-```text
-AD('shared-secret',  meta=true)
-AD(LE_U64(LEN(K)), meta=true, more=true)
-KEY(K)
+$$
+r = S_0 \land \lnot(2^8 \ll 252) \bmod \ell \\
+s = S_1 \land \lnot(2^8 \ll 252) \bmod \ell \\
+K = [{d_R}s] (Q_S+[r]G) \\
+\text{Absorb}(K) \\
+$$
 
-AD('plaintext',    meta=true)
-AD(LE_U64(LEN(C)), meta=true, more=true)
-RECV_ENC(C) -> P'
-```
+Third, a 44-byte key $Z$ is extracted from the hash and used to initialize a keyed duplex instance, and the ciphertext
+$C$ is decrypted as the unauthenticated plaintext $P'$:
 
-Third, the protocol state is ratcheted and a counterfactual challenge scalar $r'$ is derived from PRF output:
+$$
+Z \gets \text{SqueezeKey}(44) \\
+\text{Cyclist}(K, \epsilon, \epsilon) \\
+P' \gets \text{Decrypt}(C)
+$$
 
-```text
-AD('ratchet',  meta=true)
-AD(LE_U64(32), meta=true, more=true)
-RATCHET(32)
+Fourth, the duplex's state is ratcheted and a counterfactual challenge scalar $r'$ is derived from output:
 
-AD('challenge-scalar', meta=true)
-AD(LE_U64(64),         meta=true, more=true)
-PRF(64) -> r'
-```
+$$
+\text{Ratchet}() \\
+r' \gets \text{SqueezeKey}(64) \bmod \ell \\
+$$
 
 If $r' \not\equiv r$, an error is returned.
 
-Finally, the masked scalars $S_0$ and $S_1$ are received as cleartext and the MAC $M$ is verified:
+Finally, the masked scalars $S_0$ and $S_1$ are absorbed and a counterfactual authentication tag $T'$ is derived from
+output:
 
-```text
-AD('challenge-scalar', meta=true)
-AD(LE_U64(LEN(S_1)),   meta=true, more=true)
-RECV_CLR(S_0)
+$$
+\text{Absorb}(S_0) \\
+\text{Absorb}(S_1) \\
+T' \gets \text{Squeeze}(16) \\
+$$
 
-AD('proof-scalar',   meta=true)
-AD(LE_U64(LEN(S_1)), meta=true, more=true)
-RECV_CLR(S_1)
-
-AD('mac',          meta=true)
-AD(LE_U64(LEN(M)), meta=true, more=true)
-RECV_MAC(M)
-```
-
-If the `RECV_MAC` call is successful, the plaintext $P'$ is returned as authentic.
+If the $T' \equiv T$, the plaintext $P'$ is returned as authentic.
 
 ## IND-CCA2 Security
 
 This construction combines the CCA2-secure Zheng-SCTK construction from _Practical Signcryption_ (Figure 7.6) with a
-STROBE-based authenticated encryption construction (`SEND_ENC`/`SENC_MAC`). The STROBE-based AE is equivalent to
-Construction 5.6 of _Modern Cryptography 3e_ and is CCA-secure per Theorem 5.7 of _MC_, provided STROBE's encryption is
-CPA-secure. STROBE's `SEND_ENC` is equivalent to Construction 3.31 of _MC_ and is CPA-secure per Theorem 3.29 of _MC_,
-provided STROBE is a sufficiently strong pseudorandom function. Consequently, `veil.sres` is IND-CCA2 secure per
-Theorem 7.3 of _Practical Signcryption_.
+Xoodyak-based CCA2-secure authenticated encryption construction ($\text{Encrypt}$/$\text{Squeeze}$). Consequently,
+`veil.sres` is IND-CCA2 secure per Theorem 7.3 of _Practical Signcryption_.
 
-Instead of passing a ciphertext-dependent tag $\tau$ into the KEM's ${Encap}$ function, `veil.sres` begins ${Encap}$
-operations using the STROBE protocol after the ciphertext has been encrypted with `SEND_ENC`. `SEND_ENC` populates the
-protocol's state with the ciphertext of the operation, making the derivation of the challenge scalar $r$ from PRF output 
-cryptographically dependent on the public keys $Q_S$ and $Q_R$, the shared secret $K$, and the ciphertext $C$. This is
-equivalent to the dependency described in _Practical Signcryption_:
+Instead of passing a ciphertext-dependent tag $\tau$ into the KEM's $\text{Encap}$ function, `veil.sres` begins
+$\text{Encap}$ operations using the keyed duplex after the ciphertext has been encrypted with $\text{Encrypt}$ and the
+state mutated with $\text{Ratchet}$.
 
-$$r \leftarrow H(\tau || {pk}_S || {pk}_R || \kappa)$$
+This process ensures the derivation of the challenge scalar $r$ from $\text{SqueezeKey}$ output is cryptographically
+dependent on the public keys $Q_S$ and $Q_R$, the shared secret $K$, and the ciphertext $C$. This is equivalent to the
+dependency described in _Practical Signcryption_:
+
+$$r \gets H(\tau || {pk}_S || {pk}_R || \kappa)$$
 
 The end result is a challenge scalar which is cryptographically dependent on the prior values and on the ciphertext as
 sent (and not, as in previous insider-secure signcryption KEM constructions, the plaintext). This, and the ratcheting of
-the protocol state, ensures the scalar $r$ and $s$ cannot leak information about the plaintext.
+the duplex's state, ensures the scalar $r$ and $s$ cannot leak information about the plaintext.
 
-Finally, the inclusion of the masked scalars $S_0$ and $S_1$ prior to the `SEND_MAC` operation makes their masked bits
-non-malleable.
+Finally, the inclusion of the masked scalars $S_0$ and $S_1$ prior to generating the authentication tag $T$ makes their
+masked bits (and thus the entire ciphertext) non-malleable.
 
 ## Indistinguishability From Random Noise
 
@@ -192,8 +159,8 @@ indistinguishable from random noise. Any 256-bit string will be decoded into a v
 distinguishers impossible. This has been experimentally verified, with $10^7$ random scalars yielding a uniform
 distribution of bits ($\mu=0.4999,\sigma=0.00016$).
 
-The remainder of the ciphertext consists exclusively of STROBE `SEND_ENC` and `SEND_MAC` output. A passive adversary
-capable of distinguishing between a valid ciphertext and a random bitstring would violate the CPA-security of STROBE.
+The remainder of the ciphertext consists exclusively of Xoodyak output. A passive adversary capable of distinguishing
+between a valid ciphertext and a random bitstring would violate the CPA-security of Xoodyak.
 
 ## IK-CCA Security
 
@@ -201,8 +168,8 @@ capable of distinguishing between a valid ciphertext and a random bitstring woul
 public keys to determine which of the two keys a given ciphertext was encrypted with in either chosen-plaintext or
 chosen-ciphertext attacks.
 
-Informally, `veil.sres` ciphertexts consist exclusively of STROBE ciphertext and PRF output; an attacker being able to
-distinguish between ciphertexts based on keying material would imply the STROBE AEAD construction is not IND-CCA2.
+Informally, `veil.sres` ciphertexts consist exclusively of Xoodyak ciphertext and PRF output; an attacker being able to
+distinguish between ciphertexts based on keying material would imply the Xoodyak AEAD construction is not IND-CCA2.
 
 ## Forward Sender Security
 
@@ -247,7 +214,7 @@ just reveal the message directly.)
 
 ## Ephemeral Scalar Hedging
 
-In deriving the ephemeral scalar from a cloned context, `veil.sres` uses [Aranha et al.'s
+In deriving the ephemeral scalar from a cloned hash, `veil.sres` uses [Aranha et al.'s
 "hedged signature" technique][hedge] to mitigate against both catastrophic randomness failures and differential fault
 attacks against purely deterministic signature schemes.
 

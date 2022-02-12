@@ -15,6 +15,6 @@ See the `docs` directory for more.
 
 ## License
 
-Copyright © 2021 Coda Hale
+Copyright © 2021-2022 Coda Hale
 
 Distributed under the Apache License 2.0 or MIT License.
