@@ -6,7 +6,7 @@
 
 Signing is as follows, given a message in 32KiB blocks $M_0...M_N$, a private scalar $d$, and a public point $Q$.
 
-First, an unkeyed hash is initialized and used to absorb the message blocks and the signer's public key:
+First, an unkeyed duplex is initialized and used to absorb the message blocks and the signer's public key:
 
 $$
 \text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
@@ -21,7 +21,7 @@ $$
 (The signer's public key is absorbed after the message to allow [`veil.mres`](mres.md) to search for a header without
 having to buffer the results.)
 
-The hash's state is cloned, and the clone absorbs the signer's private key and 64 bytes of random data. The
+The duplex's state is cloned, and the clone absorbs the signer's private key and 64 bytes of random data. The
 ephemeral scalar $k$ is then derived from output:
 
 $$
@@ -33,7 +33,7 @@ $$
 
 The clone's state is discarded, and $k$ is returned to the parent.
 
-A 32-byte key $Z$ is extracted from the hash and used to initialize a keyed duplex instance:
+A 32-byte key $Z$ is extracted from the duplex and used to initialize a keyed duplex instance:
 
 $$
 Z \gets \text{SqueezeKey}(32) \\
@@ -62,7 +62,7 @@ The final signature is $S_0 || S_1$.
 Verification is as follows, given a message in 32KiB blocks $M_0...M_N$, a public point $Q$, and a signature
 $S_0 || S_1$.
 
-First, an unkeyed hash is created and used to absorb the message blocks and the signer's public key:
+First, an unkeyed duplex is created and used to absorb the message blocks and the signer's public key:
 
 $$
 \text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
@@ -74,7 +74,7 @@ $$
 \text{Absorb}(Q) \\
 $$
 
-A 44-byte key $Z$ is extracted from the hash and used to initialize a keyed duplex instance:
+A 44-byte key $Z$ is extracted from the duplex and used to initialize a keyed duplex instance:
 
 $$
 Z \gets \text{SqueezeKey}(44) \\

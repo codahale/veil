@@ -2,8 +2,8 @@
 
 Each participant in Veil has a secret key, which is a 64-byte random string $S$.
 
-To derive a private key from a secret key, the secret key is absorbed with an unkeyed hash and a ristretto255 scalar $d$
-derived from output:
+To derive a private key from a secret key, the secret key is absorbed with an unkeyed duplex and a scalar $d$ derived
+from output:
 
 $$
 \text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
@@ -12,35 +12,28 @@ $$
 d \gets \text{SqueezeKey}(64) \bmod \ell \\
 $$
 
-Another unkeyed hash is used to absorb an opaque label value $L$ and a delta scalar $r$ is derived from output: 
+To derive a private key $d_n$ from a root scalar $d_0$ and key ID label squence $L_0..L_n$, a series of unkeyed duplexes
+are used to absorb label values $L_i$ and derive delta scalars $r_i$ from output:
 
 $$
 \text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
 \text{Absorb}(\texttt{veil.scaldf.label}) \\
-\text{Absorb}(L) \\
-r \gets \text{SqueezeKey}(64) \bmod \ell \\
+\dots \\
+\text{Absorb}(L_i) \\
+r_i \gets \text{SqueezeKey}(64) \bmod \ell \\
+d_i = d_{i-1} + r_i \\
+\dots \\
+d_n = d_{n-1} + r_{n-1} \\
 $$
-
-The derived private scalar $d'$ is then calculated:
-
-$$ d' = d + r $$
 
 This is used iteratively to provide hierarchical key derivation. Private keys are created using hierarchical IDs
 like `/friends/alice`, where the secret key is mapped to a private key via the label `/`, which is then mapped to a
-private key via the label `friends`, which is then mapped to the final private key via the label `alice`:
+private key via the label `friends`, which is then mapped to the final private key via the label `alice`.
 
-$$
-d_0 \gets \text{veil.scaldf.root}(S) \\
-d_1 = d_0 + \text{veil.scaldf.label}(L_0) \\
-\dots \\
-d_n = d_{n-1} + \text{veil.scaldf.label}(L_{n-1}) \\
-$$
+To derive a public key from a public key $Q$, the delta scalars $r_0..r_i$ are summed and multiplied by the curve's
+generator $G$ which is then added to the public key point:
 
-To derive a public key from a public key $Q$, the delta scalar $r$ is first multiplied by the curve's base point, then
-added to the public key point:
-
-$$ Q' = Q + [r]G $$
-
+$$ Q' = Q + [\textstyle\sum_{i=0}^nr_i]G $$
 
 ## Disposable Keys
 

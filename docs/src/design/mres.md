@@ -6,7 +6,7 @@ encryption construction and a SUF-CMA-secure signature scheme.
 ## Encryption
 
 Encrypting a message begins as follows, given the sender's key pair, $d_S$ and $Q_S$, a plaintext message in blocks
-$P_0...P_N$, a list of recipient public keys, $Q_{R^0}...Q_{R^M}$, and a DEK size $N_{K}$. First, an unkeyed hash is
+$P_0...P_N$, a list of recipient public keys, $Q_{R^0}...Q_{R^M}$, and a DEK size $N_{K}$. First, an unkeyed duplex is
 initialized and used to absorb the sender's public key:
 
 $$
@@ -15,7 +15,7 @@ $$
 \text{Absorb}(Q_S) \\
 $$
 
-The hash's state is cloned and keyed with the sender's private key and a random nonce and used to derive a data
+The duplex's state is cloned and keyed with the sender's private key and a random nonce and used to derive a data
 encryption key, $K$, and an ephemeral private key, $d_E$:
 
 $$
@@ -26,7 +26,7 @@ K \gets \text{SqueezeKey}(N_K) \\
 d_E \gets \text{SqueezeKey}(64) \bmod \ell \\
 $$
 
-The ephemeral public key is computed as $Q_E = [{d_E}]G$, and the cloned hash is discarded:
+The ephemeral public key is computed as $Q_E = [{d_E}]G$, and the cloned duplex is discarded:
 
 $K$, $Q_E$, and the message offset are encoded into a fixed-length header and copies of it are encrypted with
 [`veil.sres`](sres.md) for each recipient using $(d_S, Q_S)$. Optional random padding is added to the end, and the
@@ -43,8 +43,8 @@ H_{pad} \overset{R}{\gets} \mathbb{Z}_{2^{pad}} \\
 \text{Absorb}(H_{pad}) \\
 $$
 
-As the final setup step, the key $K$ is absorbed, a 44-byte key $Z$ is extracted from the hash, and used to initialize a
-keyed duplex instance:
+As the final setup step, the key $K$ is absorbed, a 44-byte key $Z$ is extracted from the duplex, and used to initialize
+a keyed duplex instance:
 
 $$
 \text{Absorb}(K) \\
@@ -79,7 +79,7 @@ ciphertext.
 ## Decryption
 
 Decryption begins as follows, given the recipient's key pair, $d_R$ and $Q_R$, the sender's public key, $Q_S$. An
-unkeyed hash is initialized and used to absorb the sender's public key:
+unkeyed duplex is initialized and used to absorb the sender's public key:
 
 $$
 \text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
@@ -99,7 +99,7 @@ $$
 \text{Absorb}(H_{pad}) \\
 $$
 
-The key $K$ is absorbed, a 44-byte key $Z$ is extracted from the hash, and used to initialize a keyed duplex instance:
+The key $K$ is absorbed, a 44-byte key $Z$ is extracted from the duplex, and used to initialize a keyed duplex instance:
 
 $$
 \text{Absorb}(K) \\
@@ -190,7 +190,7 @@ Despite providing strong authenticity, `veil.mres` produces fully deniable ciphe
 
 ## Ephemeral Scalar Hedging
 
-In deriving the DEK and ephemeral private key from a cloned hash, `veil.mres`
+In deriving the DEK and ephemeral private key from a cloned duplex, `veil.mres`
 uses [Aranha et al.'s "hedged signature" technique][hedge] to mitigate against both catastrophic randomness failures and
 differential fault attacks against purely deterministic encryption schemes.
 

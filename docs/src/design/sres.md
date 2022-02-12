@@ -7,7 +7,7 @@ tag-KEM in _Practical Signcryption_ (Zheng-SCTK).
 
 Encryption takes a sender's key pair, $(d_S, Q_S)$, a recipient's public key, $Q_R$, and a plaintext message $P$.
 
-First, an unkeyed hash is initialized and used to absorb the sender and recipient's public keys:
+First, an unkeyed duplex is initialized and used to absorb the sender and recipient's public keys:
 
 $$
 \text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
@@ -16,7 +16,7 @@ $$
 \text{Absorb}(Q_R) \\
 $$
 
-Second, the hash's state is cloned, and the clone absorbs the sender's private key, 64 bytes of random data, and the
+Second, the duplex's state is cloned, and the clone absorbs the sender's private key, 64 bytes of random data, and the
 plaintext. The commitment scalar $x$ is then derived from output:
 
 $$
@@ -34,7 +34,7 @@ K = [x]Q_R \\
 \text{Absorb}(K) \\
 $$
 
-Fourth, a 32-byte key $Z$ is extracted from the hash and used to initialize a keyed duplex instance:
+Fourth, a 32-byte key $Z$ is extracted from the duplex and used to initialize a keyed duplex instance:
 
 $$
 Z \gets \text{SqueezeKey}(32) \\
@@ -77,7 +77,7 @@ The final ciphertext is $S_0 || S_1 || C || T$.
 Encryption takes a recipient's key pair, $(d_R, Q_R)$, a sender's public key, $Q_S$, two masked scalars
 $(S_0, S_1)$, a ciphertext $C$, and an authentication tag $T$.
 
-First, an unkeyed hash is used to absorb the sender and recipient's public keys:
+First, an unkeyed duplex is used to absorb the sender and recipient's public keys:
 
 $$
 \text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
@@ -96,7 +96,7 @@ K = [{d_R}s] (Q_S+[r]G) \\
 \text{Absorb}(K) \\
 $$
 
-Third, a 44-byte key $Z$ is extracted from the hash and used to initialize a keyed duplex instance, and the ciphertext
+Third, a 44-byte key $Z$ is extracted from the duplex and used to initialize a keyed duplex instance, and the ciphertext
 $C$ is decrypted as the unauthenticated plaintext $P'$:
 
 $$
@@ -214,7 +214,7 @@ just reveal the message directly.)
 
 ## Ephemeral Scalar Hedging
 
-In deriving the ephemeral scalar from a cloned hash, `veil.sres` uses [Aranha et al.'s
+In deriving the ephemeral scalar from a cloned duplex, `veil.sres` uses [Aranha et al.'s
 "hedged signature" technique][hedge] to mitigate against both catastrophic randomness failures and differential fault
 attacks against purely deterministic signature schemes.
 

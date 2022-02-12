@@ -6,7 +6,7 @@ construction.
 ## Initialization
 
 The protocol is initialized as follows, given a passphrase $P$, a 128-bit salt $S$, time parameter $N_T$, space
-parameter $N_S$, delta constant $D$, and block size $N_B$. An unkeyed hash is initialized and used to absorb the
+parameter $N_S$, delta constant $D$, and block size $N_B$. An unkeyed duplex is initialized and used to absorb the
 passphrase and parameters:
 
 $$
@@ -22,7 +22,7 @@ $$
 
 For each iteration of the balloon hashing algorithm, given a counter $C$, input blocks $(B_L, B_R)$, and an output block
 $B_O$, the counter is encoded as a little-endian 64-bit integer and absorbed, the blocks are absorbed left-to-right, and
-the output block is filled with hash output:
+the output block is filled with duplex output:
 
 $$
 \text{Absorb}(\text{U64}_{LE}(C)) \\
@@ -35,8 +35,8 @@ $$
 The expanding phase of the algorithm is performed as described by [Boneh et al][bh].
 
 For the mixing phase of the algorithm, the loop variables $t$, $m$, and $i$ are encoded in a 24-byte block which is
-absorbed along with the salt $S$, and a 64-bit little-endian integer is derived from hash output. That integer is mapped
-to a block, which is absorbed:
+absorbed along with the salt $S$, and a 64-bit little-endian integer is derived from duplex output. That integer is
+mapped to a block, which is absorbed:
 
 $$
 b \gets \text{U64}_{LE}(t) || \text{U64}_{LE}(m) || \text{U64}_{LE}(i) \\
@@ -89,6 +89,5 @@ If the $T' \equiv T$, the plaintext $P'$ is returned as authentic.
 
 It should be noted that there is no standard balloon hashing algorithm, so this protocol is in the very, very tall grass
 of cryptography and should never be used.
-
 
 [bh]: https://eprint.iacr.org/2016/027.pdf
