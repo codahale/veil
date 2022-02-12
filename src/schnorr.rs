@@ -11,7 +11,8 @@ use secrecy::ExposeSecret;
 use xoodyak::{XoodyakCommon, XoodyakHash};
 
 use crate::constants::{POINT_LEN, SCALAR_LEN};
-use crate::xoodoo::{AbsorbWriter, XoodyakExt, XoodyakHashExt};
+use crate::xoodoo;
+use crate::xoodoo::AbsorbWriter;
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
@@ -32,7 +33,7 @@ where
         let mut schnorr = XoodyakHash::new();
         schnorr.absorb(b"veil.schnorr");
 
-        Signer { writer: schnorr.absorb_writer(writer) }
+        Signer { writer: AbsorbWriter::new(schnorr, writer) }
     }
 
     /// Create a signature of the previously-written message contents using the given key pair.
@@ -49,17 +50,17 @@ where
 
         // Derive a commitment scalar from the protocol's current state, the signer's private key,
         // and a random nonce.
-        let k = schnorr.hedge(d.as_bytes(), XoodyakExt::squeeze_scalar);
+        let k = xoodoo::hedge(&schnorr, d.as_bytes(), xoodoo::squeeze_scalar);
 
         // Convert the unkeyed duplex to a keyed duplex.
-        let mut schnorr = schnorr.to_keyed("veil.schnorr");
+        let mut schnorr = xoodoo::to_keyed(schnorr, "veil.schnorr");
 
         // Calculate and encrypt the commitment point.
         let i = &G * k.expose_secret();
         sig.extend(schnorr.encrypt_to_vec(i.compress().as_bytes()).expect("invalid encryption"));
 
         // Squeeze a challenge scalar.
-        let r = schnorr.squeeze_scalar();
+        let r = xoodoo::squeeze_scalar(&mut schnorr);
 
         // Calculate and encrypt the proof scalar.
         let s = d * r + k.expose_secret();
@@ -96,7 +97,7 @@ impl Verifier {
         let mut schnorr = XoodyakHash::new();
         schnorr.absorb(b"veil.schnorr");
 
-        Verifier { writer: schnorr.absorb_writer(io::sink()) }
+        Verifier { writer: AbsorbWriter::new(schnorr, io::sink()) }
     }
 
     /// Verify the previously-written message contents using the given public key and signature.
@@ -108,7 +109,7 @@ impl Verifier {
         schnorr.absorb(q.compress().as_bytes());
 
         // Convert the unkeyed duplex to a keyed duplex.
-        let mut schnorr = schnorr.to_keyed("veil.schnorr");
+        let mut schnorr = xoodoo::to_keyed(schnorr, "veil.schnorr");
 
         // Split the signature into parts.
         let (i, s) = sig.split_at(POINT_LEN);
@@ -118,7 +119,7 @@ impl Verifier {
         let i = CompressedRistretto::from_slice(&i).decompress();
 
         // Re-derive the challenge scalar.
-        let r = schnorr.squeeze_scalar();
+        let r = xoodoo::squeeze_scalar(&mut schnorr);
 
         // Decrypt and decode the proof scalar.
         let s = schnorr.decrypt_to_vec(s).expect("invalid decryption");

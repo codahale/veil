@@ -1,6 +1,6 @@
 //! Scalar derivation functions.
 
-use crate::xoodoo::XoodyakExt;
+use crate::xoodoo;
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
@@ -18,7 +18,7 @@ pub fn derive_root(r: &[u8]) -> Secret<Scalar> {
     root_df.absorb(r);
 
     // Squeeze a scalar.
-    root_df.squeeze_scalar().into()
+    xoodoo::squeeze_scalar(&mut root_df).into()
 }
 
 /// Derive a scalar from another scalar using the given key ID.
@@ -36,7 +36,7 @@ pub fn derive_scalar(d: &Scalar, key_id: &str) -> Secret<Scalar> {
             label_df.absorb(label.as_bytes());
 
             // Squeeze a scalar.
-            d + label_df.squeeze_scalar()
+            d + xoodoo::squeeze_scalar(&mut label_df)
         })
         .into()
 }

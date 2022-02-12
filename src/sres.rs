@@ -8,7 +8,7 @@ use secrecy::{ExposeSecret, Secret, SecretVec};
 use xoodyak::{XoodyakCommon, XoodyakHash, XoodyakTag, XOODYAK_AUTH_TAG_BYTES};
 
 use crate::constants::SCALAR_LEN;
-use crate::xoodoo::{XoodyakExt, XoodyakHashExt};
+use crate::xoodoo;
 
 /// The number of bytes added to plaintext by [encrypt].
 pub const OVERHEAD: usize = SCALAR_LEN + SCALAR_LEN + XOODYAK_AUTH_TAG_BYTES;
@@ -35,10 +35,10 @@ pub fn encrypt(
     sres.absorb(q_r.compress().as_bytes());
 
     // Generate a secret commitment scalar.
-    let x = sres.hedge(d_s.as_bytes(), |clone| {
+    let x = xoodoo::hedge(&sres, d_s.as_bytes(), |clone| {
         // Also hedge with the plaintext message to ensure (d_s, plaintext, t) uniqueness.
         clone.absorb(plaintext);
-        clone.squeeze_scalar()
+        xoodoo::squeeze_scalar(clone)
     });
 
     // Absorb the shared secret.
@@ -46,7 +46,7 @@ pub fn encrypt(
     sres.absorb(compress_secret(k).expose_secret());
 
     // Convert to a keyed duplex.
-    let mut sres = sres.to_keyed("veil.sres");
+    let mut sres = xoodoo::to_keyed(sres, "veil.sres");
 
     // Encrypt the plaintext.
     out.extend(sres.encrypt_to_vec(plaintext).expect("invalid decryption"));
@@ -55,7 +55,7 @@ pub fn encrypt(
     sres.ratchet();
 
     // Squeeze a challenge scalar.
-    let r = sres.squeeze_scalar();
+    let r = xoodoo::squeeze_scalar(&mut sres);
 
     // Calculate the proof scalar.
     let s = {
@@ -123,7 +123,7 @@ pub fn decrypt(
     sres.absorb(compress_secret(z).expose_secret());
 
     // Convert to a keyed duplex.
-    let mut sres = sres.to_keyed("veil.sres");
+    let mut sres = xoodoo::to_keyed(sres, "veil.sres");
 
     // Decrypt the ciphertext.
     let plaintext = sres.decrypt_to_vec(ciphertext).expect("invalid decryption").into();
@@ -132,7 +132,7 @@ pub fn decrypt(
     sres.ratchet();
 
     // Squeeze a challenge scalar and check it against the received scalar.
-    if r != sres.squeeze_scalar() {
+    if r != xoodoo::squeeze_scalar(&mut sres) {
         return None;
     }
 

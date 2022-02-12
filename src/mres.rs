@@ -13,8 +13,8 @@ use xoodyak::{XoodyakCommon, XoodyakHash, XoodyakKeyed, XOODYAK_AUTH_TAG_BYTES};
 
 use crate::constants::{POINT_LEN, U64_LEN};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
-use crate::sres;
-use crate::xoodoo::{XoodyakExt, XoodyakHashExt};
+use crate::xoodoo::AbsorbWriter;
+use crate::{sres, xoodoo};
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
@@ -37,12 +37,12 @@ where
 
     // Derive a random ephemeral key pair from the duplex's current state, the sender's private key,
     // and a random nonce.
-    let d_e = mres.hedge(d_s.as_bytes(), XoodyakExt::squeeze_scalar);
+    let d_e = xoodoo::hedge(&mres, d_s.as_bytes(), xoodoo::squeeze_scalar);
     let q_e = &G * d_e.expose_secret();
 
     // Derive a random DEK from the duplex's current state, the sender's private key, and a random
     // nonce.
-    let dek = mres.hedge(d_s.as_bytes(), |clone| clone.squeeze_to_vec(DEK_LEN));
+    let dek = xoodoo::hedge(&mres, d_s.as_bytes(), |clone| clone.squeeze_to_vec(DEK_LEN));
 
     // Encode the DEK, the ephemeral public key, and the message offset in a header.
     let msg_offset = ((q_rs.len() as u64) * ENC_HEADER_LEN as u64) + padding;
@@ -55,7 +55,7 @@ where
     let signer = Signer::new(writer);
 
     // Absorb all encrypted headers and padding as they're read.
-    let mut headers_and_padding = mres.absorb_writer(signer);
+    let mut headers_and_padding = AbsorbWriter::new(mres, signer);
 
     // For each recipient, encrypt a copy of the header with veil.sres.
     for q_r in q_rs {
@@ -71,7 +71,7 @@ where
 
     // Absorb the DEK and convert to a keyed duplex.
     mres.absorb(dek.expose_secret());
-    let mut mres = mres.to_keyed("veil.mres");
+    let mut mres = xoodoo::to_keyed(mres, "veil.mres");
 
     // Encrypt the plaintext, pass it through the signer, and write it.
     let ciphertext_len = encrypt_message(&mut mres, reader, &mut signer)?;
@@ -143,7 +143,7 @@ where
     let verifier = Verifier::new();
 
     // Absorb all encrypted headers and padding as they're read.
-    let mut mres_writer = mres.absorb_writer(verifier);
+    let mut mres_writer = AbsorbWriter::new(mres, verifier);
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the verifier.
     let (dek, q_e) = match decrypt_header(reader, &mut mres_writer, d_r, q_r, q_s)? {
@@ -156,7 +156,7 @@ where
 
     // Absorb the DEK and convert to a keyed duplex.
     mres.absorb(dek.expose_secret());
-    let mut mres = mres.to_keyed("veil.mres");
+    let mut mres = xoodoo::to_keyed(mres, "veil.mres");
 
     // Decrypt the message and get the signature.
     let (written, sig) = decrypt_message(&mut mres, reader, writer, &mut verifier)?;

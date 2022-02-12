@@ -8,7 +8,7 @@ use unicode_normalization::UnicodeNormalization;
 use xoodyak::{XoodyakCommon, XoodyakHash, XoodyakKeyed, XOODYAK_AUTH_TAG_BYTES};
 
 use crate::constants::{U32_LEN, U64_LEN};
-use crate::xoodoo::XoodyakHashExt;
+use crate::xoodoo;
 
 /// The number of bytes encryption adds to a plaintext.
 pub const OVERHEAD: usize = U32_LEN + U32_LEN + SALT_LEN + XOODYAK_AUTH_TAG_BYTES;
@@ -136,7 +136,7 @@ fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> XoodyakKeyed {
     }
 
     // Step 3: Extract key from buffer.
-    pbenc.to_keyed("veil.pbenc")
+    xoodoo::to_keyed(pbenc, "veil.pbenc")
 }
 
 #[inline]
