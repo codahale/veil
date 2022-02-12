@@ -74,8 +74,8 @@ impl<X: XoodyakCommon> XoodyakExt for X {
 
 impl XoodyakHashExt for XoodyakHash {
     fn to_keyed(mut self, name: &str) -> XoodyakKeyed {
-        // Squeeze a 256-bit key.
-        let mut key = [0u8; 32];
+        // Squeeze a 344-bit key. This is the maximum input size for the keyed mode.
+        let mut key = [0u8; 43];
         self.squeeze_key(&mut key);
 
         // Initialize a new duplex with the key and name.
