@@ -1,8 +1,5 @@
 use std::mem;
 
-/// The length of a MAC in bytes.
-pub const MAC_LEN: usize = 16;
-
 /// The length of a compressed ristretto255 point in bytes.
 pub const POINT_LEN: usize = 32;
 

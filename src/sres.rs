@@ -7,11 +7,11 @@ use rand::Rng;
 use secrecy::{ExposeSecret, Secret, SecretVec};
 use xoodyak::{XoodyakCommon, XoodyakHash, XoodyakTag, XOODYAK_AUTH_TAG_BYTES};
 
-use crate::constants::{MAC_LEN, SCALAR_LEN};
+use crate::constants::SCALAR_LEN;
 use crate::xoodoo::{XoodyakExt, XoodyakHashExt};
 
 /// The number of bytes added to plaintext by [encrypt].
-pub const OVERHEAD: usize = SCALAR_LEN + SCALAR_LEN + MAC_LEN;
+pub const OVERHEAD: usize = SCALAR_LEN + SCALAR_LEN + XOODYAK_AUTH_TAG_BYTES;
 
 /// Given the sender's key pair, the recipient's public key, and a plaintext, encrypts the given
 /// plaintext and returns the ciphertext.
