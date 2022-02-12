@@ -19,7 +19,7 @@ impl<W: Write> Write for AbsorbWriter<W> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.n += buf.len() as u64;
         self.buffer.extend(buf);
-        if self.buffer.len() > BLOCK_LEN {
+        while self.buffer.len() > BLOCK_LEN {
             self.hash.absorb(self.buffer.drain(..BLOCK_LEN).as_slice());
         }
         self.writer.write(buf)
