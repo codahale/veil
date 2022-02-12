@@ -5,10 +5,10 @@ use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use rand::Rng;
 use secrecy::{ExposeSecret, Secret, SecretVec};
-use xoodyak::{XoodyakCommon, XoodyakKeyed, XoodyakTag, XOODYAK_AUTH_TAG_BYTES};
+use xoodyak::{XoodyakCommon, XoodyakTag, XOODYAK_AUTH_TAG_BYTES};
 
 use crate::constants::SCALAR_LEN;
-use crate::xoodoo;
+use crate::duplex;
 
 /// The number of bytes added to plaintext by [encrypt].
 pub const OVERHEAD: usize = SCALAR_LEN + SCALAR_LEN + XOODYAK_AUTH_TAG_BYTES;
@@ -25,8 +25,7 @@ pub fn encrypt(
     let mut out = Vec::with_capacity(plaintext.len() + OVERHEAD);
 
     // Initialize a duplex.
-    let mut sres =
-        XoodyakKeyed::new(&[], None, None, Some(b"veil.sres")).expect("unable to construct duplex");
+    let mut sres = duplex::unkeyed("veil.sres");
 
     // Absorb the sender's public key.
     sres.absorb(q_s.compress().as_bytes());
@@ -35,16 +34,15 @@ pub fn encrypt(
     sres.absorb(q_r.compress().as_bytes());
 
     // Generate a secret commitment scalar.
-    let x = xoodoo::hedge(&sres, d_s.as_bytes(), |clone| {
+    let x = duplex::hedge(&sres, d_s.as_bytes(), |clone| {
         // Also hedge with the plaintext message to ensure (d_s, plaintext, t) uniqueness.
         clone.absorb(plaintext);
-        xoodoo::squeeze_scalar(clone)
+        duplex::squeeze_scalar(clone)
     });
 
     // Re-key with the shared secret.
     let k = q_r * x.expose_secret();
-    sres.absorb_key_and_nonce(compress_secret(k).expose_secret(), None, None, None)
-        .expect("unable to construct duplex");
+    duplex::key(&mut sres, compress_secret(k).expose_secret());
 
     // Encrypt the plaintext.
     out.extend(sres.encrypt_to_vec(plaintext).expect("invalid decryption"));
@@ -53,7 +51,7 @@ pub fn encrypt(
     sres.ratchet();
 
     // Squeeze a challenge scalar.
-    let r = xoodoo::squeeze_scalar(&mut sres);
+    let r = duplex::squeeze_scalar(&mut sres);
 
     // Calculate the proof scalar.
     let s = {
@@ -107,8 +105,7 @@ pub fn decrypt(
     let s = unmask_scalar(ms.try_into().expect("invalid scalar len"));
 
     // Initialize a duplex.
-    let mut sres =
-        XoodyakKeyed::new(&[], None, None, Some(b"veil.sres")).expect("unable to construct duplex");
+    let mut sres = duplex::unkeyed("veil.sres");
 
     // Absorb the sender's public key.
     sres.absorb(q_s.compress().as_bytes());
@@ -117,9 +114,8 @@ pub fn decrypt(
     sres.absorb(q_r.compress().as_bytes());
 
     // Re-key with the shared secret.
-    let z = (q_s + (&G * &r)) * (d_r * s);
-    sres.absorb_key_and_nonce(compress_secret(z).expose_secret(), None, None, None)
-        .expect("unable to construt duplex");
+    let k = (q_s + (&G * &r)) * (d_r * s);
+    duplex::key(&mut sres, compress_secret(k).expose_secret());
 
     // Decrypt the ciphertext.
     let plaintext = sres.decrypt_to_vec(ciphertext).expect("invalid decryption").into();
@@ -128,7 +124,7 @@ pub fn decrypt(
     sres.ratchet();
 
     // Squeeze a challenge scalar and check it against the received scalar.
-    if r != xoodoo::squeeze_scalar(&mut sres) {
+    if r != duplex::squeeze_scalar(&mut sres) {
         return None;
     }
 

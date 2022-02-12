@@ -8,11 +8,11 @@ use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use secrecy::ExposeSecret;
-use xoodyak::{XoodyakCommon, XoodyakKeyed};
+use xoodyak::XoodyakCommon;
 
 use crate::constants::{POINT_LEN, SCALAR_LEN};
-use crate::xoodoo;
-use crate::xoodoo::AbsorbWriter;
+use crate::duplex;
+use crate::duplex::AbsorbWriter;
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
@@ -30,8 +30,7 @@ where
     /// Create a new signer which passes writes through to the given writer.
     pub fn new(writer: W) -> Signer<W> {
         // Initialize a duplex.
-        let schnorr = XoodyakKeyed::new(&[], None, None, Some(b"veil.schnorr"))
-            .expect("unable to construct duplex");
+        let schnorr = duplex::unkeyed("veil.schnorr");
 
         Signer { writer: AbsorbWriter::new(schnorr, writer) }
     }
@@ -50,14 +49,14 @@ where
 
         // Derive a commitment scalar from the protocol's current state, the signer's private key,
         // and a random nonce.
-        let k = xoodoo::hedge(&schnorr, d.as_bytes(), xoodoo::squeeze_scalar);
+        let k = duplex::hedge(&schnorr, d.as_bytes(), duplex::squeeze_scalar);
 
         // Calculate and encrypt the commitment point.
         let i = &G * k.expose_secret();
         sig.extend(schnorr.encrypt_to_vec(i.compress().as_bytes()).expect("invalid encryption"));
 
         // Squeeze a challenge scalar.
-        let r = xoodoo::squeeze_scalar(&mut schnorr);
+        let r = duplex::squeeze_scalar(&mut schnorr);
 
         // Calculate and encrypt the proof scalar.
         let s = d * r + k.expose_secret();
@@ -91,8 +90,7 @@ impl Verifier {
     #[must_use]
     pub fn new() -> Verifier {
         // Initialize a duplex.
-        let schnorr = XoodyakKeyed::new(&[], None, None, Some(b"veil.schnorr"))
-            .expect("unable to construct duplex");
+        let schnorr = duplex::unkeyed("veil.schnorr");
 
         Verifier { writer: AbsorbWriter::new(schnorr, io::sink()) }
     }
@@ -113,7 +111,7 @@ impl Verifier {
         let i = CompressedRistretto::from_slice(&i).decompress();
 
         // Re-derive the challenge scalar.
-        let r = xoodoo::squeeze_scalar(&mut schnorr);
+        let r = duplex::squeeze_scalar(&mut schnorr);
 
         // Decrypt and decode the proof scalar.
         let s = schnorr.decrypt_to_vec(s).expect("invalid decryption");

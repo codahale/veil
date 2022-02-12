@@ -6,7 +6,7 @@ use rand::RngCore;
 use secrecy::{Secret, Zeroize};
 use xoodyak::{XoodyakCommon, XoodyakKeyed};
 
-/// A [Write] adapter which tees writes into an unkeyed duplex.
+/// A [Write] adapter which tees writes into a duplex.
 pub struct AbsorbWriter<W: Write> {
     duplex: XoodyakKeyed,
     writer: W,
@@ -45,6 +45,17 @@ impl<W: Write> AbsorbWriter<W> {
         self.flush()?;
         Ok((self.duplex, self.writer, self.n))
     }
+}
+
+/// Create an unkeyed duplex using the given initialization string as the counter,
+pub fn unkeyed(name: &str) -> XoodyakKeyed {
+    XoodyakKeyed::new(&[], None, None, Some(name.as_bytes()))
+        .expect("unable to construct unkeyed duplex")
+}
+
+/// Update a duplex with the given key.
+pub fn key(duplex: &mut XoodyakKeyed, key: &[u8]) {
+    duplex.absorb_key_and_nonce(key, None, None, None).expect("unable to key duplex");
 }
 
 /// Derive a [Scalar] from the given duplex's output.
@@ -98,8 +109,7 @@ mod tests {
 
     #[test]
     fn absorb_writer() {
-        let duplex =
-            XoodyakKeyed::new(&[], None, None, Some(b"ok")).expect("unable to construct duplex");
+        let duplex = unkeyed("ok");
         let mut w = AbsorbWriter::new(duplex, Cursor::new(Vec::new()));
         w.write_all(b"this is a message that").expect("write failure");
         w.write_all(b" is written in multiple pieces").expect("write failure");
@@ -111,8 +121,7 @@ mod tests {
         );
         assert_eq!(52, n1);
 
-        let duplex =
-            XoodyakKeyed::new(&[], None, None, Some(b"ok")).expect("unable to construct duplex");
+        let duplex = unkeyed("ok");
         let mut w = AbsorbWriter::new(duplex, Cursor::new(Vec::new()));
         w.write_all(b"this is a message that").expect("write failure");
         w.write_all(b" is written in multiple").expect("write failure");

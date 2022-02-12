@@ -4,22 +4,21 @@ use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use secrecy::{ExposeSecret, Secret};
-use xoodyak::{XoodyakCommon, XoodyakKeyed};
+use xoodyak::XoodyakCommon;
 
-use crate::xoodoo;
+use crate::duplex;
 
 /// Derive a scalar from the given secret key.
 #[must_use]
 pub fn derive_root(r: &[u8]) -> Secret<Scalar> {
     // Initialize the duplex.
-    let mut root_df = XoodyakKeyed::new(&[], None, None, Some(b"veil.scaldf.root"))
-        .expect("unable to construct duplex");
+    let mut root_df = duplex::unkeyed("veil.scaldf.root");
 
     // Absorb the secret key.
     root_df.absorb(r);
 
     // Squeeze a scalar.
-    xoodoo::squeeze_scalar(&mut root_df).into()
+    duplex::squeeze_scalar(&mut root_df).into()
 }
 
 /// Derive a scalar from another scalar using the given key ID.
@@ -30,14 +29,13 @@ pub fn derive_scalar(d: &Scalar, key_id: &str) -> Secret<Scalar> {
         .split(KEY_ID_DELIM)
         .fold(*d, |d, label| {
             // Initialize the duplex.
-            let mut label_df = XoodyakKeyed::new(&[], None, None, Some(b"veil.scaldf.label"))
-                .expect("unable to construct duplex");
+            let mut label_df = duplex::unkeyed("veil.scaldf.label");
 
             // Absorb the label.
             label_df.absorb(label.as_bytes());
 
             // Squeeze a scalar.
-            d + xoodoo::squeeze_scalar(&mut label_df)
+            d + duplex::squeeze_scalar(&mut label_df)
         })
         .into()
 }

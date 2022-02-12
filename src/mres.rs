@@ -12,9 +12,9 @@ use secrecy::{ExposeSecret, Secret, SecretVec, Zeroize};
 use xoodyak::{XoodyakCommon, XoodyakKeyed, XOODYAK_AUTH_TAG_BYTES};
 
 use crate::constants::{POINT_LEN, U64_LEN};
+use crate::duplex::AbsorbWriter;
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
-use crate::xoodoo::AbsorbWriter;
-use crate::{sres, xoodoo};
+use crate::{duplex, sres};
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
@@ -31,18 +31,17 @@ where
     W: Write,
 {
     // Initialize a duplex and absorb the sender's public key.
-    let mut mres =
-        XoodyakKeyed::new(&[], None, None, Some(b"veil.mres")).expect("unable to construct duplex");
+    let mut mres = duplex::unkeyed("veil.mres");
     mres.absorb(q_s.compress().as_bytes());
 
     // Derive a random ephemeral key pair from the duplex's current state, the sender's private key,
     // and a random nonce.
-    let d_e = xoodoo::hedge(&mres, d_s.as_bytes(), xoodoo::squeeze_scalar);
+    let d_e = duplex::hedge(&mres, d_s.as_bytes(), duplex::squeeze_scalar);
     let q_e = &G * d_e.expose_secret();
 
     // Derive a random DEK from the duplex's current state, the sender's private key, and a random
     // nonce.
-    let dek = xoodoo::hedge(&mres, d_s.as_bytes(), |clone| clone.squeeze_to_vec(DEK_LEN));
+    let dek = duplex::hedge(&mres, d_s.as_bytes(), |clone| clone.squeeze_to_vec(DEK_LEN));
 
     // Encode the DEK, the ephemeral public key, and the message offset in a header.
     let msg_offset = ((q_rs.len() as u64) * ENC_HEADER_LEN as u64) + padding;
@@ -70,8 +69,7 @@ where
     let (mut mres, mut signer, header_len) = headers_and_padding.into_inner()?;
 
     // Use the DEK to key the duplex.
-    mres.absorb_key_and_nonce(dek.expose_secret(), None, None, None)
-        .expect("unable to construct duplex");
+    duplex::key(&mut mres, dek.expose_secret());
 
     // Encrypt the plaintext, pass it through the signer, and write it.
     let ciphertext_len = encrypt_message(&mut mres, reader, &mut signer)?;
@@ -135,8 +133,7 @@ where
     W: Write,
 {
     // Initialize a duplex and absorb the sender's public key.
-    let mut mres =
-        XoodyakKeyed::new(&[], None, None, Some(b"veil.mres")).expect("unable to construct duplex");
+    let mut mres = duplex::unkeyed("veil.mres");
     mres.absorb(q_s.compress().as_bytes());
 
     // Initialize a verifier for the entire ciphertext.
@@ -155,8 +152,7 @@ where
     let (mut mres, mut verifier, _) = mres_writer.into_inner()?;
 
     // Use the DEK to key the duplex.
-    mres.absorb_key_and_nonce(dek.expose_secret(), None, None, None)
-        .expect("unable to construct duplex");
+    duplex::key(&mut mres, dek.expose_secret());
 
     // Decrypt the message and get the signature.
     let (written, sig) = decrypt_message(&mut mres, reader, writer, &mut verifier)?;
