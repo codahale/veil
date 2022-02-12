@@ -4,17 +4,17 @@
 
 ## Signing A Message
 
-Signing is as follows, given a message in 32KiB blocks $M_0...M_N$, a private scalar $d$, and a public point $Q$.
+Signing is as follows, given a message in 16-byte blocks $M_0...M_N$, a private scalar $d$, and a public point $Q$.
 
 First, an unkeyed duplex is initialized and used to absorb the message blocks and the signer's public key:
 
 $$
 \text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
 \text{Absorb}(\texttt{veil.schnorr}) \\
-\text{Absorb}(M_0) \\
-\text{Absorb}(M_1) \\
+\text{AbsorbMore}(M_0, 16) \\
+\text{AbsorbMore}(M_1, 16) \\
 \dots \\
-\text{Absorb}(M_N) \\
+\text{AbsorbMore}(M_N, 16) \\
 \text{Absorb}(Q) \\
 $$
 
@@ -59,7 +59,7 @@ The final signature is $S_0 || S_1$.
 
 ## Verifying A Signature
 
-Verification is as follows, given a message in 32KiB blocks $M_0...M_N$, a public point $Q$, and a signature
+Verification is as follows, given a message in 16-byte blocks $M_0...M_N$, a public point $Q$, and a signature
 $S_0 || S_1$.
 
 First, an unkeyed duplex is created and used to absorb the message blocks and the signer's public key:
@@ -67,10 +67,10 @@ First, an unkeyed duplex is created and used to absorb the message blocks and th
 $$
 \text{Cyclist}(\epsilon, \epsilon, \epsilon) \\
 \text{Absorb}(\texttt{veil.schnorr}) \\
-\text{Absorb}(M_0) \\
-\text{Absorb}(M_1) \\
+\text{AbsorbMore}(M_0, 16) \\
+\text{AbsorbMore}(M_1, 16) \\
 \dots \\
-\text{Absorb}(M_N) \\
+\text{AbsorbMore}(M_N, 16) \\
 \text{Absorb}(Q) \\
 $$
 

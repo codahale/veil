@@ -6,8 +6,6 @@ use rand::RngCore;
 use secrecy::{Secret, Zeroize};
 use xoodyak::{XoodyakCommon, XoodyakHash, XoodyakKeyed};
 
-const BLOCK_LEN: usize = 32 * 1024;
-
 pub struct AbsorbWriter<W: Write> {
     duplex: XoodyakHash,
     writer: W,
@@ -15,18 +13,21 @@ pub struct AbsorbWriter<W: Write> {
     n: u64,
 }
 
+const ABSORB_RATE: usize = 16;
+
 impl<W: Write> Write for AbsorbWriter<W> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.n += buf.len() as u64;
         self.buffer.extend(buf);
-        while self.buffer.len() > BLOCK_LEN {
-            self.duplex.absorb(self.buffer.drain(..BLOCK_LEN).as_slice());
+        let max = self.buffer.len() - (self.buffer.len() % ABSORB_RATE);
+        if max >= ABSORB_RATE {
+            self.duplex.absorb_more(self.buffer.drain(..max).as_slice(), ABSORB_RATE);
         }
         self.writer.write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        self.duplex.absorb(&self.buffer);
+        self.duplex.absorb_more(&self.buffer, 16);
         self.writer.flush()
     }
 }
@@ -118,6 +119,41 @@ impl XoodyakHashExt for XoodyakHash {
     where
         W: Write,
     {
-        AbsorbWriter { duplex: self, writer, buffer: Vec::with_capacity(BLOCK_LEN), n: 0 }
+        AbsorbWriter { duplex: self, writer, buffer: Vec::with_capacity(16 * 1024), n: 0 }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
+
+    use super::*;
+
+    #[test]
+    fn absorb_writer() {
+        let mut w = XoodyakHash::new().absorb_writer(Cursor::new(Vec::new()));
+        w.write_all(b"this is a message that").expect("write failure");
+        w.write_all(b" is written in multiple pieces").expect("write failure");
+        let (mut one, m1, n1) = w.into_inner().expect("unwrap failure");
+
+        assert_eq!(vec![199, 73, 70, 197], one.squeeze_to_vec(4));
+        assert_eq!(
+            b"this is a message that is written in multiple pieces",
+            m1.into_inner().as_slice()
+        );
+        assert_eq!(52, n1);
+
+        let mut w = XoodyakHash::new().absorb_writer(Cursor::new(Vec::new()));
+        w.write_all(b"this is a message that").expect("write failure");
+        w.write_all(b" is written in multiple").expect("write failure");
+        w.write_all(b" pieces").expect("write failure");
+        let (mut two, m2, n2) = w.into_inner().expect("unwrap failure");
+
+        assert_eq!(vec![199, 73, 70, 197], two.squeeze_to_vec(4));
+        assert_eq!(
+            b"this is a message that is written in multiple pieces",
+            m2.into_inner().as_slice()
+        );
+        assert_eq!(52, n2);
     }
 }
