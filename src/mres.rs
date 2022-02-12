@@ -9,9 +9,9 @@ use curve25519_dalek::scalar::Scalar;
 use rand::prelude::ThreadRng;
 use rand::RngCore;
 use secrecy::{ExposeSecret, Secret, SecretVec, Zeroize};
-use xoodyak::{XoodyakCommon, XoodyakHash, XoodyakKeyed, XoodyakTag, XOODYAK_AUTH_TAG_BYTES};
+use xoodyak::{XoodyakCommon, XoodyakHash, XoodyakKeyed, XOODYAK_AUTH_TAG_BYTES};
 
-use crate::constants::{MAC_LEN, POINT_LEN, U64_LEN};
+use crate::constants::{POINT_LEN, U64_LEN};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::sres;
 use crate::xoodoo::{XoodyakExt, XoodyakHashExt};
@@ -102,12 +102,8 @@ where
         let block = &buf.0[..n];
 
         // Encrypt the block and write the ciphertext.
-        writer.write_all(&mres.encrypt_to_vec(block).expect("invalid encryption"))?;
-        written += n as u64;
-
-        // Squeeze a tag and write it.
-        writer.write_all(&mres.squeeze_to_vec(XOODYAK_AUTH_TAG_BYTES))?;
-        written += MAC_LEN as u64;
+        writer.write_all(&mres.aead_encrypt_to_vec(Some(block)).expect("invalid encryption"))?;
+        written += (n + XOODYAK_AUTH_TAG_BYTES) as u64;
 
         // Ratchet the protocol state to prevent rollback. This protects previous blocks from being
         // reversed in the event of the protocol's state being compromised.
@@ -197,28 +193,18 @@ where
 
         // Pretend we don't see the possible signature at the end.
         let n = buf.len() - SIGNATURE_LEN;
-        let block = &mut buf[..n];
+        let block = &buf[..n];
 
         // Add the block to the verifier.
         verifier.write_all(block)?;
 
-        // Split the block into ciphertext and MAC.
-        let (ciphertext, tag) = block.split_at_mut(n - XOODYAK_AUTH_TAG_BYTES);
-        let tag: [u8; XOODYAK_AUTH_TAG_BYTES] = tag.as_ref().try_into().expect("invalid tag len");
-        let tag = XoodyakTag::from(tag);
-
         // Decrypt the block and write the plaintext.
-        mres.decrypt_in_place(ciphertext);
-        writer.write_all(ciphertext)?;
-        ciphertext.zeroize();
-        written += ciphertext.len() as u64;
-
-        // Verify the MAC.
-        let mut tag_p = [0u8; XOODYAK_AUTH_TAG_BYTES];
-        mres.squeeze(&mut tag_p);
-
-        if tag.verify(tag_p).is_err() {
-            // If the MAC is invalid, return the number of bytes written and an impossible
+        if let Ok(plaintext) = mres.aead_decrypt_to_vec(block) {
+            let plaintext = Secret::new(plaintext);
+            writer.write_all(plaintext.expose_secret())?;
+            written += plaintext.expose_secret().len() as u64;
+        } else {
+            // If the tag is invalid, return the number of bytes written and an impossible
             // signature.
             return Ok((written, [0u8; SIGNATURE_LEN]));
         }
@@ -305,7 +291,7 @@ const DEK_LEN: usize = 32;
 const HEADER_LEN: usize = DEK_LEN + POINT_LEN + U64_LEN;
 const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
 const BLOCK_LEN: usize = 32 * 1024;
-const ENC_BLOCK_LEN: usize = BLOCK_LEN + MAC_LEN;
+const ENC_BLOCK_LEN: usize = BLOCK_LEN + XOODYAK_AUTH_TAG_BYTES;
 
 struct SecBuf(Vec<u8>);
 
