@@ -69,7 +69,7 @@ where
     // Unwrap the headers and padding writer.
     let (mut mres, mut signer, header_len) = headers_and_padding.into_inner()?;
 
-    // Key the protocol with the DEK.
+    // Absorb the DEK and convert to a keyed duplex.
     mres.absorb(dek.expose_secret());
     let mut mres = mres.to_keyed("veil.mres");
 
@@ -101,12 +101,12 @@ where
         let n = reader.take(BLOCK_LEN as u64).read_to_end(&mut buf.0)?;
         let block = &buf.0[..n];
 
-        // Encrypt the block and write the ciphertext.
+        // Encrypt the block and write the ciphertext and a tag.
         writer.write_all(&mres.aead_encrypt_to_vec(Some(block)).expect("invalid encryption"))?;
         written += (n + XOODYAK_AUTH_TAG_BYTES) as u64;
 
-        // Ratchet the protocol state to prevent rollback. This protects previous blocks from being
-        // reversed in the event of the protocol's state being compromised.
+        // Ratchet the duplex state to prevent rollback. This protects previous blocks from being
+        // reversed in the event of the duplex's state being compromised.
         mres.ratchet();
 
         // If the block was undersized, we're at the end of the reader.
@@ -134,7 +134,7 @@ where
     R: Read,
     W: Write,
 {
-    // Initialize a hash and absord the sender's public key.
+    // Initialize a hash and absorb the sender's public key.
     let mut mres = XoodyakHash::new();
     mres.absorb(b"veil.mres");
     mres.absorb(q_s.compress().as_bytes());
@@ -154,7 +154,7 @@ where
     // Unwrap the received cleartext writer.
     let (mut mres, mut verifier, _) = mres_writer.into_inner()?;
 
-    // Key the protocol with the recovered DEK.
+    // Absorb the DEK and convert to a keyed duplex.
     mres.absorb(dek.expose_secret());
     let mut mres = mres.to_keyed("veil.mres");
 
@@ -209,7 +209,7 @@ where
             return Ok((written, [0u8; SIGNATURE_LEN]));
         }
 
-        // Ratchet the protocol state.
+        // Ratchet the duplex state.
         mres.ratchet();
 
         // Clear the part of the buffer we used.
