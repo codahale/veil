@@ -6,7 +6,7 @@ encryption construction and a SUF-CMA-secure signature scheme.
 ## Encryption
 
 Encrypting a message begins as follows, given the sender's key pair, $d_S$ and $Q_S$, a plaintext message in blocks
-$P_0...P_N$, a list of recipient public keys, $Q_{R^0}...Q_{R^M}$, and a DEK size $N_{K}$. 
+$P_0..P_n$, a list of recipient public keys, $Q_{R^0}..Q_{R^m}$, and a DEK size $N_{K}$. 
 
 First, a duplex is initialized with a constant key and used to absorb the sender's public key:
 
@@ -30,15 +30,15 @@ The ephemeral public key is computed as $Q_E = [{d_E}]G$, and the cloned duplex 
 
 $K$, $Q_E$, and the message offset are encoded into a fixed-length header and copies of it are encrypted with
 [`veil.sres`](sres.md) for each recipient using $(d_S, Q_S)$. Optional random padding is added to the end, and the
-resulting headers $H_0..H_N||H_{pad}$ are absorbed in 32KiB blocks:
+resulting headers $H_0..H_n||H_{pad}$ are absorbed in 32KiB blocks:
 
 $$
 h = K || Q_E || O \\
 H_0 \gets \texttt{veil.sres.}\text{Encrypt}(d_S, Q_S, Q_{R_0}, h) \\
 \text{Absorb}(H_0) \\
 \dots \\
-H_N \gets \texttt{veil.sres.}\text{Encrypt}(d_S, Q_S, Q_{R_N}, h) \\
-\text{Absorb}(H_N) \\
+H_n \gets \texttt{veil.sres.}\text{Encrypt}(d_S, Q_S, Q_{R_n}, h) \\
+\text{Absorb}(H_n) \\
 H_{pad} \overset{R}{\gets} \mathbb{Z}_{2^{pad}} \\
 \text{Absorb}(H_{pad}) \\
 $$
@@ -60,7 +60,7 @@ Finally, a [`veil.schnorr`](schnorr.md) signature $s$ of the entire ciphertext (
 created with $d_E$ and encrypted as $S$:
 
 $$
-s \gets \texttt{veil.schnorr.}\text{Sign}(d_E, Q_E, H_0..H_N || H_{pad} || ((C_0,T_0)..(C_N,T_N))) \\
+s \gets \texttt{veil.schnorr.}\text{Sign}(d_E, Q_E, H_0..H_n || H_{pad} || ((C_0,T_0)..(C_n,T_n))) \\
 S \gets \text{Encrypt}(S) \\
 $$
 
@@ -81,13 +81,13 @@ $$
 
 The recipient reads through the ciphertext in header-sized blocks, looking for one which is decryptable given their key
 pair and the sender's public key. Having found one, they recover the data encryption key $K$, the ephemeral public key
-$Q_E$, and the message offset. They then absorb the remainder of the block of encrypted headers $H_0..H_N$ and padding
+$Q_E$, and the message offset. They then absorb the remainder of the block of encrypted headers $H_0..H_n$ and padding
 $H_{pad}$:
 
 $$
 \text{Absorb}(H_0) \\
 \dots \\
-\text{Absorb}(H_N) \\
+\text{Absorb}(H_n) \\
 \text{Absorb}(H_{pad}) \\
 $$
 
@@ -108,7 +108,7 @@ Finally, the signature $S$ is decrypted and verified against the entire cipherte
 
 $$
 s \gets \text{Decrypt}(S) \\
-v \gets \texttt{veil.schnorr.}\text{Verify}(s, Q_E, H_0..H_N || H_{pad} || ((C_0,T_0)..(C_N,T_N)) \\
+v \gets \texttt{veil.schnorr.}\text{Verify}(s, Q_E, H_0..H_n || H_{pad} || ((C_0,T_0)..(C_n,T_n)) \\
 $$
 
 The message is considered successfully decrypted if $v$ is true.

@@ -4,7 +4,7 @@
 
 ## Signing A Message
 
-Signing is as follows, given a message in 16-byte blocks $M_0...M_N$, a private scalar $d$, and a public point $Q$.
+Signing is as follows, given a message in 16-byte blocks $M_0..M_n$, a private scalar $d$, and a public point $Q$.
 
 First, a duplex is initialized with a constant key and used to absorb the message blocks and the signer's public key:
 
@@ -13,7 +13,7 @@ $$
 \text{AbsorbMore}(M_0, 16) \\
 \text{AbsorbMore}(M_1, 16) \\
 \dots \\
-\text{AbsorbMore}(M_N, 16) \\
+\text{AbsorbMore}(M_n, 16) \\
 \text{Absorb}(Q) \\
 $$
 
@@ -50,7 +50,7 @@ The final signature is $S_0 || S_1$.
 
 ## Verifying A Signature
 
-Verification is as follows, given a message in 16-byte blocks $M_0...M_N$, a public point $Q$, and a signature
+Verification is as follows, given a message in 16-byte blocks $M_0..M_n$, a public point $Q$, and a signature
 $S_0 || S_1$.
 
 First, a duplex is created, initialized with a constant key, and used to absorb the message blocks and the signer's
@@ -61,7 +61,7 @@ $$
 \text{AbsorbMore}(M_0, 16) \\
 \text{AbsorbMore}(M_1, 16) \\
 \dots \\
-\text{AbsorbMore}(M_N, 16) \\
+\text{AbsorbMore}(M_n, 16) \\
 \text{Absorb}(Q) \\
 $$
 
@@ -69,7 +69,7 @@ $S_0$ is decrypted and decoded as $I$ and $r$ is re-derived from output:
 
 $$
 I \gets \text{Decrypt}(S_0) \\
-r \gets \text{SqueezeKey}(64) \mod \ell \\
+r \gets \text{SqueezeKey}(64) \bmod \ell \\
 $$
 
 $S_1$ is decrypted and decoded as $s$ and the counterfactual commitment point $I'$ is calculated and compared to the
@@ -97,7 +97,7 @@ Ed25519 which achieves SUF-CMA security in addition to strong binding:
 > 1. Reject the signature if $S \not\in \{0,\ldots,L−1\}$.
 > 2. Reject the signature if the public key $A$ is one of 8 small order points.
 > 3. Reject the signature if $A$ or $R$ are non-canonical.
-> 4. Compute the hash ${SHA512}(R||A||M)$ and reduce it mod $L$ to get a scalar $h$.
+> 4. Compute the hash $\text{SHA2}_{512}(R||A||M)$ and reduce it mod $L$ to get a scalar $h$.
 > 5. Accept if $8(S·B)−8R−8(h·A)=0$.
 
 Rejecting $S \geq L$ makes the scheme SUF-CMA secure, and rejecting small order $A$ values makes the scheme strongly
