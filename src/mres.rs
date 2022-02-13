@@ -157,8 +157,14 @@ where
     // Decrypt the message and get the signature.
     let (written, sig) = decrypt_message(&mut mres, reader, writer, &mut verifier)?;
 
-    // Return the signature's validity and the number of bytes of plaintext written.
-    Ok((verifier.verify(&q_e, &sig)?, written))
+    // Check to see if we decrypted the entire message.
+    if let Some(sig) = sig {
+        // Return the signature's validity and the number of bytes of plaintext written.
+        Ok((verifier.verify(&q_e, &sig)?, written))
+    } else {
+        // Otherwise, return a decryption failure and the number of bytes written.
+        Ok((false, written))
+    }
 }
 
 fn decrypt_message<R, W>(
@@ -166,7 +172,7 @@ fn decrypt_message<R, W>(
     reader: &mut R,
     writer: &mut W,
     verifier: &mut Verifier,
-) -> Result<(u64, [u8; SIGNATURE_LEN])>
+) -> Result<(u64, Option<[u8; SIGNATURE_LEN]>)>
 where
     R: Read,
     W: Write,
@@ -200,9 +206,8 @@ where
             writer.write_all(plaintext.expose_secret())?;
             written += plaintext.expose_secret().len() as u64;
         } else {
-            // If the tag is invalid, return the number of bytes written and an impossible
-            // signature.
-            return Ok((written, [0u8; SIGNATURE_LEN]));
+            // If the tag is invalid, return the number of bytes written and no signature.
+            return Ok((written, None));
         }
 
         // Ratchet the duplex state.
@@ -215,7 +220,7 @@ where
     // Decrypt the signature.
     let sig = mres.decrypt_to_vec(&buf).expect("invalid decryption");
 
-    Ok((written, sig.try_into().expect("invalid sig len")))
+    Ok((written, Some(sig.try_into().expect("invalid sig len"))))
 }
 
 fn decrypt_header<R, W>(
