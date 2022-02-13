@@ -9,10 +9,6 @@ Veil uses just two distinct primitives:
 * [Xoodyak][xoodyak] for confidentiality, authentication, and integrity.
 * [ristretto255][r255] for key encapsulation and authenticity.
 
-[ristretto255][r255-why] uses a safe curve, is a prime-order cyclic group, has non-malleable encodings, and has no
-co-factor concerns. Xoodyak is an advanced cryptographic duplex based on a strong permutation. Both target a 128-bit
-security level and both can run in constrained environments.
-
 The underlying philosophy is that expressed by [Adam Langley][agl]:
 
 > There's a lesson in all this: have one joint and keep it well oiled. … \[O\]ne needs to minimise
@@ -20,6 +16,23 @@ The underlying philosophy is that expressed by [Adam Langley][agl]:
 
 As a result, the constructions in Veil depend primarily on two relatively stable cryptographic assumptions: the Gap
 Diffie-Hellman assumption for ristretto255 and that Xoodoo is suitably close to a random permutation.
+
+### ristretto255
+
+[ristretto255][r255-why] uses a safe curve, is a prime-order cyclic group, has non-malleable encodings, and has no
+co-factor concerns. This allows for the use of a wide variety of cryptographic constructions built on group operations.
+It targets a 128-bit security level, lends itself to constant-time implementations, and can run in constrained
+environments.
+
+### Xoodyak
+
+Xoodyak is an advanced cryptographic [duplex][duplex] based on a strong permutation, Xoodoo. Duplexes are a relatively
+new cryptographic primitive which have security properties which reduce to the properties of the [sponge][sponge], which
+themselves reduce to the strength of the underlying permutation. In Xoodyak's case, the Xoodoo permutation is based on
+Keccak-_p_, the permutation underlying SHA3.
+
+Like Ristretto255, it targets a 128-bit security level, lends itself to constant-time implementations, and can run in
+constrained environments.
 
 ## Integrated Constructions
 
@@ -73,4 +86,8 @@ ideal for distribution via steganographic channels and very resistant to traffic
 
 [cce]: https://eprint.iacr.org/2017/664.pdf
 
-[xoodyak]: https://csrc.nist.gov/CSRC/media/Projects/lightweight-cryptography/documents/finalist-round/updated-spec-doc/xoodyak-spec-final.pdf
+[xoodyak]: https://tosc.iacr.org/index.php/ToSC/article/view/7359/6529
+
+[duplex]: https://keccak.team/files/SpongeDuplex.pdf
+
+[sponge]: https://keccak.team/files/SpongeIndifferentiability.pdf
