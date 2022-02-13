@@ -227,7 +227,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_mac() {
+    fn bad_tag() {
         let passphrase = "this is a secret";
         let message = b"this is too";
         let mut ciphertext = encrypt(passphrase, 5, 3, message);
