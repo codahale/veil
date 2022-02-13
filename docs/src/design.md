@@ -7,10 +7,11 @@ Veil is designed to be simple, understandable, and robust.
 Veil uses just two distinct primitives:
 
 * [Xoodyak][xoodyak] for confidentiality, authentication, and integrity.
-* [ristretto255][r255] for key agreement and signing.
+* [ristretto255][r255] for key encapsulation and authenticity.
 
 [ristretto255][r255-why] uses a safe curve, is a prime-order cyclic group, has non-malleable encodings, and has no
-co-factor concerns. Xoodyak is an advanced cryptographic duplex based on a strong permutation.
+co-factor concerns. Xoodyak is an advanced cryptographic duplex based on a strong permutation. Both target a 128-bit
+security level and both can run in constrained environments.
 
 The underlying philosophy is that expressed by [Adam Langley][agl]:
 
@@ -23,7 +24,7 @@ Diffie-Hellman assumption for ristretto255 and that Xoodoo is suitably close to 
 ## Integrated Constructions
 
 Because Xoodyak provides a wide range of capabilities, it's possible to build fully integrated cryptographic
-constructions. Leveraging transcript consistency–the fact that every operation changes a Xoodyak hash's state in a
+constructions. Leveraging transcript consistency–the fact that every operation changes a Xoodyak duplex's state in a
 cryptographically secure manner–makes for much simpler constructions with guarantees that are easier to understand.
 
 Instead of combining a hash function and a digital signature algorithm, we have a single digital signature construction.
