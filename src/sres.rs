@@ -132,7 +132,7 @@ pub fn decrypt(
 
     // Verify the tag.
     let tag: [u8; XOODYAK_AUTH_TAG_BYTES] = tag.try_into().expect("invalid tag len");
-    if Into::<XoodyakTag>::into(tag) == duplex::squeeze_tag(&mut sres) {
+    if XoodyakTag::from(tag) == duplex::squeeze_tag(&mut sres) {
         Some(plaintext)
     } else {
         None
