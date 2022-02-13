@@ -87,34 +87,27 @@ K = [{d_R}s] (Q_S+[r]G) \\
 \text{Cyclist}(K, \epsilon, \epsilon) \\
 $$
 
-Third, the ciphertext $C$ is decrypted as the unauthenticated plaintext $P'$ and the duplex's is ratcheted:
+Third, the ciphertext $C$ is decrypted as the unauthenticated plaintext $P'$, the duplex's state is ratcheted, and a
+counterfactual challenge scalar $r'$ is derived from output:
 
 $$
 P' \gets \text{Decrypt}(C) \\
 \text{Ratchet}() \\
-$$
-
-Fourth, a counterfactual challenge scalar $r'$ is derived from output and compared to the ciphertext challenge scalar
-$r$:
-
-$$
 r' \gets \text{SqueezeKey}(64) \bmod \ell \\
-r' \stackrel{?}{=} r \\
 $$
 
-If $r' \not = r$, an error is returned.
-
-Finally, the masked scalars $S_0$ and $S_1$ are absorbed and a counterfactual authentication tag $T'$ is derived from
-output and compared to the ciphertext authentication tag $T$:
+Finally, the masked scalars $S_0$ and $S_1$ are absorbed, a counterfactual authentication tag $T'$ is derived from
+output, and $r'$ and $T'$ are compared to the received values:
 
 $$
 \text{Absorb}(S_0) \\
 \text{Absorb}(S_1) \\
 T' \gets \text{Squeeze}(16) \\
+r' \stackrel{?}{=} r \\
 T' \stackrel{?}{=} T \\
 $$
 
-If the $T' \not = T$, an error is returned. Otherwise, the plaintext $P'$ is returned as authentic.
+If $r' = r \land T' = T$, the plaintext $P'$ is returned as authentic; otherwise, an error is returned.
 
 ## IND-CCA2 Security
 

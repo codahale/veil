@@ -5,6 +5,7 @@ use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use rand::Rng;
 use secrecy::{ExposeSecret, Secret, SecretVec};
+use subtle::ConstantTimeEq;
 
 use crate::constants::SCALAR_LEN;
 use crate::duplex;
@@ -121,20 +122,19 @@ pub fn decrypt(
     // Ratchet the protocol state.
     sres.ratchet();
 
-    // Squeeze a challenge scalar and check it against the received scalar.
-    if r != sres.squeeze_scalar() {
-        return None;
-    }
+    // Squeeze a counterfactual challenge scalar.
+    let r_p = sres.squeeze_scalar();
 
     // Absorb the masked scalars.
     sres.absorb(mr);
     sres.absorb(ms);
 
-    // Verify the tag.
-    sres.verify_tag(tag)?;
-
-    // Return the plaintext.
-    Some(plaintext)
+    // If the challenge scalar and tag are valid, return the plaintext.
+    if (r.ct_eq(&r_p) & sres.verify_tag(tag)).into() {
+        Some(plaintext)
+    } else {
+        None
+    }
 }
 
 /// Encode a shared secret point in a way which zeroizes all temporary values.

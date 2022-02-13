@@ -4,7 +4,7 @@ use std::io::Write;
 use curve25519_dalek::scalar::Scalar;
 use rand::RngCore;
 use secrecy::{ExposeSecret, Secret, SecretVec, Zeroize};
-use subtle::ConstantTimeEq;
+use subtle::{Choice, ConstantTimeEq};
 use xoodyak::{XoodyakCommon, XoodyakKeyed, XOODYAK_AUTH_TAG_BYTES};
 
 /// The length of an authentication tag in bytes.
@@ -116,16 +116,12 @@ impl Duplex {
 
     /// Verify a received authentication tag.
     #[must_use]
-    pub fn verify_tag(&mut self, tag: &[u8]) -> Option<()> {
+    pub fn verify_tag(&mut self, tag: &[u8]) -> Choice {
         // Squeeze a counterfactual tag.
         let tag_p = Secret::new(self.squeeze(TAG_LEN));
 
         // Compare the given tag to the counterfactual tag in constant time.
-        if tag.ct_eq(tag_p.expose_secret()).into() {
-            Some(())
-        } else {
-            None
-        }
+        tag.ct_eq(tag_p.expose_secret())
     }
 
     /// Move the duplex and the given writer into an [AbsorbWriter].
