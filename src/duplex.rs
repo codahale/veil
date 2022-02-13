@@ -4,7 +4,7 @@ use std::io::Write;
 use curve25519_dalek::scalar::Scalar;
 use rand::RngCore;
 use secrecy::{Secret, Zeroize};
-use xoodyak::{XOODYAK_AUTH_TAG_BYTES, XoodyakCommon, XoodyakKeyed, XoodyakTag};
+use xoodyak::{XoodyakCommon, XoodyakKeyed, XoodyakTag, XOODYAK_AUTH_TAG_BYTES};
 
 /// A [Write] adapter which tees writes into a duplex.
 pub struct AbsorbWriter<W: Write> {
