@@ -3,8 +3,9 @@ use std::io::Write;
 
 use curve25519_dalek::scalar::Scalar;
 use rand::RngCore;
-use secrecy::{Secret, SecretVec, Zeroize};
-use xoodyak::{XoodyakCommon, XoodyakKeyed, XoodyakTag, XOODYAK_AUTH_TAG_BYTES};
+use secrecy::{ExposeSecret, Secret, SecretVec, Zeroize};
+use subtle::ConstantTimeEq;
+use xoodyak::{XoodyakCommon, XoodyakKeyed, XOODYAK_AUTH_TAG_BYTES};
 
 /// The length of an authentication tag in bytes.
 pub const TAG_LEN: usize = XOODYAK_AUTH_TAG_BYTES;
@@ -116,15 +117,11 @@ impl Duplex {
     /// Verify a received authentication tag.
     #[must_use]
     pub fn verify_tag(&mut self, tag: &[u8]) -> Option<()> {
-        if tag.len() != TAG_LEN {
-            return None;
-        }
+        // Squeeze a counterfactual tag.
+        let tag_p = Secret::new(self.squeeze(TAG_LEN));
 
-        let tag: [u8; TAG_LEN] = tag.try_into().expect("invalid tag len");
-        let mut tag_p = [0u8; TAG_LEN];
-        self.state.squeeze(&mut tag_p);
-
-        if XoodyakTag::from(tag) == XoodyakTag::from(tag_p) {
+        // Compare the given tag to the counterfactual tag in constant time.
+        if tag.ct_eq(tag_p.expose_secret()).into() {
             Some(())
         } else {
             None

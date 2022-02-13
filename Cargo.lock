@@ -928,6 +928,7 @@ dependencies = [
  "rand",
  "rpassword",
  "secrecy",
+ "subtle",
  "tempfile",
  "thiserror",
  "unicode-normalization",
