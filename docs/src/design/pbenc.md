@@ -33,17 +33,30 @@ $$
 
 The expanding phase of the algorithm is performed as described by [Boneh et al][bh].
 
-For the mixing phase of the algorithm, the loop variables $t$, $m$, and $i$ are encoded in a 24-byte block which is
-absorbed along with the salt $S$, and a 64-bit little-endian integer is derived from duplex output. That integer is
-mapped to a block, which is absorbed:
+For the mixing phase of the algorithm, the loop variables $t$, $m$, and $i$ are encoded in a block $b$:
 
 $$
 b \gets \text{U64}_{LE}(t) || \text{U64}_{LE}(m) || \text{U64}_{LE}(i) \\
+$$
+
+This is absorbed along with the salt $S$:
+
+$$
 \text{Absorb}(\text{U64}_{LE}(C)) \\
 C = C+1 \\
 \text{Absorb}(S) \\
 \text{Absorb}(b) \\
-v \gets \text{Squeeze}(8) \bmod N_B
+$$
+
+A 64-bit little-endian integer is derived from duplex output. That integer is mapped to a block index:
+
+$$
+v \gets \text{Squeeze}(8) \bmod N_B \\
+$$
+
+Block $B_v$ is hashed along with the counter and block $B_m$ is filled with output:
+
+$$
 \text{Absorb}(\text{U64}_{LE}(C)) \\
 C = C+1 \\
 \text{Absorb}(B_v) \\
