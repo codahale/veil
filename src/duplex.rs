@@ -53,12 +53,6 @@ pub fn unkeyed(name: &str) -> XoodyakKeyed {
         .expect("unable to construct unkeyed duplex")
 }
 
-/// Create a keyed duplex using the given key and the given initialization string as the counter.
-pub fn keyed(name: &str, key: &[u8]) -> XoodyakKeyed {
-    XoodyakKeyed::new(key, None, None, Some(name.as_bytes()))
-        .expect("unable to construct unkeyed duplex")
-}
-
 /// Update a duplex with the given key.
 pub fn key(duplex: &mut XoodyakKeyed, key: &[u8]) {
     duplex.absorb_key_and_nonce(key, None, None, None).expect("unable to key duplex");
