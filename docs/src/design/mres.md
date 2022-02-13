@@ -6,8 +6,9 @@ encryption construction and a SUF-CMA-secure signature scheme.
 ## Encryption
 
 Encrypting a message begins as follows, given the sender's key pair, $d_S$ and $Q_S$, a plaintext message in blocks
-$P_0...P_N$, a list of recipient public keys, $Q_{R^0}...Q_{R^M}$, and a DEK size $N_{K}$. First, an unkeyed duplex is
-initialized and used to absorb the sender's public key:
+$P_0...P_N$, a list of recipient public keys, $Q_{R^0}...Q_{R^M}$, and a DEK size $N_{K}$. 
+
+First, a duplex is initialized with a constant key and used to absorb the sender's public key:
 
 $$
 \text{Cyclist}(\texttt{veil.mres}, \epsilon, \epsilon) \\
@@ -69,8 +70,9 @@ ciphertext.
 
 ## Decryption
 
-Decryption begins as follows, given the recipient's key pair, $d_R$ and $Q_R$, the sender's public key, $Q_S$. An
-unkeyed duplex is initialized and used to absorb the sender's public key:
+Decryption begins as follows, given the recipient's key pair, $d_R$ and $Q_R$, the sender's public key, $Q_S$.
+
+First, a duplex is initialized with a constant key and used to absorb the sender's public key:
 
 $$
 \text{Cyclist}(\texttt{veil.mres}, \epsilon, \epsilon) \\

@@ -10,8 +10,8 @@ $$
 d \gets \text{SqueezeKey}(64) \bmod \ell \\
 $$
 
-To derive a private key $d_n$ from a root scalar $d_0$ and key ID label squence $L_0..L_n$, a series of unkeyed duplexes
-are used to absorb label values $L_i$ and derive delta scalars $r_i$ from output:
+To derive a private key $d_n$ from a root scalar $d_0$ and key ID label squence $L_0..L_n$, a series of duplexes
+initialized with a constant key are used to absorb label values $L_i$ and derive delta scalars $r_i$ from output:
 
 $$
 \dots \\

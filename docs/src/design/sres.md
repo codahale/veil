@@ -7,7 +7,7 @@ tag-KEM in _Practical Signcryption_ (Zheng-SCTK).
 
 Encryption takes a sender's key pair, $(d_S, Q_S)$, a recipient's public key, $Q_R$, and a plaintext message $P$.
 
-First, an unkeyed duplex is initialized and used to absorb the sender and recipient's public keys:
+First, a duplex is initialized with a constant key and used to absorb the sender and recipient's public keys:
 
 $$
 \text{Cyclist}(\texttt{veil.sres}, \epsilon, \epsilon) \\
@@ -26,7 +26,7 @@ v \overset{R}{\gets} \mathbb{Z}_{2^{512}} \\
 x \gets \text{SqueezeKey}(64) \bmod \ell \\
 $$
 
-Third, the shared secret point $K$ is calculated and used to key the duplex.
+Third, the shared secret point $K$ is calculated and used to re-key the duplex.
 
 $$
 K = [x]Q_R \\
@@ -69,7 +69,7 @@ The final ciphertext is $S_0 || S_1 || C || T$.
 Encryption takes a recipient's key pair, $(d_R, Q_R)$, a sender's public key, $Q_S$, two masked scalars
 $(S_0, S_1)$, a ciphertext $C$, and an authentication tag $T$.
 
-First, an unkeyed duplex is used to absorb the sender and recipient's public keys:
+First, a duplex is initialized with a constant key and used to absorb the sender and recipient's public keys:
 
 $$
 \text{Cyclist}(\texttt{veil.sres}, \epsilon, \epsilon) \\
@@ -78,7 +78,7 @@ $$
 $$
 
 Second, the challenge scalar $r$ and the proof scalar $s$ are unmasked and used to calculate the shared secret $K$,
-which is used to key the duplex:
+which is used to re-key the duplex:
 
 $$
 r = S_0 \land \lnot(2^8 \ll 252) \bmod \ell \\

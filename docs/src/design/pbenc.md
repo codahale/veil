@@ -6,8 +6,9 @@ construction.
 ## Initialization
 
 The protocol is initialized as follows, given a passphrase $P$, a 128-bit salt $S$, time parameter $N_T$, space
-parameter $N_S$, delta constant $D$, and block size $N_B$. An unkeyed duplex is initialized and used to absorb the
-passphrase and parameters:
+parameter $N_S$, delta constant $D$, and block size $N_B$. 
+
+A duplex is initialized with a constant key and used to absorb the passphrase, salt, and parameters:
 
 $$
 \text{Cyclist}(\texttt{veil.pbenc}, \epsilon, \epsilon) \\
@@ -64,7 +65,7 @@ C = C+1 \\
 B_m \gets \text{Squeeze}(N_B) \\
 $$
 
-Finally, the last block $B_n$ of the buffer is used to key the duplex:
+Finally, the last block $B_n$ of the buffer is used to re-key the duplex:
 
 $$
 \text{Cyclist}(B_n, \epsilon, \epsilon) \\

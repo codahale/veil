@@ -6,7 +6,7 @@
 
 Signing is as follows, given a message in 16-byte blocks $M_0...M_N$, a private scalar $d$, and a public point $Q$.
 
-First, an unkeyed duplex is initialized and used to absorb the message blocks and the signer's public key:
+First, a duplex is initialized with a constant key and used to absorb the message blocks and the signer's public key:
 
 $$
 \text{Cyclist}(\texttt{veil.schnorr}, \epsilon, \epsilon) \\
@@ -53,7 +53,8 @@ The final signature is $S_0 || S_1$.
 Verification is as follows, given a message in 16-byte blocks $M_0...M_N$, a public point $Q$, and a signature
 $S_0 || S_1$.
 
-First, an unkeyed duplex is created and used to absorb the message blocks and the signer's public key:
+First, a duplex is created, initialized with a constant key, and used to absorb the message blocks and the signer's
+public key:
 
 $$
 \text{Cyclist}(\texttt{veil.schnorr}, \epsilon, \epsilon) \\
