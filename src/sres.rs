@@ -97,8 +97,6 @@ pub fn decrypt(
     let (ciphertext, mr) = ciphertext.split_at(ciphertext.len() - OVERHEAD);
     let (mr, ms) = mr.split_at(SCALAR_LEN);
     let (ms, tag) = ms.split_at(SCALAR_LEN);
-    let tag: [u8; XOODYAK_AUTH_TAG_BYTES] = tag.try_into().expect("invalid tag len");
-    let tag = XoodyakTag::from(tag);
 
     // Unmask the scalars.
     let r = unmask_scalar(mr.try_into().expect("invalid scalar len"));
@@ -133,9 +131,8 @@ pub fn decrypt(
     sres.absorb(ms);
 
     // Verify the tag.
-    let tag_p: [u8; XOODYAK_AUTH_TAG_BYTES] =
-        sres.squeeze_to_vec(XOODYAK_AUTH_TAG_BYTES).try_into().expect("invalid tag len");
-    if tag.verify(tag_p).is_ok() {
+    let tag: [u8; XOODYAK_AUTH_TAG_BYTES] = tag.try_into().expect("invalid tag len");
+    if Into::<XoodyakTag>::into(tag) == duplex::squeeze_tag(&mut sres) {
         Some(plaintext)
     } else {
         None

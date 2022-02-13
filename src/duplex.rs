@@ -4,7 +4,7 @@ use std::io::Write;
 use curve25519_dalek::scalar::Scalar;
 use rand::RngCore;
 use secrecy::{Secret, Zeroize};
-use xoodyak::{XoodyakCommon, XoodyakKeyed};
+use xoodyak::{XOODYAK_AUTH_TAG_BYTES, XoodyakCommon, XoodyakKeyed, XoodyakTag};
 
 /// A [Write] adapter which tees writes into a duplex.
 pub struct AbsorbWriter<W: Write> {
@@ -72,6 +72,13 @@ pub fn squeeze_scalar(duplex: &mut XoodyakKeyed) -> Scalar {
 
     // Return the scalar.
     d
+}
+
+/// Derive a [XoodyakTag] from the given duplex's output.
+pub fn squeeze_tag(duplex: &mut XoodyakKeyed) -> XoodyakTag {
+    let mut tag = [0u8; XOODYAK_AUTH_TAG_BYTES];
+    duplex.squeeze(&mut tag);
+    tag.into()
 }
 
 /// Clone the given duplex's state, absorb the given secret and 64 bytes of random data with the
