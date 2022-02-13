@@ -2,12 +2,11 @@
 
 Each participant in Veil has a secret key, which is a 64-byte random string $S$.
 
-To derive a private key from a secret key, the secret key is absorbed with an unkeyed duplex and a scalar $d$ derived
-from output:
+To derive a private key from a secret key, a duplex is initialized with $S$ as the key and an initialization string as
+the counter. A scalar $d$ is then derived from output:
 
 $$
-\text{Cyclist}(\texttt{veil.scaldf.root}, \epsilon, \epsilon) \\
-\text{Absorb}(S) \\
+\text{Cyclist}(S, \epsilon, \texttt{veil.scaldf.root}) \\
 d \gets \text{SqueezeKey}(64) \bmod \ell \\
 $$
 
@@ -15,8 +14,8 @@ To derive a private key $d_n$ from a root scalar $d_0$ and key ID label squence 
 are used to absorb label values $L_i$ and derive delta scalars $r_i$ from output:
 
 $$
-\text{Cyclist}(\texttt{veil.scaldf.label}, \epsilon, \epsilon) \\
 \dots \\
+\text{Cyclist}(\texttt{veil.scaldf.label}, \epsilon, \epsilon) \\
 \text{Absorb}(L_i) \\
 r_i \gets \text{SqueezeKey}(64) \bmod \ell \\
 d_i = d_{i-1} + r_i \\
