@@ -5,13 +5,12 @@ use std::convert::TryInto;
 use rand::RngCore;
 use secrecy::{ExposeSecret, Secret, Zeroize};
 use unicode_normalization::UnicodeNormalization;
-use xoodyak::{XoodyakCommon, XoodyakKeyed, XOODYAK_AUTH_TAG_BYTES};
 
 use crate::constants::{U32_LEN, U64_LEN};
-use crate::duplex;
+use crate::duplex::{Duplex, TAG_LEN};
 
 /// The number of bytes encryption adds to a plaintext.
-pub const OVERHEAD: usize = U32_LEN + U32_LEN + SALT_LEN + XOODYAK_AUTH_TAG_BYTES;
+pub const OVERHEAD: usize = U32_LEN + U32_LEN + SALT_LEN + TAG_LEN;
 
 /// Encrypt the given plaintext using the given passphrase.
 #[must_use]
@@ -34,7 +33,7 @@ pub fn encrypt(passphrase: &str, time: u32, space: u32, plaintext: &[u8]) -> Vec
     out.extend(salt);
 
     // Encrypt the ciphertext.
-    out.extend(pbenc.aead_encrypt_to_vec(Some(plaintext)).expect("invalid encryption"));
+    out.extend(pbenc.seal(plaintext));
 
     out
 }
@@ -57,7 +56,7 @@ pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Secret<Vec<u8>>> {
     let mut pbenc = init(passphrase, salt, time, space);
 
     // Decrypt the ciphertext.
-    pbenc.aead_decrypt_to_vec(ciphertext).ok().map(|p| p.into())
+    pbenc.unseal(ciphertext)
 }
 
 macro_rules! hash_counter {
@@ -70,16 +69,16 @@ macro_rules! hash_counter {
     };
     ($pbenc:ident, $ctr:ident, $left:expr, $right:expr, $out:expr) => {
         hash_counter!($pbenc, $ctr, $left, $right);
-        $pbenc.squeeze(&mut $out);
+        $pbenc.squeeze_into(&mut $out);
     };
 }
 
-fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> XoodyakKeyed {
+fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> Duplex {
     // Normalize the passphrase into NFKC form.
     let passphrase = normalize(passphrase);
 
     // Initialize the duplex.
-    let mut pbenc = duplex::unkeyed("veil.pbenc");
+    let mut pbenc = Duplex::new("veil.pbenc");
 
     // Absorb the passphrase.
     pbenc.absorb(passphrase.expose_secret());
@@ -124,7 +123,7 @@ fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> XoodyakKeyed {
 
                 // Map the PRF output to a block index.
                 let mut idx_out = [0u8; U64_LEN];
-                pbenc.squeeze(&mut idx_out);
+                pbenc.squeeze_into(&mut idx_out);
                 let idx = u64::from_le_bytes(idx_out) % space as u64;
                 idx_out.zeroize();
 
@@ -135,7 +134,7 @@ fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> XoodyakKeyed {
     }
 
     // Step 3: Extract key from buffer.
-    duplex::key(&mut pbenc, &buf[buf.len() - 1]);
+    pbenc.rekey(&buf[buf.len() - 1]);
 
     pbenc
 }
@@ -219,7 +218,7 @@ mod tests {
         let passphrase = "this is a secret";
         let message = b"this is too";
         let mut ciphertext = encrypt(passphrase, 5, 3, message);
-        ciphertext[OVERHEAD - XOODYAK_AUTH_TAG_BYTES + 1] ^= 1;
+        ciphertext[OVERHEAD - TAG_LEN + 1] ^= 1;
 
         let plaintext = decrypt(passphrase, &ciphertext);
         let plaintext = plaintext.map(|s| s.expose_secret().to_vec());

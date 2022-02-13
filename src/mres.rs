@@ -9,12 +9,11 @@ use curve25519_dalek::scalar::Scalar;
 use rand::prelude::ThreadRng;
 use rand::RngCore;
 use secrecy::{ExposeSecret, Secret, SecretVec, Zeroize};
-use xoodyak::{XoodyakCommon, XoodyakKeyed, XOODYAK_AUTH_TAG_BYTES};
 
 use crate::constants::{POINT_LEN, U64_LEN};
-use crate::duplex::AbsorbWriter;
+use crate::duplex::{Duplex, TAG_LEN};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
-use crate::{duplex, sres};
+use crate::sres;
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
@@ -31,17 +30,17 @@ where
     W: Write,
 {
     // Initialize a duplex and absorb the sender's public key.
-    let mut mres = duplex::unkeyed("veil.mres");
+    let mut mres = Duplex::new("veil.mres");
     mres.absorb(q_s.compress().as_bytes());
 
     // Derive a random ephemeral key pair from the duplex's current state, the sender's private key,
     // and a random nonce.
-    let d_e = duplex::hedge(&mres, d_s.as_bytes(), duplex::squeeze_scalar);
+    let d_e = mres.hedge(d_s.as_bytes(), Duplex::squeeze_scalar);
     let q_e = &G * d_e.expose_secret();
 
     // Derive a random DEK from the duplex's current state, the sender's private key, and a random
     // nonce.
-    let dek = duplex::hedge(&mres, d_s.as_bytes(), |clone| clone.squeeze_to_vec(DEK_LEN));
+    let dek = mres.hedge(d_s.as_bytes(), |clone| clone.squeeze(DEK_LEN));
 
     // Encode the DEK, the ephemeral public key, and the message offset in a header.
     let msg_offset = ((q_rs.len() as u64) * ENC_HEADER_LEN as u64) + padding;
@@ -54,7 +53,7 @@ where
     let signer = Signer::new(writer);
 
     // Absorb all encrypted headers and padding as they're read.
-    let mut headers_and_padding = AbsorbWriter::new(mres, signer);
+    let mut headers_and_padding = mres.absorb_stream(signer);
 
     // For each recipient, encrypt a copy of the header with veil.sres.
     for q_r in q_rs {
@@ -69,7 +68,7 @@ where
     let (mut mres, mut signer, header_len) = headers_and_padding.into_inner()?;
 
     // Use the DEK to key the duplex.
-    duplex::key(&mut mres, dek.expose_secret());
+    mres.rekey(dek.expose_secret());
 
     // Encrypt the plaintext, pass it through the signer, and write it.
     let ciphertext_len = encrypt_message(&mut mres, reader, &mut signer)?;
@@ -78,7 +77,7 @@ where
     let (sig, writer) = signer.sign(d_e.expose_secret(), &q_e)?;
 
     // Encrypt the signature.
-    let sig = mres.encrypt_to_vec(&sig).expect("invalid encryption");
+    let sig = mres.encrypt(&sig);
 
     // Write the encrypted signature.
     writer.write_all(&sig)?;
@@ -86,7 +85,7 @@ where
     Ok(header_len + ciphertext_len + sig.len() as u64)
 }
 
-fn encrypt_message<R, W>(mres: &mut XoodyakKeyed, reader: &mut R, writer: &mut W) -> Result<u64>
+fn encrypt_message<R, W>(mres: &mut Duplex, reader: &mut R, writer: &mut W) -> Result<u64>
 where
     R: Read,
     W: Write,
@@ -100,8 +99,8 @@ where
         let block = &buf.0[..n];
 
         // Encrypt the block and write the ciphertext and a tag.
-        writer.write_all(&mres.aead_encrypt_to_vec(Some(block)).expect("invalid encryption"))?;
-        written += (n + XOODYAK_AUTH_TAG_BYTES) as u64;
+        writer.write_all(&mres.seal(block))?;
+        written += (n + TAG_LEN) as u64;
 
         // Ratchet the duplex state to prevent rollback. This protects previous blocks from being
         // reversed in the event of the duplex's state being compromised.
@@ -133,14 +132,14 @@ where
     W: Write,
 {
     // Initialize a duplex and absorb the sender's public key.
-    let mut mres = duplex::unkeyed("veil.mres");
+    let mut mres = Duplex::new("veil.mres");
     mres.absorb(q_s.compress().as_bytes());
 
     // Initialize a verifier for the entire ciphertext.
     let verifier = Verifier::new();
 
     // Absorb all encrypted headers and padding as they're read.
-    let mut mres_writer = AbsorbWriter::new(mres, verifier);
+    let mut mres_writer = mres.absorb_stream(verifier);
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the verifier.
     let (dek, q_e) = match decrypt_header(reader, &mut mres_writer, d_r, q_r, q_s)? {
@@ -152,7 +151,7 @@ where
     let (mut mres, mut verifier, _) = mres_writer.into_inner()?;
 
     // Use the DEK to key the duplex.
-    duplex::key(&mut mres, dek.expose_secret());
+    mres.rekey(dek.expose_secret());
 
     // Decrypt the message and get the signature.
     let (written, sig) = decrypt_message(&mut mres, reader, writer, &mut verifier)?;
@@ -168,7 +167,7 @@ where
 }
 
 fn decrypt_message<R, W>(
-    mres: &mut XoodyakKeyed,
+    mres: &mut Duplex,
     reader: &mut R,
     writer: &mut W,
     verifier: &mut Verifier,
@@ -201,8 +200,7 @@ where
         verifier.write_all(block)?;
 
         // Decrypt the block and write the plaintext.
-        if let Ok(plaintext) = mres.aead_decrypt_to_vec(block) {
-            let plaintext = Secret::new(plaintext);
+        if let Some(plaintext) = mres.unseal(block) {
             writer.write_all(plaintext.expose_secret())?;
             written += plaintext.expose_secret().len() as u64;
         } else {
@@ -218,9 +216,9 @@ where
     }
 
     // Decrypt the signature.
-    let sig = mres.decrypt_to_vec(&buf).expect("invalid decryption");
+    let sig = mres.decrypt(&buf);
 
-    Ok((written, Some(sig.try_into().expect("invalid sig len"))))
+    Ok((written, Some(sig.expose_secret().as_slice().try_into().expect("invalid sig len"))))
 }
 
 fn decrypt_header<R, W>(
@@ -292,7 +290,7 @@ const DEK_LEN: usize = 32;
 const HEADER_LEN: usize = DEK_LEN + POINT_LEN + U64_LEN;
 const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
 const BLOCK_LEN: usize = 32 * 1024;
-const ENC_BLOCK_LEN: usize = BLOCK_LEN + XOODYAK_AUTH_TAG_BYTES;
+const ENC_BLOCK_LEN: usize = BLOCK_LEN + TAG_LEN;
 
 struct SecBuf(Vec<u8>);
 

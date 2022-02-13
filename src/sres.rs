@@ -5,13 +5,13 @@ use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use rand::Rng;
 use secrecy::{ExposeSecret, Secret, SecretVec};
-use xoodyak::{XoodyakCommon, XoodyakTag, XOODYAK_AUTH_TAG_BYTES};
 
 use crate::constants::SCALAR_LEN;
 use crate::duplex;
+use crate::duplex::Duplex;
 
 /// The number of bytes added to plaintext by [encrypt].
-pub const OVERHEAD: usize = SCALAR_LEN + SCALAR_LEN + XOODYAK_AUTH_TAG_BYTES;
+pub const OVERHEAD: usize = SCALAR_LEN + SCALAR_LEN + duplex::TAG_LEN;
 
 /// Given the sender's key pair, the recipient's public key, and a plaintext, encrypts the given
 /// plaintext and returns the ciphertext.
@@ -25,7 +25,7 @@ pub fn encrypt(
     let mut out = Vec::with_capacity(plaintext.len() + OVERHEAD);
 
     // Initialize a duplex.
-    let mut sres = duplex::unkeyed("veil.sres");
+    let mut sres = Duplex::new("veil.sres");
 
     // Absorb the sender's public key.
     sres.absorb(q_s.compress().as_bytes());
@@ -34,24 +34,24 @@ pub fn encrypt(
     sres.absorb(q_r.compress().as_bytes());
 
     // Generate a secret commitment scalar.
-    let x = duplex::hedge(&sres, d_s.as_bytes(), |clone| {
+    let x = sres.hedge(d_s.as_bytes(), |clone| {
         // Also hedge with the plaintext message to ensure (d_s, plaintext, t) uniqueness.
         clone.absorb(plaintext);
-        duplex::squeeze_scalar(clone)
+        clone.squeeze_scalar()
     });
 
     // Re-key with the shared secret.
     let k = q_r * x.expose_secret();
-    duplex::key(&mut sres, compress_secret(k).expose_secret());
+    sres.rekey(compress_secret(k).expose_secret());
 
     // Encrypt the plaintext.
-    out.extend(sres.encrypt_to_vec(plaintext).expect("invalid decryption"));
+    out.extend(sres.encrypt(plaintext));
 
     // Ratchet the duplex state to prevent rollback.
     sres.ratchet();
 
     // Squeeze a challenge scalar.
-    let r = duplex::squeeze_scalar(&mut sres);
+    let r = sres.squeeze_scalar();
 
     // Calculate the proof scalar.
     let s = {
@@ -73,7 +73,7 @@ pub fn encrypt(
     out.extend(&ms);
 
     // Generate and send a tag.
-    out.extend(sres.squeeze_to_vec(XOODYAK_AUTH_TAG_BYTES));
+    out.extend(sres.squeeze_tag());
 
     // Return the full ciphertext.
     out
@@ -103,7 +103,7 @@ pub fn decrypt(
     let s = unmask_scalar(ms.try_into().expect("invalid scalar len"));
 
     // Initialize a duplex.
-    let mut sres = duplex::unkeyed("veil.sres");
+    let mut sres = Duplex::new("veil.sres");
 
     // Absorb the sender's public key.
     sres.absorb(q_s.compress().as_bytes());
@@ -113,16 +113,16 @@ pub fn decrypt(
 
     // Re-key with the shared secret.
     let k = (q_s + (&G * &r)) * (d_r * s);
-    duplex::key(&mut sres, compress_secret(k).expose_secret());
+    sres.rekey(compress_secret(k).expose_secret());
 
     // Decrypt the ciphertext.
-    let plaintext = sres.decrypt_to_vec(ciphertext).expect("invalid decryption").into();
+    let plaintext = sres.decrypt(ciphertext);
 
     // Ratchet the protocol state.
     sres.ratchet();
 
     // Squeeze a challenge scalar and check it against the received scalar.
-    if r != duplex::squeeze_scalar(&mut sres) {
+    if r != sres.squeeze_scalar() {
         return None;
     }
 
@@ -131,12 +131,10 @@ pub fn decrypt(
     sres.absorb(ms);
 
     // Verify the tag.
-    let tag: [u8; XOODYAK_AUTH_TAG_BYTES] = tag.try_into().expect("invalid tag len");
-    if XoodyakTag::from(tag) == duplex::squeeze_tag(&mut sres) {
-        Some(plaintext)
-    } else {
-        None
-    }
+    sres.verify_tag(tag)?;
+
+    // Return the plaintext.
+    Some(plaintext)
 }
 
 /// Encode a shared secret point in a way which zeroizes all temporary values.

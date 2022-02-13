@@ -8,11 +8,9 @@ use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use secrecy::ExposeSecret;
-use xoodyak::XoodyakCommon;
 
 use crate::constants::{POINT_LEN, SCALAR_LEN};
-use crate::duplex;
-use crate::duplex::AbsorbWriter;
+use crate::duplex::{AbsorbWriter, Duplex};
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
@@ -30,9 +28,9 @@ where
     /// Create a new signer which passes writes through to the given writer.
     pub fn new(writer: W) -> Signer<W> {
         // Initialize a duplex.
-        let schnorr = duplex::unkeyed("veil.schnorr");
+        let schnorr = Duplex::new("veil.schnorr");
 
-        Signer { writer: AbsorbWriter::new(schnorr, writer) }
+        Signer { writer: schnorr.absorb_stream(writer) }
     }
 
     /// Create a signature of the previously-written message contents using the given key pair.
@@ -49,18 +47,18 @@ where
 
         // Derive a commitment scalar from the protocol's current state, the signer's private key,
         // and a random nonce.
-        let k = duplex::hedge(&schnorr, d.as_bytes(), duplex::squeeze_scalar);
+        let k = schnorr.hedge(d.as_bytes(), Duplex::squeeze_scalar);
 
         // Calculate and encrypt the commitment point.
         let i = &G * k.expose_secret();
-        sig.extend(schnorr.encrypt_to_vec(i.compress().as_bytes()).expect("invalid encryption"));
+        sig.extend(schnorr.encrypt(i.compress().as_bytes()));
 
         // Squeeze a challenge scalar.
-        let r = duplex::squeeze_scalar(&mut schnorr);
+        let r = schnorr.squeeze_scalar();
 
         // Calculate and encrypt the proof scalar.
         let s = d * r + k.expose_secret();
-        sig.extend(schnorr.encrypt_to_vec(s.as_bytes()).expect("invalid encryption"));
+        sig.extend(schnorr.encrypt(s.as_bytes()));
 
         // Return the encrypted commitment point and proof scalar, plus the underlying writer.
         Ok((sig.try_into().expect("invalid sig len"), writer))
@@ -90,9 +88,9 @@ impl Verifier {
     #[must_use]
     pub fn new() -> Verifier {
         // Initialize a duplex.
-        let schnorr = duplex::unkeyed("veil.schnorr");
+        let schnorr = Duplex::new("veil.schnorr");
 
-        Verifier { writer: AbsorbWriter::new(schnorr, io::sink()) }
+        Verifier { writer: schnorr.absorb_stream(io::sink()) }
     }
 
     /// Verify the previously-written message contents using the given public key and signature.
@@ -107,15 +105,15 @@ impl Verifier {
         let (i, s) = sig.split_at(POINT_LEN);
 
         // Decrypt and decode the commitment point.
-        let i = schnorr.decrypt_to_vec(i).expect("invalid decryption");
-        let i = CompressedRistretto::from_slice(&i).decompress();
+        let i = schnorr.decrypt(i);
+        let i = CompressedRistretto::from_slice(i.expose_secret()).decompress();
 
         // Re-derive the challenge scalar.
-        let r = duplex::squeeze_scalar(&mut schnorr);
+        let r = schnorr.squeeze_scalar();
 
         // Decrypt and decode the proof scalar.
-        let s = schnorr.decrypt_to_vec(s).expect("invalid decryption");
-        let s = s.try_into().expect("invalid scalar len");
+        let s = schnorr.decrypt(s);
+        let s = s.expose_secret().as_slice().try_into().expect("invalid scalar len");
         let s = Scalar::from_canonical_bytes(s);
 
         // Early exit if either commitment point or proof scalar are malformed.
