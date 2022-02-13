@@ -12,7 +12,7 @@ use crate::duplex;
 #[must_use]
 pub fn derive_root(r: &[u8]) -> Secret<Scalar> {
     // Initialize the duplex.
-    let mut root_df = duplex::unkeyed( "veil.scaldf.root");
+    let mut root_df = duplex::unkeyed("veil.scaldf.root");
 
     // Absorb the secret key.
     root_df.absorb(r);
