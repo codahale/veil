@@ -19,7 +19,7 @@ Second, the duplex's state is cloned, and the clone absorbs the sender's private
 plaintext. The commitment scalar $x$ is then derived from output:
 
 $$
-\text{Absorb}(d) \\
+\text{Absorb}(d_S) \\
 v \overset{R}{\gets} \mathbb{Z}_{2^{512}} \\
 \text{Absorb}(v) \\
 \text{Absorb}(P) \\
