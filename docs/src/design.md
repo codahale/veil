@@ -32,6 +32,13 @@ integration bakes in logical dependencies on sent and received data in a feed-fo
 the attackable surface area of the protocol. Because Xoodyak outputs are cryptographically dependent on prior inputs,
 the need for domain separation identifiers, padding, and framing is eliminated.
 
+Xoodyak provides a _hash_ mode and a _keyed_ mode; Veil uses the _keyed_ mode exclusively, initializing each duplex by
+passing a constant initialization string (e.g. `veil.mres`) as the key. This allows for effectively unkeyed
+constructions (e.g. [digital signature verification](design/schnorr.md)) which use Xoodyak's
+$\text{Encrypt}$/$\text{Decrypt}$ functionality for indistinguishability and not confidentiality. Constructions which
+provide confidentiality do so by calling the $\text{Cyclist}$ function with a secret key, essentially using the duplex's
+prior state as authenticated data.
+
 Finally, the use of Xoodyak means all protocols which end in $\text{Squeeze}$ outputs are [compactly committing][cce].
 
 ## Confidentiality & Integrity

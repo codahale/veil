@@ -10,7 +10,7 @@ Encryption takes a sender's key pair, $(d_S, Q_S)$, a recipient's public key, $Q
 First, an unkeyed duplex is initialized and used to absorb the sender and recipient's public keys:
 
 $$
-\text{Cyclist}(\epsilon, \epsilon, \texttt{veil.sres}) \\
+\text{Cyclist}(\texttt{veil.sres}, \epsilon, \epsilon) \\
 \text{Absorb}(Q_S) \\
 \text{Absorb}(Q_R) \\
 $$
@@ -72,7 +72,7 @@ $(S_0, S_1)$, a ciphertext $C$, and an authentication tag $T$.
 First, an unkeyed duplex is used to absorb the sender and recipient's public keys:
 
 $$
-\text{Cyclist}(\epsilon, \epsilon, \texttt{veil.sres}) \\
+\text{Cyclist}(\texttt{veil.sres}, \epsilon, \epsilon) \\
 \text{Absorb}(Q_S) \\
 \text{Absorb}(Q_R) \\
 $$

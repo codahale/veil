@@ -9,7 +9,7 @@ Signing is as follows, given a message in 16-byte blocks $M_0...M_N$, a private 
 First, an unkeyed duplex is initialized and used to absorb the message blocks and the signer's public key:
 
 $$
-\text{Cyclist}(\epsilon, \epsilon, \texttt{veil.schnorr}) \\
+\text{Cyclist}(\texttt{veil.schnorr}, \epsilon, \epsilon) \\
 \text{AbsorbMore}(M_0, 16) \\
 \text{AbsorbMore}(M_1, 16) \\
 \dots \\
@@ -56,7 +56,7 @@ $S_0 || S_1$.
 First, an unkeyed duplex is created and used to absorb the message blocks and the signer's public key:
 
 $$
-\text{Cyclist}(\epsilon, \epsilon, \texttt{veil.schnorr}) \\
+\text{Cyclist}(\texttt{veil.schnorr}, \epsilon, \epsilon) \\
 \text{AbsorbMore}(M_0, 16) \\
 \text{AbsorbMore}(M_1, 16) \\
 \dots \\

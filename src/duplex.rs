@@ -47,9 +47,9 @@ impl<W: Write> AbsorbWriter<W> {
     }
 }
 
-/// Create an unkeyed duplex using the given initialization string as the counter,
+/// Create an "unkeyed" duplex using the given initialization string as the key.
 pub fn unkeyed(name: &str) -> XoodyakKeyed {
-    XoodyakKeyed::new(&[], None, None, Some(name.as_bytes()))
+    XoodyakKeyed::new(name.as_bytes(), None, None, None)
         .expect("unable to construct unkeyed duplex")
 }
 

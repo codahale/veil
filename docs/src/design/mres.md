@@ -10,7 +10,7 @@ $P_0...P_N$, a list of recipient public keys, $Q_{R^0}...Q_{R^M}$, and a DEK siz
 initialized and used to absorb the sender's public key:
 
 $$
-\text{Cyclist}(\epsilon, \epsilon, \texttt{veil.mres}) \\
+\text{Cyclist}(\texttt{veil.mres}, \epsilon, \epsilon) \\
 \text{Absorb}(Q_S) \\
 $$
 
@@ -73,7 +73,7 @@ Decryption begins as follows, given the recipient's key pair, $d_R$ and $Q_R$, t
 unkeyed duplex is initialized and used to absorb the sender's public key:
 
 $$
-\text{Cyclist}(\epsilon, \epsilon, \texttt{veil.mres}) \\
+\text{Cyclist}(\texttt{veil.mres}, \epsilon, \epsilon) \\
 \text{Absorb}(Q_S) \\
 $$
 

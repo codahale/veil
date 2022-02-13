@@ -10,7 +10,7 @@ parameter $N_S$, delta constant $D$, and block size $N_B$. An unkeyed duplex is 
 passphrase and parameters:
 
 $$
-\text{Cyclist}(\epsilon, \epsilon, \texttt{veil.pbenc}) \\
+\text{Cyclist}(\texttt{veil.pbenc}, \epsilon, \epsilon) \\
 \text{Absorb}(P) \\
 \text{Absorb}(S) \\
 \text{Absorb}(\text{U64}_{LE}(N_T)) \\
