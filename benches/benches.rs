@@ -103,7 +103,42 @@ fn bench_pbenc(c: &mut Criterion) {
     });
 }
 
+#[cfg(feature = "benchmarks-internal")]
+fn bench_sres(c: &mut Criterion) {
+    use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
+    use curve25519_dalek::scalar::Scalar;
+
+    let mut g = c.benchmark_group("sres");
+
+    let d_s = Scalar::random(&mut rand::thread_rng());
+    let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
+
+    let d_r = Scalar::random(&mut rand::thread_rng());
+    let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
+
+    let plaintext = b"this is an example of a plaintext";
+    let ciphertext = veil::sres::encrypt(&d_s, &q_s, &q_r, plaintext);
+
+    g.bench_function("encrypt", |b| {
+        b.iter(|| veil::sres::encrypt(&d_s, &q_s, &q_r, black_box(plaintext)));
+    });
+
+    g.bench_function("decrypt", |b| {
+        b.iter(|| veil::sres::decrypt(&d_r, &q_r, &q_s, black_box(&ciphertext)));
+    });
+
+    g.finish();
+}
+
 const KB: u64 = 1024;
 
-criterion_group!(benches, bench_encrypt, bench_decrypt, bench_sign, bench_verify, bench_pbenc);
-criterion_main!(benches);
+criterion_group!(external, bench_encrypt, bench_decrypt, bench_sign, bench_verify, bench_pbenc,);
+
+#[cfg(feature = "benchmarks-internal")]
+criterion_group!(internal, bench_sres);
+
+#[cfg(feature = "benchmarks-internal")]
+criterion_main!(external, internal);
+
+#[cfg(not(feature = "benchmarks-internal"))]
+criterion_main!(external);
