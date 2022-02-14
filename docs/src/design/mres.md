@@ -23,7 +23,7 @@ $$
 v \overset{R}{\gets} \mathbb{Z}_{2^{512}} \\
 \text{Absorb}(v) \\
 K \gets \text{SqueezeKey}(N_K) \\
-d_E \gets \text{SqueezeKey}(64) \bmod \ell \\
+d_E \gets \text{SqueezeKey}(32) \bmod \ell \\
 $$
 
 The ephemeral public key is computed as $Q_E = [{d_E}]G$, and the cloned duplex is discarded:

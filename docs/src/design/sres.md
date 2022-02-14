@@ -30,7 +30,7 @@ $$
 v \stackrel{R}{\gets} \mathbb{Z}_{2^{512}} \\
 \text{Absorb}(v) \\
 \text{Absorb}(P) \\
-x \gets \text{SqueezeKey}(64) \bmod \ell \\
+x \gets \text{SqueezeKey}(32) \bmod \ell \\
 $$
 
 Fourth, the shared secret point $K$ is calculated and used to re-key the duplex.
@@ -46,7 +46,7 @@ from output, and a proof scalar $s$ is calculated:
 $$
 C \gets \text{Encrypt}(P) \\
 \text{Ratchet}() \\
-r \gets \text{SqueezeKey}(64) \bmod \ell \\
+r \gets \text{SqueezeKey}(32) \bmod \ell \\
 s = (r+d_S)^{-1}x \\
 $$
 
@@ -98,7 +98,7 @@ counterfactual challenge scalar $r'$ is derived from output:
 $$
 P' \gets \text{Decrypt}(C) \\
 \text{Ratchet}() \\
-r' \gets \text{SqueezeKey}(64) \bmod \ell \\
+r' \gets \text{SqueezeKey}(32) \bmod \ell \\
 r' \stackrel{?}{=} r \\
 $$
 

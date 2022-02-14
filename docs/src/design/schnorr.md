@@ -27,7 +27,7 @@ $$
 \text{Absorb}(d) \\
 v \overset{R}{\gets} \mathbb{Z}_{2^{512}} \\
 \text{Absorb}(v) \\
-k \gets \text{SqueezeKey}(64) \bmod \ell \\
+k \gets \text{SqueezeKey}(32) \bmod \ell \\
 $$
 
 The clone's state is discarded, and $k$ is returned to the parent. The commitment point $I$ is calculated and encrypted
@@ -41,7 +41,7 @@ $$
 A challenge scalar $r$ is derived from output and used to calculate the proof scalar $s$ which is encrypted as $S_1$:
 
 $$
-r \gets \text{SqueezeKey}(64) \bmod \ell \\
+r \gets \text{SqueezeKey}(32) \bmod \ell \\
 s = dr + k \\
 S_1 \gets \text{Encrypt}(s)
 $$
@@ -69,7 +69,7 @@ $S_0$ is decrypted and decoded as $I$ and $r$ is re-derived from output:
 
 $$
 I \gets \text{Decrypt}(S_0) \\
-r \gets \text{SqueezeKey}(64) \bmod \ell \\
+r \gets \text{SqueezeKey}(32) \bmod \ell \\
 $$
 
 $S_1$ is decrypted and decoded as $s$ and the counterfactual commitment point $I'$ is calculated and compared to the

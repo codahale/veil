@@ -40,21 +40,15 @@ impl Duplex {
         self.state.squeeze(out)
     }
 
-    /// Squeeze 64 bytes from the duplex and map them to a [Scalar].
+    /// Squeeze 32 bytes from the duplex and map them to a [Scalar].
     #[must_use]
     pub fn squeeze_scalar(&mut self) -> Scalar {
         // Squeeze a derived key.
-        let mut b = [0u8; 64];
+        let mut b = [0u8; 32];
         self.state.squeeze_key(&mut b);
 
         // Map the derived key to a scalar.
-        let d = Scalar::from_bytes_mod_order_wide(&b);
-
-        // Zeroize the temp buffer.
-        b.zeroize();
-
-        // Return the scalar.
-        d
+        Scalar::from_bytes_mod_order(b)
     }
 
     /// Clone the duplex and use it to absorb the given secret and 64 random bytes. Pass the clone

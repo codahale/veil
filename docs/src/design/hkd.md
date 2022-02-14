@@ -8,7 +8,7 @@ $d$ is then derived from output:
 $$
 \text{Cyclist}(\texttt{veil.scaldf.root}, \epsilon, \epsilon) \\
 \text{Absorb}(S) \\
-d \gets \text{SqueezeKey}(64) \bmod \ell \\
+d \gets \text{SqueezeKey}(32) \bmod \ell \\
 $$
 
 To derive a private key $d_n$ from a root scalar $d_0$ and key ID label squence $L_0..L_n$, a series of duplexes
@@ -18,7 +18,7 @@ $$
 \dots \\
 \text{Cyclist}(\texttt{veil.scaldf.label}, \epsilon, \epsilon) \\
 \text{Absorb}(L_i) \\
-r_i \gets \text{SqueezeKey}(64) \bmod \ell \\
+r_i \gets \text{SqueezeKey}(32) \bmod \ell \\
 d_i = d_{i-1} + r_i \\
 \dots \\
 d_n = d_{n-1} + r_{n-1} \\
