@@ -56,7 +56,7 @@ Finally, the top four bits of both $r$ and $s$ are masked with the top and botto
 $S_0$ and $S_1$:
 
 $$
-S_0 = r \lor (((m \gg 4) \ll 4) \ll 252) \\
+S_0 = r \lor ((m \land \texttt{0xF0}) \ll 252) \\
 S_1 = s \lor ((m \ll 4) \ll 252) \\
 $$
 
