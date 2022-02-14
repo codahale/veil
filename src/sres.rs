@@ -67,10 +67,10 @@ pub fn encrypt(
     };
 
     // Mask the challenge scalar with the top 4 bits of the mask byte.
-    out.extend(mask_scalar(r, mask >> 4));
+    out.extend(mask_scalar(r, mask & 0xF0));
 
     // Mask the proof scalar with the bottom 4 bits of the mask byte.
-    out.extend(mask_scalar(s, mask));
+    out.extend(mask_scalar(s, mask << 4));
 
     // Return the full ciphertext.
     out
@@ -132,7 +132,7 @@ pub fn decrypt(
 #[inline]
 fn mask_scalar(v: Scalar, mask: u8) -> [u8; 32] {
     let mut b = v.to_bytes();
-    b[31] |= mask << 4;
+    b[31] |= mask;
     b
 }
 
