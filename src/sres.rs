@@ -108,8 +108,7 @@ pub fn decrypt(
     let (s, ms) = unmask_scalar(ms);
 
     // Calculate the masking byte and absorb it.
-    let mask = mr | (ms >> 4);
-    sres.absorb(&[mask]);
+    sres.absorb(&[mr | (ms >> 4)]);
 
     // Re-key with the shared secret.
     let k = (q_s + (&G * &r)) * (d_r * s);
