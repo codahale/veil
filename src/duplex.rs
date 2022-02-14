@@ -3,8 +3,7 @@ use std::io::Write;
 
 use curve25519_dalek::scalar::Scalar;
 use rand::RngCore;
-use secrecy::{ExposeSecret, Secret, SecretVec, Zeroize};
-use subtle::{Choice, ConstantTimeEq};
+use secrecy::{Secret, SecretVec, Zeroize};
 use xoodyak::{XoodyakCommon, XoodyakKeyed, XOODYAK_AUTH_TAG_BYTES};
 
 /// The length of an authentication tag in bytes.
@@ -108,22 +107,6 @@ impl Duplex {
         self.state.decrypt_to_vec(ciphertext).expect("unable to decrypt").into()
     }
 
-    /// Squeeze an authentication tag from the duplex.
-    #[must_use]
-    pub fn squeeze_tag(&mut self) -> Vec<u8> {
-        self.state.squeeze_to_vec(TAG_LEN)
-    }
-
-    /// Verify a received authentication tag.
-    #[must_use]
-    pub fn verify_tag(&mut self, tag: &[u8]) -> Choice {
-        // Squeeze a counterfactual tag.
-        let tag_p = Secret::new(self.squeeze(TAG_LEN));
-
-        // Compare the given tag to the counterfactual tag in constant time.
-        tag.ct_eq(tag_p.expose_secret())
-    }
-
     /// Move the duplex and the given writer into an [AbsorbWriter].
     #[must_use]
     pub fn absorb_stream<W>(self, writer: W) -> AbsorbWriter<W>
@@ -215,6 +198,6 @@ mod tests {
         );
         assert_eq!(52, n2);
 
-        assert_eq!(one.squeeze_tag(), two.squeeze_tag());
+        assert_eq!(one.squeeze(4), two.squeeze(4));
     }
 }

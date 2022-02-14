@@ -8,11 +8,10 @@ use secrecy::{ExposeSecret, Secret, SecretVec};
 use subtle::ConstantTimeEq;
 
 use crate::constants::SCALAR_LEN;
-use crate::duplex;
-use crate::duplex::Duplex;
+use crate::duplex::{Duplex, TAG_LEN};
 
 /// The number of bytes added to plaintext by [encrypt].
-pub const OVERHEAD: usize = SCALAR_LEN + SCALAR_LEN + duplex::TAG_LEN;
+pub const OVERHEAD: usize = SCALAR_LEN + SCALAR_LEN + TAG_LEN;
 
 /// Given the sender's key pair, the recipient's public key, and a plaintext, encrypts the given
 /// plaintext and returns the ciphertext.
@@ -74,7 +73,7 @@ pub fn encrypt(
     out.extend(&ms);
 
     // Generate and send a tag.
-    out.extend(sres.squeeze_tag());
+    out.extend(sres.squeeze(TAG_LEN));
 
     // Return the full ciphertext.
     out
@@ -129,8 +128,11 @@ pub fn decrypt(
     sres.absorb(mr);
     sres.absorb(ms);
 
+    // Squeeze a counterfactual authentication tag.
+    let tag_p = Secret::new(sres.squeeze(TAG_LEN));
+
     // If the challenge scalar and tag are valid, return the plaintext.
-    if (r.ct_eq(&r_p) & sres.verify_tag(tag)).into() {
+    if (r.ct_eq(&r_p) & tag.ct_eq(tag_p.expose_secret())).into() {
         Some(plaintext)
     } else {
         None
