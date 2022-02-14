@@ -10,7 +10,7 @@ use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use rand::prelude::SliceRandom;
-use rand::RngCore;
+use rand::Rng;
 use secrecy::{ExposeSecret, Secret, SecretVec};
 use thiserror::Error;
 
@@ -66,9 +66,7 @@ impl SecretKey {
     /// Return a randomly generated secret key.
     #[must_use]
     pub fn new() -> SecretKey {
-        let mut r = vec![0u8; SECRET_KEY_LEN];
-        rand::thread_rng().fill_bytes(&mut r);
-        SecretKey { r: r.into() }
+        SecretKey { r: rand::thread_rng().gen::<[u8; SECRET_KEY_LEN]>().to_vec().into() }
     }
 
     /// Encrypt the secret key with the given passphrase and `veil.pbenc` parameters.

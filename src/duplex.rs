@@ -2,7 +2,7 @@ use std::io;
 use std::io::Write;
 
 use curve25519_dalek::scalar::Scalar;
-use rand::RngCore;
+use rand::Rng;
 use secrecy::{Secret, SecretVec, Zeroize};
 use xoodyak::{XoodyakCommon, XoodyakKeyed, XOODYAK_AUTH_TAG_BYTES};
 
@@ -66,10 +66,9 @@ impl Duplex {
         clone.absorb(secret);
 
         // Generate a random value.
-        let mut r = [0u8; 64];
-        rand::thread_rng().fill_bytes(&mut r);
+        let mut r: [u8; 64] = rand::thread_rng().gen();
 
-        // Absorb the random value.
+        // Absorb a random value.
         clone.absorb(&r);
 
         // Zeroize the random value.

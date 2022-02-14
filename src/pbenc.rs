@@ -2,7 +2,7 @@
 
 use std::convert::TryInto;
 
-use rand::RngCore;
+use rand::Rng;
 use secrecy::{ExposeSecret, Secret, Zeroize};
 use unicode_normalization::UnicodeNormalization;
 
@@ -16,8 +16,7 @@ pub const OVERHEAD: usize = U32_LEN + U32_LEN + SALT_LEN + TAG_LEN;
 #[must_use]
 pub fn encrypt(passphrase: &str, time: u32, space: u32, plaintext: &[u8]) -> Vec<u8> {
     // Generate a random salt.
-    let mut salt = [0u8; SALT_LEN];
-    rand::thread_rng().fill_bytes(&mut salt);
+    let salt: [u8; SALT_LEN] = rand::thread_rng().gen();
 
     // Perform the balloon hashing.
     let mut pbenc = init(passphrase, &salt, time, space);
