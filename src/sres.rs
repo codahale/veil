@@ -67,14 +67,10 @@ pub fn encrypt(
     };
 
     // Mask the challenge scalar with the top 4 bits of the mask byte.
-    let mut mr = r.to_bytes();
-    mr[31] |= (mask >> 4) << 4;
-    out.extend(&mr);
+    out.extend(&mask_scalar(r, mask >> 4));
 
     // Mask the proof scalar with the bottom 4 bits of the mask byte.
-    let mut ms = s.to_bytes();
-    ms[31] |= mask << 4;
-    out.extend(&ms);
+    out.extend(&mask_scalar(s, mask));
 
     // Return the full ciphertext.
     out
@@ -107,18 +103,13 @@ pub fn decrypt(
     // Absorb the receiver's public key.
     sres.absorb(q_r.compress().as_bytes());
 
-    // Calculate the masking byte and absorb it.
-    let mask = (mr[31] & 0xF0) | ((ms[31] & 0xF0) >> 4);
-    sres.absorb(&[mask]);
-
     // Unmask the scalars.
-    let mut r: [u8; 32] = mr.try_into().expect("invalid scalar len");
-    r[31] &= 0x0F;
-    let r = Scalar::from_canonical_bytes(r).expect("invalid scalar mask");
+    let (r, mr) = unmask_scalar(mr);
+    let (s, ms) = unmask_scalar(ms);
 
-    let mut s: [u8; 32] = ms.try_into().expect("invalid scalar len");
-    s[31] &= 0x0F;
-    let s = Scalar::from_canonical_bytes(s).expect("invalid scalar mask");
+    // Calculate the masking byte and absorb it.
+    let mask = mr | (ms >> 4);
+    sres.absorb(&[mask]);
 
     // Re-key with the shared secret.
     let k = (q_s + (&G * &r)) * (d_r * s);
@@ -136,6 +127,23 @@ pub fn decrypt(
     } else {
         None
     }
+}
+
+// Use the bottom four bits of `mask` to mask the top four bits of `v`.
+#[inline]
+fn mask_scalar(v: Scalar, mask: u8) -> [u8; 32] {
+    let mut b = v.to_bytes();
+    b[31] |= mask << 4;
+    b
+}
+
+// Zero out the top four bits of `b` and decode it as a scalar, returning the scalar and the mask.
+#[inline]
+fn unmask_scalar(b: &[u8]) -> (Scalar, u8) {
+    let mut v: [u8; 32] = b.try_into().expect("invalid scalar len");
+    let m = v[31] & 0xF0;
+    v[31] &= 0x0F;
+    (Scalar::from_canonical_bytes(v).expect("invalid scalar mask"), m)
 }
 
 /// Encode a shared secret point in a way which zeroizes all temporary values.
