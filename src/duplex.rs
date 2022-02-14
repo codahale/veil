@@ -95,15 +95,15 @@ impl Duplex {
         self.state.ratchet();
     }
 
-    /// Encrypt the given plaintext.
+    /// Encrypt the given plaintext. **Provides no guarantees for authenticity.**
     #[must_use]
-    pub fn encrypt(&mut self, plaintext: &[u8]) -> Vec<u8> {
+    pub fn encrypt_unauthenticated(&mut self, plaintext: &[u8]) -> Vec<u8> {
         self.state.encrypt_to_vec(plaintext).expect("unable to encrypt")
     }
 
-    /// Decrypt the given plaintext.
+    /// Decrypt the given plaintext. **Provides no guarantees for authenticity.**
     #[must_use]
-    pub fn decrypt(&mut self, ciphertext: &[u8]) -> SecretVec<u8> {
+    pub fn decrypt_unauthenticated(&mut self, ciphertext: &[u8]) -> SecretVec<u8> {
         self.state.decrypt_to_vec(ciphertext).expect("unable to decrypt").into()
     }
 
@@ -116,13 +116,15 @@ impl Duplex {
         AbsorbWriter { duplex: self, writer, buffer: Vec::with_capacity(16 * 1024), n: 0 }
     }
 
-    /// Encrypt and seal the given plaintext.
+    /// Encrypt and seal the given plaintext, adding [TAG_LEN] bytes to the end.
+    /// **Guarantees authenticity.**
     #[must_use]
     pub fn seal(&mut self, plaintext: &[u8]) -> Vec<u8> {
         self.state.aead_encrypt_to_vec(Some(plaintext)).expect("unable to encrypt")
     }
 
     /// Decrypt and unseal the given ciphertext. If the ciphertext is invalid, returns `None`.
+    /// **Guarantees authenticity.**
     #[must_use]
     pub fn unseal(&mut self, ciphertext: &[u8]) -> Option<SecretVec<u8>> {
         self.state.aead_decrypt_to_vec(ciphertext).ok().map(Secret::new)

@@ -45,7 +45,7 @@ pub fn encrypt(
     sres.rekey(compress_secret(k).expose_secret());
 
     // Encrypt the plaintext.
-    out.extend(sres.encrypt(plaintext));
+    out.extend(sres.encrypt_unauthenticated(plaintext));
 
     // Ratchet the duplex state to prevent rollback.
     sres.ratchet();
@@ -116,7 +116,7 @@ pub fn decrypt(
     sres.rekey(compress_secret(k).expose_secret());
 
     // Decrypt the ciphertext.
-    let plaintext = sres.decrypt(ciphertext);
+    let plaintext = sres.decrypt_unauthenticated(ciphertext);
 
     // Ratchet the protocol state.
     sres.ratchet();
