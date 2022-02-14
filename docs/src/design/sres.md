@@ -15,25 +15,32 @@ $$
 \text{Absorb}(Q_R) \\
 $$
 
-Second, the duplex's state is cloned, and the clone absorbs the sender's private key, 64 bytes of random data, and the
+Second, a random byte $m$ is generated and absorbed:
+
+$$
+m \stackrel{R}{\gets} \mathbb{Z_{2^8}} \\
+\text{Absorb}(m) \\
+$$
+
+Third, the duplex's state is cloned, and the clone absorbs the sender's private key, 64 bytes of random data, and the
 plaintext. The commitment scalar $x$ is then derived from output:
 
 $$
 \text{Absorb}(d_S) \\
-v \overset{R}{\gets} \mathbb{Z}_{2^{512}} \\
+v \stackrel{R}{\gets} \mathbb{Z}_{2^{512}} \\
 \text{Absorb}(v) \\
 \text{Absorb}(P) \\
 x \gets \text{SqueezeKey}(64) \bmod \ell \\
 $$
 
-Third, the shared secret point $K$ is calculated and used to re-key the duplex.
+Fourth, the shared secret point $K$ is calculated and used to re-key the duplex.
 
 $$
 K = [x]Q_R \\
 \text{Cyclist}(K, \epsilon, \epsilon) \\
 $$
 
-Fourth, the duplex is used to encrypt plaintext $P$ as $C$, its state is ratcheted, a challenge scalar $r$ is derived
+Fifth, the duplex is used to encrypt plaintext $P$ as $C$, its state is ratcheted, a challenge scalar $r$ is derived
 from output, and a proof scalar $s$ is calculated:
 
 $$
@@ -45,29 +52,20 @@ $$
 
 (In the rare event that $r+d_S=0$, the procedure is re-run with a different $x$.)
 
-Fifth, the top four bits of both $r$ and $s$ are masked with random data as $S_0$ and $S_1$:
+Finally, the top four bits of both $r$ and $s$ are masked with the top and bottom four bits of $m$, respectively, as 
+$S_0$ and $S_1$:
 
 $$
-m_0 \overset{R}{\gets} \mathbb{Z}_{2^{8}} \\
-S_0 = r \lor (m_0 \ll 252) \\
-m_1 \overset{R}{\gets} \mathbb{Z}_{2^{8}} \\
-S_1 = s \lor (m_1 \ll 252) \\
+S_0 = r \lor (((m \gg 4) \ll 4) \ll 252) \\
+S_1 = s \lor ((m \ll 4) \ll 252) \\
 $$
 
-Finally, the masked scalars are absorbed and an authentication tag $T$ is derived from output and sent:
-
-$$
-\text{Absorb}(S_0) \\
-\text{Absorb}(S_1) \\
-T \gets \text{Squeeze}(16)
-$$
-
-The final ciphertext is $S_0 || S_1 || C || T$.
+The final ciphertext is $S_0 || S_1 || C$.
 
 ## Decryption
 
 Encryption takes a recipient's key pair, $(d_R, Q_R)$, a sender's public key, $Q_S$, two masked scalars
-$(S_0, S_1)$, a ciphertext $C$, and an authentication tag $T$.
+$(S_0, S_1)$, and a ciphertext $C$.
 
 First, a duplex is initialized with a constant key and used to absorb the sender and recipient's public keys:
 
@@ -77,8 +75,15 @@ $$
 \text{Absorb}(Q_R) \\
 $$
 
-Second, the challenge scalar $r$ and the proof scalar $s$ are unmasked and used to calculate the shared secret $K$,
-which is used to re-key the duplex:
+Second, the mask byte $m$ is calculated from the masked bits of $S_0$ and $S_1$ and absorbed:
+
+$$
+m = ((S_0 \gg 252) \ll 4) | (S_1 \gg 252) \\
+\text{Absorb}(m) \\
+$$
+
+Third, the challenge scalar $r$ and the proof scalar $s$ are unmasked and used to calculate the shared secret $K$, which
+is used to re-key the duplex:
 
 $$
 r = S_0 \land \lnot(2^8 \ll 252) \bmod \ell \\
@@ -87,27 +92,17 @@ K = [{d_R}s] (Q_S+[r]G) \\
 \text{Cyclist}(K, \epsilon, \epsilon) \\
 $$
 
-Third, the ciphertext $C$ is decrypted as the unauthenticated plaintext $P'$, the duplex's state is ratcheted, and a
+Fourth, the ciphertext $C$ is decrypted as the unauthenticated plaintext $P'$, the duplex's state is ratcheted, and a
 counterfactual challenge scalar $r'$ is derived from output:
 
 $$
 P' \gets \text{Decrypt}(C) \\
 \text{Ratchet}() \\
 r' \gets \text{SqueezeKey}(64) \bmod \ell \\
-$$
-
-Finally, the masked scalars $S_0$ and $S_1$ are absorbed, a counterfactual authentication tag $T'$ is derived from
-output, and $r'$ and $T'$ are compared to the received values:
-
-$$
-\text{Absorb}(S_0) \\
-\text{Absorb}(S_1) \\
-T' \gets \text{Squeeze}(16) \\
 r' \stackrel{?}{=} r \\
-T' \stackrel{?}{=} T \\
 $$
 
-If $r' = r \land T' = T$, the plaintext $P'$ is returned as authentic; otherwise, an error is returned.
+If $r' = r$, the plaintext $P'$ is returned as authentic; otherwise, an error is returned.
 
 ## IND-CCA2 Security
 
@@ -129,8 +124,8 @@ The end result is a challenge scalar which is cryptographically dependent on the
 sent (and not, as in previous insider-secure signcryption KEM constructions, the plaintext). This, and the ratcheting of
 the duplex's state, ensures the scalar $r$ and $s$ cannot leak information about the plaintext.
 
-Finally, the inclusion of the masked scalars $S_0$ and $S_1$ prior to generating the authentication tag $T$ makes their
-masked bits (and thus the entire ciphertext) non-malleable.
+Finally, the inclusion of the masked bits of scalars $S_0$ and $S_1$ prior to generating the challenge scalar $r$ makes
+their masked bits (and thus the entire ciphertext) non-malleable.
 
 ## Indistinguishability From Random Noise
 

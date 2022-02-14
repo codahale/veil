@@ -5,13 +5,12 @@ use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use rand::Rng;
 use secrecy::{ExposeSecret, Secret, SecretVec};
-use subtle::ConstantTimeEq;
 
 use crate::constants::SCALAR_LEN;
-use crate::duplex::{Duplex, TAG_LEN};
+use crate::duplex::Duplex;
 
 /// The number of bytes added to plaintext by [encrypt].
-pub const OVERHEAD: usize = SCALAR_LEN + SCALAR_LEN + TAG_LEN;
+pub const OVERHEAD: usize = SCALAR_LEN + SCALAR_LEN;
 
 /// Given the sender's key pair, the recipient's public key, and a plaintext, encrypts the given
 /// plaintext and returns the ciphertext.
@@ -32,6 +31,10 @@ pub fn encrypt(
 
     // Absorb the receiver's public key.
     sres.absorb(q_r.compress().as_bytes());
+
+    // Generate and absorb a random masking byte.
+    let mask = rand::thread_rng().gen::<u8>();
+    sres.absorb(&[mask]);
 
     // Generate a secret commitment scalar.
     let x = sres.hedge(d_s.as_bytes(), |clone| {
@@ -63,17 +66,15 @@ pub fn encrypt(
         x.expose_secret() * y.invert()
     };
 
-    // Mask and absorb the scalars.
-    let mr = mask_scalar(&r);
-    sres.absorb(&mr);
+    // Mask the challenge scalar with the top 4 bits of the mask byte.
+    let mut mr = r.to_bytes();
+    mr[31] |= (mask >> 4) << 4;
     out.extend(&mr);
 
-    let ms = mask_scalar(&s);
-    sres.absorb(&ms);
+    // Mask the proof scalar with the bottom 4 bits of the mask byte.
+    let mut ms = s.to_bytes();
+    ms[31] |= mask << 4;
     out.extend(&ms);
-
-    // Generate and send a tag.
-    out.extend(sres.squeeze(TAG_LEN));
 
     // Return the full ciphertext.
     out
@@ -96,11 +97,6 @@ pub fn decrypt(
     // Split the ciphertext into its components.
     let (ciphertext, mr) = ciphertext.split_at(ciphertext.len() - OVERHEAD);
     let (mr, ms) = mr.split_at(SCALAR_LEN);
-    let (ms, tag) = ms.split_at(SCALAR_LEN);
-
-    // Unmask the scalars.
-    let r = unmask_scalar(mr.try_into().expect("invalid scalar len"));
-    let s = unmask_scalar(ms.try_into().expect("invalid scalar len"));
 
     // Initialize a duplex.
     let mut sres = Duplex::new("veil.sres");
@@ -110,6 +106,19 @@ pub fn decrypt(
 
     // Absorb the receiver's public key.
     sres.absorb(q_r.compress().as_bytes());
+
+    // Calculate the masking byte and absorb it.
+    let mask = (mr[31] & 0xF0) | ((ms[31] & 0xF0) >> 4);
+    sres.absorb(&[mask]);
+
+    // Unmask the scalars.
+    let mut r: [u8; 32] = mr.try_into().expect("invalid scalar len");
+    r[31] &= 0x0F;
+    let r = Scalar::from_canonical_bytes(r).expect("invalid scalar mask");
+
+    let mut s: [u8; 32] = ms.try_into().expect("invalid scalar len");
+    s[31] &= 0x0F;
+    let s = Scalar::from_canonical_bytes(s).expect("invalid scalar mask");
 
     // Re-key with the shared secret.
     let k = (q_s + (&G * &r)) * (d_r * s);
@@ -121,18 +130,8 @@ pub fn decrypt(
     // Ratchet the protocol state.
     sres.ratchet();
 
-    // Squeeze a counterfactual challenge scalar.
-    let r_p = sres.squeeze_scalar();
-
-    // Absorb the masked scalars.
-    sres.absorb(mr);
-    sres.absorb(ms);
-
-    // Squeeze a counterfactual authentication tag.
-    let tag_p = Secret::new(sres.squeeze(TAG_LEN));
-
-    // If the challenge scalar and tag are valid, return the plaintext.
-    if (r.ct_eq(&r_p) & tag.ct_eq(tag_p.expose_secret())).into() {
+    // If the counterfactual challenge scalar is valid, return the plaintext.
+    if r == sres.squeeze_scalar() {
         Some(plaintext)
     } else {
         None
@@ -147,45 +146,11 @@ fn compress_secret(z: RistrettoPoint) -> Secret<[u8; 32]> {
     Secret::new(z.expose_secret().to_bytes())
 }
 
-/// Return a randomly masked, encoded form of `s` indistinguishable from random noise.
-#[inline]
-fn mask_scalar(s: &Scalar) -> [u8; 32] {
-    // Use the top four bits of a random byte to mask the top byte of the encoded scalar.
-    let mask = rand::thread_rng().gen::<u8>() & 0b1111_0000;
-
-    // Encode the scalar canonically.
-    let mut b = s.to_bytes();
-
-    // Mask the top byte.
-    b[31] |= mask;
-
-    // Return the masked value.
-    b
-}
-
-/// Unmask the output of `mask_scalar`.
-#[inline]
-fn unmask_scalar(mut b: [u8; 32]) -> Scalar {
-    // Ensure the top four bits aren't set.
-    b[31] &= 0b0000_1111;
-
-    // Decode the scalar canonically.
-    Scalar::from_canonical_bytes(b).expect("invalid unmasked scalar")
-}
-
 #[cfg(test)]
 mod tests {
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 
     use super::*;
-
-    #[test]
-    fn scalar_masking() {
-        let s = Scalar::random(&mut rand::thread_rng());
-        let masked = mask_scalar(&s);
-        let unmasked = unmask_scalar(masked);
-        assert_eq!(s, unmasked, "non-bijective unmasking");
-    }
 
     #[test]
     fn round_trip() {
