@@ -51,14 +51,14 @@ where
 
         // Calculate and encrypt the commitment point.
         let i = &G * k.expose_secret();
-        sig.extend(schnorr.encrypt_unauthenticated(i.compress().as_bytes()));
+        sig.extend(schnorr.encrypt(i.compress().as_bytes()));
 
         // Squeeze a challenge scalar.
         let r = schnorr.squeeze_scalar();
 
         // Calculate and encrypt the proof scalar.
         let s = d * r + k.expose_secret();
-        sig.extend(schnorr.encrypt_unauthenticated(s.as_bytes()));
+        sig.extend(schnorr.encrypt(s.as_bytes()));
 
         // Return the encrypted commitment point and proof scalar, plus the underlying writer.
         Ok((sig.try_into().expect("invalid sig len"), writer))
@@ -105,14 +105,14 @@ impl Verifier {
         let (i, s) = sig.split_at(POINT_LEN);
 
         // Decrypt and decode the commitment point.
-        let i = schnorr.decrypt_unauthenticated(i);
+        let i = schnorr.decrypt(i).trust();
         let i = CompressedRistretto::from_slice(i.expose_secret()).decompress();
 
         // Re-derive the challenge scalar.
         let r = schnorr.squeeze_scalar();
 
         // Decrypt and decode the proof scalar.
-        let s = schnorr.decrypt_unauthenticated(s);
+        let s = schnorr.decrypt(s).trust();
         let s = s.expose_secret().as_slice().try_into().expect("invalid scalar len");
         let s = Scalar::from_canonical_bytes(s);
 

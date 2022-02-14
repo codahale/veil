@@ -77,7 +77,7 @@ where
     let (sig, writer) = signer.sign(d_e.expose_secret(), &q_e)?;
 
     // Encrypt the signature.
-    let sig = mres.encrypt_unauthenticated(&sig);
+    let sig = mres.encrypt(&sig);
 
     // Write the encrypted signature.
     writer.write_all(&sig)?;
@@ -216,7 +216,7 @@ where
     }
 
     // Decrypt the signature.
-    let sig = mres.decrypt_unauthenticated(&buf);
+    let sig = mres.decrypt(&buf).trust();
 
     Ok((written, Some(sig.expose_secret().as_slice().try_into().expect("invalid sig len"))))
 }

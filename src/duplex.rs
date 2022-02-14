@@ -90,14 +90,14 @@ impl Duplex {
 
     /// Encrypt the given plaintext. **Provides no guarantees for authenticity.**
     #[must_use]
-    pub fn encrypt_unauthenticated(&mut self, plaintext: &[u8]) -> Vec<u8> {
+    pub fn encrypt(&mut self, plaintext: &[u8]) -> Vec<u8> {
         self.state.encrypt_to_vec(plaintext).expect("unable to encrypt")
     }
 
     /// Decrypt the given plaintext. **Provides no guarantees for authenticity.**
     #[must_use]
-    pub fn decrypt_unauthenticated(&mut self, ciphertext: &[u8]) -> SecretVec<u8> {
-        self.state.decrypt_to_vec(ciphertext).expect("unable to decrypt").into()
+    pub fn decrypt(&mut self, ciphertext: &[u8]) -> Unauthenticated<SecretVec<u8>> {
+        Unauthenticated(self.state.decrypt_to_vec(ciphertext).expect("unable to decrypt").into())
     }
 
     /// Move the duplex and the given writer into an [AbsorbWriter].
@@ -157,6 +157,17 @@ impl<W: Write> AbsorbWriter<W> {
     pub fn into_inner(mut self) -> io::Result<(Duplex, W, u64)> {
         self.flush()?;
         Ok((self.duplex, self.writer, self.n))
+    }
+}
+
+/// A wrapper struct for data which has been decrypted without any authentication.
+pub struct Unauthenticated<T>(T);
+
+impl<T> Unauthenticated<T> {
+    /// Unwrap the inner value.
+    #[allow(clippy::missing_const_for_fn)]
+    pub fn trust(self) -> T {
+        self.0
     }
 }
 
