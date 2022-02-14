@@ -67,10 +67,10 @@ pub fn encrypt(
     };
 
     // Mask the challenge scalar with the top 4 bits of the mask byte.
-    out.extend(&mask_scalar(r, mask >> 4));
+    out.extend(mask_scalar(r, mask >> 4));
 
     // Mask the proof scalar with the bottom 4 bits of the mask byte.
-    out.extend(&mask_scalar(s, mask));
+    out.extend(mask_scalar(s, mask));
 
     // Return the full ciphertext.
     out
