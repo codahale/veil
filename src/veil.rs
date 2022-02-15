@@ -162,7 +162,8 @@ impl PrivateKey {
             .iter()
             .map(|pk| pk.q)
             .chain(
-                iter::repeat_with(|| RistrettoPoint::random(&mut rand::thread_rng())).take(fakes),
+                iter::repeat_with(|| RistrettoPoint::from_uniform_bytes(&rand::thread_rng().gen()))
+                    .take(fakes),
             )
             .collect::<Vec<RistrettoPoint>>();
 

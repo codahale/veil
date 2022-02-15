@@ -176,7 +176,7 @@ mod tests {
         let plaintext = b"ok this is fun";
         let ciphertext = encrypt(&d_s, &q_s, &q_r, plaintext);
 
-        let d_r = Scalar::random(&mut rand::thread_rng());
+        let d_r = Scalar::from_bytes_mod_order(rand::thread_rng().gen());
 
         let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
         let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
@@ -189,7 +189,7 @@ mod tests {
         let plaintext = b"ok this is fun";
         let ciphertext = encrypt(&d_s, &q_s, &q_r, plaintext);
 
-        let q_r = RistrettoPoint::random(&mut rand::thread_rng());
+        let q_r = RistrettoPoint::from_uniform_bytes(&rand::thread_rng().gen());
 
         let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
         let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
@@ -202,7 +202,7 @@ mod tests {
         let plaintext = b"ok this is fun";
         let ciphertext = encrypt(&d_s, &q_s, &q_r, plaintext);
 
-        let q_s = RistrettoPoint::random(&mut rand::thread_rng());
+        let q_s = RistrettoPoint::from_uniform_bytes(&rand::thread_rng().gen());
 
         let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
         let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
@@ -230,10 +230,10 @@ mod tests {
     }
 
     fn setup() -> (Scalar, RistrettoPoint, Scalar, RistrettoPoint) {
-        let d_s = Scalar::random(&mut rand::thread_rng());
+        let d_s = Scalar::from_bytes_mod_order(rand::thread_rng().gen());
         let q_s = &G * &d_s;
 
-        let d_r = Scalar::random(&mut rand::thread_rng());
+        let d_r = Scalar::from_bytes_mod_order(rand::thread_rng().gen());
         let q_r = &G * &d_r;
 
         (d_s, q_s, d_r, q_r)

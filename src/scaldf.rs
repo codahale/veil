@@ -50,10 +50,11 @@ const KEY_ID_DELIM: char = '/';
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand::Rng;
 
     #[test]
     fn scalar_derivation() {
-        let d = Scalar::random(&mut rand::thread_rng());
+        let d = Scalar::from_bytes_mod_order(rand::thread_rng().gen());
         let d1 = derive_scalar(&d, "/one");
         let d2 = derive_scalar(d1.expose_secret(), "/two");
         let d3 = derive_scalar(d2.expose_secret(), "/three");
@@ -65,7 +66,7 @@ mod tests {
 
     #[test]
     fn point_derivation() {
-        let d = Scalar::random(&mut rand::thread_rng());
+        let d = Scalar::from_bytes_mod_order(rand::thread_rng().gen());
         let q = &G * &d;
 
         let q1 = derive_point(&q, "/one");
