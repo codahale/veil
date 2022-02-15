@@ -86,7 +86,7 @@ ideal for distribution via steganographic channels and very resistant to traffic
 
 [cce]: https://eprint.iacr.org/2017/664.pdf
 
-[xoodyak]: https://tosc.iacr.org/index.php/ToSC/article/view/7359/6529
+[xoodyak]: https://csrc.nist.gov/CSRC/media/Projects/lightweight-cryptography/documents/finalist-round/updated-spec-doc/xoodyak-spec-final.pdf
 
 [duplex]: https://keccak.team/files/SpongeDuplex.pdf
 
