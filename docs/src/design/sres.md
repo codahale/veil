@@ -104,11 +104,60 @@ $$
 
 If $r' = r$, the plaintext $P'$ is returned as authentic; otherwise, an error is returned.
 
-## IND-CCA2 Security
+## Insider Security
 
-This construction combines the CCA2-secure Zheng-SCTK construction from _Practical Signcryption_ (Figure 7.6) with a
-Xoodyak-based CCA2-secure authenticated encryption construction ($\text{Encrypt}$/$\text{Squeeze}$). Consequently,
-`veil.sres` is IND-CCA2 secure per Theorem 7.3 of _Practical Signcryption_.
+This construction combines the Zheng-SCTK construction from _Practical Signcryption_ (Figure 7.6) with a
+Xoodyak-based DEM ($\text{Encrypt}$).
+
+Per Theorem 7.3 of _Practical Signcryption_:
+
+> Let SC be a hybrid signcryption scheme constructed from a signcryption tag-KEM and a DEM. If the signcryption tag-KEM
+> is IND-CCA2 secure and the DEM is IND-CPA secure, then SC is multi-user outsider FSO/FUO-IND-CCA2 secure with the
+> bound
+> 
+> $$
+{\varepsilon}_\text{SC,IND-CCA2} \leq 2{\varepsilon}_\text{SCTK,IND-CCA2} + {\varepsilon}_\text{DEM,IND-CPA}
+$$
+> Furthermore, if the signcryption tag-KEM is sUF-CMA secure, then SC is multi-user insider FSO/FUO-sUF-CMA secure with
+> the bound
+> 
+> $$
+{\varepsilon}_\text{SC,sUF-CMA} \leq {\varepsilon}_\text{SCTK,sUF-CMA}
+$$
+> 
+
+For `veil.sres` to be insider secure (i.e multi-user insider FSO/FUO-sUF-CMA secure), we must demonstrate that
+Zheng-SCTK is both IND-CCA2 secure and sUF-CMA secure, and that Xoodyak's $\text{Encrypt}$ operation is IND-CPA secure.
+
+### Zheng-SCTK's Security
+
+Per Theorem 4.1 of _Practical Signcryption_:
+
+> If the GDH problem is hard and the symmetric encryption scheme is IND-CPA secure, then Zheng's scheme is multi-user
+> outsider FSO/FUO-IND-CCA secure in the random oracle model.
+
+Per Theorem 4.2 of _Practical Signcryption_:
+
+> If the Gap Discrete Logarithm problem is hard, then Zheng's scheme is multi-user insider secret-key-ignorant
+> FSO-UF-CMA-SKI secure in the random oracle model.
+
+(FSO-UF-CMA-SKI is a weaker security model than FSO-sUF-CMA, where the attacker need not produce a valid secret key for
+a forgery; thus FSO-UF-CMA-SKI implies FSO-sUF-CMA.)
+
+Finally, [Bjørstad and Dent][bjørstad] built on [Abe et al.][abe]'s work on tag-KEMs, demonstrating that adapting
+Zheng's signcryption scheme for the KEM/DEM construction preserves its security.
+
+### Xoodyak's Security
+
+Xoodyak is a [duplex construction][duplex], which is essentially a cascade of sponge functions. Sponge functions are
+[negligibly distinguishable][sponge] from random oracles in the single-stage setting provided the underlying permutation
+is random. The [Xoodyak spec][xoodyak] claims 128 bits of security for indistinguishability in the multi-user setting.
+
+### Combined Security
+
+Consequently, `veil.sres` is insider secure (i.e. FSO/FUO-IND-CCA2 and FSO/FUO-sUF-CMA in the multi-user setting).
+
+## Adapting Zheng-SCTK To The Duplex
 
 Instead of passing a ciphertext-dependent tag $\tau$ into the KEM's $\text{Encap}$ function, `veil.sres` begins
 $\text{Encap}$ operations using the keyed duplex after the ciphertext has been encrypted with $\text{Encrypt}$ and the
@@ -121,8 +170,8 @@ dependency described in _Practical Signcryption_:
 $$r \gets H(\tau || {pk}_S || {pk}_R || \kappa)$$
 
 The end result is a challenge scalar which is cryptographically dependent on the prior values and on the ciphertext as
-sent (and not, as in previous insider-secure signcryption KEM constructions, the plaintext). This, and the ratcheting of
-the duplex's state, ensures the scalar $r$ and $s$ cannot leak information about the plaintext.
+sent (and not, as in previous insider-secure signcryption KEM constructions, the plaintext). This and the ratcheting of
+the duplex's state ensure the scalars $r$ and $s$ cannot leak information about the plaintext.
 
 Finally, the inclusion of the masked bits of scalars $S_0$ and $S_1$ prior to generating the challenge scalar $r$ makes
 their masked bits (and thus the entire ciphertext) non-malleable.
@@ -148,7 +197,8 @@ public keys to determine which of the two keys a given ciphertext was encrypted 
 chosen-ciphertext attacks.
 
 Informally, `veil.sres` ciphertexts consist exclusively of Xoodyak ciphertext and PRF output; an attacker being able to
-distinguish between ciphertexts based on keying material would imply the Xoodyak AEAD construction is not IND-CCA2.
+distinguish between ciphertexts based on keying material would imply the Xoodyak $\text{Encrypt}$ operation is not
+IND-CPA.
 
 ## Forward Sender Security
 
@@ -191,6 +241,11 @@ As such, a dishonest recipient cannot prove to a third party that the messages w
 revealing their own private key. (A sender, of course, can keep the commitment scalar $x$ and re-create the message or
 just reveal the message directly.)
 
+This is a key point of distinction between the Zheng-SCTK scheme and [the related scheme by Gamage et al.][gamage] which
+offers public verifiability of ciphertexts. Where Gamage's scheme uses the curve's generator point $G$ to calculate the
+shared secret, Zheng-SCTK uses the recipient's public key $Q_R$, requiring the use of the recipient's private key $d_R$
+for decapsulation.
+
 ## Ephemeral Scalar Hedging
 
 In deriving the ephemeral scalar from a cloned duplex, `veil.sres` uses [Aranha et al.'s
@@ -204,3 +259,15 @@ In the event of an RNG failure, the commitment scalar $x$ will still be unique f
 [kci]: https://eprint.iacr.org/2006/252.pdf
 
 [hedge]: https://eprint.iacr.org/2019/956.pdf
+
+[xoodyak]: https://csrc.nist.gov/CSRC/media/Projects/lightweight-cryptography/documents/finalist-round/updated-spec-doc/xoodyak-spec-final.pdf
+
+[bjørstad]: http://www.ii.uib.no/~tor/pdf/PKC_tagkem.pdf
+
+[abe]: https://eprint.iacr.org/2005/027.pdf
+
+[duplex]: https://keccak.team/files/SpongeDuplex.pdf
+
+[sponge]: https://keccak.team/files/SpongeIndifferentiability.pdf
+
+[gamage]: https://link.springer.com/chapter/10.1007/3-540-49162-7_6
