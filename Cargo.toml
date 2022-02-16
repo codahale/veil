@@ -24,8 +24,8 @@ xoodyak = "0.7.3"
 
 # cli-only deps
 anyhow = { version = "1.0.53", optional = true }
-clap = { version = "3.0.14", features = ["derive"], optional = true }
-clap_complete = { version = "3.0.6", optional = true }
+clap = { version = "3.1.0", features = ["derive"], optional = true }
+clap_complete = { version = "3.1.0", optional = true }
 clio = { version = "0.1.8", optional = true }
 mimalloc = { version = "0.1.28", optional = true }
 rpassword = { version = "5.0.1", optional = true }

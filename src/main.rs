@@ -3,8 +3,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use clap::{App, IntoApp, Parser};
 use clap::{AppSettings, Subcommand, ValueHint};
+use clap::{Command as ClapCommand, IntoApp, Parser};
 use clap_complete::generate_to;
 use clap_complete::Shell;
 use clio::{Input, Output};
@@ -32,7 +32,7 @@ fn main() -> Result<()> {
 
 #[derive(Debug, Parser)]
 #[clap(author, version, about)]
-#[clap(setting = AppSettings::SubcommandRequired)]
+#[clap(subcommand_required(true))]
 struct Opts {
     #[clap(subcommand)]
     cmd: Command,
@@ -280,7 +280,7 @@ impl Cmd for VerifyArgs {
 
 /// Generate shell completion scripts.
 #[derive(Debug, Parser)]
-#[clap(setting = AppSettings::Hidden)]
+#[clap(hide(true))]
 struct CompleteArgs {
     /// The type of shell completion script to generate: bash, elvish, fish, powershell, or zsh.
     shell: Shell,
@@ -292,7 +292,7 @@ struct CompleteArgs {
 
 impl Cmd for CompleteArgs {
     fn run(self) -> Result<()> {
-        let mut app: App = Opts::into_app();
+        let mut app: ClapCommand = Opts::command();
         generate_to(self.shell, &mut app, "veil", &self.output)?;
         Ok(())
     }
