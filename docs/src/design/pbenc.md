@@ -26,7 +26,7 @@ the output block is filled with duplex output:
 
 $$
 \text{Absorb}(\text{U64}_{LE}(C)) \\
-C = C+1 \\
+C \gets C+1 \\
 \text{Absorb}(B_L) \\
 \text{Absorb}(B_R) \\
 B_O \gets \text{Squeeze}(N_B) \\
@@ -44,7 +44,7 @@ This is absorbed along with the salt $S$:
 
 $$
 \text{Absorb}(\text{U64}_{LE}(C)) \\
-C = C+1 \\
+C \gets C+1 \\
 \text{Absorb}(S) \\
 \text{Absorb}(b) \\
 $$
@@ -59,7 +59,7 @@ Block $B_v$ is hashed along with the counter and block $B_m$ is filled with outp
 
 $$
 \text{Absorb}(\text{U64}_{LE}(C)) \\
-C = C+1 \\
+C \gets C+1 \\
 \text{Absorb}(B_v) \\
 \text{Absorb}(\empty) \\
 B_m \gets \text{Squeeze}(N_B) \\

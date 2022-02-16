@@ -16,7 +16,7 @@ $$
 $$
 
 The duplex's state is cloned and keyed with the sender's private key and a random nonce and used to derive a data
-encryption key, $K$, and an ephemeral private key, $d_E$:
+encryption key, $K$, and an ephemeral key pair, $(d_E, Q_E)$:
 
 $$
 \text{Absorb}(d_S) \\
@@ -24,16 +24,17 @@ v \overset{R}{\gets} \mathbb{Z}_{2^{512}} \\
 \text{Absorb}(v) \\
 K \gets \text{SqueezeKey}(N_K) \\
 d_E \gets \text{SqueezeKey}(32) \bmod \ell \\
+Q_E \gets [{d_E}]G \\
 $$
 
-The ephemeral public key is computed as $Q_E = [{d_E}]G$, and the cloned duplex is discarded:
+$(d_E,Q_E)$ are returned to the original context and the cloned duplex is discarded:
 
 $K$, $Q_E$, and the message offset are encoded into a fixed-length header and copies of it are encrypted with
 [`veil.sres`](sres.md) for each recipient using $(d_S, Q_S)$. Optional random padding is added to the end, and the
 resulting headers $H_0..H_n||H_{pad}$ are absorbed in 32KiB blocks:
 
 $$
-h = K || Q_E || O \\
+h \gets K || Q_E || O \\
 H_0 \gets \texttt{veil.sres.}\text{Encrypt}(d_S, Q_S, Q_{R_0}, h) \\
 \text{Absorb}(H_0) \\
 \dots \\
@@ -102,7 +103,7 @@ T_i' \gets \text{Squeeze}(N_T) \\
 \dots \\
 $$
 
-If any $T_i' \not\equiv T_i$, the decryption is halted with an error.
+If any $T_i' \not = T_i$, the decryption is halted with an error.
 
 Finally, the signature $S$ is decrypted and verified against the entire ciphertext:
 

@@ -36,7 +36,7 @@ $$
 Fourth, the shared secret point $K$ is calculated and used to re-key the duplex.
 
 $$
-K = [x]Q_R \\
+K \gets [x]Q_R \\
 \text{Cyclist}(K, \epsilon, \epsilon) \\
 $$
 
@@ -47,7 +47,7 @@ $$
 C \gets \text{Encrypt}(P) \\
 \text{Ratchet}() \\
 r \gets \text{SqueezeKey}(32) \bmod \ell \\
-s = (r+d_S)^{-1}x \\
+s \gets (r+d_S)^{-1}x \\
 $$
 
 (In the rare event that $r+d_S=0$, the procedure is re-run with a different $x$.)
@@ -56,8 +56,8 @@ Finally, the top four bits of both $r$ and $s$ are masked with the top and botto
 $S_0$ and $S_1$:
 
 $$
-S_0 = r \lor ((m \land \texttt{0xF0}) \ll 252) \\
-S_1 = s \lor ((m \ll 4) \ll 252) \\
+S_0 \gets r \lor ((m \land \texttt{0xF0}) \ll 252) \\
+S_1 \gets s \lor ((m \ll 4) \ll 252) \\
 $$
 
 The final ciphertext is $S_0 || S_1 || C$.
@@ -78,7 +78,7 @@ $$
 Second, the mask byte $m$ is calculated from the masked bits of $S_0$ and $S_1$ and absorbed:
 
 $$
-m = ((S_0 \gg 252) \ll 4) | (S_1 \gg 252) \\
+m \gets ((S_0 \gg 252) \ll 4) | (S_1 \gg 252) \\
 \text{Absorb}(m) \\
 $$
 
@@ -86,9 +86,9 @@ Third, the challenge scalar $r$ and the proof scalar $s$ are unmasked and used t
 is used to re-key the duplex:
 
 $$
-r = S_0 \land \lnot(2^8 \ll 252) \bmod \ell \\
-s = S_1 \land \lnot(2^8 \ll 252) \bmod \ell \\
-K = [{d_R}s] (Q_S+[r]G) \\
+r \gets S_0 \land \lnot(2^8 \ll 252) \bmod \ell \\
+s \gets S_1 \land \lnot(2^8 \ll 252) \bmod \ell \\
+K \gets [{d_R}s] (Q_S+[r]G) \\
 \text{Cyclist}(K, \epsilon, \epsilon) \\
 $$
 

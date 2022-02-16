@@ -19,9 +19,9 @@ $$
 \text{Cyclist}(\texttt{veil.scaldf.label}, \epsilon, \epsilon) \\
 \text{Absorb}(L_i) \\
 r_i \gets \text{SqueezeKey}(32) \bmod \ell \\
-d_i = d_{i-1} + r_i \\
+d_i \gets d_{i-1} + r_i \\
 \dots \\
-d_n = d_{n-1} + r_{n-1} \\
+d_n \gets d_{n-1} + r_{n-1} \\
 $$
 
 This is used iteratively to provide hierarchical key derivation. Private keys are created using hierarchical IDs
@@ -31,7 +31,7 @@ private key via the label `friends`, which is then mapped to the final private k
 To derive a public key from a public key $Q$, the delta scalars $r_0..r_i$ are summed and multiplied by the curve's
 generator $G$ which is then added to the public key point:
 
-$$ Q' = Q + [\textstyle\sum_{i=0}^nr_i]G $$
+$$ Q' \gets Q + [\textstyle\sum_{i=0}^nr_i]G $$
 
 ## Disposable Keys
 

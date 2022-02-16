@@ -34,7 +34,7 @@ The clone's state is discarded, and $k$ is returned to the parent. The commitmen
 as $S_0$:
 
 $$
-I = [k]G \\
+I \gets [k]G \\
 S_0 \gets \text{Encrypt}(I) \\
 $$
 
@@ -42,7 +42,7 @@ A challenge scalar $r$ is derived from output and used to calculate the proof sc
 
 $$
 r \gets \text{SqueezeKey}(32) \bmod \ell \\
-s = dr + k \\
+s \gets dr + k \\
 S_1 \gets \text{Encrypt}(s)
 $$
 
@@ -77,7 +77,7 @@ signature commitment point $I$:
 
 $$
 s \gets \text{Decrypt}(S_1) \\
-I' = [r]G - [s]Q \\
+I' \gets [r]G - [s]Q \\
 I' \stackrel{?}{=} I \\
 $$
 
