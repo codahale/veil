@@ -3,7 +3,7 @@ use std::io::Write;
 
 use curve25519_dalek::scalar::Scalar;
 use rand::Rng;
-use secrecy::{Secret, SecretVec, Zeroize};
+use secrecy::{ExposeSecret, Secret, SecretVec, Zeroize};
 use subtle::ConstantTimeEq;
 use xoodyak::{XoodyakCommon, XoodyakKeyed};
 
@@ -143,7 +143,8 @@ impl Duplex {
         let plaintext = self.decrypt(ciphertext);
 
         // Compare the given tag with the counterfactual tag in constant time.
-        if tag.ct_eq(&self.squeeze(TAG_LEN)).into() {
+        let tag_p = Secret::new(self.squeeze(TAG_LEN));
+        if tag.ct_eq(tag_p.expose_secret()).into() {
             // Return the plaintext, now authenticated.
             Some(plaintext.trust())
         } else {
