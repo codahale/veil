@@ -1,7 +1,7 @@
 # Multi-recipient Messages
 
-`veil.mres` is a multi-recipient signcryption scheme, using an encrypt-then-sign construction with a CCA2-secure
-encryption construction and a SUF-CMA-secure signature scheme.
+`veil.mres` is a multi-recipient signcryption scheme, using an encrypt-then-sign construction with an IND-CCA2 secure
+encryption construction and a SUF-CMA secure signature scheme.
 
 ## Encryption
 
@@ -121,11 +121,11 @@ sender's private key and a decryption oracle for each recipient, engaged in an I
 advantage against any individual recipient. The elements available for them to analyze and manipulate are the encrypted
 headers, the random padding, the message ciphertext, and the signature.
 
-Each recipient's header is an IND-CCA2-secure [`veil.sres`](sres.md) ciphertext, so an attacker can gain no advantage
+Each recipient's header is an IND-CCA2 secure [`veil.sres`](sres.md) ciphertext, so an attacker can gain no advantage
 there. Further, the attacker cannot modify the copy of the DEK, the ephemeral public key, or the header length each
 recipient receives.
 
-The encrypted headers and padding are IND-CCA2-secure for all recipients, as the authentication tag of the first message
+The encrypted headers and padding are IND-CCA2 secure for all recipients, as the authentication tag of the first message
 block constitutes an AEAD with the encrypted headers and padding as authenticated data. Any modification of headers for
 other recipients or of the padding will result in an invalid tag and thus a decryption error.
 
@@ -147,7 +147,7 @@ honest recipients.
 
 `veil.mres` eliminates this attack by using the ephemeral key pair to sign the entire ciphertext and including only the
 public key in the KEM ciphertext. Re-using the KEM ciphertexts with a new message requires forging a new signature for a
-SUF-CMA-secure scheme. The use of an authenticated KEM serves to authenticate the ephemeral public key and thus the
+SUF-CMA secure scheme. The use of an authenticated KEM serves to authenticate the ephemeral public key and thus the
 message: only the possessor of the sender's private key can calculate the static shared secret used to encrypt the
 ephemeral public key, and the recipient can only forge KEM ciphertexts with themselves as the intended recipient.
 

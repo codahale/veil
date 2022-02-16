@@ -1,6 +1,6 @@
 # Single-recipient Messages
 
-`veil.sres` implements a single-recipient, insider-secure, deniable signcryption scheme based on the Zheng signcryption
+`veil.sres` implements a single-recipient, insider secure, deniable signcryption scheme based on the Zheng signcryption
 tag-KEM in _Practical Signcryption_ (Zheng-SCTK).
 
 ## Encryption
@@ -170,7 +170,7 @@ dependency described in _Practical Signcryption_:
 $$r \gets H(\tau || {pk}_S || {pk}_R || \kappa)$$
 
 The end result is a challenge scalar which is cryptographically dependent on the prior values and on the ciphertext as
-sent (and not, as in previous insider-secure signcryption KEM constructions, the plaintext). This and the ratcheting of
+sent (and not, as in previous insider secure signcryption KEM constructions, the plaintext). This and the ratcheting of
 the duplex's state ensure the scalars $r$ and $s$ cannot leak information about the plaintext.
 
 Finally, the inclusion of the masked bits of scalars $S_0$ and $S_1$ prior to generating the challenge scalar $r$ makes
