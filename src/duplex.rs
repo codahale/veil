@@ -4,10 +4,11 @@ use std::io::Write;
 use curve25519_dalek::scalar::Scalar;
 use rand::Rng;
 use secrecy::{Secret, SecretVec, Zeroize};
-use xoodyak::{XoodyakCommon, XoodyakKeyed, XOODYAK_AUTH_TAG_BYTES};
+use subtle::ConstantTimeEq;
+use xoodyak::{XoodyakCommon, XoodyakKeyed};
 
 /// The length of an authentication tag in bytes.
-pub const TAG_LEN: usize = XOODYAK_AUTH_TAG_BYTES;
+pub const TAG_LEN: usize = 16;
 
 /// A cryptographic duplex, implemented here with Xoodyak.
 pub struct Duplex {
@@ -113,14 +114,41 @@ impl Duplex {
     /// **Guarantees authenticity.**
     #[must_use]
     pub fn seal(&mut self, plaintext: &[u8]) -> Vec<u8> {
-        self.state.aead_encrypt_to_vec(Some(plaintext)).expect("unable to encrypt")
+        // Allocate output buffer.
+        let mut out = Vec::with_capacity(plaintext.len() + TAG_LEN);
+
+        // Encrypt plaintext.
+        out.extend(self.encrypt(plaintext));
+
+        // Generate authentication tag.
+        out.extend(self.squeeze(TAG_LEN));
+
+        // Return ciphertext and tag.
+        out
     }
 
     /// Decrypt and unseal the given ciphertext. If the ciphertext is invalid, returns `None`.
     /// **Guarantees authenticity.**
     #[must_use]
     pub fn unseal(&mut self, ciphertext: &[u8]) -> Option<SecretVec<u8>> {
-        self.state.aead_decrypt_to_vec(ciphertext).ok().map(Secret::new)
+        // Check for undersized ciphertexts.
+        if ciphertext.len() < TAG_LEN {
+            return None;
+        }
+
+        // Split into ciphertext and tag.
+        let (ciphertext, tag) = ciphertext.split_at(ciphertext.len() - TAG_LEN);
+
+        // Decrypt the plaintext.
+        let plaintext = self.decrypt(ciphertext);
+
+        // Compare the given tag with the counterfactual tag in constant time.
+        if tag.ct_eq(&self.squeeze(TAG_LEN)).into() {
+            // Return the plaintext, now authenticated.
+            Some(plaintext.trust())
+        } else {
+            None
+        }
     }
 }
 
