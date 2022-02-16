@@ -114,42 +114,66 @@ $$
 
 The message is considered successfully decrypted if $v$ is true.
 
-## Multi-Recipient Confidentiality
+## Insider Security
 
-To evaluate the confidentiality of this construction, consider an attacker provided with an encryption oracle for the
-sender's private key and a decryption oracle for each recipient, engaged in an IND-CCA2 game with the goal of gaining an
-advantage against any individual recipient. The elements available for them to analyze and manipulate are the encrypted
-headers, the random padding, the message ciphertext, and the signature.
+While `veil.mres` has some similarity to the Encrypt-then-Sign ($\mathcal{E}t\mathcal{S}$) sequential signcryption 
+construction, unlike $\mathcal{E}t\mathcal{S}$ it offers multi-user insider security (i.e. FSO/FUO-IND-CCA2 and 
+FSO/FUO-sUF-CMA in the multi-user setting).
 
-Each recipient's header is an IND-CCA2 secure [`veil.sres`](sres.md) ciphertext, so an attacker can gain no advantage
-there. Further, the attacker cannot modify the copy of the DEK, the ephemeral public key, or the header length each
-recipient receives.
+_Practical Signcryption_ (p. 32) describes the tradeoffs inherent in the sequential constructions:
 
-The encrypted headers and padding are IND-CCA2 secure for all recipients, as the authentication tag of the first message
-block constitutes an AEAD with the encrypted headers and padding as authenticated data. Any modification of headers for
-other recipients or of the padding will result in an invalid tag and thus a decryption error.
+> If we consider the signcryption security corresponding to the security of the operation performed _first_ (i.e., 
+> privacy in the $\mathcal{E}t\mathcal{S}$ method and authenticity in the $\mathcal{S}t\mathcal{E}$ method), then 
+> results differ depending on the security models and the composition methods. In the insider security model, the 
+> security of the first operation is not preserved against the strongest security notions of privacy and authenticity 
+> (i.e., IND-CCA2 security and sUF-CMA security) although it is preserved against weaker security notions (e.g., 
+> IND-CPA, IND-gCCA2, and UF-CMA security). This is because the adversary who knows the secret key of the other
+> component (i.e., the signature scheme in the $\mathcal{E}t\mathcal{S}$ method and the encryption scheme in the 
+> $\mathcal{S}t\mathcal{E}$ method) can manipulate the given signcryption ciphertext by re-signing it and submitting the
+> modified ciphertext as a unsigncryption oracle query (in the attack against the IND-CCA2 security of the 
+> $\mathcal{E}t\mathcal{S}$ method) or re-encrypting it and submit the modified ciphertext as a forgery (in the attack
+> against the sUF-CMA security of the $\mathcal{S}t\mathcal{E}$ method). Intuitively, this tells us that achieving the
+> strongest security corresponding to the security of the operation performed first is not possible when the adversary
+> knows the secret key of the operation performed last.
 
-## Multi-Recipient Authenticity
+Given that the [`veil.schnorr`](schnorr.md) signature is the final operation in `veil.mres` and is sUF-CMA secure, we
+can conclude that `veil.mres` is sUF-CMA secure in the insider security model per Theorem 2.1 of
+_Practical Signcryption_:
 
-Similarly, an attacker engaged in parallel CMA games with recipients has negligible advantage in forging messages.
-The [`veil.schnorr`](schnorr.md) signature covers the entirety of the ciphertext.
+> If $\mathcal{S}$ is sUF-CMA secure, then the signcryption scheme $\Pi$ built using the $\mathcal{E}t\mathcal{S}$
+> method is sUF-CMA secure in the insider model. \[…\]
 
-The standard KEM/DEM hybrid construction (i.e. Construction 12.20 from _Modern Cryptography 3e_) provides strong
-confidentiality (per Theorem 12.14), but no authenticity. A compromised recipient can replace the DEM component of the
-ciphertext with an arbitrary message encrypted with the same DEK. Even if the KEM provides strong authenticity against
-insider attacks, the KEM/DEM construction does not. [Alwen et al.][hpke] detail this attack against the proposed HPKE
-standard.
+Proof 1 of Theorem 2.2 of _Practical Signcryption_ describes a successful distinguisher $\mathcal{A}$ in the IND-CCA2
+game in the insider security model against the $\mathcal{E}t\mathcal{S}$ construction:
 
-In the single-recipient setting, the practical advantages of this attack are limited: the attacker can forge messages
-which appear to be from a sender but are only decryptable by the attacker. In the multi-recipient setting, however, the
-practical advantage is much greater: the attacker can present forged messages which appear to be from a sender to other,
-honest recipients.
+> Given the induced decryption oracle $\text{Decrypt}$ and the induced encryption key ${pk}^{enc}$, $\mathcal{A}$ picks
+> two messages $(m_0,m_1)$, where $m_0 = 0$ and $m_1 = 1$, and then outputs them to get the challenge ciphertext
+> $C = (c, σ )$. Next, $\mathcal{A}$ gets the message part $c$ and re-signs $c$ by computing a "new" signature
+> $\sigma' \stackrel{R}{\gets} \text{Sign}({sk}^{sig}_S,c)$ of $c$, where $\sigma' \not = \sigma$, and then queries the
+> induced decryption oracle with $C' = (c,\sigma')$. Notice that since we assumed $\mathcal{S}$ is probabilistic (not
+> deterministic), with a non-negligible probability one can find a different signature for the same message in
+> polynomial time. Since $C' \not = C$, and $\sigma'$ is a valid signature of $c$, $\mathcal{A}$ can obtain the
+> decryption of $c$. Once the decrypted message $m$ is obtained, $\mathcal{A}$ compares it with its own message pair
+> $(m_0,m_1)$ and outputs the bit $b$ where $m_b = m$.
 
-`veil.mres` eliminates this attack by using the ephemeral key pair to sign the entire ciphertext and including only the
-public key in the KEM ciphertext. Re-using the KEM ciphertexts with a new message requires forging a new signature for a
-SUF-CMA secure scheme. The use of an authenticated KEM serves to authenticate the ephemeral public key and thus the
-message: only the possessor of the sender's private key can calculate the static shared secret used to encrypt the
-ephemeral public key, and the recipient can only forge KEM ciphertexts with themselves as the intended recipient.
+Unlike the $\mathcal{E}t\mathcal{S}$ construction, however, `veil.mres` does not use the same key for privacy as it does
+for authenticity. The signature is generated using the ephemeral private key $d_E$, which is known only to the sender at
+the time of sending. The receiver only obtains $Q_E$, its corresponding public key, by decrypting a header. The headers
+are each encrypted with ['veil.sres`](sres.md), which provides insider security (i.e. IND-CCA2 and sUF-CMA).
+
+Because `veil.mres` uses an ephemeral signing key, $\mathcal{A}$ is not in possession of ${sk}^{sig}_S$ and can neither
+compute $\sigma'$ nor receive it from any available oracle, as the security model does not provide $\mathcal{A}$ access
+to nonce values. The use of an ephemeral singing key effectively forces $\mathcal{A}$ from the insider security model
+into the outsider security model with respect to the IND-CCA2 game.
+
+In the outsider security model, `veil.mres` is IND-CCA2 secure per Theorem 2.3 of _Practical Signcryption_:
+
+> If $\mathcal{E}$ is IND-CPA secure and $\mathcal{S}$ is sUF-CMA secure, then the signcryption scheme $\Pi$ built using
+> $\mathcal{E}t\mathcal{S}$ is IND-CCA2 secure in the outsider security model.
+
+Xoodyak's $\text{Encrypt}$ operation is IND-CPA secure (see [`veil.sres`](sres.md)) and [`veil.schnorr`](schnorr.md) is
+sUF-CMA secure, thus `veil.mres` is IND-CCA2 secure (and sUF-CMA secure) in both the insider and outsider security
+models.
 
 ## Authenticated Encryption And Partial Decryption
 
@@ -179,8 +203,6 @@ Despite providing strong authenticity, `veil.mres` produces fully deniable ciphe
 In deriving the DEK and ephemeral private key from a cloned duplex, `veil.mres`
 uses [Aranha et al.'s "hedged signature" technique][hedge] to mitigate against both catastrophic randomness failures and
 differential fault attacks against purely deterministic encryption schemes.
-
-[hpke]: https://eprint.iacr.org/2020/1499.pdf
 
 [hedge]: https://eprint.iacr.org/2019/956.pdf
 

@@ -223,9 +223,9 @@ Per [Strangio][kci]:
 > establish a session with Alice while masquerading as another party; this is known as Key Compromise Impersonation
 > (KCI)...
 
-A static Diffie-Hellman exchange is vulnerable to KCI attacks, in that the shared secret point ${Z}$ can be calculated
-as $[{d_S}]{Q_R}$ by an authentic sender or as $[{d_R}]{Q_S}$ by an attacker in possession of the recipient's private
-key $d_S$ and the sender's public key $Q_S$.
+A static Diffie-Hellman exchange is vulnerable to KCI attacks (e.g. [HPKE][hpke], in that the shared secret point ${Z}$
+can be calculated as $[{d_S}]{Q_R}$ by an authentic sender or as $[{d_R}]{Q_S}$ by an attacker in possession of the
+recipient's private key $d_S$ and the sender's public key $Q_S$.
 
 `veil.sres` prevents KCI attacks by using the sender's public key $d_S$ in the process of creating both the shared
 secret $K$ and the proof scalar $s$. The recipient can use their own private key $d_R$ to reconstruct $K$ and
@@ -271,3 +271,5 @@ In the event of an RNG failure, the commitment scalar $x$ will still be unique f
 [sponge]: https://keccak.team/files/SpongeIndifferentiability.pdf
 
 [gamage]: https://link.springer.com/chapter/10.1007/3-540-49162-7_6
+
+[hpke]: https://eprint.iacr.org/2020/1499.pdf
