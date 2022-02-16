@@ -1,7 +1,7 @@
 # Multi-recipient Messages
 
 `veil.mres` is a multi-recipient signcryption scheme, using an encrypt-then-sign construction with an IND-CCA2 secure
-encryption construction and a SUF-CMA secure signature scheme.
+encryption construction and a sUF-CMA secure signature scheme.
 
 ## Encryption
 

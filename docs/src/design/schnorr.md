@@ -92,7 +92,7 @@ way, `veil.schnorr` is closer to [EdDSA][ed25519] or the Schnorr variant propose
 
 Some Schnorr/EdDSA implementations (e.g. [ed25519][ed25519]) suffer from malleability issues, allowing for multiple
 valid signatures for a given signer and message. [Chalkias et al.][eddsa] describe a strict verification function for
-Ed25519 which achieves SUF-CMA security in addition to strong binding:
+Ed25519 which achieves sUF-CMA security in addition to strong binding:
 
 > 1. Reject the signature if $S \not\in \{0,\ldots,L−1\}$.
 > 2. Reject the signature if the public key $A$ is one of 8 small order points.
@@ -100,12 +100,12 @@ Ed25519 which achieves SUF-CMA security in addition to strong binding:
 > 4. Compute the hash $\text{SHA2}_{512}(R||A||M)$ and reduce it mod $L$ to get a scalar $h$.
 > 5. Accept if $8(S·B)−8R−8(h·A)=0$.
 
-Rejecting $S \geq L$ makes the scheme SUF-CMA secure, and rejecting small order $A$ values makes the scheme strongly
+Rejecting $S \geq L$ makes the scheme sUF-CMA secure, and rejecting small order $A$ values makes the scheme strongly
 binding. `veil.schnorr`'s use of ristretto255's canonical point and scalar encoding routines obviate the need for these
 checks. Likewise, ristretto255 is a prime order group, which obviates the need for cofactoring in verification.
 
 When implemented with a prime order group and canonical encoding routines, The Schnorr signature scheme is
-[strongly unforgeable under chosen message attack (SUF-CMA) in the random oracle model][schnorr-cma] and
+[strongly unforgeable under chosen message attack (sUF-CMA) in the random oracle model][schnorr-cma] and
 [even with practical cryptographic hash functions][schnorr-hash]. As a consequence, the signatures are non-malleable.
 
 ## Indistinguishability and Pseudorandomness
