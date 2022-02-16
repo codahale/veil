@@ -141,8 +141,8 @@ Per Theorem 4.2 of _Practical Signcryption_:
 > If the Gap Discrete Logarithm problem is hard, then Zheng's scheme is multi-user insider secret-key-ignorant
 > FSO-UF-CMA-SKI secure in the random oracle model.
 
-(FSO-UF-CMA-SKI is a weaker security model than FSO-sUF-CMA, where the attacker need not produce a valid secret key for
-a forgery; thus FSO-UF-CMA-SKI implies FSO-sUF-CMA.)
+(FSO-UF-CMA-SKI is a stronger security notion than FSO-sUF-CMA, where the attacker need not produce a valid secret key
+for a forgery; FSO-UF-CMA-SKI implies FSO-sUF-CMA.)
 
 Finally, [Bjørstad and Dent][bjørstad] built on [Abe et al.][abe]'s work on tag-KEMs, demonstrating that adapting
 Zheng's signcryption scheme for the KEM/DEM construction preserves its security.
