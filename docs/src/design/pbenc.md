@@ -5,7 +5,7 @@ construction.
 
 ## Initialization
 
-The protocol is initialized as follows, given a passphrase $P$, a 128-bit salt $S$, time parameter $N_T$, space
+The protocol is initialized as follows, given a passphrase $P$, a salt $S \rgets \allbits{128}$, time parameter $N_T$, space
 parameter $N_S$, delta constant $D$, and block size $N_B$. 
 
 A duplex is initialized with a constant key and used to absorb the passphrase, salt, and parameters:

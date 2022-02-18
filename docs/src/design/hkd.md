@@ -1,6 +1,6 @@
 # Hierarchical Key Derivation
 
-Each participant in Veil has a secret key, which is a 64-byte random string $S$.
+Each participant in Veil has a secret key, which is a string $S \rgets \allbits{512}$.
 
 To derive a private key from a secret key, a duplex is initialized with a constant key and used to absorb $S$. A scalar
 $d$ is then derived from output:
