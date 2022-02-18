@@ -14,10 +14,11 @@ $$
 \Cyclist{\literal{veil.pbenc}} \\
 \Absorb{P} \\
 \Absorb{S} \\
-\Absorb{\text{U64}_{LE}(N_T)} \\
-\Absorb{\text{U64}_{LE}(N_S)} \\
-\Absorb{\text{U64}_{LE}(N_B)} \\
-\Absorb{\text{U64}_{LE}(D)} \\
+\Absorb{\LE{U64}{N_T}} \\
+\Absorb{\LE{U64}{N_S}} \\
+\Absorb{\LE{U64}{N_B}} \\
+\Absorb{\LE{U64}{D}} \\
+ \\
 $$
 
 For each iteration of the balloon hashing algorithm, given a counter $C$, input blocks $(B_L, B_R)$, and an output block
@@ -25,7 +26,7 @@ $B_O$, the counter is encoded as a little-endian 64-bit integer and absorbed, th
 the output block is filled with duplex output:
 
 $$
-\Absorb{\text{U64}_{LE}(C)} \\
+\Absorb{\LE{U64}{C}} \\
 C \gets C+1 \\
 \Absorb{B_L} \\
 \Absorb{B_R} \\
@@ -37,13 +38,13 @@ The expanding phase of the algorithm is performed as described by [Boneh et al][
 For the mixing phase of the algorithm, the loop variables $t$, $m$, and $i$ are encoded in a block $b$:
 
 $$
-b \gets \text{U64}_{LE}(t) || \text{U64}_{LE}(m) || \text{U64}_{LE}(i) \\
+b \gets \LE{U64}{t} || \LE{U64}{m} || \LE{U64}{i} \\
 $$
 
 This is absorbed along with the salt $S$:
 
 $$
-\Absorb{\text{U64}_{LE}(C)} \\
+\Absorb{\LE{U64}{C}} \\
 C \gets C+1 \\
 \Absorb{S} \\
 \Absorb{b} \\
@@ -58,7 +59,7 @@ $$
 Block $B_v$ is hashed along with the counter and block $B_m$ is filled with output:
 
 $$
-\Absorb{\text{U64}_{LE}(C)} \\
+\Absorb{\LE{U64}{C}} \\
 C \gets C+1 \\
 \Absorb{B_v} \\
 \Absorb{\epsilon} \\
@@ -83,7 +84,7 @@ $$
 The returned ciphertext consists of the following:
 
 $$
-\text{U32}_{LE}(N_T) || \text{U32}_{LE}(N_S) || S || C || M
+\LE{U32}{N_T} || \LE{U32}{N_S} || S || C || M
 $$
 
 ## Decryption

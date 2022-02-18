@@ -17,3 +17,4 @@
 \EtS:\mathcal{E}t\mathcal{S}
 \StE:\mathcal{S}t\mathcal{E}
 \Attacker:\mathcal{A}
+\LE:\text{#1}_\text{LE}(#2)
