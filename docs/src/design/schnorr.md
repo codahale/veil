@@ -77,7 +77,7 @@ signature commitment point $I$:
 
 $$
 s \gets \text{Decrypt}(S_1) \\
-I' \gets [r]G - [s]Q \\
+I' \gets [s]G - [r]Q \\
 I' \stackrel{?}{=} I \\
 $$
 
