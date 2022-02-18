@@ -11,13 +11,13 @@ parameter $N_S$, delta constant $D$, and block size $N_B$.
 A duplex is initialized with a constant key and used to absorb the passphrase, salt, and parameters:
 
 $$
-\text{Cyclist}(\texttt{veil.pbenc}, \epsilon, \epsilon) \\
-\text{Absorb}(P) \\
-\text{Absorb}(S) \\
-\text{Absorb}(\text{U64}_{LE}(N_T)) \\
-\text{Absorb}(\text{U64}_{LE}(N_S)) \\
-\text{Absorb}(\text{U64}_{LE}(N_B)) \\
-\text{Absorb}(\text{U64}_{LE}(D)) \\
+\Cyclist{\literal{veil.pbenc}} \\
+\Absorb{P} \\
+\Absorb{S} \\
+\Absorb{\text{U64}_{LE}(N_T)} \\
+\Absorb{\text{U64}_{LE}(N_S)} \\
+\Absorb{\text{U64}_{LE}(N_B)} \\
+\Absorb{\text{U64}_{LE}(D)} \\
 $$
 
 For each iteration of the balloon hashing algorithm, given a counter $C$, input blocks $(B_L, B_R)$, and an output block
@@ -25,11 +25,11 @@ $B_O$, the counter is encoded as a little-endian 64-bit integer and absorbed, th
 the output block is filled with duplex output:
 
 $$
-\text{Absorb}(\text{U64}_{LE}(C)) \\
+\Absorb{\text{U64}_{LE}(C)} \\
 C \gets C+1 \\
-\text{Absorb}(B_L) \\
-\text{Absorb}(B_R) \\
-B_O \gets \text{Squeeze}(N_B) \\
+\Absorb{B_L} \\
+\Absorb{B_R} \\
+B_O \gets \Squeeze{N_B} \\
 $$
 
 The expanding phase of the algorithm is performed as described by [Boneh et al][bh].
@@ -43,32 +43,32 @@ $$
 This is absorbed along with the salt $S$:
 
 $$
-\text{Absorb}(\text{U64}_{LE}(C)) \\
+\Absorb{\text{U64}_{LE}(C)} \\
 C \gets C+1 \\
-\text{Absorb}(S) \\
-\text{Absorb}(b) \\
+\Absorb{S} \\
+\Absorb{b} \\
 $$
 
 A 64-bit little-endian integer is derived from duplex output. That integer is mapped to a block index:
 
 $$
-v \gets \text{Squeeze}(8) \bmod N_B \\
+v \gets \Squeeze{8} \bmod N_B \\
 $$
 
 Block $B_v$ is hashed along with the counter and block $B_m$ is filled with output:
 
 $$
-\text{Absorb}(\text{U64}_{LE}(C)) \\
+\Absorb{\text{U64}_{LE}(C)} \\
 C \gets C+1 \\
-\text{Absorb}(B_v) \\
-\text{Absorb}(\empty) \\
-B_m \gets \text{Squeeze}(N_B) \\
+\Absorb{B_v} \\
+\Absorb{\epsilon} \\
+B_m \gets \Squeeze{N_B} \\
 $$
 
 Finally, the last block $B_n$ of the buffer is used to re-key the duplex:
 
 $$
-\text{Cyclist}(B_n, \epsilon, \epsilon) \\
+\Cyclist{B_n} \\
 $$
 
 ## Encryption
@@ -76,8 +76,8 @@ $$
 Given an initialized, keyed duplex, the encryption of a message $P$ is as follows:
 
 $$
-C \gets \text{Encrypt}(P) \\
-T \gets \text{Squeeze}(N_T) \\
+C \gets \Encrypt{P} \\
+T \gets \Squeeze{N_T} \\
 $$
 
 The returned ciphertext consists of the following:
@@ -91,9 +91,9 @@ $$
 Given an initialized, keyed duplex, the decryption of a ciphertext $C$ and authentication tag $T$ is as follows:
 
 $$
-P' \gets \text{Encrypt}(C) \\
-T' \gets \text{Squeeze}(N_T) \\
-T' \stackrel{?}{=} T \\
+P' \gets \Encrypt{C} \\
+T' \gets \Squeeze{N_T} \\
+T' \check T \\
 $$
 
 If the $T' = T$, the plaintext $P'$ is returned as authentic.

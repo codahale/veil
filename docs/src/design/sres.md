@@ -10,43 +10,43 @@ Encryption takes a sender's key pair, $(d_S, Q_S)$, a recipient's public key, $Q
 First, a duplex is initialized with a constant key and used to absorb the sender and recipient's public keys:
 
 $$
-\text{Cyclist}(\texttt{veil.sres}, \epsilon, \epsilon) \\
-\text{Absorb}(Q_S) \\
-\text{Absorb}(Q_R) \\
+\Cyclist{\literal{veil.sres}} \\
+\Absorb{Q_S} \\
+\Absorb{Q_R} \\
 $$
 
 Second, a random byte $m$ is generated and absorbed:
 
 $$
-m \stackrel{R}{\gets} \mathbb{Z_{2^8}} \\
-\text{Absorb}(m) \\
+m \rgets \allbits{8} \\
+\Absorb{m} \\
 $$
 
 Third, the duplex's state is cloned, and the clone absorbs the sender's private key, 64 bytes of random data, and the
 plaintext. The commitment scalar $x$ is then derived from output:
 
 $$
-\text{Absorb}(d_S) \\
-v \stackrel{R}{\gets} \mathbb{Z}_{2^{512}} \\
-\text{Absorb}(v) \\
-\text{Absorb}(P) \\
-x \gets \text{SqueezeKey}(32) \bmod \ell \\
+\Absorb{d_S} \\
+v \rgets \allbits{512} \\
+\Absorb{v} \\
+\Absorb{P} \\
+x \gets \SqueezeScalar \\
 $$
 
 Fourth, the shared secret point $K$ is calculated and used to re-key the duplex.
 
 $$
 K \gets [x]Q_R \\
-\text{Cyclist}(K, \epsilon, \epsilon) \\
+\Cyclist{K} \\
 $$
 
 Fifth, the duplex is used to encrypt plaintext $P$ as $C$, its state is ratcheted, a challenge scalar $r$ is derived
 from output, and a proof scalar $s$ is calculated:
 
 $$
-C \gets \text{Encrypt}(P) \\
-\text{Ratchet}() \\
-r \gets \text{SqueezeKey}(32) \bmod \ell \\
+C \gets \Encrypt{P} \\
+\Ratchet \\
+r \gets \SqueezeScalar \\
 s \gets (r+d_S)^{-1}x \\
 $$
 
@@ -56,7 +56,7 @@ Finally, the top four bits of both $r$ and $s$ are masked with the top and botto
 $S_0$ and $S_1$:
 
 $$
-S_0 \gets r \lor ((m \land \texttt{0xF0}) \ll 252) \\
+S_0 \gets r \lor ((m \land \literal{0xF0}) \ll 252) \\
 S_1 \gets s \lor ((m \ll 4) \ll 252) \\
 $$
 
@@ -70,16 +70,16 @@ $(S_0, S_1)$, and a ciphertext $C$.
 First, a duplex is initialized with a constant key and used to absorb the sender and recipient's public keys:
 
 $$
-\text{Cyclist}(\texttt{veil.sres}, \epsilon, \epsilon) \\
-\text{Absorb}(Q_S) \\
-\text{Absorb}(Q_R) \\
+\Cyclist{\literal{veil.sres}} \\
+\Absorb{Q_S} \\
+\Absorb{Q_R} \\
 $$
 
 Second, the mask byte $m$ is calculated from the masked bits of $S_0$ and $S_1$ and absorbed:
 
 $$
 m \gets ((S_0 \gg 252) \ll 4) | (S_1 \gg 252) \\
-\text{Absorb}(m) \\
+\Absorb{m} \\
 $$
 
 Third, the challenge scalar $r$ and the proof scalar $s$ are unmasked and used to calculate the shared secret $K$, which
@@ -89,17 +89,17 @@ $$
 r \gets S_0 \land \lnot(2^8 \ll 252) \bmod \ell \\
 s \gets S_1 \land \lnot(2^8 \ll 252) \bmod \ell \\
 K \gets [{d_R}s] (Q_S+[r]G) \\
-\text{Cyclist}(K, \epsilon, \epsilon) \\
+\Cyclist{K} \\
 $$
 
 Fourth, the ciphertext $C$ is decrypted as the unauthenticated plaintext $P'$, the duplex's state is ratcheted, and a
 counterfactual challenge scalar $r'$ is derived from output:
 
 $$
-P' \gets \text{Decrypt}(C) \\
-\text{Ratchet}() \\
-r' \gets \text{SqueezeKey}(32) \bmod \ell \\
-r' \stackrel{?}{=} r \\
+P' \gets \Decrypt{C} \\
+\Ratchet \\
+r' \gets \SqueezeScalar \\
+r' \check r \\
 $$
 
 If $r' = r$, the plaintext $P'$ is returned as authentic; otherwise, an error is returned.

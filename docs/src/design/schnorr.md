@@ -9,12 +9,12 @@ Signing is as follows, given a message in 16-byte blocks $M_0..M_n$, a private s
 First, a duplex is initialized with a constant key and used to absorb the message blocks and the signer's public key:
 
 $$
-\text{Cyclist}(\texttt{veil.schnorr}, \epsilon, \epsilon) \\
-\text{AbsorbMore}(M_0, 16) \\
-\text{AbsorbMore}(M_1, 16) \\
+\Cyclist{\literal{veil.schnorr}} \\
+\AbsorbMore{M_0}{16} \\
+\AbsorbMore{M_1}{16} \\
 \dots \\
-\text{AbsorbMore}(M_n, 16) \\
-\text{Absorb}(Q) \\
+\AbsorbMore{M_n}{16} \\
+\Absorb{Q} \\
 $$
 
 (The signer's public key is absorbed after the message to allow [`veil.mres`](mres.md) to search for a header without
@@ -24,10 +24,10 @@ The duplex's state is cloned, and the clone absorbs the signer's private key and
 ephemeral scalar $k$ is then derived from output:
 
 $$
-\text{Absorb}(d) \\
-v \overset{R}{\gets} \mathbb{Z}_{2^{512}} \\
-\text{Absorb}(v) \\
-k \gets \text{SqueezeKey}(32) \bmod \ell \\
+\Absorb{d} \\
+v \rgets \allbits{512} \\
+\Absorb{v} \\
+k \gets \SqueezeScalar \\
 $$
 
 The clone's state is discarded, and $k$ is returned to the parent. The commitment point $I$ is calculated and encrypted
@@ -35,15 +35,15 @@ as $S_0$:
 
 $$
 I \gets [k]G \\
-S_0 \gets \text{Encrypt}(I) \\
+S_0 \gets \Encrypt{I} \\
 $$
 
 A challenge scalar $r$ is derived from output and used to calculate the proof scalar $s$ which is encrypted as $S_1$:
 
 $$
-r \gets \text{SqueezeKey}(32) \bmod \ell \\
+r \gets \SqueezeScalar \\
 s \gets dr + k \\
-S_1 \gets \text{Encrypt}(s)
+S_1 \gets \Encrypt{s}
 $$
 
 The final signature is $S_0 || S_1$.
@@ -57,28 +57,28 @@ First, a duplex is created, initialized with a constant key, and used to absorb 
 public key:
 
 $$
-\text{Cyclist}(\texttt{veil.schnorr}, \epsilon, \epsilon) \\
-\text{AbsorbMore}(M_0, 16) \\
-\text{AbsorbMore}(M_1, 16) \\
+\Cyclist{\literal{veil.schnorr}} \\
+\AbsorbMore{M_0}{16} \\
+\AbsorbMore{M_1}{16} \\
 \dots \\
-\text{AbsorbMore}(M_n, 16) \\
-\text{Absorb}(Q) \\
+\AbsorbMore{M_n}{16} \\
+\Absorb{Q} \\
 $$
 
 $S_0$ is decrypted and decoded as $I$ and $r$ is re-derived from output:
 
 $$
-I \gets \text{Decrypt}(S_0) \\
-r \gets \text{SqueezeKey}(32) \bmod \ell \\
+I \gets \Decrypt{S_0} \\
+r \gets \SqueezeScalar \\
 $$
 
 $S_1$ is decrypted and decoded as $s$ and the counterfactual commitment point $I'$ is calculated and compared to the
 signature commitment point $I$:
 
 $$
-s \gets \text{Decrypt}(S_1) \\
+s \gets \Decrypt{S_1} \\
 I' \gets [s]G - [r]Q \\
-I' \stackrel{?}{=} I \\
+I' \check I \\
 $$
 
 The signature is valid if-and-only-if $I' = I$.

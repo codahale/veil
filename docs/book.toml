@@ -6,6 +6,7 @@ src = "src"
 title = "Veil Cryptosystem"
 
 [preprocessor.katex]
+macros = "latex.txt"
 
 [build]
 build-dir = "../target/book"
