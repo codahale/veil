@@ -122,7 +122,7 @@ impl Verifier {
             _ => return Ok(false),
         };
 
-        // Return true iff I == rG - sQ. Use the variable-time implementation here because the
+        // Return true iff I == sG - rQ. Use the variable-time implementation here because the
         // verifier has no secret data.
         Ok(i == RistrettoPoint::vartime_double_scalar_mul_basepoint(&r, &-q, &s))
     }
