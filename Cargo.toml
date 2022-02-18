@@ -14,7 +14,6 @@ cli = ["anyhow", "clap", "clap_complete", "clio", "mimalloc", "rpassword"]
 
 [dependencies]
 bs58 = "0.4.0"
-curve25519-dalek = { git = "https://github.com/codahale/curve25519-dalek", branch = "updated-deps" }
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 secrecy = "0.8.0"
 subtle = "2.4.1"
@@ -29,6 +28,12 @@ clap_complete = { version = "3.1.0", optional = true }
 clio = { version = "0.1.8", optional = true }
 mimalloc = { version = "0.1.28", optional = true }
 rpassword = { version = "5.0.1", optional = true }
+
+[dependencies.curve25519-dalek]
+git = "https://github.com/codahale/curve25519-dalek"
+branch = "updated-deps"
+default-features = false
+features = ["std", "fiat_u64_backend"]
 
 [dev-dependencies]
 criterion = { version = "0.3.5", features = ["html_reports"] }
