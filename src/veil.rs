@@ -222,6 +222,8 @@ impl PrivateKey {
     }
 }
 
+impl Eq for PrivateKey {}
+
 impl PartialEq for PrivateKey {
     fn eq(&self, other: &Self) -> bool {
         self.pk == other.pk
