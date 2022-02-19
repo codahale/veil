@@ -3,7 +3,6 @@ use std::io::Write;
 
 use curve25519_dalek::scalar::Scalar;
 use rand::Rng;
-use secrecy::{ExposeSecret, Secret, SecretVec, Zeroize};
 use subtle::ConstantTimeEq;
 use xoodyak::{XoodyakCommon, XoodyakKeyed};
 
@@ -55,10 +54,9 @@ impl Duplex {
     /// Clone the duplex and use it to absorb the given secret and 64 random bytes. Pass the clone
     /// to the given function and return the result of that function as a secret.
     #[must_use]
-    pub fn hedge<R, F>(&self, secret: &[u8], f: F) -> Secret<R>
+    pub fn hedge<R, F>(&self, secret: &[u8], f: F) -> R
     where
         F: Fn(&mut Duplex) -> R,
-        R: Zeroize,
     {
         // Clone the duplex's state.
         let mut clone = Duplex { state: self.state.clone() };
@@ -66,17 +64,11 @@ impl Duplex {
         // Absorb the given secret.
         clone.absorb(secret);
 
-        // Generate a random value.
-        let mut r: [u8; 64] = rand::thread_rng().gen();
-
         // Absorb a random value.
-        clone.absorb(&r);
-
-        // Zeroize the random value.
-        r.zeroize();
+        clone.absorb(&rand::thread_rng().gen::<[u8; 64]>());
 
         // Call the given function with the clone.
-        f(&mut clone).into()
+        f(&mut clone)
     }
 
     /// Re-key the duplex with the given key.
@@ -97,8 +89,8 @@ impl Duplex {
 
     /// Decrypt the given plaintext. **Provides no guarantees for authenticity.**
     #[must_use]
-    pub fn decrypt(&mut self, ciphertext: &[u8]) -> Unauthenticated<SecretVec<u8>> {
-        Unauthenticated(self.state.decrypt_to_vec(ciphertext).expect("unable to decrypt").into())
+    pub fn decrypt(&mut self, ciphertext: &[u8]) -> Unauthenticated<Vec<u8>> {
+        Unauthenticated(self.state.decrypt_to_vec(ciphertext).expect("unable to decrypt"))
     }
 
     /// Move the duplex and the given writer into an [AbsorbWriter].
@@ -130,7 +122,7 @@ impl Duplex {
     /// Decrypt and unseal the given ciphertext. If the ciphertext is invalid, returns `None`.
     /// **Guarantees authenticity.**
     #[must_use]
-    pub fn unseal(&mut self, ciphertext: &[u8]) -> Option<SecretVec<u8>> {
+    pub fn unseal(&mut self, ciphertext: &[u8]) -> Option<Vec<u8>> {
         // Check for undersized ciphertexts.
         if ciphertext.len() < TAG_LEN {
             return None;
@@ -143,8 +135,8 @@ impl Duplex {
         let plaintext = self.decrypt(ciphertext);
 
         // Compare the given tag with the counterfactual tag in constant time.
-        let tag_p = Secret::new(self.squeeze(TAG_LEN));
-        if tag.ct_eq(tag_p.expose_secret()).into() {
+        let tag_p = self.squeeze(TAG_LEN);
+        if tag.ct_eq(&tag_p).into() {
             // Return the plaintext, now authenticated.
             Some(plaintext.trust())
         } else {

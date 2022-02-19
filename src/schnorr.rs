@@ -7,7 +7,6 @@ use std::io::{Result, Write};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
-use secrecy::ExposeSecret;
 
 use crate::constants::{POINT_LEN, SCALAR_LEN};
 use crate::duplex::{AbsorbWriter, Duplex};
@@ -50,14 +49,14 @@ where
         let k = schnorr.hedge(d.as_bytes(), Duplex::squeeze_scalar);
 
         // Calculate and encrypt the commitment point.
-        let i = &G * k.expose_secret();
+        let i = &G * &k;
         sig.extend(schnorr.encrypt(i.compress().as_bytes()));
 
         // Squeeze a challenge scalar.
         let r = schnorr.squeeze_scalar();
 
         // Calculate and encrypt the proof scalar.
-        let s = d * r + k.expose_secret();
+        let s = d * r + k;
         sig.extend(schnorr.encrypt(s.as_bytes()));
 
         // Return the encrypted commitment point and proof scalar, plus the underlying writer.
@@ -106,14 +105,14 @@ impl Verifier {
 
         // Decrypt and decode the commitment point.
         let i = schnorr.decrypt(i).trust();
-        let i = CompressedRistretto::from_slice(i.expose_secret()).decompress();
+        let i = CompressedRistretto::from_slice(&i).decompress();
 
         // Re-derive the challenge scalar.
         let r = schnorr.squeeze_scalar();
 
         // Decrypt and decode the proof scalar.
         let s = schnorr.decrypt(s).trust();
-        let s = s.expose_secret().as_slice().try_into().expect("invalid scalar len");
+        let s = s.try_into().expect("invalid scalar len");
         let s = Scalar::from_canonical_bytes(s);
 
         // Early exit if either commitment point or proof scalar are malformed.

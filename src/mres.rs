@@ -8,7 +8,6 @@ use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use rand::prelude::ThreadRng;
 use rand::RngCore;
-use secrecy::{ExposeSecret, Secret, SecretVec, Zeroize};
 
 use crate::constants::{POINT_LEN, U64_LEN};
 use crate::duplex::{Duplex, TAG_LEN};
@@ -36,7 +35,7 @@ where
     // Derive a random ephemeral key pair from the duplex's current state, the sender's private key,
     // and a random nonce.
     let d_e = mres.hedge(d_s.as_bytes(), Duplex::squeeze_scalar);
-    let q_e = &G * d_e.expose_secret();
+    let q_e = &G * &d_e;
 
     // Derive a random DEK from the duplex's current state, the sender's private key, and a random
     // nonce.
@@ -45,7 +44,7 @@ where
     // Encode the DEK, the ephemeral public key, and the message offset in a header.
     let msg_offset = ((q_rs.len() as u64) * ENC_HEADER_LEN as u64) + padding;
     let mut header = Vec::with_capacity(HEADER_LEN);
-    header.extend(dek.expose_secret());
+    header.extend(&dek);
     header.extend(q_e.compress().as_bytes());
     header.extend(&msg_offset.to_le_bytes());
 
@@ -68,13 +67,13 @@ where
     let (mut mres, mut signer, header_len) = headers_and_padding.into_inner()?;
 
     // Use the DEK to key the duplex.
-    mres.rekey(dek.expose_secret());
+    mres.rekey(&dek);
 
     // Encrypt the plaintext, pass it through the signer, and write it.
     let ciphertext_len = encrypt_message(&mut mres, reader, &mut signer)?;
 
     // Sign the encrypted headers and ciphertext with the ephemeral key pair.
-    let (sig, writer) = signer.sign(d_e.expose_secret(), &q_e)?;
+    let (sig, writer) = signer.sign(&d_e, &q_e)?;
 
     // Encrypt the signature.
     let sig = mres.encrypt(&sig);
@@ -90,13 +89,13 @@ where
     R: Read,
     W: Write,
 {
-    let mut buf = SecBuf(Vec::with_capacity(BLOCK_LEN));
+    let mut buf = Vec::with_capacity(BLOCK_LEN);
     let mut written = 0;
 
     loop {
         // Read a block of data.
-        let n = reader.take(BLOCK_LEN as u64).read_to_end(&mut buf.0)?;
-        let block = &buf.0[..n];
+        let n = reader.take(BLOCK_LEN as u64).read_to_end(&mut buf)?;
+        let block = &buf[..n];
 
         // Encrypt the block and write the ciphertext and a tag.
         writer.write_all(&mres.seal(block))?;
@@ -112,7 +111,7 @@ where
         }
 
         // Reset the buffer.
-        buf.0.clear();
+        buf.clear();
     }
 
     Ok(written)
@@ -151,7 +150,7 @@ where
     let (mut mres, mut verifier, _) = mres_writer.into_inner()?;
 
     // Use the DEK to key the duplex.
-    mres.rekey(dek.expose_secret());
+    mres.rekey(&dek);
 
     // Decrypt the message and get the signature.
     let (written, sig) = decrypt_message(&mut mres, reader, writer, &mut verifier)?;
@@ -201,8 +200,8 @@ where
 
         // Decrypt the block and write the plaintext.
         if let Some(plaintext) = mres.unseal(block) {
-            writer.write_all(plaintext.expose_secret())?;
-            written += plaintext.expose_secret().len() as u64;
+            writer.write_all(&plaintext)?;
+            written += plaintext.len() as u64;
         } else {
             // If the tag is invalid, return the number of bytes written and no signature.
             return Ok((written, None));
@@ -218,7 +217,7 @@ where
     // Decrypt the signature.
     let sig = mres.decrypt(&buf).trust();
 
-    Ok((written, Some(sig.expose_secret().as_slice().try_into().expect("invalid sig len"))))
+    Ok((written, Some(sig.try_into().expect("invalid sig len"))))
 }
 
 fn decrypt_header<R, W>(
@@ -227,7 +226,7 @@ fn decrypt_header<R, W>(
     d_r: &Scalar,
     q_r: &RistrettoPoint,
     q_s: &RistrettoPoint,
-) -> Result<Option<(SecretVec<u8>, RistrettoPoint)>>
+) -> Result<Option<(Vec<u8>, RistrettoPoint)>>
 where
     R: Read,
     W: Write,
@@ -252,7 +251,7 @@ where
 
         // Try to decrypt the encrypted header.
         if let Some((dek, q_e, msg_offset)) =
-            sres::decrypt(d_r, q_r, q_s, header).and_then(decode_header)
+            sres::decrypt(d_r, q_r, q_s, header).and_then(|h| decode_header(&h))
         {
             // Read the remainder of the headers and padding and write them to the verifier.
             let mut remainder = reader.take(msg_offset - hdr_offset);
@@ -267,9 +266,8 @@ where
 }
 
 #[inline]
-fn decode_header(header: Secret<Vec<u8>>) -> Option<(SecretVec<u8>, RistrettoPoint, u64)> {
+fn decode_header(header: &[u8]) -> Option<(Vec<u8>, RistrettoPoint, u64)> {
     // Check header for proper length.
-    let header = header.expose_secret();
     if header.len() != HEADER_LEN {
         return None;
     }
@@ -279,7 +277,7 @@ fn decode_header(header: Secret<Vec<u8>>) -> Option<(SecretVec<u8>, RistrettoPoi
     let (q_e, msg_offset) = header.split_at(POINT_LEN);
 
     // Decode components.
-    let dek = dek.to_vec().into();
+    let dek = dek.to_vec();
     let q_e = CompressedRistretto::from_slice(q_e).decompress()?;
     let msg_offset = u64::from_le_bytes(msg_offset.try_into().expect("invalid u64 len"));
 
@@ -291,14 +289,6 @@ const HEADER_LEN: usize = DEK_LEN + POINT_LEN + U64_LEN;
 const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
 const BLOCK_LEN: usize = 32 * 1024;
 const ENC_BLOCK_LEN: usize = BLOCK_LEN + TAG_LEN;
-
-struct SecBuf(Vec<u8>);
-
-impl Drop for SecBuf {
-    fn drop(&mut self) {
-        self.0.zeroize();
-    }
-}
 
 struct RngReader(ThreadRng);
 

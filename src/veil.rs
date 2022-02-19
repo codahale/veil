@@ -11,8 +11,8 @@ use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use rand::prelude::SliceRandom;
 use rand::Rng;
-use secrecy::{ExposeSecret, Secret, SecretVec};
 use thiserror::Error;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::{mres, pbenc, scaldf};
@@ -58,21 +58,22 @@ pub enum VerificationError {
 }
 
 /// A 512-bit secret from which multiple private keys can be derived.
+#[derive(ZeroizeOnDrop)]
 pub struct SecretKey {
-    r: SecretVec<u8>,
+    r: Vec<u8>,
 }
 
 impl SecretKey {
     /// Return a randomly generated secret key.
     #[must_use]
     pub fn new() -> SecretKey {
-        SecretKey { r: rand::thread_rng().gen::<[u8; SECRET_KEY_LEN]>().to_vec().into() }
+        SecretKey { r: rand::thread_rng().gen::<[u8; SECRET_KEY_LEN]>().to_vec() }
     }
 
     /// Encrypt the secret key with the given passphrase and `veil.pbenc` parameters.
     #[must_use]
     pub fn encrypt(&self, passphrase: &str, time: u32, space: u32) -> Vec<u8> {
-        pbenc::encrypt(passphrase, time, space, self.r.expose_secret())
+        pbenc::encrypt(passphrase, time, space, &self.r)
     }
 
     /// Decrypt the secret key with the given passphrase and `veil.pbenc` parameters.
@@ -108,8 +109,8 @@ impl SecretKey {
 
     #[must_use]
     fn root(&self) -> PrivateKey {
-        let d = scaldf::derive_root(self.r.expose_secret());
-        let q = &G * d.expose_secret();
+        let d = scaldf::derive_root(&self.r);
+        let q = &G * &d;
         PrivateKey { d, pk: PublicKey { q } }
     }
 }
@@ -129,8 +130,9 @@ impl Debug for SecretKey {
 const SECRET_KEY_LEN: usize = 64;
 
 /// A derived private key, used to encrypt, decrypt, and sign messages.
+#[derive(ZeroizeOnDrop)]
 pub struct PrivateKey {
-    d: Secret<Scalar>,
+    d: Scalar,
     pk: PublicKey,
 }
 
@@ -162,8 +164,7 @@ impl PrivateKey {
             .iter()
             .map(|pk| pk.q)
             .chain(
-                iter::repeat_with(|| RistrettoPoint::random(&mut rand::thread_rng()))
-                    .take(fakes),
+                iter::repeat_with(|| RistrettoPoint::random(&mut rand::thread_rng())).take(fakes),
             )
             .collect::<Vec<RistrettoPoint>>();
 
@@ -171,14 +172,7 @@ impl PrivateKey {
         q_rs.shuffle(&mut rand::thread_rng());
 
         // Finally, encrypt.
-        mres::encrypt(
-            reader,
-            &mut BufWriter::new(writer),
-            self.d.expose_secret(),
-            &self.pk.q,
-            &q_rs,
-            padding,
-        )
+        mres::encrypt(reader, &mut BufWriter::new(writer), &self.d, &self.pk.q, &q_rs, padding)
     }
 
     /// Decrypt the contents of the reader, if possible, and write the plaintext to the writer.
@@ -195,13 +189,8 @@ impl PrivateKey {
         R: Read,
         W: Write,
     {
-        let (verified, written) = mres::decrypt(
-            reader,
-            &mut BufWriter::new(writer),
-            self.d.expose_secret(),
-            &self.pk.q,
-            &sender.q,
-        )?;
+        let (verified, written) =
+            mres::decrypt(reader, &mut BufWriter::new(writer), &self.d, &self.pk.q, &sender.q)?;
 
         if verified {
             Ok(written)
@@ -217,7 +206,7 @@ impl PrivateKey {
     {
         let mut signer = Signer::new(io::sink());
         io::copy(reader, &mut signer)?;
-        let (sig, _) = signer.sign(self.d.expose_secret(), &self.pk.q)?;
+        let (sig, _) = signer.sign(&self.d, &self.pk.q)?;
         Ok(Signature { sig: (sig) })
     }
 
@@ -227,8 +216,8 @@ impl PrivateKey {
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     #[must_use]
     pub fn derive(&self, key_id: &str) -> PrivateKey {
-        let d = scaldf::derive_scalar(self.d.expose_secret(), key_id);
-        let q = &G * d.expose_secret();
+        let d = scaldf::derive_scalar(&self.d, key_id);
+        let q = &G * &d;
         PrivateKey { d, pk: PublicKey { q } }
     }
 }
@@ -271,7 +260,7 @@ impl fmt::Display for Signature {
 }
 
 /// A derived public key, used to verify messages.
-#[derive(Eq, PartialEq, Debug, Copy, Clone)]
+#[derive(Eq, PartialEq, Debug, Copy, Clone, Zeroize)]
 pub struct PublicKey {
     q: RistrettoPoint,
 }

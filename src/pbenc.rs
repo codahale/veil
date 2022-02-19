@@ -3,7 +3,6 @@
 use std::convert::TryInto;
 
 use rand::Rng;
-use secrecy::{ExposeSecret, Secret, Zeroize};
 use unicode_normalization::UnicodeNormalization;
 
 use crate::constants::{U32_LEN, U64_LEN};
@@ -39,7 +38,7 @@ pub fn encrypt(passphrase: &str, time: u32, space: u32, plaintext: &[u8]) -> Vec
 
 /// Decrypt the given ciphertext using the given passphrase.
 #[must_use]
-pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Secret<Vec<u8>>> {
+pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Vec<u8>> {
     if ciphertext.len() < OVERHEAD {
         return None;
     }
@@ -80,7 +79,7 @@ fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> Duplex {
     let mut pbenc = Duplex::new("veil.pbenc");
 
     // Absorb the passphrase.
-    pbenc.absorb(passphrase.expose_secret());
+    pbenc.absorb(&passphrase);
 
     // Absorb the salt, time, space, block size, and delta parameters.
     pbenc.absorb(salt);
@@ -98,7 +97,7 @@ fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> Duplex {
     let mut buf = vec![[0u8; N]; space];
 
     // Step 1: Expand input into buffer.
-    hash_counter!(pbenc, ctr, passphrase.expose_secret(), salt, buf[0]);
+    hash_counter!(pbenc, ctr, &passphrase, salt, buf[0]);
     for m in 1..space {
         hash_counter!(pbenc, ctr, buf[m - 1], [], buf[m]);
     }
@@ -117,14 +116,12 @@ fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> Duplex {
                 idx.extend((t as u64).to_le_bytes());
                 idx.extend((m as u64).to_le_bytes());
                 idx.extend((i as u64).to_le_bytes());
-
                 hash_counter!(pbenc, ctr, salt, idx);
 
                 // Map the PRF output to a block index.
-                let mut idx_out = [0u8; U64_LEN];
-                pbenc.squeeze_into(&mut idx_out);
-                let idx = u64::from_le_bytes(idx_out) % space as u64;
-                idx_out.zeroize();
+                let mut idx = [0u8; U64_LEN];
+                pbenc.squeeze_into(&mut idx);
+                let idx = u64::from_le_bytes(idx) % space as u64;
 
                 // Hash the pseudo-randomly selected block.
                 hash_counter!(pbenc, ctr, buf[idx as usize], [], buf[m]);
@@ -139,11 +136,8 @@ fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> Duplex {
 }
 
 #[inline]
-fn normalize(passphrase: &str) -> Secret<Vec<u8>> {
-    let mut s = passphrase.nfkc().collect::<String>();
-    let passphrase = Secret::new(s.as_bytes().to_vec());
-    s.zeroize();
-    passphrase
+fn normalize(passphrase: &str) -> Vec<u8> {
+    passphrase.nfkc().collect::<String>().as_bytes().to_vec()
 }
 
 const SALT_LEN: usize = 16;
@@ -161,8 +155,7 @@ mod tests {
         let ciphertext = encrypt(passphrase, 5, 3, message);
 
         let plaintext = decrypt(passphrase, &ciphertext);
-        assert!(plaintext.is_some(), "couldn't decrypt valid ciphertext");
-        assert_eq!(message.as_slice(), plaintext.unwrap().expose_secret(), "invalid plaintext");
+        assert_eq!(Some(message.to_vec()), plaintext, "invalid plaintext");
     }
 
     #[test]
@@ -172,7 +165,6 @@ mod tests {
         let ciphertext = encrypt(passphrase, 5, 3, message);
 
         let plaintext = decrypt("whoops", &ciphertext);
-        let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -184,7 +176,6 @@ mod tests {
         ciphertext[0] ^= 1;
 
         let plaintext = decrypt(passphrase, &ciphertext);
-        let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -196,7 +187,6 @@ mod tests {
         ciphertext[8] ^= 1;
 
         let plaintext = decrypt(passphrase, &ciphertext);
-        let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -208,7 +198,6 @@ mod tests {
         ciphertext[9] ^= 1;
 
         let plaintext = decrypt(passphrase, &ciphertext);
-        let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -220,7 +209,6 @@ mod tests {
         ciphertext[OVERHEAD - TAG_LEN + 1] ^= 1;
 
         let plaintext = decrypt(passphrase, &ciphertext);
-        let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -232,7 +220,6 @@ mod tests {
         ciphertext[message.len() + OVERHEAD - 1] ^= 1;
 
         let plaintext = decrypt(passphrase, &ciphertext);
-        let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 }

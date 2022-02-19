@@ -15,11 +15,11 @@ cli = ["anyhow", "clap", "clap_complete", "clio", "mimalloc", "rpassword"]
 [dependencies]
 bs58 = "0.4.0"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
-secrecy = "0.8.0"
 subtle = "2.4.1"
 thiserror = "1.0.30"
 unicode-normalization = "0.1.19"
 xoodyak = "0.7.3"
+zeroize = { version = "1.5.2", features = ["derive"] }
 
 # cli-only deps
 anyhow = { version = "1.0.53", optional = true }

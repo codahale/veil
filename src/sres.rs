@@ -4,7 +4,6 @@ use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use rand::Rng;
-use secrecy::{ExposeSecret, Secret, SecretVec};
 
 use crate::constants::SCALAR_LEN;
 use crate::duplex::Duplex;
@@ -44,8 +43,8 @@ pub fn encrypt(
     });
 
     // Re-key with the shared secret.
-    let k = q_r * x.expose_secret();
-    sres.rekey(compress_secret(k).expose_secret());
+    let k = q_r * x;
+    sres.rekey(k.compress().as_bytes());
 
     // Encrypt the plaintext.
     out.extend(sres.encrypt(plaintext));
@@ -63,7 +62,7 @@ pub fn encrypt(
             // If the proof scalar is undefined, try again with a different commitment scalar.
             return encrypt(d_s, q_s, q_r, plaintext);
         }
-        x.expose_secret() * y.invert()
+        x * y.invert()
     };
 
     // Mask the challenge scalar with the top 4 bits of the mask byte.
@@ -84,7 +83,7 @@ pub fn decrypt(
     q_r: &RistrettoPoint,
     q_s: &RistrettoPoint,
     ciphertext: &[u8],
-) -> Option<SecretVec<u8>> {
+) -> Option<Vec<u8>> {
     // Check for too-small ciphertexts.
     if ciphertext.len() < OVERHEAD {
         return None;
@@ -112,7 +111,7 @@ pub fn decrypt(
 
     // Re-key with the shared secret.
     let k = (q_s + (&G * &r)) * (d_r * s);
-    sres.rekey(compress_secret(k).expose_secret());
+    sres.rekey(k.compress().as_bytes());
 
     // Decrypt the ciphertext.
     let plaintext = sres.decrypt(ciphertext);
@@ -145,14 +144,6 @@ fn unmask_scalar(b: &[u8]) -> (Scalar, u8) {
     (Scalar::from_canonical_bytes(v).expect("invalid scalar mask"), m)
 }
 
-/// Encode a shared secret point in a way which zeroizes all temporary values.
-#[inline]
-fn compress_secret(z: RistrettoPoint) -> Secret<[u8; 32]> {
-    let z = Secret::new(z);
-    let z = Secret::new(z.expose_secret().compress());
-    Secret::new(z.expose_secret().to_bytes())
-}
-
 #[cfg(test)]
 mod tests {
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
@@ -166,7 +157,6 @@ mod tests {
         let ciphertext = encrypt(&d_s, &q_s, &q_r, plaintext);
 
         let recovered = decrypt(&d_r, &q_r, &q_s, &ciphertext);
-        let recovered = recovered.map(|s| s.expose_secret().to_vec());
         assert_eq!(Some(plaintext.to_vec()), recovered, "invalid plaintext");
     }
 
@@ -179,7 +169,6 @@ mod tests {
         let d_r = Scalar::from_bytes_mod_order(rand::thread_rng().gen());
 
         let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
-        let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -192,7 +181,6 @@ mod tests {
         let q_r = RistrettoPoint::random(&mut rand::thread_rng());
 
         let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
-        let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -205,7 +193,6 @@ mod tests {
         let q_s = RistrettoPoint::random(&mut rand::thread_rng());
 
         let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
-        let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
