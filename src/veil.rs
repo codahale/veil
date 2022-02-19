@@ -18,17 +18,17 @@ use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::{mres, pbenc, scaldf};
 
 /// Error due to invalid public key format.
-#[derive(Error, Debug, Eq, PartialEq, Copy, Clone)]
+#[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
 #[error("invalid public key")]
 pub struct PublicKeyError;
 
 /// Error due to invalid signature format.
-#[derive(Error, Debug, Eq, PartialEq, Copy, Clone)]
+#[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
 #[error("invalid signature")]
 pub struct SignatureError;
 
 /// The error type for message decryption.
-#[derive(Error, Debug)]
+#[derive(Debug, Error)]
 pub enum DecryptionError {
     /// Error due to message/private key/public key mismatch.
     ///
@@ -43,7 +43,7 @@ pub enum DecryptionError {
 }
 
 /// The error type for message verification.
-#[derive(Error, Debug)]
+#[derive(Debug, Error)]
 pub enum VerificationError {
     /// Error due to signature/message/public key mismatch.
     ///
@@ -237,7 +237,7 @@ impl Debug for PrivateKey {
 }
 
 /// A Schnorr signature.
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Signature {
     sig: [u8; SIGNATURE_LEN],
 }
@@ -262,7 +262,7 @@ impl fmt::Display for Signature {
 }
 
 /// A derived public key, used to verify messages.
-#[derive(Eq, PartialEq, Debug, Copy, Clone, Zeroize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Zeroize)]
 pub struct PublicKey {
     q: RistrettoPoint,
 }
