@@ -189,7 +189,7 @@ mod tests {
         let plaintext = b"ok this is fun";
         let ciphertext = encrypt(&d_s, &q_s, &q_r, plaintext);
 
-        let q_r = RistrettoPoint::from_uniform_bytes(&rand::thread_rng().gen());
+        let q_r = RistrettoPoint::random(&mut rand::thread_rng());
 
         let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
         let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
@@ -202,7 +202,7 @@ mod tests {
         let plaintext = b"ok this is fun";
         let ciphertext = encrypt(&d_s, &q_s, &q_r, plaintext);
 
-        let q_s = RistrettoPoint::from_uniform_bytes(&rand::thread_rng().gen());
+        let q_s = RistrettoPoint::random(&mut rand::thread_rng());
 
         let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
         let plaintext = plaintext.map(|s| s.expose_secret().to_vec());
