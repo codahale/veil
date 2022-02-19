@@ -47,7 +47,7 @@ where
 
         // Derive a commitment scalar from the protocol's current state, the signer's private key,
         // and a random nonce.
-        let k = schnorr.hedge(d.as_bytes(), Duplex::squeeze_scalar);
+        let k = schnorr.hedge(d, Duplex::squeeze_scalar);
 
         // Calculate and encrypt the commitment point.
         let i = &G * &k;

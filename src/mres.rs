@@ -35,12 +35,12 @@ where
 
     // Derive a random ephemeral key pair from the duplex's current state, the sender's private key,
     // and a random nonce.
-    let d_e = mres.hedge(&d_s.to_canonical_encoding(), Duplex::squeeze_scalar);
+    let d_e = mres.hedge(d_s, Duplex::squeeze_scalar);
     let q_e = &G * &d_e;
 
     // Derive a random DEK from the duplex's current state, the sender's private key, and a random
     // nonce.
-    let dek = mres.hedge(&d_s.to_canonical_encoding(), |clone| clone.squeeze(DEK_LEN));
+    let dek = mres.hedge(d_s, |clone| clone.squeeze(DEK_LEN));
 
     // Encode the DEK, the ephemeral public key, and the message offset in a header.
     let msg_offset = ((q_rs.len() as u64) * ENC_HEADER_LEN as u64) + padding;

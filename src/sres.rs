@@ -37,7 +37,7 @@ pub fn encrypt(
     sres.absorb(&[mask]);
 
     // Generate a secret commitment scalar.
-    let x = sres.hedge(d_s.as_bytes(), |clone| {
+    let x = sres.hedge(d_s, |clone| {
         // Also hedge with the plaintext message to ensure (d_s, plaintext, x) uniqueness.
         clone.absorb(plaintext);
         clone.squeeze_scalar()

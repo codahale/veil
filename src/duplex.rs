@@ -54,7 +54,7 @@ impl Duplex {
     /// Clone the duplex and use it to absorb the given secret and 64 random bytes. Pass the clone
     /// to the given function and return the result of that function as a secret.
     #[must_use]
-    pub fn hedge<R, F>(&self, secret: &[u8], f: F) -> R
+    pub fn hedge<R, F>(&self, secret: &Scalar, f: F) -> R
     where
         F: Fn(&mut Duplex) -> R,
     {
@@ -62,7 +62,7 @@ impl Duplex {
         let mut clone = Duplex { state: self.state.clone() };
 
         // Absorb the given secret.
-        clone.absorb(secret);
+        clone.absorb(secret.as_bytes());
 
         // Absorb a random value.
         clone.absorb(&rand::thread_rng().gen::<[u8; 64]>());
