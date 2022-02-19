@@ -5,11 +5,12 @@ use std::io;
 use std::io::{Result, Write};
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
-use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
+use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 
 use crate::constants::{POINT_LEN, SCALAR_LEN};
 use crate::duplex::{AbsorbWriter, Duplex};
+use crate::ristretto::CanonicallyEncoded;
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
@@ -42,7 +43,7 @@ where
         let mut sig = Vec::with_capacity(SIGNATURE_LEN);
 
         // Absorb the signer's public key.
-        schnorr.absorb(q.compress().as_bytes());
+        schnorr.absorb(&q.to_canonical_encoding());
 
         // Derive a commitment scalar from the protocol's current state, the signer's private key,
         // and a random nonce.
@@ -50,14 +51,14 @@ where
 
         // Calculate and encrypt the commitment point.
         let i = &G * &k;
-        sig.extend(schnorr.encrypt(i.compress().as_bytes()));
+        sig.extend(schnorr.encrypt(&i.to_canonical_encoding()));
 
         // Squeeze a challenge scalar.
         let r = schnorr.squeeze_scalar();
 
         // Calculate and encrypt the proof scalar.
         let s = d * r + k;
-        sig.extend(schnorr.encrypt(s.as_bytes()));
+        sig.extend(schnorr.encrypt(&s.to_canonical_encoding()));
 
         // Return the encrypted commitment point and proof scalar, plus the underlying writer.
         Ok((sig.try_into().expect("invalid sig len"), writer))
@@ -98,22 +99,21 @@ impl Verifier {
         let (mut schnorr, _, _) = self.writer.into_inner()?;
 
         // Absorb the signer's public key.
-        schnorr.absorb(q.compress().as_bytes());
+        schnorr.absorb(&q.to_canonical_encoding());
 
         // Split the signature into parts.
         let (i, s) = sig.split_at(POINT_LEN);
 
         // Decrypt and decode the commitment point.
         let i = schnorr.decrypt(i).trust();
-        let i = CompressedRistretto::from_slice(&i).decompress();
+        let i = RistrettoPoint::from_canonical_encoding(&i);
 
         // Re-derive the challenge scalar.
         let r = schnorr.squeeze_scalar();
 
         // Decrypt and decode the proof scalar.
         let s = schnorr.decrypt(s).trust();
-        let s = s.try_into().expect("invalid scalar len");
-        let s = Scalar::from_canonical_bytes(s);
+        let s = Scalar::from_canonical_encoding(&s);
 
         // Early exit if either commitment point or proof scalar are malformed.
         let (i, s) = match (i, s) {

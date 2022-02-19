@@ -71,6 +71,7 @@ mod constants;
 mod duplex;
 mod mres;
 mod pbenc;
+mod ristretto;
 mod scaldf;
 mod schnorr;
 

@@ -7,13 +7,14 @@ use std::str::FromStr;
 use std::{fmt, io, iter};
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
-use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
+use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use rand::prelude::SliceRandom;
 use rand::Rng;
 use thiserror::Error;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
+use crate::ristretto::CanonicallyEncoded;
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::{mres, pbenc, scaldf};
 
@@ -297,7 +298,7 @@ impl PublicKey {
 
 impl fmt::Display for PublicKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", bs58::encode(self.q.compress().as_bytes()).into_string())
+        write!(f, "{}", bs58::encode(self.q.to_canonical_encoding()).into_string())
     }
 }
 
@@ -308,7 +309,7 @@ impl FromStr for PublicKey {
         bs58::decode(s)
             .into_vec()
             .ok()
-            .and_then(|b| CompressedRistretto::from_slice(&b).decompress())
+            .and_then(|b| RistrettoPoint::from_canonical_encoding(&b))
             .map(|q| PublicKey { q })
             .ok_or(PublicKeyError)
     }

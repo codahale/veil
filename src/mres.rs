@@ -4,13 +4,14 @@ use std::convert::TryInto;
 use std::io::{self, Read, Result, Write};
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
-use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
+use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use rand::prelude::ThreadRng;
 use rand::RngCore;
 
 use crate::constants::{POINT_LEN, U64_LEN};
 use crate::duplex::{Duplex, TAG_LEN};
+use crate::ristretto::CanonicallyEncoded;
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::sres;
 
@@ -30,22 +31,22 @@ where
 {
     // Initialize a duplex and absorb the sender's public key.
     let mut mres = Duplex::new("veil.mres");
-    mres.absorb(q_s.compress().as_bytes());
+    mres.absorb(&q_s.to_canonical_encoding());
 
     // Derive a random ephemeral key pair from the duplex's current state, the sender's private key,
     // and a random nonce.
-    let d_e = mres.hedge(d_s.as_bytes(), Duplex::squeeze_scalar);
+    let d_e = mres.hedge(&d_s.to_canonical_encoding(), Duplex::squeeze_scalar);
     let q_e = &G * &d_e;
 
     // Derive a random DEK from the duplex's current state, the sender's private key, and a random
     // nonce.
-    let dek = mres.hedge(d_s.as_bytes(), |clone| clone.squeeze(DEK_LEN));
+    let dek = mres.hedge(&d_s.to_canonical_encoding(), |clone| clone.squeeze(DEK_LEN));
 
     // Encode the DEK, the ephemeral public key, and the message offset in a header.
     let msg_offset = ((q_rs.len() as u64) * ENC_HEADER_LEN as u64) + padding;
     let mut header = Vec::with_capacity(HEADER_LEN);
     header.extend(&dek);
-    header.extend(q_e.compress().as_bytes());
+    header.extend(q_e.to_canonical_encoding());
     header.extend(&msg_offset.to_le_bytes());
 
     // Count and sign all of the bytes written to `writer`.
@@ -132,7 +133,7 @@ where
 {
     // Initialize a duplex and absorb the sender's public key.
     let mut mres = Duplex::new("veil.mres");
-    mres.absorb(q_s.compress().as_bytes());
+    mres.absorb(&q_s.to_canonical_encoding());
 
     // Initialize a verifier for the entire ciphertext.
     let verifier = Verifier::new();
@@ -278,7 +279,7 @@ fn decode_header(header: &[u8]) -> Option<(Vec<u8>, RistrettoPoint, u64)> {
 
     // Decode components.
     let dek = dek.to_vec();
-    let q_e = CompressedRistretto::from_slice(q_e).decompress()?;
+    let q_e = RistrettoPoint::from_canonical_encoding(q_e)?;
     let msg_offset = u64::from_le_bytes(msg_offset.try_into().expect("invalid u64 len"));
 
     Some((dek, q_e, msg_offset))

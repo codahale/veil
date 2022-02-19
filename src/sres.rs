@@ -7,6 +7,7 @@ use rand::Rng;
 
 use crate::constants::SCALAR_LEN;
 use crate::duplex::Duplex;
+use crate::ristretto::CanonicallyEncoded;
 
 /// The number of bytes added to plaintext by [encrypt].
 pub const OVERHEAD: usize = SCALAR_LEN + SCALAR_LEN;
@@ -26,10 +27,10 @@ pub fn encrypt(
     let mut sres = Duplex::new("veil.sres");
 
     // Absorb the sender's public key.
-    sres.absorb(q_s.compress().as_bytes());
+    sres.absorb(&q_s.to_canonical_encoding());
 
     // Absorb the receiver's public key.
-    sres.absorb(q_r.compress().as_bytes());
+    sres.absorb(&q_r.to_canonical_encoding());
 
     // Generate and absorb a random masking byte.
     let mask = rand::thread_rng().gen::<u8>();
@@ -44,7 +45,7 @@ pub fn encrypt(
 
     // Re-key with the shared secret.
     let k = q_r * x;
-    sres.rekey(k.compress().as_bytes());
+    sres.rekey(&k.to_canonical_encoding());
 
     // Encrypt the plaintext.
     out.extend(sres.encrypt(plaintext));
@@ -97,10 +98,10 @@ pub fn decrypt(
     let mut sres = Duplex::new("veil.sres");
 
     // Absorb the sender's public key.
-    sres.absorb(q_s.compress().as_bytes());
+    sres.absorb(&q_s.to_canonical_encoding());
 
     // Absorb the receiver's public key.
-    sres.absorb(q_r.compress().as_bytes());
+    sres.absorb(&q_r.to_canonical_encoding());
 
     // Unmask the scalars.
     let (r, mr) = unmask_scalar(mr);
@@ -111,7 +112,7 @@ pub fn decrypt(
 
     // Re-key with the shared secret.
     let k = (q_s + (&G * &r)) * (d_r * s);
-    sres.rekey(k.compress().as_bytes());
+    sres.rekey(&k.to_canonical_encoding());
 
     // Decrypt the ciphertext.
     let plaintext = sres.decrypt(ciphertext);
@@ -129,8 +130,8 @@ pub fn decrypt(
 
 // Use the bottom four bits of `mask` to mask the top four bits of `v`.
 #[inline]
-fn mask_scalar(v: Scalar, mask: u8) -> [u8; 32] {
-    let mut b = v.to_bytes();
+fn mask_scalar(v: Scalar, mask: u8) -> Vec<u8> {
+    let mut b = v.to_canonical_encoding();
     b[31] |= mask;
     b
 }
@@ -141,7 +142,7 @@ fn unmask_scalar(b: &[u8]) -> (Scalar, u8) {
     let mut v: [u8; 32] = b.try_into().expect("invalid scalar len");
     let m = v[31] & 0xF0;
     v[31] &= 0x0F;
-    (Scalar::from_canonical_bytes(v).expect("invalid scalar mask"), m)
+    (Scalar::from_canonical_encoding(&v).expect("invalid scalar mask"), m)
 }
 
 #[cfg(test)]
