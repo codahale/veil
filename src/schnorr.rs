@@ -139,7 +139,6 @@ impl Write for Verifier {
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
     use std::io;
     use std::io::Write;
 
@@ -147,7 +146,7 @@ mod tests {
 
     #[test]
     fn sign_and_verify() -> Result<()> {
-        let d = Scalar::from_bytes_mod_order(rand::thread_rng().gen());
+        let d = Scalar::random(&mut rand::thread_rng());
         let q = &G * &d;
 
         let mut signer = Signer::new(io::sink());
@@ -173,7 +172,7 @@ mod tests {
 
     #[test]
     fn bad_message() -> Result<()> {
-        let d = Scalar::from_bytes_mod_order(rand::thread_rng().gen());
+        let d = Scalar::random(&mut rand::thread_rng());
         let q = &G * &d;
 
         let mut signer = Signer::new(io::sink());
@@ -199,7 +198,7 @@ mod tests {
 
     #[test]
     fn bad_key() -> Result<()> {
-        let d = Scalar::from_bytes_mod_order(rand::thread_rng().gen());
+        let d = Scalar::random(&mut rand::thread_rng());
         let q = &G * &d;
 
         let mut signer = Signer::new(io::sink());
@@ -225,7 +224,7 @@ mod tests {
 
     #[test]
     fn bad_sig() -> Result<()> {
-        let d = Scalar::from_bytes_mod_order(rand::thread_rng().gen());
+        let d = Scalar::random(&mut rand::thread_rng());
         let q = &G * &d;
 
         let mut signer = Signer::new(io::sink());

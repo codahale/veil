@@ -107,14 +107,13 @@ fn bench_pbenc(c: &mut Criterion) {
 fn bench_sres(c: &mut Criterion) {
     use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
     use curve25519_dalek::scalar::Scalar;
-    use rand::Rng;
 
     let mut g = c.benchmark_group("sres");
 
-    let d_s = Scalar::from_bytes_mod_order(rand::thread_rng().gen());
+    let d_s = Scalar::random(&mut rand::thread_rng());
     let q_s = RISTRETTO_BASEPOINT_POINT * d_s;
 
-    let d_r = Scalar::from_bytes_mod_order(rand::thread_rng().gen());
+    let d_r = Scalar::random(&mut rand::thread_rng());
     let q_r = RISTRETTO_BASEPOINT_POINT * d_r;
 
     let plaintext = b"this is an example of a plaintext";

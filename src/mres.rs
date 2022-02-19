@@ -301,17 +301,16 @@ impl Read for RngReader {
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
     use std::io::Cursor;
 
     use super::*;
 
     #[test]
     fn round_trip() -> Result<()> {
-        let d_s = Scalar::from_bytes_mod_order(rand::thread_rng().gen());
+        let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &G * &d_s;
 
-        let d_r = Scalar::from_bytes_mod_order(rand::thread_rng().gen());
+        let d_r = Scalar::random(&mut rand::thread_rng());
         let q_r = &G * &d_r;
 
         let message = b"this is a thingy";
@@ -334,10 +333,10 @@ mod tests {
 
     #[test]
     fn multi_block_message() -> Result<()> {
-        let d_s = Scalar::from_bytes_mod_order(rand::thread_rng().gen());
+        let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &G * &d_s;
 
-        let d_r = Scalar::from_bytes_mod_order(rand::thread_rng().gen());
+        let d_r = Scalar::random(&mut rand::thread_rng());
         let q_r = &G * &d_r;
 
         let message = [69u8; 65 * 1024];
@@ -360,10 +359,10 @@ mod tests {
 
     #[test]
     fn split_sig() -> Result<()> {
-        let d_s = Scalar::from_bytes_mod_order(rand::thread_rng().gen());
+        let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &G * &d_s;
 
-        let d_r = Scalar::from_bytes_mod_order(rand::thread_rng().gen());
+        let d_r = Scalar::random(&mut rand::thread_rng());
         let q_r = &G * &d_r;
 
         let message = [69u8; 32 * 1024 - 37];
@@ -386,10 +385,10 @@ mod tests {
 
     #[test]
     fn flip_every_bit() -> Result<()> {
-        let d_s = Scalar::from_bytes_mod_order(rand::thread_rng().gen());
+        let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &G * &d_s;
 
-        let d_r = Scalar::from_bytes_mod_order(rand::thread_rng().gen());
+        let d_r = Scalar::random(&mut rand::thread_rng());
         let q_r = &G * &d_r;
 
         let message = b"this is a thingy";
