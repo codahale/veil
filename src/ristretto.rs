@@ -14,9 +14,11 @@ pub const G: RistrettoBasepointTable = curve25519_dalek::constants::RISTRETTO_BA
 /// An extension trait to centralize canonical encoding of scalars and points.
 pub trait CanonicallyEncoded: Sized {
     /// Parses the given slice and decodes it iff the encoding is canonical.
+    #[must_use]
     fn from_canonical_encoding(b: &[u8]) -> Option<Self>;
 
     /// Canonically encodes the value.
+    #[must_use]
     fn to_canonical_encoding(&self) -> Vec<u8>;
 }
 
