@@ -9,7 +9,6 @@ description = "Stupid crypto tricks."
 
 [features]
 default = []
-benchmarks-internal = []
 cli = ["anyhow", "clap", "clap_complete", "clio", "mimalloc", "rpassword"]
 
 [dependencies]

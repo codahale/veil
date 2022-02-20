@@ -74,11 +74,5 @@ mod pbenc;
 mod ristretto;
 mod scaldf;
 mod schnorr;
-
-#[cfg(feature = "benchmarks-internal")]
-pub mod sres;
-
-#[cfg(not(feature = "benchmarks-internal"))]
 mod sres;
-
 mod veil;
