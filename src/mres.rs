@@ -216,7 +216,7 @@ where
     }
 
     // Decrypt the signature.
-    let sig = mres.decrypt(&buf).trust();
+    let sig = mres.decrypt(&buf);
 
     Ok((written, Some(sig.try_into().expect("invalid sig len"))))
 }

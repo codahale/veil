@@ -105,14 +105,14 @@ impl Verifier {
         let (i, s) = sig.split_at(POINT_LEN);
 
         // Decrypt and decode the commitment point.
-        let i = schnorr.decrypt(i).trust();
+        let i = schnorr.decrypt(i);
         let i = RistrettoPoint::from_canonical_encoding(&i);
 
         // Re-derive the challenge scalar.
         let r = schnorr.squeeze_scalar();
 
         // Decrypt and decode the proof scalar.
-        let s = schnorr.decrypt(s).trust();
+        let s = schnorr.decrypt(s);
         let s = Scalar::from_canonical_encoding(&s);
 
         // Early exit if either commitment point or proof scalar are malformed.

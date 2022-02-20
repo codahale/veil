@@ -122,7 +122,7 @@ pub fn decrypt(
 
     // If the counterfactual challenge scalar is valid, return the plaintext.
     if r == sres.squeeze_scalar() {
-        Some(plaintext.trust())
+        Some(plaintext)
     } else {
         None
     }
