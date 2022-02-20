@@ -1,11 +1,11 @@
 //! An insider-secure hybrid signcryption implementation.
 
 use curve25519_dalek::ristretto::RistrettoPoint;
-use curve25519_dalek::scalar::Scalar;
 use rand::Rng;
 
 use crate::constants::SCALAR_LEN;
 use crate::duplex::Duplex;
+use crate::ristretto::Scalar;
 use crate::ristretto::{CanonicallyEncoded, G};
 
 /// The number of bytes added to plaintext by [encrypt].

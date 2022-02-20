@@ -4,12 +4,12 @@ use std::convert::TryInto;
 use std::io::{self, Read, Result, Write};
 
 use curve25519_dalek::ristretto::RistrettoPoint;
-use curve25519_dalek::scalar::Scalar;
 use rand::prelude::ThreadRng;
 use rand::RngCore;
 
 use crate::constants::{POINT_LEN, U64_LEN};
 use crate::duplex::{Duplex, TAG_LEN};
+use crate::ristretto::Scalar;
 use crate::ristretto::{CanonicallyEncoded, G};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::sres;

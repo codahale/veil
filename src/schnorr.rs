@@ -5,10 +5,10 @@ use std::io;
 use std::io::{Result, Write};
 
 use curve25519_dalek::ristretto::RistrettoPoint;
-use curve25519_dalek::scalar::Scalar;
 
 use crate::constants::{POINT_LEN, SCALAR_LEN};
 use crate::duplex::{AbsorbWriter, Duplex};
+use crate::ristretto::Scalar;
 use crate::ristretto::{CanonicallyEncoded, G};
 
 /// The length of a signature, in bytes.

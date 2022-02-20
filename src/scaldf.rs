@@ -1,9 +1,9 @@
 //! Scalar derivation functions.
 
 use curve25519_dalek::ristretto::RistrettoPoint;
-use curve25519_dalek::scalar::Scalar;
 
 use crate::duplex::Duplex;
+use crate::ristretto::Scalar;
 use crate::ristretto::G;
 
 /// Derive a scalar from the given secret key.

@@ -1,7 +1,7 @@
 //! Utility functions for Ristretto operations.
 
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoBasepointTable, RistrettoPoint};
-use curve25519_dalek::scalar::Scalar;
+pub use curve25519_dalek::scalar::Scalar;
 
 /// The generator for the Ristretto group. Use the table version, which contains precomputed
 /// multiples, for performance.

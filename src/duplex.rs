@@ -1,7 +1,7 @@
+use crate::ristretto::Scalar;
 use std::io;
 use std::io::Write;
 
-use curve25519_dalek::scalar::Scalar;
 use rand::Rng;
 use subtle::ConstantTimeEq;
 use xoodyak::{XoodyakCommon, XoodyakKeyed};

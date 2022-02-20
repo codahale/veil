@@ -7,12 +7,12 @@ use std::str::FromStr;
 use std::{fmt, io, iter};
 
 use curve25519_dalek::ristretto::RistrettoPoint;
-use curve25519_dalek::scalar::Scalar;
 use rand::prelude::SliceRandom;
 use rand::Rng;
 use thiserror::Error;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
+use crate::ristretto::Scalar;
 use crate::ristretto::{CanonicallyEncoded, G};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::{mres, pbenc, scaldf};
