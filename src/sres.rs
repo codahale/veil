@@ -1,13 +1,12 @@
 //! An insider-secure hybrid signcryption implementation.
 
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use rand::Rng;
 
 use crate::constants::SCALAR_LEN;
 use crate::duplex::Duplex;
-use crate::ristretto::CanonicallyEncoded;
+use crate::ristretto::{CanonicallyEncoded, G};
 
 /// The number of bytes added to plaintext by [encrypt].
 pub const OVERHEAD: usize = SCALAR_LEN + SCALAR_LEN;
@@ -147,8 +146,6 @@ fn unmask_scalar(b: &[u8]) -> (Scalar, u8) {
 
 #[cfg(test)]
 mod tests {
-    use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
-
     use super::*;
 
     #[test]

@@ -6,7 +6,6 @@ use std::io::{BufWriter, Read, Write};
 use std::str::FromStr;
 use std::{fmt, io, iter};
 
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use rand::prelude::SliceRandom;
@@ -14,7 +13,7 @@ use rand::Rng;
 use thiserror::Error;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::ristretto::CanonicallyEncoded;
+use crate::ristretto::{CanonicallyEncoded, G};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::{mres, pbenc, scaldf};
 

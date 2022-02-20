@@ -4,13 +4,12 @@ use std::convert::TryInto;
 use std::io;
 use std::io::{Result, Write};
 
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 
 use crate::constants::{POINT_LEN, SCALAR_LEN};
 use crate::duplex::{AbsorbWriter, Duplex};
-use crate::ristretto::CanonicallyEncoded;
+use crate::ristretto::{CanonicallyEncoded, G};
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
