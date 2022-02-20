@@ -1,3 +1,5 @@
+//! Implements a cryptographic duplex using Xoodyak.
+
 use crate::ristretto::Scalar;
 use std::io;
 use std::io::Write;
