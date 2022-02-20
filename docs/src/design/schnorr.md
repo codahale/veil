@@ -85,10 +85,23 @@ The signature is valid if-and-only-if $I' = I$.
 
 ## Security, Forgeability, and Malleability
 
-This construction is equivalent to Construction 13.12 of _Modern Cryptography 3e_ and per Theorem 13.11 secure if the
-discrete-logarithm problem is hard relative to ristretto255. `veil.schnorr` transmits the commitment point $I$ as part
-of the signature and the verifier calculates $I'$ vs transmitting the challenge scalar $r$ and calculating $r'$. In this
-way, `veil.schnorr` is closer to [EdDSA][ed25519] or the Schnorr variant proposed in the [STROBE][strobe] paper.
+The Schnorr signature scheme is the application of the Fiat-Shamir transform to the Schnorr identification scheme.
+
+Per Theorem 13.10 of _Modern Cryptography 3e_:
+
+> Let $\Pi$ be an identification scheme, and let $\Pi'$ be the signature scheme that results by applying the Fiat-Shamir
+> transform to it. If $\Pi$ is secure and $H$ is modeled as a random oracle, then $\Pi'$ is secure.
+
+Per Theorem 13.11 of _Modern Cryptography 3e_:
+
+> If the discrete-logarithm problem is hard relative to $\mathcal{G}$, then the Schnorr identification scheme is secure.
+
+This construction uses the Xoodyak duplex as a hash function. Consequently, the security of this construction assumes
+the fitness of Xoodyak as a random oracle and the hardness of the discrete-logarithm problem relative to ristretto255.
+
+Unlike Construction 13.12 of _Modern Cryptography 3e_, `veil.schnorr` transmits the commitment point $I$ as part of the
+signature and the verifier calculates $I'$ vs transmitting the challenge scalar $r$ and calculating $r'$. In this way, 
+`veil.schnorr` is closer to [EdDSA][ed25519] or the Schnorr variant proposed in the [STROBE][strobe] paper.
 
 Some Schnorr/EdDSA implementations (e.g. [ed25519][ed25519]) suffer from malleability issues, allowing for multiple
 valid signatures for a given signer and message. [Chalkias et al.][eddsa] describe a strict verification function for
