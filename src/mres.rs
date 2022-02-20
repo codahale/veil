@@ -3,14 +3,13 @@
 use std::convert::TryInto;
 use std::io::{self, Read, Result, Write};
 
-use curve25519_dalek::ristretto::RistrettoPoint;
 use rand::prelude::ThreadRng;
 use rand::RngCore;
 
 use crate::constants::{POINT_LEN, U64_LEN};
 use crate::duplex::{Duplex, TAG_LEN};
-use crate::ristretto::Scalar;
 use crate::ristretto::{CanonicallyEncoded, G};
+use crate::ristretto::{Point, Scalar};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::sres;
 
@@ -20,8 +19,8 @@ pub fn encrypt<R, W>(
     reader: &mut R,
     writer: &mut W,
     d_s: &Scalar,
-    q_s: &RistrettoPoint,
-    q_rs: &[RistrettoPoint],
+    q_s: &Point,
+    q_rs: &[Point],
     padding: u64,
 ) -> Result<u64>
 where
@@ -123,8 +122,8 @@ pub fn decrypt<R, W>(
     reader: &mut R,
     writer: &mut W,
     d_r: &Scalar,
-    q_r: &RistrettoPoint,
-    q_s: &RistrettoPoint,
+    q_r: &Point,
+    q_s: &Point,
 ) -> Result<(bool, u64)>
 where
     R: Read,
@@ -224,9 +223,9 @@ fn decrypt_header<R, W>(
     reader: &mut R,
     verifier: &mut W,
     d_r: &Scalar,
-    q_r: &RistrettoPoint,
-    q_s: &RistrettoPoint,
-) -> Result<Option<(Vec<u8>, RistrettoPoint)>>
+    q_r: &Point,
+    q_s: &Point,
+) -> Result<Option<(Vec<u8>, Point)>>
 where
     R: Read,
     W: Write,
@@ -266,7 +265,7 @@ where
 }
 
 #[inline]
-fn decode_header(header: &[u8]) -> Option<(Vec<u8>, RistrettoPoint, u64)> {
+fn decode_header(header: &[u8]) -> Option<(Vec<u8>, Point, u64)> {
     // Check header for proper length.
     if header.len() != HEADER_LEN {
         return None;
@@ -278,7 +277,7 @@ fn decode_header(header: &[u8]) -> Option<(Vec<u8>, RistrettoPoint, u64)> {
 
     // Decode components.
     let dek = dek.to_vec();
-    let q_e = RistrettoPoint::from_canonical_encoding(q_e)?;
+    let q_e = Point::from_canonical_encoding(q_e)?;
     let msg_offset = u64::from_le_bytes(msg_offset.try_into().expect("invalid u64 len"));
 
     Some((dek, q_e, msg_offset))

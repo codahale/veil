@@ -4,12 +4,10 @@ use std::convert::TryInto;
 use std::io;
 use std::io::{Result, Write};
 
-use curve25519_dalek::ristretto::RistrettoPoint;
-
 use crate::constants::{POINT_LEN, SCALAR_LEN};
 use crate::duplex::{AbsorbWriter, Duplex};
-use crate::ristretto::Scalar;
 use crate::ristretto::{CanonicallyEncoded, G};
+use crate::ristretto::{Point, Scalar};
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
@@ -34,7 +32,7 @@ where
 
     /// Create a signature of the previously-written message contents using the given key pair.
     #[allow(clippy::many_single_char_names)]
-    pub fn sign(self, d: &Scalar, q: &RistrettoPoint) -> Result<([u8; SIGNATURE_LEN], W)> {
+    pub fn sign(self, d: &Scalar, q: &Point) -> Result<([u8; SIGNATURE_LEN], W)> {
         // Unwrap the duplex and writer.
         let (mut schnorr, writer, _) = self.writer.into_inner()?;
 
@@ -93,7 +91,7 @@ impl Verifier {
     }
 
     /// Verify the previously-written message contents using the given public key and signature.
-    pub fn verify(self, q: &RistrettoPoint, sig: &[u8; SIGNATURE_LEN]) -> Result<bool> {
+    pub fn verify(self, q: &Point, sig: &[u8; SIGNATURE_LEN]) -> Result<bool> {
         // Unwrap duplex.
         let (mut schnorr, _, _) = self.writer.into_inner()?;
 
@@ -105,7 +103,7 @@ impl Verifier {
 
         // Decrypt and decode the commitment point.
         let i = schnorr.decrypt(i);
-        let i = RistrettoPoint::from_canonical_encoding(&i);
+        let i = Point::from_canonical_encoding(&i);
 
         // Re-derive the challenge scalar.
         let r = schnorr.squeeze_scalar();
@@ -122,7 +120,7 @@ impl Verifier {
 
         // Return true iff I == sG - rQ. Use the variable-time implementation here because the
         // verifier has no secret data.
-        Ok(i == RistrettoPoint::vartime_double_scalar_mul_basepoint(&r, &-q, &s))
+        Ok(i == Point::vartime_double_scalar_mul_basepoint(&r, &-q, &s))
     }
 }
 

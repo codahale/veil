@@ -6,14 +6,13 @@ use std::io::{BufWriter, Read, Write};
 use std::str::FromStr;
 use std::{fmt, io, iter};
 
-use curve25519_dalek::ristretto::RistrettoPoint;
 use rand::prelude::SliceRandom;
 use rand::Rng;
 use thiserror::Error;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::ristretto::Scalar;
 use crate::ristretto::{CanonicallyEncoded, G};
+use crate::ristretto::{Point, Scalar};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::{mres, pbenc, scaldf};
 
@@ -163,10 +162,8 @@ impl PrivateKey {
         let mut q_rs = recipients
             .iter()
             .map(|pk| pk.q)
-            .chain(
-                iter::repeat_with(|| RistrettoPoint::random(&mut rand::thread_rng())).take(fakes),
-            )
-            .collect::<Vec<RistrettoPoint>>();
+            .chain(iter::repeat_with(|| Point::random(&mut rand::thread_rng())).take(fakes))
+            .collect::<Vec<Point>>();
 
         // Shuffle the recipients list.
         q_rs.shuffle(&mut rand::thread_rng());
@@ -264,7 +261,7 @@ impl fmt::Display for Signature {
 /// A derived public key, used to verify messages.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Zeroize)]
 pub struct PublicKey {
-    q: RistrettoPoint,
+    q: Point,
 }
 
 impl PublicKey {
@@ -308,7 +305,7 @@ impl FromStr for PublicKey {
         bs58::decode(s)
             .into_vec()
             .ok()
-            .and_then(|b| RistrettoPoint::from_canonical_encoding(&b))
+            .and_then(|b| Point::from_canonical_encoding(&b))
             .map(|q| PublicKey { q })
             .ok_or(PublicKeyError)
     }

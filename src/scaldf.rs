@@ -1,10 +1,8 @@
 //! Scalar derivation functions.
 
-use curve25519_dalek::ristretto::RistrettoPoint;
-
 use crate::duplex::Duplex;
-use crate::ristretto::Scalar;
 use crate::ristretto::G;
+use crate::ristretto::{Point, Scalar};
 
 /// Derive a scalar from the given secret key.
 #[must_use]
@@ -36,7 +34,7 @@ pub fn derive_scalar(d: &Scalar, key_id: &str) -> Scalar {
 
 /// Derive a point from another point using the given key ID.
 #[must_use]
-pub fn derive_point(q: &RistrettoPoint, key_id: &str) -> RistrettoPoint {
+pub fn derive_point(q: &Point, key_id: &str) -> Point {
     q + (&G * &derive_scalar(&Scalar::zero(), key_id))
 }
 

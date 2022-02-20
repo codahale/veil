@@ -1,24 +1,18 @@
 //! An insider-secure hybrid signcryption implementation.
 
-use curve25519_dalek::ristretto::RistrettoPoint;
 use rand::Rng;
 
 use crate::constants::SCALAR_LEN;
 use crate::duplex::Duplex;
-use crate::ristretto::Scalar;
 use crate::ristretto::{CanonicallyEncoded, G};
+use crate::ristretto::{Point, Scalar};
 
 /// The number of bytes added to plaintext by [encrypt].
 pub const OVERHEAD: usize = SCALAR_LEN + SCALAR_LEN;
 
 /// Given the sender's key pair, the recipient's public key, and a plaintext, encrypts the given
 /// plaintext and returns the ciphertext.
-pub fn encrypt(
-    d_s: &Scalar,
-    q_s: &RistrettoPoint,
-    q_r: &RistrettoPoint,
-    plaintext: &[u8],
-) -> Vec<u8> {
+pub fn encrypt(d_s: &Scalar, q_s: &Point, q_r: &Point, plaintext: &[u8]) -> Vec<u8> {
     // Allocate an output buffer.
     let mut out = Vec::with_capacity(plaintext.len() + OVERHEAD);
 
@@ -78,12 +72,7 @@ pub fn encrypt(
 /// Given the recipient's key pair, the sender's public key, and a ciphertext, decrypts the given
 /// ciphertext and returns the plaintext iff the ciphertext was encrypted for the recipient by the
 /// sender.
-pub fn decrypt(
-    d_r: &Scalar,
-    q_r: &RistrettoPoint,
-    q_s: &RistrettoPoint,
-    ciphertext: &[u8],
-) -> Option<Vec<u8>> {
+pub fn decrypt(d_r: &Scalar, q_r: &Point, q_s: &Point, ciphertext: &[u8]) -> Option<Vec<u8>> {
     // Check for too-small ciphertexts.
     if ciphertext.len() < OVERHEAD {
         return None;
@@ -146,6 +135,8 @@ fn unmask_scalar(b: &[u8]) -> (Scalar, u8) {
 
 #[cfg(test)]
 mod tests {
+    use crate::ristretto::Point;
+
     use super::*;
 
     #[test]
@@ -176,7 +167,7 @@ mod tests {
         let plaintext = b"ok this is fun";
         let ciphertext = encrypt(&d_s, &q_s, &q_r, plaintext);
 
-        let q_r = RistrettoPoint::random(&mut rand::thread_rng());
+        let q_r = Point::random(&mut rand::thread_rng());
 
         let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -188,7 +179,7 @@ mod tests {
         let plaintext = b"ok this is fun";
         let ciphertext = encrypt(&d_s, &q_s, &q_r, plaintext);
 
-        let q_s = RistrettoPoint::random(&mut rand::thread_rng());
+        let q_s = Point::random(&mut rand::thread_rng());
 
         let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -214,7 +205,7 @@ mod tests {
         }
     }
 
-    fn setup() -> (Scalar, RistrettoPoint, Scalar, RistrettoPoint) {
+    fn setup() -> (Scalar, Point, Scalar, Point) {
         let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &G * &d_s;
 
