@@ -49,15 +49,12 @@ pub fn encrypt(d_s: &Scalar, q_s: &Point, q_r: &Point, plaintext: &[u8]) -> Vec<
     // Squeeze a challenge scalar.
     let r = sres.squeeze_scalar();
 
-    // Calculate the proof scalar.
-    let s = {
-        let y = r + d_s;
-        if y == Scalar::zero() {
-            // If the proof scalar is undefined, try again with a different commitment scalar.
-            return encrypt(d_s, q_s, q_r, plaintext);
-        }
-        x * y.invert()
-    };
+    // Calculate the proof scalar. If the proof scalar is undefined, try again with a different
+    // random commitment scalar.
+    let s = x * (r + d_s).invert();
+    if s == Scalar::zero() {
+        return encrypt(d_s, q_s, q_r, plaintext);
+    }
 
     // Mask the challenge scalar with the top 4 bits of the mask byte.
     out.extend(mask_scalar(r, mask & 0xF0));
