@@ -37,7 +37,7 @@ pub fn encrypt(d_s: &Scalar, q_s: &Point, q_r: &Point, plaintext: &[u8]) -> Vec<
     });
 
     // Re-key with the shared secret.
-    let k = q_r * x;
+    let k = x * q_r;
     sres.rekey(&k.to_canonical_encoding());
 
     // Encrypt the plaintext.
@@ -99,7 +99,7 @@ pub fn decrypt(d_r: &Scalar, q_r: &Point, q_s: &Point, ciphertext: &[u8]) -> Opt
     sres.absorb(&[mr | (ms >> 4)]);
 
     // Re-key with the shared secret.
-    let k = (q_s + (&G * &r)) * (d_r * s);
+    let k = (d_r * s) * ((&r * &G) + q_s);
     sres.rekey(&k.to_canonical_encoding());
 
     // Decrypt the ciphertext.
@@ -207,10 +207,10 @@ mod tests {
 
     fn setup() -> (Scalar, Point, Scalar, Point) {
         let d_s = Scalar::random(&mut rand::thread_rng());
-        let q_s = &G * &d_s;
+        let q_s = &d_s * &G;
 
         let d_r = Scalar::random(&mut rand::thread_rng());
-        let q_r = &G * &d_r;
+        let q_r = &d_r * &G;
 
         (d_s, q_s, d_r, q_r)
     }

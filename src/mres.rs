@@ -34,7 +34,7 @@ where
     // Derive a random ephemeral key pair from the duplex's current state, the sender's private key,
     // and a random nonce.
     let d_e = mres.hedge(d_s, Duplex::squeeze_scalar);
-    let q_e = &G * &d_e;
+    let q_e = &d_e * &G;
 
     // Derive a random DEK from the duplex's current state, the sender's private key, and a random
     // nonce.
@@ -307,10 +307,10 @@ mod tests {
     #[test]
     fn round_trip() -> Result<()> {
         let d_s = Scalar::random(&mut rand::thread_rng());
-        let q_s = &G * &d_s;
+        let q_s = &d_s * &G;
 
         let d_r = Scalar::random(&mut rand::thread_rng());
-        let q_r = &G * &d_r;
+        let q_r = &d_r * &G;
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
@@ -333,10 +333,10 @@ mod tests {
     #[test]
     fn multi_block_message() -> Result<()> {
         let d_s = Scalar::random(&mut rand::thread_rng());
-        let q_s = &G * &d_s;
+        let q_s = &d_s * &G;
 
         let d_r = Scalar::random(&mut rand::thread_rng());
-        let q_r = &G * &d_r;
+        let q_r = &d_r * &G;
 
         let message = [69u8; 65 * 1024];
         let mut src = Cursor::new(message);
@@ -359,10 +359,10 @@ mod tests {
     #[test]
     fn split_sig() -> Result<()> {
         let d_s = Scalar::random(&mut rand::thread_rng());
-        let q_s = &G * &d_s;
+        let q_s = &d_s * &G;
 
         let d_r = Scalar::random(&mut rand::thread_rng());
-        let q_r = &G * &d_r;
+        let q_r = &d_r * &G;
 
         let message = [69u8; 32 * 1024 - 37];
         let mut src = Cursor::new(message);
@@ -385,10 +385,10 @@ mod tests {
     #[test]
     fn flip_every_bit() -> Result<()> {
         let d_s = Scalar::random(&mut rand::thread_rng());
-        let q_s = &G * &d_s;
+        let q_s = &d_s * &G;
 
         let d_r = Scalar::random(&mut rand::thread_rng());
-        let q_r = &G * &d_r;
+        let q_r = &d_r * &G;
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);

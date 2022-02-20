@@ -35,7 +35,7 @@ pub fn derive_scalar(d: &Scalar, key_id: &str) -> Scalar {
 /// Derive a point from another point using the given key ID.
 #[must_use]
 pub fn derive_point(q: &Point, key_id: &str) -> Point {
-    q + (&G * &derive_scalar(&Scalar::zero(), key_id))
+    q + (&derive_scalar(&Scalar::zero(), key_id) * &G)
 }
 
 const KEY_ID_DELIM: char = '/';
@@ -59,7 +59,7 @@ mod tests {
     #[test]
     fn point_derivation() {
         let d = Scalar::random(&mut rand::thread_rng());
-        let q = &G * &d;
+        let q = &d * &G;
 
         let q1 = derive_point(&q, "/one");
         let q2 = derive_point(&q1, "/two");

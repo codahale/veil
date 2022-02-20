@@ -109,7 +109,7 @@ impl SecretKey {
     #[must_use]
     fn root(&self) -> PrivateKey {
         let d = scaldf::derive_root(&self.r);
-        let q = &G * &d;
+        let q = &d * &G;
         PrivateKey { d, pk: PublicKey { q } }
     }
 }
@@ -214,7 +214,7 @@ impl PrivateKey {
     #[must_use]
     pub fn derive(&self, key_id: &str) -> PrivateKey {
         let d = scaldf::derive_scalar(&self.d, key_id);
-        let q = &G * &d;
+        let q = &d * &G;
         PrivateKey { d, pk: PublicKey { q } }
     }
 }

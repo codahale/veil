@@ -47,7 +47,7 @@ where
         let k = schnorr.hedge(d, Duplex::squeeze_scalar);
 
         // Calculate and encrypt the commitment point.
-        let i = &G * &k;
+        let i = &k * &G;
         sig.extend(schnorr.encrypt(&i.to_canonical_encoding()));
 
         // Squeeze a challenge scalar.
@@ -120,7 +120,7 @@ impl Verifier {
 
         // Return true iff I == sG - rQ. Use the variable-time implementation here because the
         // verifier has no secret data.
-        Ok(i == Point::vartime_double_scalar_mul_basepoint(&r, &-q, &s))
+        Ok(i == Point::vartime_double_scalar_mul_basepoint(&r, &-q, &s /*G*/))
     }
 }
 
@@ -144,7 +144,7 @@ mod tests {
     #[test]
     fn sign_and_verify() -> Result<()> {
         let d = Scalar::random(&mut rand::thread_rng());
-        let q = &G * &d;
+        let q = &d * &G;
 
         let mut signer = Signer::new(io::sink());
         assert_eq!(22, signer.write(b"this is a message that")?, "invalid write count");
@@ -170,7 +170,7 @@ mod tests {
     #[test]
     fn bad_message() -> Result<()> {
         let d = Scalar::random(&mut rand::thread_rng());
-        let q = &G * &d;
+        let q = &d * &G;
 
         let mut signer = Signer::new(io::sink());
         signer.write_all(b"this is a message that")?;
@@ -196,7 +196,7 @@ mod tests {
     #[test]
     fn bad_key() -> Result<()> {
         let d = Scalar::random(&mut rand::thread_rng());
-        let q = &G * &d;
+        let q = &d * &G;
 
         let mut signer = Signer::new(io::sink());
         signer.write_all(b"this is a message that")?;
@@ -222,7 +222,7 @@ mod tests {
     #[test]
     fn bad_sig() -> Result<()> {
         let d = Scalar::random(&mut rand::thread_rng());
-        let q = &G * &d;
+        let q = &d * &G;
 
         let mut signer = Signer::new(io::sink());
         signer.write_all(b"this is a message that")?;

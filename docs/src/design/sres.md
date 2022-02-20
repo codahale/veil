@@ -88,7 +88,7 @@ is used to re-key the duplex:
 $$
 r \gets S_0 \land \lnot(2^8 \ll 252) \bmod \ell \\
 s \gets S_1 \land \lnot(2^8 \ll 252) \bmod \ell \\
-K \gets [{d_R}s] (Q_S+[r]G) \\
+K \gets [{d_R}s] ([r]G+Q_S) \\
 \Cyclist{K} \\
 $$
 
