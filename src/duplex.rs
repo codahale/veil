@@ -190,6 +190,34 @@ mod tests {
     use super::*;
 
     #[test]
+    fn ind_cpa_round_trip() {
+        let plaintext = b"this is an example plaintext";
+
+        let mut duplex = Duplex::new("test");
+        duplex.rekey(b"this is a new key");
+        duplex.absorb(b"this is some more data");
+        duplex.ratchet();
+        let ciphertext = duplex.encrypt(plaintext);
+
+        let mut duplex = Duplex::new("test");
+        duplex.rekey(b"this is a new key");
+        duplex.absorb(b"this is some more data");
+        duplex.ratchet();
+        assert_eq!(plaintext.to_vec(), duplex.decrypt(&ciphertext));
+    }
+
+    #[test]
+    fn ind_cca_round_trip() {
+        let plaintext = b"this is an example plaintext";
+
+        let mut duplex = Duplex::new("test");
+        let ciphertext = duplex.seal(plaintext);
+
+        let mut duplex = Duplex::new("test");
+        assert_eq!(Some(plaintext.to_vec()), duplex.unseal(&ciphertext));
+    }
+
+    #[test]
     fn absorb_writer() {
         let duplex = Duplex::new("ok");
         let mut w = duplex.absorb_stream(Cursor::new(Vec::new()));
