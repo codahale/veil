@@ -27,12 +27,11 @@ $$
 d' \gets d + \sum_{i=0}^n{\invoke{veil.scaldf.label}{Derive}{L_i}}
 $$
 
-
 This is used to provide hierarchical key derivation. Private keys are created using hierarchical IDs like 
-`/friends/alice`, where the secret key is mapped to a private key via the label `/`, which is then mapped to a private
-key via the label `friends`, which is then mapped to the final private key via the label `alice`.
+`/friends/alice`, where the secret key is mapped to a private key via `veil.scaldf.root`, which is then mapped to an
+intermediate private key via the label `friends`, which is then mapped to the final private key via the label `alice`.
 
-To derive a public key from a public key $Q$ and key ID label squence $L_0..L_n$, the label scalars $r_0..r_i$ are
+To derive a public key $Q'$ from a public key $Q$ and key ID label squence $L_0..L_n$, the label scalars $r_0..r_i$ are
 summed and multiplied by the curve's generator $G$ which is then added to the public key point:
 
 $$
