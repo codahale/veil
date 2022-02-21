@@ -11,27 +11,33 @@ $$
 d \gets \SqueezeScalar \\
 $$
 
-To derive a private key $d_n$ from a root scalar $d_0$ and key ID label squence $L_0..L_n$, a series of duplexes
-initialized with a constant key are used to absorb label values $L_i$ and derive delta scalars $r_i$ from output:
+To derive a label scalar $r$ from a label $L$, a duplex initialized with a constant key is used to absorb $L$ and
+squeeze a scalar value:
 
 $$
-\dots \\
 \Cyclist{\literal{veil.scaldf.label}} \\
-\Absorb{L_i} \\
-r_i \gets \SqueezeScalar \\
-d_i \gets d_{i-1} + r_i \\
-\dots \\
-d_n \gets d_{n-1} + r_{n-1} \\
+\Absorb{L} \\
+r \gets \SqueezeScalar \\
 $$
 
-This is used iteratively to provide hierarchical key derivation. Private keys are created using hierarchical IDs
-like `/friends/alice`, where the secret key is mapped to a private key via the label `/`, which is then mapped to a
-private key via the label `friends`, which is then mapped to the final private key via the label `alice`.
+To derive a private key $d'$ from a root scalar $d$ and key ID label squence $L_0..L_n$, the label scalars $r_0..r_n$
+are summed and added to $d$:
 
-To derive a public key from a public key $Q$, the delta scalars $r_0..r_i$ are summed and multiplied by the curve's
-generator $G$ which is then added to the public key point:
+$$
+d' \gets d + \sum_{i=0}^n{\invoke{veil.scaldf.label}{Derive}{L_i}}
+$$
 
-$$ Q' \gets Q + [\textstyle\sum_{i=0}^nr_i]G $$
+
+This is used to provide hierarchical key derivation. Private keys are created using hierarchical IDs like 
+`/friends/alice`, where the secret key is mapped to a private key via the label `/`, which is then mapped to a private
+key via the label `friends`, which is then mapped to the final private key via the label `alice`.
+
+To derive a public key from a public key $Q$ and key ID label squence $L_0..L_n$, the label scalars $r_0..r_i$ are
+summed and multiplied by the curve's generator $G$ which is then added to the public key point:
+
+$$
+Q' \gets Q + [\textstyle\sum_{i=0}^n{\invoke{veil.scaldf.label}{Derive}{L_i}}]G
+$$
 
 ## Disposable Keys
 
