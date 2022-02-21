@@ -141,7 +141,7 @@ where
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the verifier.
     let (dek, q_e) = match decrypt_header(reader, &mut mres_writer, d_r, q_r, q_s)? {
-        Some((dek, q_e)) => (dek, q_e),
+        Some(header) => header,
         None => return Ok((false, 0)),
     };
 
