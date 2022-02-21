@@ -108,7 +108,7 @@ impl SecretKey {
 
     #[must_use]
     fn root(&self) -> PrivateKey {
-        let d = scaldf::derive_root(&self.r);
+        let d = scaldf::root_scalar(&self.r);
         let q = &d * &G;
         PrivateKey { d, pk: PublicKey { q } }
     }
@@ -213,7 +213,7 @@ impl PrivateKey {
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     #[must_use]
     pub fn derive(&self, key_id: &str) -> PrivateKey {
-        let d = scaldf::derive_scalar(&self.d, key_id);
+        let d = self.d + scaldf::label_scalar(key_id);
         let q = &d * &G;
         PrivateKey { d, pk: PublicKey { q } }
     }
@@ -288,7 +288,7 @@ impl PublicKey {
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     #[must_use]
     pub fn derive(&self, key_id: &str) -> PublicKey {
-        PublicKey { q: scaldf::derive_point(&self.q, key_id) }
+        PublicKey { q: self.q + (&scaldf::label_scalar(key_id) * &G) }
     }
 }
 
