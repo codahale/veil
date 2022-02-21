@@ -331,6 +331,87 @@ mod tests {
     }
 
     #[test]
+    fn bad_sender_public_key() -> Result<()> {
+        let d_s = Scalar::random(&mut rand::thread_rng());
+        let q_s = &d_s * &G;
+
+        let d_r = Scalar::random(&mut rand::thread_rng());
+        let q_r = &d_r * &G;
+
+        let message = b"this is a thingy";
+        let mut src = Cursor::new(message);
+        let mut dst = Cursor::new(Vec::new());
+
+        let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
+        assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
+
+        let q_s = Point::random(&mut rand::thread_rng());
+
+        let mut src = Cursor::new(dst.into_inner());
+        let mut dst = Cursor::new(Vec::new());
+
+        let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
+        assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
+        assert!(!verified, "invalid message not rejected");
+
+        Ok(())
+    }
+
+    #[test]
+    fn bad_recipient_public_key() -> Result<()> {
+        let d_s = Scalar::random(&mut rand::thread_rng());
+        let q_s = &d_s * &G;
+
+        let d_r = Scalar::random(&mut rand::thread_rng());
+        let q_r = &d_r * &G;
+
+        let message = b"this is a thingy";
+        let mut src = Cursor::new(message);
+        let mut dst = Cursor::new(Vec::new());
+
+        let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
+        assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
+
+        let q_r = Point::random(&mut rand::thread_rng());
+
+        let mut src = Cursor::new(dst.into_inner());
+        let mut dst = Cursor::new(Vec::new());
+
+        let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
+        assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
+        assert!(!verified, "invalid message not rejected");
+
+        Ok(())
+    }
+
+    #[test]
+    fn bad_recipient_private_key() -> Result<()> {
+        let d_s = Scalar::random(&mut rand::thread_rng());
+        let q_s = &d_s * &G;
+
+        let d_r = Scalar::random(&mut rand::thread_rng());
+        let q_r = &d_r * &G;
+
+        let message = b"this is a thingy";
+        let mut src = Cursor::new(message);
+        let mut dst = Cursor::new(Vec::new());
+
+        let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
+        assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
+
+        let d_r = Scalar::random(&mut rand::thread_rng());
+
+        let mut src = Cursor::new(dst.into_inner());
+        let mut dst = Cursor::new(Vec::new());
+
+        let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
+        assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
+        assert!(!verified, "invalid message not rejected");
+
+        Ok(())
+    }
+
+    #[test]
     fn multi_block_message() -> Result<()> {
         let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &d_s * &G;
