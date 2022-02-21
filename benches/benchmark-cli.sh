@@ -3,12 +3,12 @@ set -euo pipefail
 IFS=$'\n\t'
 
 # build the current state as release
-cargo build --release
+cargo build --release --all-features
 cp target/release/veil target/release/veil-experimental
 
 # stash the current state and build the last commit as releast
 git stash
-cargo build --release
+cargo build --release --all-features
 cp target/release/veil target/release/veil-control
 
 # create a secret key with minimal KDF expansion
