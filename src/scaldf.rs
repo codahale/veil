@@ -20,16 +20,20 @@ pub fn derive_root(r: &[u8]) -> Scalar {
 /// Derive a scalar from another scalar using the given key ID.
 #[must_use]
 pub fn derive_scalar(d: &Scalar, key_id: &str) -> Scalar {
-    key_id.trim_matches(KEY_ID_DELIM).split(KEY_ID_DELIM).fold(*d, |d, label| {
-        // Initialize the duplex.
-        let mut label_df = Duplex::new("veil.scaldf.label");
+    d + key_id
+        .trim_matches(KEY_ID_DELIM)
+        .split(KEY_ID_DELIM)
+        .map(|label| {
+            // Initialize the duplex.
+            let mut label_df = Duplex::new("veil.scaldf.label");
 
-        // Absorb the label.
-        label_df.absorb(label.as_bytes());
+            // Absorb the label.
+            label_df.absorb(label.as_bytes());
 
-        // Squeeze a scalar.
-        d + label_df.squeeze_scalar()
-    })
+            // Squeeze a scalar.
+            label_df.squeeze_scalar()
+        })
+        .sum::<Scalar>()
 }
 
 /// Derive a point from another point using the given key ID.
