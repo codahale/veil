@@ -400,6 +400,16 @@ mod tests {
         Ok(())
     }
 
+    macro_rules! assert_failed {
+        ($action: expr) => {
+            match $action {
+                Ok(_) => panic!("decrypted but shouldn't have"),
+                Err(DecryptionError::InvalidCiphertext) => Ok(()),
+                Err(e) => Err(e),
+            }
+        };
+    }
+
     #[test]
     fn bad_sender_key() -> Result<(), DecryptionError> {
         let sk_a = SecretKey::new();
@@ -418,7 +428,7 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert_failed_decryption(priv_b.decrypt(&mut src, &mut dst, &priv_b.public_key()))
+        assert_failed!(priv_b.decrypt(&mut src, &mut dst, &priv_b.public_key()))
     }
 
     #[test]
@@ -439,7 +449,7 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert_failed_decryption(priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()))
+        assert_failed!(priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()))
     }
 
     #[test]
@@ -463,7 +473,7 @@ mod tests {
         let mut src = Cursor::new(ciphertext);
         let mut dst = Cursor::new(Vec::new());
 
-        assert_failed_decryption(priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()))
+        assert_failed!(priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()))
     }
 
     #[test]
@@ -479,15 +489,5 @@ mod tests {
 
         let mut src = Cursor::new(message);
         pub_a.verify(&mut src, &sig)
-    }
-
-    fn assert_failed_decryption(
-        result: Result<u64, DecryptionError>,
-    ) -> Result<(), DecryptionError> {
-        match result {
-            Ok(_) => panic!("decrypted but shouldn't have"),
-            Err(DecryptionError::InvalidCiphertext) => Ok(()),
-            Err(e) => Err(e),
-        }
     }
 }
