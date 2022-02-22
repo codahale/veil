@@ -3,7 +3,6 @@
 use std::convert::TryInto;
 use std::io::{self, Read, Result, Write};
 
-use rand::prelude::ThreadRng;
 use rand::RngCore;
 
 use crate::constants::{POINT_LEN, U64_LEN};
@@ -60,7 +59,8 @@ where
     }
 
     // Add random padding to the end of the headers.
-    io::copy(&mut RngReader(rand::thread_rng()).take(padding), &mut headers_and_padding)?;
+    let rng: Box<dyn RngCore> = Box::new(rand::thread_rng());
+    io::copy(&mut rng.take(padding), &mut headers_and_padding)?;
 
     // Unwrap the headers and padding writer.
     let (mut mres, mut signer, header_len) = headers_and_padding.into_inner()?;
@@ -288,15 +288,6 @@ const HEADER_LEN: usize = DEK_LEN + POINT_LEN + U64_LEN;
 const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
 const BLOCK_LEN: usize = 32 * 1024;
 const ENC_BLOCK_LEN: usize = BLOCK_LEN + TAG_LEN;
-
-struct RngReader(ThreadRng);
-
-impl Read for RngReader {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        self.0.fill_bytes(buf);
-        Ok(buf.len())
-    }
-}
 
 #[cfg(test)]
 mod tests {
