@@ -272,8 +272,8 @@ fn decode_header(header: &[u8]) -> Option<(Vec<u8>, Point, u64)> {
     }
 
     // Split header into components.
-    let (dek, header) = header.split_at(DEK_LEN);
-    let (q_e, msg_offset) = header.split_at(POINT_LEN);
+    let (dek, q_e) = header.split_at(DEK_LEN);
+    let (q_e, msg_offset) = q_e.split_at(POINT_LEN);
 
     // Decode components.
     let dek = dek.to_vec();
