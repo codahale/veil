@@ -2,22 +2,29 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+# remove the old versions, if any
+rm -f target/release/veil-experiment
+rm -f target/release/veil-control
+
 # build the current state as release
 cargo build --release --all-features
-cp target/release/veil target/release/veil-experimental
+cp target/release/veil target/release/veil-experiment
 
 # stash the current state and build the last commit as releast
 git stash
+
 cargo build --release --all-features
 cp target/release/veil target/release/veil-control
 
-# create a secret key with minimal KDF expansion
-./target/release/veil secret-key /tmp/secret-key --passphrase-file=README.md --space=1 --time=1
+# create a secret key with minimal KDF expansion, using both commands to make sure they work
+./target/release/veil-control secret-key /tmp/secret-key --passphrase-file=README.md --space=1 --time=1
+./target/release/veil-experiment secret-key /tmp/secret-key --passphrase-file=README.md --space=1 --time=1
 
 # benchmark encrypting a 100MiB file for 10 recipients
-hyperfine --warmup 10 \
+hyperfine --warmup 10 -S /bin/sh \
   -n control 'head -c 104857600 /dev/zero | ./target/release/veil-control encrypt --passphrase-file=README.md /tmp/secret-key /one/two - /dev/null H291qG87hgrGkroZiPkFU64i1LBAk2t61LJvZfxqbV9M --fakes 9' \
-  -n experimental 'head -c 104857600 /dev/zero | ./target/release/veil-experimental encrypt --passphrase-file=README.md /tmp/secret-key /one/two - /dev/null H291qG87hgrGkroZiPkFU64i1LBAk2t61LJvZfxqbV9M --fakes 9'
+  -n experimental 'head -c 104857600 /dev/zero | ./target/release/veil-experiment encrypt --passphrase-file=README.md /tmp/secret-key /one/two - /dev/null H291qG87hgrGkroZiPkFU64i1LBAk2t61LJvZfxqbV9M --fakes 9' \
+  ;
 
 # restore the working set
 git stash pop
