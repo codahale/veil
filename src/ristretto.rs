@@ -1,8 +1,9 @@
 //! Utility functions for Ristretto operations.
 
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoBasepointTable, RistrettoPoint};
+
 /// A scalar on the Ristretto255 curve.
-pub use curve25519_dalek::scalar::Scalar;
+pub type Scalar = curve25519_dalek::scalar::Scalar;
 
 /// A point on the Ristretto255 curve.
 pub type Point = RistrettoPoint;
