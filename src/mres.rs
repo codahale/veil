@@ -133,16 +133,16 @@ where
     let verifier = Verifier::new();
 
     // Absorb all encrypted headers and padding as they're read.
-    let mut mres_writer = mres.absorb_stream(verifier);
+    let mut mres = mres.absorb_stream(verifier);
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the verifier.
-    let (dek, q_e) = match decrypt_header(reader, &mut mres_writer, d_r, q_r, q_s)? {
+    let (dek, q_e) = match decrypt_header(reader, &mut mres, d_r, q_r, q_s)? {
         Some(header) => header,
         None => return Ok((false, 0)),
     };
 
     // Unwrap the received cleartext writer.
-    let (mut mres, mut verifier, _) = mres_writer.into_inner()?;
+    let (mut mres, mut verifier, _) = mres.into_inner()?;
 
     // Use the DEK to key the duplex.
     mres.rekey(&dek);
