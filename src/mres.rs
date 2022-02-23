@@ -55,7 +55,7 @@ where
     }
 
     // Add random padding to the end of the headers.
-    let rng: Box<dyn RngCore> = Box::new(rand::thread_rng());
+    let rng: &mut dyn RngCore = &mut rand::thread_rng();
     io::copy(&mut rng.take(padding), &mut headers_and_padding)?;
 
     // Unwrap the headers and padding writer.
