@@ -26,10 +26,14 @@ environments.
 
 ### Xoodyak
 
-Xoodyak is an advanced cryptographic [duplex][duplex] based on a strong permutation, Xoodoo. Duplexes are a relatively
-new cryptographic primitive which have security properties which reduce to the properties of the [sponge][sponge], which
-themselves reduce to the strength of the underlying permutation. In Xoodyak's case, the Xoodoo permutation is based on
-Keccak-_p_, the permutation underlying SHA3.
+Xoodyak is a cryptographic [duplex][duplex], a relatively new cryptographic primitive that provides symmetric-key
+confidentiality, integrity, and authentication via a single object. Duplexes offer a way to replace complex, ad-hoc
+constructions combining encryption algorithms, cipher modes, AEADs, MACs, and hash algorithms using a single primitive.
+
+Duplexes have security properties which reduce to the properties of the cryptographic [sponge][sponge], which themselves
+reduce to the strength of the underlying permutation. Xoodyak is based on the Xoodoo permutation, an adaptation of the
+Keccak-_p_ permutation (upon which SHA-3 is built) for lower-resource environments. While Xoodyak is not standardized,
+it is currently a finalist in the NIST Lightweight Cryptography standardization process.
 
 Like Ristretto255, it targets a 128-bit security level, lends itself to constant-time implementations, and can run in
 constrained environments.
