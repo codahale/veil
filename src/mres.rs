@@ -46,20 +46,20 @@ where
     let signer = Signer::new(writer);
 
     // Absorb all encrypted headers and padding as they're read.
-    let mut headers_and_padding = mres.absorb_stream(signer);
+    let mut mres = mres.absorb_stream(signer);
 
     // For each recipient, encrypt a copy of the header with veil.sres.
     for q_r in q_rs {
         let ciphertext = sres::encrypt(d_s, q_s, q_r, &header);
-        headers_and_padding.write_all(&ciphertext)?;
+        mres.write_all(&ciphertext)?;
     }
 
     // Add random padding to the end of the headers.
     let rng: &mut dyn RngCore = &mut rand::thread_rng();
-    io::copy(&mut rng.take(padding), &mut headers_and_padding)?;
+    io::copy(&mut rng.take(padding), &mut mres)?;
 
     // Unwrap the headers and padding writer.
-    let (mut mres, mut signer, header_len) = headers_and_padding.into_inner()?;
+    let (mut mres, mut signer, header_len) = mres.into_inner()?;
 
     // Use the DEK to key the duplex.
     mres.rekey(&dek);
