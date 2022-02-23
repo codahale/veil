@@ -101,23 +101,25 @@ impl Verifier {
         // Split the signature into parts.
         let (i, s) = sig.split_at(POINT_LEN);
 
-        // Decrypt and decode the commitment point.
+        // Decrypt the commitment point.
         let i = schnorr.decrypt(i);
-        let i = Point::from_canonical_encoding(&i);
 
         // Re-derive the challenge scalar.
         let r = schnorr.squeeze_scalar();
 
-        // Decrypt and decode the proof scalar.
+        // Decrypt the proof scalar.
         let s = schnorr.decrypt(s);
-        let s = Scalar::from_canonical_encoding(&s);
 
-        // Return true iff I and s are well-formed and I == [s]G - [r]Q. Use the variable-time
-        // implementation here because the verifier has no secret data.
-        Ok(i.zip(s).map_or(false, |(i, s)| {
+        // Return true iff I == [s]G - [r]Q. Use the variable-time implementation here because the
+        // verifier has no secret data. Compare the encoded signature point to the canonical
+        // encoding of I' to avoid malleability issues.
+        Ok(if let Some(s) = Scalar::from_canonical_encoding(&s) {
             // I = [r](-Q) + [s]G = [s]G - [r]Q
             i == Point::vartime_double_scalar_mul_basepoint(&r, &-q, &s /*G*/)
-        }))
+                .to_canonical_encoding()
+        } else {
+            false
+        })
     }
 }
 
