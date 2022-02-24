@@ -6,7 +6,7 @@
 \Encrypt:\text{Encrypt}(#1)
 \Decrypt:\text{Decrypt}(#1)
 \Ratchet:\text{Ratchet}()
-\SqueezeScalar:\text{SqueezeKey}(32) \bmod \ell
+\SqueezeScalar:\text{SqueezeKey}(64) \bmod \ell
 \rgets:\stackrel{R}{\gets}
 \check:\stackrel{?}{=}
 \allbits:\mathbb{Z}_{2^{#1}}
