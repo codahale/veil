@@ -81,9 +81,7 @@ I' \gets [s]G - [r]Q \\
 I' \check I \\
 $$
 
-The signature is valid if-and-only-if $I' = I$. (Technically, `veil.schnorr` compares the encoded form of $I$ received
-in the signature with the canonically-encoded form of $I'$, which eliminates
-[malleability vulnerabilities][reconstruct].)
+The signature is valid if-and-only-if $I' = I$.
 
 ## Security, Forgeability, and Malleability
 
@@ -149,5 +147,3 @@ attacks against purely deterministic signature schemes.
 [hedge]: https://eprint.iacr.org/2019/956.pdf
 
 [strobe]: https://eprint.iacr.org/2017/003.pdf
-
-[reconstruct]: https://buttondown.email/cryptography-dispatches/archive/cryptography-dispatches-reconstruct-instead-of/
