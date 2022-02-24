@@ -109,13 +109,13 @@ impl Duplex {
     #[must_use]
     pub fn seal(&mut self, plaintext: &[u8]) -> Vec<u8> {
         // Allocate output buffer.
-        let mut out = Vec::with_capacity(plaintext.len() + TAG_LEN);
+        let mut out = vec![0u8; plaintext.len() + TAG_LEN];
 
         // Encrypt plaintext.
-        out.extend(self.encrypt(plaintext));
+        self.state.encrypt(&mut out, plaintext).expect("unable to encrypt");
 
         // Generate authentication tag.
-        out.extend(self.squeeze(TAG_LEN));
+        self.state.squeeze(&mut out[plaintext.len()..]);
 
         // Return ciphertext and tag.
         out
