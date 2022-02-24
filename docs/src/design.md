@@ -80,7 +80,7 @@ Both Veil messages and signatures are entirely indistinguishable from random noi
 no plaintext ristretto255 points, no plaintext framing or padding, and have entirely arbitrary lengths. This makes them
 ideal for distribution via steganographic channels and very resistant to traffic analysis.
 
-[r255]: https://ristretto.group
+[r255]: https://htmlpreview.github.io/?https://github.com/FiloSottile/draft-irtf-cfrg-ristretto255/blob/master/draft-irtf-cfrg-ristretto255-decaf448.html
 
 [r255-why]: https://ristretto.group/why_ristretto.html
 
