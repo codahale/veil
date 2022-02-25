@@ -69,10 +69,10 @@ pub use self::veil::*;
 
 mod constants;
 mod duplex;
+mod hkd;
 mod mres;
 mod pbenc;
 mod ristretto;
-mod scaldf;
 mod schnorr;
 mod sres;
 mod veil;

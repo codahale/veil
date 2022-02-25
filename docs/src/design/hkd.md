@@ -19,7 +19,7 @@ To derive a private key $d'$ from another private key $d$ with a label $L$, a du
 used to absorb $[d]G$ and $L$ and squeeze a scalar value:
 
 $$
-\Cyclist{\literal{veil.scaldf.hkd}} \\
+\Cyclist{\literal{veil.hkd.root}} \\
 \Absorb{[d]G} \\
 \Absorb{L} \\
 r \gets \SqueezeScalar \\
@@ -32,7 +32,7 @@ To derive a public key $Q'$ from another public key $Q$ with a label $L$, a dupl
 used to absorb $Q$ and $L$ and squeeze a scalar value:
 
 $$
-\Cyclist{\literal{veil.scaldf.hkd}} \\
+\Cyclist{\literal{veil.hkd.label}} \\
 \Absorb{Q} \\
 \Absorb{L} \\
 r \gets \SqueezeScalar \\
