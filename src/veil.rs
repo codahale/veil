@@ -3,7 +3,7 @@
 use std::convert::TryInto;
 use std::fmt::{Debug, Formatter};
 use std::io::{BufWriter, Read, Write};
-use std::str::FromStr;
+use std::str::{FromStr, Split};
 use std::{fmt, io, iter};
 
 use rand::prelude::SliceRandom;
@@ -213,13 +213,10 @@ impl PrivateKey {
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     #[must_use]
     pub fn derive(&self, key_id: &str) -> PrivateKey {
-        let (d, q) = key_id.trim_matches(KEY_ID_DELIM).split(KEY_ID_DELIM).fold(
-            (self.d, self.pk.q),
-            |(mut d, q), label| {
-                d += scaldf::label_scalar(&q, label);
-                (d, &d * &G)
-            },
-        );
+        let (d, q) = key_path(key_id).fold((self.d, self.pk.q), |(mut d, q), label| {
+            d += scaldf::label_scalar(&q, label);
+            (d, &d * &G)
+        });
 
         PrivateKey { d, pk: PublicKey { q } }
     }
@@ -294,7 +291,7 @@ impl PublicKey {
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     #[must_use]
     pub fn derive(&self, key_id: &str) -> PublicKey {
-        let q = key_id.trim_matches(KEY_ID_DELIM).split(KEY_ID_DELIM).fold(self.q, |q, label| {
+        let q = key_path(key_id).fold(self.q, |q, label| {
             let d = scaldf::label_scalar(&q, label);
             q + &d * &G
         });
@@ -322,7 +319,11 @@ impl FromStr for PublicKey {
     }
 }
 
-const KEY_ID_DELIM: char = '/';
+#[inline]
+fn key_path(key_id: &str) -> Split<'_, char> {
+    const KEY_ID_DELIM: char = '/';
+    key_id.trim_matches(KEY_ID_DELIM).split(KEY_ID_DELIM)
+}
 
 #[cfg(test)]
 mod tests {
