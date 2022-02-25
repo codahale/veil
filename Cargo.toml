@@ -8,7 +8,7 @@ include = ["src/**/*", "LICENSE-MIT", "LICENSE-APACHE", "README.md"]
 description = "Stupid crypto tricks."
 
 [features]
-default = []
+default = ["cli"]
 cli = ["anyhow", "clap", "clap_complete", "clio", "mimalloc", "rpassword"]
 
 [dependencies]
