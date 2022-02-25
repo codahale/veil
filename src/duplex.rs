@@ -1,12 +1,13 @@
 //! Implements a cryptographic duplex using Xoodyak.
 
-use crate::ristretto::Scalar;
 use std::io;
 use std::io::Write;
 
 use rand::Rng;
 use subtle::ConstantTimeEq;
 use xoodyak::{XoodyakCommon, XoodyakKeyed};
+
+use crate::ristretto::Scalar;
 
 /// The length of an authentication tag in bytes.
 pub const TAG_LEN: usize = 16;

@@ -95,7 +95,7 @@ struct PublicKeyArgs {
     key_id: String,
 
     /// The path to the public key file or '-' for stdout.
-    #[clap(parse(try_from_os_str = output_from_os_str), value_hint = ValueHint::FilePath, default_value="-")]
+    #[clap(parse(try_from_os_str = output_from_os_str), value_hint = ValueHint::FilePath, default_value = "-")]
     output: Output,
 
     /// The path to read the passphrase from.
@@ -122,7 +122,7 @@ struct DeriveKeyArgs {
     sub_key_id: String,
 
     /// The path to the public key file or '-' for stdout.
-    #[clap(parse(try_from_os_str = output_from_os_str), value_hint = ValueHint::FilePath, default_value="-")]
+    #[clap(parse(try_from_os_str = output_from_os_str), value_hint = ValueHint::FilePath, default_value = "-")]
     output: Output,
 }
 
@@ -238,7 +238,7 @@ struct SignArgs {
     message: Input,
 
     /// The path to the signature file or '-' for stdout.
-    #[clap(parse(try_from_os_str = output_from_os_str), value_hint = ValueHint::FilePath, default_value="-")]
+    #[clap(parse(try_from_os_str = output_from_os_str), value_hint = ValueHint::FilePath, default_value = "-")]
     output: Output,
 
     /// The path to read the passphrase from.
