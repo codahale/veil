@@ -1,4 +1,3 @@
-use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -95,7 +94,7 @@ struct PublicKeyArgs {
     key_id: String,
 
     /// The path to the public key file or '-' for stdout.
-    #[clap(parse(try_from_os_str = output_from_os_str), value_hint = ValueHint::FilePath, default_value = "-")]
+    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath, default_value = "-")]
     output: Output,
 
     /// The path to read the passphrase from.
@@ -122,7 +121,7 @@ struct DeriveKeyArgs {
     sub_key_id: String,
 
     /// The path to the public key file or '-' for stdout.
-    #[clap(parse(try_from_os_str = output_from_os_str), value_hint = ValueHint::FilePath, default_value = "-")]
+    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath, default_value = "-")]
     output: Output,
 }
 
@@ -145,11 +144,11 @@ struct EncryptArgs {
     key_id: String,
 
     /// The path to the input file or '-' for stdin.
-    #[clap(parse(try_from_os_str = input_from_os_str), value_hint = ValueHint::FilePath)]
+    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
     plaintext: Input,
 
     /// The path to the output file or '-' for stdout.
-    #[clap(parse(try_from_os_str = output_from_os_str), value_hint = ValueHint::FilePath)]
+    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
     ciphertext: Output,
 
     /// The recipient's public key.
@@ -195,11 +194,11 @@ struct DecryptArgs {
     key_id: String,
 
     /// The path to the input file or '-' for stdin.
-    #[clap(parse(try_from_os_str = input_from_os_str), value_hint = ValueHint::FilePath)]
+    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
     ciphertext: Input,
 
     /// The path to the output file or '-' for stdout.
-    #[clap(parse(try_from_os_str = output_from_os_str), value_hint = ValueHint::FilePath)]
+    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
     plaintext: Output,
 
     /// The sender's public key.
@@ -234,11 +233,11 @@ struct SignArgs {
     key_id: String,
 
     /// The path to the message file or '-' for stdin.
-    #[clap(parse(try_from_os_str = input_from_os_str), value_hint = ValueHint::FilePath)]
+    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
     message: Input,
 
     /// The path to the signature file or '-' for stdout.
-    #[clap(parse(try_from_os_str = output_from_os_str), value_hint = ValueHint::FilePath, default_value = "-")]
+    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath, default_value = "-")]
     output: Output,
 
     /// The path to read the passphrase from.
@@ -263,7 +262,7 @@ struct VerifyArgs {
     public_key: PublicKey,
 
     /// The path to the message file or '-' for stdin.
-    #[clap(parse(try_from_os_str = input_from_os_str), value_hint = ValueHint::FilePath)]
+    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
     message: Input,
 
     /// The signature of the message.
@@ -309,12 +308,4 @@ fn prompt_passphrase(passphrase_file: &Option<PathBuf>) -> Result<String> {
         Some(p) => Ok(fs::read_to_string(p)?),
         None => Ok(rpassword::read_password_from_tty(Some("Enter passphrase: "))?),
     }
-}
-
-fn input_from_os_str(path: &OsStr) -> Result<Input, String> {
-    Input::new(path).map_err(|e| e.to_string())
-}
-
-fn output_from_os_str(path: &OsStr) -> Result<Output, String> {
-    Output::new(path).map_err(|e| e.to_string())
 }
