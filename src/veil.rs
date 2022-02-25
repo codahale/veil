@@ -213,8 +213,14 @@ impl PrivateKey {
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     #[must_use]
     pub fn derive(&self, key_id: &str) -> PrivateKey {
-        let d = self.d + scaldf::label_scalar(key_id);
-        let q = &d * &G;
+        let mut d = self.d;
+        let mut q = self.pk.q;
+
+        for label in key_id.trim_matches(KEY_ID_DELIM).split(KEY_ID_DELIM) {
+            d += scaldf::label_scalar(&q, label);
+            q = &d * &G;
+        }
+
         PrivateKey { d, pk: PublicKey { q } }
     }
 }
@@ -288,7 +294,14 @@ impl PublicKey {
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     #[must_use]
     pub fn derive(&self, key_id: &str) -> PublicKey {
-        PublicKey { q: self.q + (&scaldf::label_scalar(key_id) * &G) }
+        let mut q = self.q;
+
+        for label in key_id.trim_matches(KEY_ID_DELIM).split(KEY_ID_DELIM) {
+            let d = scaldf::label_scalar(&q, label);
+            q += &d * &G;
+        }
+
+        PublicKey { q }
     }
 }
 
@@ -311,6 +324,8 @@ impl FromStr for PublicKey {
     }
 }
 
+const KEY_ID_DELIM: char = '/';
+
 #[cfg(test)]
 mod tests {
     use std::io::Cursor;
@@ -328,6 +343,16 @@ mod tests {
     }
 
     #[test]
+    fn non_commutative_private_key_derivation() {
+        let sk = SecretKey::new();
+
+        let abc = sk.private_key("/a/b/c");
+        let cba = sk.private_key("/c/b/a");
+
+        assert_ne!(abc, cba, "invalid hierarchical derivation");
+    }
+
+    #[test]
     fn public_key_derivation() {
         let sk = SecretKey::new();
 
@@ -335,6 +360,16 @@ mod tests {
         let abc_p = sk.public_key("/a").derive("b").derive("c");
 
         assert_eq!(abc, abc_p, "invalid hierarchical derivation");
+    }
+
+    #[test]
+    fn non_commutative_public_key_derivation() {
+        let sk = SecretKey::new();
+
+        let abc = sk.private_key("/a/b/c").public_key();
+        let cba = sk.public_key("/c").derive("b").derive("a");
+
+        assert_ne!(abc, cba, "invalid hierarchical derivation");
     }
 
     #[test]

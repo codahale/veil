@@ -2,8 +2,10 @@
 
 Each participant in Veil has a secret key, which is a string $S \rgets \allbits{512}$.
 
-To derive a private key from a secret key, a duplex is initialized with a constant key and used to absorb $S$. A scalar
-$d$ is then derived from output:
+## Deriving The Root Key
+
+To derive a root private key from a secret key, a duplex is initialized with a constant key and used to absorb $S$. A
+scalar $d$ is then derived from output:
 
 $$
 \Cyclist{\literal{veil.scaldf.root}} \\
@@ -11,32 +13,37 @@ $$
 d \gets \SqueezeScalar \\
 $$
 
-To derive a label scalar $r$ from a label $L$, a duplex initialized with a constant key is used to absorb $L$ and
-squeeze a scalar value:
+## Deriving A Private Key From Another Private Key
+
+To derive a private key $d'$ from another private key $d$ with a label $L$, a duplex initialized with a constant key is
+used to absorb $[d]G$ and $L$ and squeeze a scalar value:
 
 $$
 \Cyclist{\literal{veil.scaldf.label}} \\
+\Absorb{[d]G} \\
 \Absorb{L} \\
 r \gets \SqueezeScalar \\
+d' \gets d + r \\
 $$
 
-To derive a private key $d'$ from a root scalar $d$ and key ID label squence $L_0..L_n$, the label scalars $r_0..r_n$
-are summed and added to $d$:
+## Deriving A Public Key From Another Public Key
+
+To derive a public key $Q'$ from another public key $Q$ with a label $L$, a duplex initialized with a constant key is
+used to absorb $Q$ and $L$ and squeeze a scalar value:
 
 $$
-d' \gets d + \sum_{i=0}^n{\invoke{veil.scaldf.label}{Derive}{L_i}}
+\Cyclist{\literal{veil.scaldf.label}} \\
+\Absorb{Q} \\
+\Absorb{L} \\
+r \gets \SqueezeScalar \\
+Q' \gets Q + [r]G \\
 $$
 
-This is used to provide hierarchical key derivation. Private keys are created using hierarchical IDs like 
+## Hierarchical Key IDs
+
+This is used to provide hierarchical key derivation. Private keys are created using hierarchical key IDs like 
 `/friends/alice`, where the secret key is mapped to a private key via `veil.scaldf.root`, which is then mapped to an
 intermediate private key via the label `friends`, which is then mapped to the final private key via the label `alice`.
-
-To derive a public key $Q'$ from a public key $Q$ and key ID label squence $L_0..L_n$, the label scalars $r_0..r_i$ are
-summed and multiplied by the curve's generator $G$ which is then added to the public key point:
-
-$$
-Q' \gets Q + [\textstyle\sum_{i=0}^n{\invoke{veil.scaldf.label}{Derive}{L_i}}]G
-$$
 
 ## Disposable Keys
 
