@@ -213,13 +213,13 @@ impl PrivateKey {
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     #[must_use]
     pub fn derive(&self, key_id: &str) -> PrivateKey {
-        let mut d = self.d;
-        let mut q = self.pk.q;
-
-        for label in key_id.trim_matches(KEY_ID_DELIM).split(KEY_ID_DELIM) {
-            d += scaldf::label_scalar(&q, label);
-            q = &d * &G;
-        }
+        let (d, q) = key_id.trim_matches(KEY_ID_DELIM).split(KEY_ID_DELIM).fold(
+            (self.d, self.pk.q),
+            |(mut d, q), label| {
+                d += scaldf::label_scalar(&q, label);
+                (d, &d * &G)
+            },
+        );
 
         PrivateKey { d, pk: PublicKey { q } }
     }
@@ -294,12 +294,10 @@ impl PublicKey {
     /// derived keys (e.g. root -> `one` -> `two` -> `three`).
     #[must_use]
     pub fn derive(&self, key_id: &str) -> PublicKey {
-        let mut q = self.q;
-
-        for label in key_id.trim_matches(KEY_ID_DELIM).split(KEY_ID_DELIM) {
+        let q = key_id.trim_matches(KEY_ID_DELIM).split(KEY_ID_DELIM).fold(self.q, |q, label| {
             let d = scaldf::label_scalar(&q, label);
-            q += &d * &G;
-        }
+            q + &d * &G
+        });
 
         PublicKey { q }
     }
