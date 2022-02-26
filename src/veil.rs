@@ -11,7 +11,7 @@ use rand::Rng;
 use thiserror::Error;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::ascii::AsciiEncoded;
+pub use crate::ascii::AsciiEncoded;
 use crate::ristretto::{CanonicallyEncoded, G};
 use crate::ristretto::{Point, Scalar};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
