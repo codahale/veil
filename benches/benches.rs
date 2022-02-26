@@ -3,7 +3,7 @@ use std::io::{Cursor, Read};
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 
-use veil::SecretKey;
+use veil::{Digest, SecretKey};
 
 fn bench_encrypt(c: &mut Criterion) {
     let sk_a = SecretKey::new();
@@ -103,8 +103,27 @@ fn bench_pbenc(c: &mut Criterion) {
     });
 }
 
+fn bench_digest(c: &mut Criterion) {
+    let mut digest = c.benchmark_group("digest");
+    for n in [0, KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
+        digest.throughput(Throughput::Elements(n));
+        digest.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &n| {
+            b.iter(|| Digest::new::<_, &[u8]>(&[], &mut io::repeat(0).take(n)).unwrap());
+        });
+    }
+    digest.finish();
+}
+
 const KB: u64 = 1024;
 
-criterion_group!(external, bench_encrypt, bench_decrypt, bench_sign, bench_verify, bench_pbenc);
+criterion_group!(
+    external,
+    bench_encrypt,
+    bench_decrypt,
+    bench_sign,
+    bench_verify,
+    bench_pbenc,
+    bench_digest
+);
 
 criterion_main!(external);
