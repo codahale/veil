@@ -8,7 +8,7 @@ To derive a root private key from a secret key, a duplex is initialized with a c
 scalar $d$ is then derived from output:
 
 $$
-\Cyclist{\literal{veil.scaldf.root}} \\
+\Cyclist{\literal{veil.hkd.root}} \\
 \Absorb{S} \\
 d \gets \SqueezeScalar \\
 $$
@@ -19,7 +19,7 @@ To derive a private key $d'$ from another private key $d$ with a label $L$, a du
 used to absorb $[d]G$ and $L$ and squeeze a scalar value:
 
 $$
-\Cyclist{\literal{veil.hkd.root}} \\
+\Cyclist{\literal{veil.hkd.label}} \\
 \Absorb{[d]G} \\
 \Absorb{L} \\
 r \gets \SqueezeScalar \\
