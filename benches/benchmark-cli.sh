@@ -35,6 +35,13 @@ case $1 in
     -n experimental 'head -c 104857600 /dev/zero | ./target/release/veil-experiment sign --passphrase-file=README.md /tmp/secret-key - /dev/null' \
     ;
   ;;
+"digest")
+  # benchmark hashing a 100MiB file
+  hyperfine --warmup 10 -S /bin/sh \
+    -n control 'head -c 104857600 /dev/zero | ./target/release/veil-control digest - /dev/null' \
+    -n experimental 'head -c 104857600 /dev/zero | ./target/release/veil-experiment digest - /dev/null' \
+    ;
+  ;;
 *)
   echo "unknown benchmark name"
   ;;
