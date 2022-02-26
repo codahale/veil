@@ -193,7 +193,7 @@ impl PrivateKey {
         let mut signer = Signer::new(io::sink());
         io::copy(reader, &mut signer)?;
         let (sig, _) = signer.sign(&self.d, &self.pk.q)?;
-        Ok(Signature { sig: (sig) })
+        Ok(Signature(sig))
     }
 
     /// Derive a private key with the given label.
@@ -221,17 +221,15 @@ impl Debug for PrivateKey {
 
 /// A Schnorr signature.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Signature {
-    sig: [u8; SIGNATURE_LEN],
-}
+pub struct Signature([u8; SIGNATURE_LEN]);
 
 impl AsciiEncoded for Signature {
     fn from_bytes(b: &[u8]) -> Option<Self> {
-        Some(Signature { sig: b.try_into().ok()? })
+        Some(Signature(b.try_into().ok()?))
     }
 
     fn to_bytes(&self) -> Vec<u8> {
-        self.sig.to_vec()
+        self.0.to_vec()
     }
 }
 
@@ -266,7 +264,7 @@ impl PublicKey {
         let mut verifier = Verifier::new();
         io::copy(reader, &mut verifier)?;
 
-        if verifier.verify(&self.q, &sig.sig)? {
+        if verifier.verify(&self.q, &sig.0)? {
             Ok(())
         } else {
             Err(VerificationError::InvalidSignature)
@@ -345,7 +343,7 @@ mod tests {
 
     #[test]
     fn signature_encoding() {
-        let sig = Signature { sig: [69u8; SIGNATURE_LEN] };
+        let sig = Signature([69u8; SIGNATURE_LEN]);
         assert_eq!(
             "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC",
             sig.to_string(),
