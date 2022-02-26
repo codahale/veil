@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::{AppSettings, Subcommand, ValueHint};
 use clap::{Command as ClapCommand, IntoApp, Parser};
 use clap_complete::generate_to;
@@ -290,6 +290,10 @@ struct DigestArgs {
     #[clap(long, short)]
     metadata: Vec<String>,
 
+    /// Compare the computed digest to a given digest.
+    #[clap(long, value_name = "DIGEST")]
+    check: Option<Digest>,
+
     /// The path to the message file or '-' for stdin.
     #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
     message: Input,
@@ -302,8 +306,16 @@ struct DigestArgs {
 impl Cmd for DigestArgs {
     fn run(mut self) -> Result<()> {
         let digest = Digest::new(&self.metadata, &mut self.message.lock())?;
-        write!(self.output.lock(), "{}", digest)?;
-        Ok(())
+        if let Some(check) = self.check {
+            if check == digest {
+                Ok(())
+            } else {
+                Err(anyhow!("digest mismatch"))
+            }
+        } else {
+            write!(self.output.lock(), "{}", digest)?;
+            Ok(())
+        }
     }
 }
 
