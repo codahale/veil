@@ -24,7 +24,7 @@ fn main() -> Result<()> {
         Command::Decrypt(cmd) => cmd.run(),
         Command::Sign(cmd) => cmd.run(),
         Command::Verify(cmd) => cmd.run(),
-        Command::Hash(cmd) => cmd.run(),
+        Command::Digest(cmd) => cmd.run(),
         Command::Complete(cmd) => cmd.run(),
     }
 }
@@ -51,7 +51,7 @@ enum Command {
     Decrypt(DecryptArgs),
     Sign(SignArgs),
     Verify(VerifyArgs),
-    Hash(HashArgs),
+    Digest(DigestArgs),
     Complete(CompleteArgs),
 }
 
@@ -283,9 +283,9 @@ impl Cmd for VerifyArgs {
     }
 }
 
-/// Hash a message.
+/// Calculate a message digest.
 #[derive(Debug, Parser)]
-struct HashArgs {
+struct DigestArgs {
     /// Associated metadata to be included in the digest.
     #[clap(long, short)]
     metadata: Vec<String>,
@@ -299,7 +299,7 @@ struct HashArgs {
     output: Output,
 }
 
-impl Cmd for HashArgs {
+impl Cmd for DigestArgs {
     fn run(mut self) -> Result<()> {
         let digest = Digest::new(&self.metadata, &mut self.message.lock())?;
         write!(self.output.lock(), "{}", digest)?;
