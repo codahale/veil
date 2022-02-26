@@ -16,3 +16,4 @@
     - [Decrypting A Message](./cli/decrypt.md)
     - [Signing A Message](./cli/sign.md)
     - [Verifying A Message](./cli/verify.md)
+    - [Creating Message Digests](./cli/digest.md)
