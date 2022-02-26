@@ -9,7 +9,7 @@ use clap_complete::Shell;
 use clio::{Input, Output};
 use mimalloc::MiMalloc;
 
-use veil::{PublicKey, SecretKey, Signature};
+use veil::{Digest, PublicKey, SecretKey, Signature};
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -24,6 +24,7 @@ fn main() -> Result<()> {
         Command::Decrypt(cmd) => cmd.run(),
         Command::Sign(cmd) => cmd.run(),
         Command::Verify(cmd) => cmd.run(),
+        Command::Hash(cmd) => cmd.run(),
         Command::Complete(cmd) => cmd.run(),
     }
 }
@@ -50,6 +51,7 @@ enum Command {
     Decrypt(DecryptArgs),
     Sign(SignArgs),
     Verify(VerifyArgs),
+    Hash(HashArgs),
     Complete(CompleteArgs),
 }
 
@@ -277,6 +279,30 @@ struct VerifyArgs {
 impl Cmd for VerifyArgs {
     fn run(mut self) -> Result<()> {
         self.public_key.verify(&mut self.message.lock(), &self.signature)?;
+        Ok(())
+    }
+}
+
+/// Hash a message.
+#[derive(Debug, Parser)]
+struct HashArgs {
+    /// Associated metadata to be included in the digest.
+    #[clap(long, short)]
+    metadata: Vec<String>,
+
+    /// The path to the message file or '-' for stdin.
+    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
+    message: Input,
+
+    /// The path to the digest file or '-' for stdout.
+    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath, default_value = "-")]
+    output: Output,
+}
+
+impl Cmd for HashArgs {
+    fn run(mut self) -> Result<()> {
+        let digest = Digest::new(&self.metadata, &mut self.message.lock())?;
+        write!(self.output.lock(), "{}", digest)?;
         Ok(())
     }
 }

@@ -2,6 +2,7 @@
 
 - [What is Veil?](./about.md)
 - [Design](./design.md)
+    - [Message Digests](./design/digest.md)
     - [Hierarchical Key Derivation](./design/hkd.md)
     - [Digital Signatures](./design/schnorr.md)
     - [Single-recipient Messages](./design/sres.md)
