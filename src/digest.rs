@@ -3,6 +3,7 @@ use std::io::Read;
 use std::str::FromStr;
 use std::{fmt, io};
 
+use subtle::{Choice, ConstantTimeEq};
 use thiserror::Error;
 
 use crate::ascii::AsciiEncoded;
@@ -16,7 +17,7 @@ const DIGEST_LEN: usize = 64;
 pub struct DigestError;
 
 /// The digest of a set of metadata and a message.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq)]
 pub struct Digest([u8; DIGEST_LEN]);
 
 impl AsciiEncoded for Digest {
@@ -68,10 +69,23 @@ impl Digest {
     }
 }
 
+impl ConstantTimeEq for Digest {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        self.0.ct_eq(&other.0)
+    }
+}
+
+impl PartialEq for Digest {
+    fn eq(&self, other: &Self) -> bool {
+        self.ct_eq(other).into()
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::io::Cursor;
+
+    use super::*;
 
     #[test]
     fn round_trip() -> io::Result<()> {
