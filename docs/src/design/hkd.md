@@ -45,6 +45,14 @@ This is used to provide hierarchical key derivation. The secret key is mapped to
 which is then mapped to an intermediate private key via the label e.g. `friends`, which is then mapped to the final
 private key via the label e.g. `alice`.
 
+```mermaid
+flowchart TD
+    s([secret]) -.-> r(root) --> friends & work & crime-fighting
+    crime-fighting --> superfriends & justice-league & avengers
+    work --> official-blog & packages
+    friends --> alice & carol & daphne
+```
+
 ## Disposable Keys
 
 This design allows for the use of disposable, anonymous keys based on a single secret key.
