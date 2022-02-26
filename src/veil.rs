@@ -88,28 +88,17 @@ impl SecretKey {
             .ok_or(DecryptionError::InvalidCiphertext)
     }
 
-    /// Derive a private key with the given key ID.
-    ///
-    /// `key_id` should be slash-separated string (e.g. `/one/two/three`) which define a path of
-    /// derived keys (e.g. `/` -> `one` -> `two` -> `three`).
+    /// The root private key.
     #[must_use]
-    pub fn private_key(&self, key_id: &str) -> PrivateKey {
-        self.root().derive(key_id)
-    }
-
-    /// Derive a public key with the given key ID.
-    ///
-    /// `key_id` should be slash-separated string (e.g. `/one/two/three`) which define a path of
-    /// derived keys (e.g. `/` -> `one` -> `two` -> `three`).
-    #[must_use]
-    pub fn public_key(&self, key_id: &str) -> PublicKey {
-        self.private_key(key_id).public_key()
-    }
-
-    #[must_use]
-    fn root(&self) -> PrivateKey {
+    pub fn private_key(&self) -> PrivateKey {
         let d = hkd::root_key(&self.r);
         PrivateKey { d, pk: PublicKey { q: &d * &G } }
+    }
+
+    /// The root public key.
+    #[must_use]
+    pub fn public_key(&self) -> PublicKey {
+        self.private_key().public_key()
     }
 }
 
@@ -121,7 +110,7 @@ impl Default for SecretKey {
 
 impl Debug for SecretKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.root().fmt(f)
+        self.public_key().fmt(f)
     }
 }
 
@@ -206,13 +195,11 @@ impl PrivateKey {
         Ok(Signature { sig: (sig) })
     }
 
-    /// Derive a private key with the given key ID.
-    ///
-    /// `key_id` should be slash-separated string (e.g. `/one/two/three`) which define a path of
-    /// derived keys (e.g. root -> `one` -> `two` -> `three`).
+    /// Derive a private key with the given label.
     #[must_use]
-    pub fn derive(&self, key_id: &str) -> PrivateKey {
-        let d = hkd::private_key(self.d, key_id);
+    pub fn derive(&self, label: &str) -> PrivateKey {
+        let r = hkd::label_scalar(&self.pk.q, label);
+        let d = self.d + r;
         PrivateKey { d, pk: PublicKey { q: &d * &G } }
     }
 }
@@ -280,13 +267,11 @@ impl PublicKey {
         }
     }
 
-    /// Derive a public key with the given key ID.
-    ///
-    /// `key_id` should be slash-separated string (e.g. `/one/two/three`) which define a path of
-    /// derived keys (e.g. root -> `one` -> `two` -> `three`).
+    /// Derive a public key with the given label.
     #[must_use]
-    pub fn derive(&self, key_id: &str) -> PublicKey {
-        PublicKey { q: hkd::public_key(self.q, key_id) }
+    pub fn derive(&self, label: &str) -> PublicKey {
+        let r = hkd::label_scalar(&self.q, label);
+        PublicKey { q: self.q + (&r * &G) }
     }
 }
 
@@ -316,42 +301,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn private_key_derivation() {
+    fn hierarchical_key_derivation() {
         let sk = SecretKey::new();
 
-        let abc = sk.private_key("/a/b/c");
-        let abc_p = sk.private_key("/a").derive("b").derive("c");
-
+        let abc = sk.private_key().derive("a").derive("b").derive("c").public_key();
+        let abc_p = sk.public_key().derive("a").derive("b").derive("c");
         assert_eq!(abc, abc_p, "invalid hierarchical derivation");
-    }
 
-    #[test]
-    fn non_commutative_private_key_derivation() {
-        let sk = SecretKey::new();
-
-        let abc = sk.private_key("/a/b/c");
-        let cba = sk.private_key("/c/b/a");
-
-        assert_ne!(abc, cba, "invalid hierarchical derivation");
-    }
-
-    #[test]
-    fn public_key_derivation() {
-        let sk = SecretKey::new();
-
-        let abc = sk.private_key("/a/b/c").public_key();
-        let abc_p = sk.public_key("/a").derive("b").derive("c");
-
-        assert_eq!(abc, abc_p, "invalid hierarchical derivation");
-    }
-
-    #[test]
-    fn non_commutative_public_key_derivation() {
-        let sk = SecretKey::new();
-
-        let abc = sk.private_key("/a/b/c").public_key();
-        let cba = sk.public_key("/c").derive("b").derive("a");
-
+        let abc = sk.private_key().derive("a").derive("b").derive("c");
+        let cba = sk.private_key().derive("c").derive("b").derive("a");
         assert_ne!(abc, cba, "invalid hierarchical derivation");
     }
 
@@ -396,10 +354,10 @@ mod tests {
     #[test]
     fn round_trip() -> Result<(), DecryptionError> {
         let sk_a = SecretKey::new();
-        let priv_a = sk_a.private_key("/one/two");
+        let priv_a = sk_a.private_key();
 
         let sk_b = SecretKey::new();
-        let priv_b = sk_b.private_key("/a/b");
+        let priv_b = sk_b.private_key();
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
@@ -431,10 +389,10 @@ mod tests {
     #[test]
     fn bad_sender_key() -> Result<(), DecryptionError> {
         let sk_a = SecretKey::new();
-        let priv_a = sk_a.private_key("/one/two");
+        let priv_a = sk_a.private_key();
 
         let sk_b = SecretKey::new();
-        let priv_b = sk_b.private_key("/a/b");
+        let priv_b = sk_b.private_key();
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
@@ -452,10 +410,10 @@ mod tests {
     #[test]
     fn bad_recipient() -> Result<(), DecryptionError> {
         let sk_a = SecretKey::new();
-        let priv_a = sk_a.private_key("/one/two");
+        let priv_a = sk_a.private_key();
 
         let sk_b = SecretKey::new();
-        let priv_b = sk_b.private_key("/a/b");
+        let priv_b = sk_b.private_key();
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
@@ -473,10 +431,10 @@ mod tests {
     #[test]
     fn bad_ciphertext() -> Result<(), DecryptionError> {
         let sk_a = SecretKey::new();
-        let priv_a = sk_a.private_key("/one/two");
+        let priv_a = sk_a.private_key();
 
         let sk_b = SecretKey::new();
-        let priv_b = sk_b.private_key("/a/b");
+        let priv_b = sk_b.private_key();
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
@@ -497,15 +455,12 @@ mod tests {
     #[test]
     fn sign_and_verify() -> Result<(), VerificationError> {
         let sk = SecretKey::new();
-        let priv_a = sk.private_key("/one/two");
-        let pub_a = priv_a.public_key();
-
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
 
-        let sig = priv_a.sign(&mut src)?;
+        let sig = sk.private_key().sign(&mut src)?;
 
         let mut src = Cursor::new(message);
-        pub_a.verify(&mut src, &sig)
+        sk.public_key().verify(&mut src, &sig)
     }
 }

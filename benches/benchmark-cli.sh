@@ -24,15 +24,15 @@ case $1 in
 "encrypt")
   # benchmark encrypting a 100MiB file for 10 recipients
   hyperfine --warmup 10 -S /bin/sh \
-    -n control 'head -c 104857600 /dev/zero | ./target/release/veil-control encrypt --passphrase-file=README.md /tmp/secret-key /one/two - /dev/null H291qG87hgrGkroZiPkFU64i1LBAk2t61LJvZfxqbV9M --fakes 9' \
-    -n experimental 'head -c 104857600 /dev/zero | ./target/release/veil-experiment encrypt --passphrase-file=README.md /tmp/secret-key /one/two - /dev/null H291qG87hgrGkroZiPkFU64i1LBAk2t61LJvZfxqbV9M --fakes 9' \
+    -n control 'head -c 104857600 /dev/zero | ./target/release/veil-control encrypt --passphrase-file=README.md /tmp/secret-key - /dev/null H291qG87hgrGkroZiPkFU64i1LBAk2t61LJvZfxqbV9M --fakes 9' \
+    -n experimental 'head -c 104857600 /dev/zero | ./target/release/veil-experiment encrypt --passphrase-file=README.md /tmp/secret-key - /dev/null H291qG87hgrGkroZiPkFU64i1LBAk2t61LJvZfxqbV9M --fakes 9' \
     ;
   ;;
 "sign")
   # benchmark signing a 100MiB file
   hyperfine --warmup 10 -S /bin/sh \
-    -n control 'head -c 104857600 /dev/zero | ./target/release/veil-control sign --passphrase-file=README.md /tmp/secret-key /one/two - /dev/null' \
-    -n experimental 'head -c 104857600 /dev/zero | ./target/release/veil-experiment sign --passphrase-file=README.md /tmp/secret-key /one/two - /dev/null' \
+    -n control 'head -c 104857600 /dev/zero | ./target/release/veil-control sign --passphrase-file=README.md /tmp/secret-key - /dev/null' \
+    -n experimental 'head -c 104857600 /dev/zero | ./target/release/veil-experiment sign --passphrase-file=README.md /tmp/secret-key - /dev/null' \
     ;
   ;;
 *)

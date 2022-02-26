@@ -21,7 +21,18 @@ pub fn encrypt_and_decrypt_a_message() -> Result<()> {
     create_secret_key(secret_key_path_a, passphrase_path_a)?;
 
     // Alice generates a public key.
-    let public_key_a = generate_public_key(secret_key_path_a, passphrase_path_a, "/friends/bea")?;
+    let public_key_a = cmd!(
+        VEIL_PATH,
+        "public-key",
+        secret_key_path_a,
+        "--derive",
+        "friends",
+        "--derive",
+        "bea",
+        "--passphrase-file",
+        passphrase_path_a
+    )
+    .read()?;
 
     // Bea picks a passphrase.
     let passphrase_path_b = &dir.path().join("passphrase-b");
@@ -32,7 +43,18 @@ pub fn encrypt_and_decrypt_a_message() -> Result<()> {
     create_secret_key(secret_key_path_b, passphrase_path_b)?;
 
     // Bea generates a public key.
-    let public_key_b = generate_public_key(secret_key_path_b, passphrase_path_b, "/friends/alice")?;
+    let public_key_b = cmd!(
+        VEIL_PATH,
+        "public-key",
+        secret_key_path_b,
+        "--derive",
+        "friends",
+        "--derive",
+        "alice",
+        "--passphrase-file",
+        passphrase_path_b
+    )
+    .read()?;
 
     // Alice writes a plaintext message.
     let message_file = &dir.path().join("message");
@@ -44,7 +66,10 @@ pub fn encrypt_and_decrypt_a_message() -> Result<()> {
         VEIL_PATH,
         "encrypt",
         secret_key_path_a,
-        "/friends/bea",
+        "--derive",
+        "friends",
+        "--derive",
+        "bea",
         message_file,
         ciphertext_path,
         &public_key_b,
@@ -63,7 +88,10 @@ pub fn encrypt_and_decrypt_a_message() -> Result<()> {
         VEIL_PATH,
         "decrypt",
         secret_key_path_b,
-        "/friends/alice",
+        "--derive",
+        "friends",
+        "--derive",
+        "alice",
         ciphertext_path,
         plaintext_path,
         &public_key_a,
@@ -92,7 +120,16 @@ fn sign_and_verify_message() -> Result<()> {
     create_secret_key(secret_key_path, passphrase_path)?;
 
     // Alice generates a public key.
-    let public_key = generate_public_key(secret_key_path, passphrase_path, "/friends")?;
+    let public_key = cmd!(
+        VEIL_PATH,
+        "public-key",
+        secret_key_path,
+        "--derive",
+        "friends",
+        "--passphrase-file",
+        passphrase_path
+    )
+    .read()?;
 
     // Alice writes a plaintext message.
     let message_file = &dir.path().join("message");
@@ -103,7 +140,8 @@ fn sign_and_verify_message() -> Result<()> {
         VEIL_PATH,
         "sign",
         secret_key_path,
-        "/friends",
+        "--derive",
+        "friends",
         message_file,
         "--passphrase-file",
         passphrase_path,
@@ -113,23 +151,6 @@ fn sign_and_verify_message() -> Result<()> {
     cmd!(VEIL_PATH, "verify", public_key, message_file, sig).run()?;
 
     Ok(())
-}
-
-fn generate_public_key(
-    secret_key_path: &Path,
-    passphrase_path: &Path,
-    key_id: &str,
-) -> Result<String> {
-    let out = cmd!(
-        VEIL_PATH,
-        "public-key",
-        secret_key_path,
-        key_id,
-        "--passphrase-file",
-        passphrase_path
-    )
-    .read()?;
-    Ok(out)
 }
 
 fn create_secret_key(secret_key_path: &Path, passphrase_path: &Path) -> Result<()> {

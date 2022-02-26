@@ -39,19 +39,18 @@ r \gets \SqueezeScalar \\
 Q' \gets Q + [r]G \\
 $$
 
-## Hierarchical Key IDs
+## Hierarchical Keys
 
-This is used to provide hierarchical key derivation. Private keys are created using hierarchical key IDs like 
-`/friends/alice`, where the secret key is mapped to a private key via `veil.scaldf.root`, which is then mapped to an
-intermediate private key via the label `friends`, which is then mapped to the final private key via the label `alice`.
+This is used to provide hierarchical key derivation. The secret key is mapped to a private key via `veil.scaldf.root`,
+which is then mapped to an intermediate private key via the label e.g. `friends`, which is then mapped to the final
+private key via the label e.g. `alice`.
 
 ## Disposable Keys
 
 This design allows for the use of disposable, anonymous keys based on a single secret key.
 
-If Alice wants to communicate anonymously with Bea, she can generate a private key with the key
-ID `/disposable/ee4c176352b1d0b2df4a699d430ea48e` and share the corresponding public key with Bea via an anonymous
-channel. Unless Bea can guess that label, Bea will be unable to determine if her anonymous pen pal is Alice even if she
-has Alice's key.
+If Alice wants to communicate anonymously with Bea, she can generate a private key with the derivation label
+`ee4c176352b1d0b2df4a699d430ea48e` and share the corresponding public key with Bea via an anonymous channel. Unless Bea
+can guess that label, Bea will be unable to determine if her anonymous pen pal is Alice even if she has Alice's key.
 
-These disposable keys are stateless, as well: if Alice wants to burn that key, all she needs to do is forget the key ID.
+These disposable keys are stateless, as well: if Alice wants to burn that key, all she needs to do is forget the label.

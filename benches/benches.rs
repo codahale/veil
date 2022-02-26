@@ -7,10 +7,10 @@ use veil::SecretKey;
 
 fn bench_encrypt(c: &mut Criterion) {
     let sk_a = SecretKey::new();
-    let pk_a = sk_a.private_key("/one/two");
+    let pk_a = sk_a.private_key();
 
     let sk_b = SecretKey::new();
-    let pk_b = sk_b.private_key("/three/four");
+    let pk_b = sk_b.private_key();
 
     let mut encrypt = c.benchmark_group("encrypt");
     for n in [0, KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
@@ -33,10 +33,10 @@ fn bench_encrypt(c: &mut Criterion) {
 
 fn bench_decrypt(c: &mut Criterion) {
     let sk_a = SecretKey::new();
-    let pk_a = sk_a.private_key("/one/two");
+    let pk_a = sk_a.private_key();
 
     let sk_b = SecretKey::new();
-    let pk_b = sk_b.private_key("/three/four");
+    let pk_b = sk_b.private_key();
 
     let mut decrypt = c.benchmark_group("decrypt");
     for n in [0, KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
@@ -68,7 +68,7 @@ fn bench_decrypt(c: &mut Criterion) {
 
 fn bench_sign(c: &mut Criterion) {
     let sk_a = SecretKey::new();
-    let pk_a = sk_a.private_key("/one/two");
+    let pk_a = sk_a.private_key();
 
     let mut sign = c.benchmark_group("sign");
     for n in [0, KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
@@ -82,7 +82,7 @@ fn bench_sign(c: &mut Criterion) {
 
 fn bench_verify(c: &mut Criterion) {
     let sk_a = SecretKey::new();
-    let pk_a = sk_a.private_key("/one/two");
+    let pk_a = sk_a.private_key();
 
     let mut verify = c.benchmark_group("verify");
     for n in [0, KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {

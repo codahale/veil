@@ -23,11 +23,11 @@
 //! let bea_sk = SecretKey::new();
 //!
 //! // Alice derives a private key for messaging with Bea and shares the corresponding public key.
-//! let alice_priv = alice_sk.private_key("/friends/bea");
+//! let alice_priv = alice_sk.private_key().derive("friends").derive("bea");
 //! let alice_pub = alice_priv.public_key();
 //!
 //! // Bea derives a private key for messaging with Alice and shares the corresponding public key.
-//! let bea_priv = bea_sk.private_key("/buddies/cool-ones/alice");
+//! let bea_priv = bea_sk.private_key().derive("buddies").derive("cool-ones").derive("alice");
 //! let bea_pub = bea_priv.public_key();
 //!
 //! // Alice encrypts a secret message for Bea.
