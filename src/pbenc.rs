@@ -1,11 +1,11 @@
 //! Passphrase-based encryption based on Balloon Hashing.
 
 use std::convert::TryInto;
+use std::mem;
 
 use rand::Rng;
 use unicode_normalization::UnicodeNormalization;
 
-use crate::constants::{U32_LEN, U64_LEN};
 use crate::duplex::{Duplex, TAG_LEN};
 
 /// The number of bytes encryption adds to a plaintext.
@@ -113,14 +113,14 @@ fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> Duplex {
             // Step 2b: Hash in pseudo-randomly chosen blocks.
             for i in 0..DELTA {
                 // Map indexes to a block and hash it and the salt.
-                let mut idx = Vec::with_capacity(U64_LEN * 3);
+                let mut idx = Vec::with_capacity(mem::size_of::<u64>() * 3);
                 idx.extend((t as u64).to_le_bytes());
                 idx.extend((m as u64).to_le_bytes());
                 idx.extend((i as u64).to_le_bytes());
                 hash_counter!(pbenc, ctr, salt, idx);
 
                 // Map the PRF output to a block index.
-                let mut idx = [0u8; U64_LEN];
+                let mut idx = [0u8; mem::size_of::<u64>()];
                 pbenc.squeeze_into(&mut idx);
                 let idx = u64::from_le_bytes(idx) % space as u64;
 
@@ -144,6 +144,7 @@ fn normalize(passphrase: &str) -> Vec<u8> {
 const SALT_LEN: usize = 16;
 const DELTA: usize = 3;
 const N: usize = 32;
+const U32_LEN: usize = mem::size_of::<u32>();
 
 #[cfg(test)]
 mod tests {

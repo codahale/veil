@@ -2,9 +2,8 @@
 
 use rand::Rng;
 
-use crate::constants::SCALAR_LEN;
 use crate::duplex::Duplex;
-use crate::ristretto::{CanonicallyEncoded, G};
+use crate::ristretto::{CanonicallyEncoded, G, SCALAR_LEN};
 use crate::ristretto::{Point, Scalar};
 
 /// The number of bytes added to plaintext by [encrypt].

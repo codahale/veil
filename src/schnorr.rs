@@ -4,9 +4,8 @@ use std::convert::TryInto;
 use std::io;
 use std::io::{Result, Write};
 
-use crate::constants::{POINT_LEN, SCALAR_LEN};
 use crate::duplex::{AbsorbWriter, Duplex};
-use crate::ristretto::{CanonicallyEncoded, G};
+use crate::ristretto::{CanonicallyEncoded, G, POINT_LEN, SCALAR_LEN};
 use crate::ristretto::{Point, Scalar};
 
 /// The length of a signature, in bytes.

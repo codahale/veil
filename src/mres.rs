@@ -2,12 +2,12 @@
 
 use std::convert::TryInto;
 use std::io::{self, Read, Result, Write};
+use std::mem;
 
 use rand::RngCore;
 
-use crate::constants::{POINT_LEN, U64_LEN};
 use crate::duplex::{Duplex, TAG_LEN};
-use crate::ristretto::{CanonicallyEncoded, G};
+use crate::ristretto::{CanonicallyEncoded, G, POINT_LEN};
 use crate::ristretto::{Point, Scalar};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::sres;
@@ -280,7 +280,7 @@ fn decode_header(header: &[u8]) -> Option<(Vec<u8>, Point, u64)> {
 }
 
 const DEK_LEN: usize = 32;
-const HEADER_LEN: usize = DEK_LEN + POINT_LEN + U64_LEN;
+const HEADER_LEN: usize = DEK_LEN + POINT_LEN + mem::size_of::<u64>();
 const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
 const BLOCK_LEN: usize = 32 * 1024;
 const ENC_BLOCK_LEN: usize = BLOCK_LEN + TAG_LEN;

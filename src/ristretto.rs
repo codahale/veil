@@ -12,6 +12,12 @@ pub type Point = RistrettoPoint;
 /// multiples, for performance.
 pub const G: RistrettoBasepointTable = curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
 
+/// The length of a compressed ristretto255 point in bytes.
+pub const POINT_LEN: usize = 32;
+
+/// The length of a ristretto255 scalar in bytes.
+pub const SCALAR_LEN: usize = 32;
+
 /// An extension trait to centralize canonical encoding of scalars and points.
 pub trait CanonicallyEncoded: Sized {
     /// Parses the given slice and decodes it iff the encoding is canonical.

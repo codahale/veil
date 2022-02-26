@@ -12,8 +12,7 @@ use thiserror::Error;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 pub use crate::ascii::AsciiEncoded;
-use crate::ristretto::{CanonicallyEncoded, G};
-use crate::ristretto::{Point, Scalar};
+use crate::ristretto::{CanonicallyEncoded, Point, Scalar, G};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::{hkd, mres, pbenc};
 

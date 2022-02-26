@@ -69,7 +69,6 @@ pub use self::digest::*;
 pub use self::veil::*;
 
 mod ascii;
-mod constants;
 mod digest;
 mod duplex;
 mod hkd;
