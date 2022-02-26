@@ -67,3 +67,54 @@ impl Digest {
         Ok(Digest(digest.squeeze(64).try_into().expect("invalid digest len")))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn round_trip() -> io::Result<()> {
+        let a = Digest::new(&["one", "two"], &mut Cursor::new(b"this is an example"))?;
+        let b = Digest::new(&["one", "two"], &mut Cursor::new(b"this is an example"))?;
+
+        assert_eq!(a, b, "inconsistent digests");
+
+        Ok(())
+    }
+
+    #[test]
+    fn different_metadata() -> io::Result<()> {
+        let a = Digest::new(&["one", "two"], &mut Cursor::new(b"this is an example"))?;
+        let b = Digest::new(&["two", "one"], &mut Cursor::new(b"this is an example"))?;
+
+        assert_ne!(a, b, "collision on metadata");
+
+        Ok(())
+    }
+
+    #[test]
+    fn different_messages() -> io::Result<()> {
+        let a = Digest::new(&["one", "two"], &mut Cursor::new(b"this is an example"))?;
+        let b = Digest::new(&["one", "two"], &mut Cursor::new(b"this is another example"))?;
+
+        assert_ne!(a, b, "collision on message");
+
+        Ok(())
+    }
+
+    #[test]
+    fn encoding() {
+        let sig = Digest([69u8; DIGEST_LEN]);
+        assert_eq!(
+            "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC",
+            sig.to_string(),
+            "invalid encoded signature"
+        );
+
+        let decoded = "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC".parse::<Digest>();
+        assert_eq!(Ok(sig), decoded, "error parsing signature");
+
+        assert_eq!(Err(DigestError), "woot woot".parse::<Digest>(), "parsed invalid signature");
+    }
+}
