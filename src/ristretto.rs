@@ -1,5 +1,6 @@
 //! Utility functions for Ristretto operations.
 
+use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoBasepointTable, RistrettoPoint};
 
 /// A scalar on the Ristretto255 curve.
@@ -10,7 +11,7 @@ pub type Point = RistrettoPoint;
 
 /// The generator for the Ristretto group. Use the table version, which contains precomputed
 /// multiples, for performance.
-pub const G: RistrettoBasepointTable = curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
+pub const G: RistrettoBasepointTable = RISTRETTO_BASEPOINT_TABLE;
 
 /// The length of a compressed ristretto255 point in bytes.
 pub const POINT_LEN: usize = 32;

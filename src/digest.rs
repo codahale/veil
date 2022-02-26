@@ -9,8 +9,6 @@ use thiserror::Error;
 use crate::ascii::AsciiEncoded;
 use crate::duplex::Duplex;
 
-const DIGEST_LEN: usize = 64;
-
 /// Error due to invalid digest format.
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
 #[error("invalid digest")]
@@ -80,6 +78,8 @@ impl PartialEq for Digest {
         self.ct_eq(other).into()
     }
 }
+
+const DIGEST_LEN: usize = 64;
 
 #[cfg(test)]
 mod tests {

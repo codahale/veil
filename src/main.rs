@@ -2,10 +2,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Result};
-use clap::{AppSettings, Subcommand, ValueHint};
-use clap::{Command as ClapCommand, IntoApp, Parser};
-use clap_complete::generate_to;
-use clap_complete::Shell;
+use clap::{AppSettings, Command, IntoApp, Parser, Subcommand, ValueHint};
+use clap_complete::{generate_to, Shell};
 use clio::{Input, Output};
 use mimalloc::MiMalloc;
 
@@ -17,15 +15,15 @@ static GLOBAL: MiMalloc = MiMalloc;
 fn main() -> Result<()> {
     let opts: Opts = Opts::parse();
     match opts.cmd {
-        Command::SecretKey(cmd) => cmd.run(),
-        Command::PublicKey(cmd) => cmd.run(),
-        Command::DeriveKey(cmd) => cmd.run(),
-        Command::Encrypt(cmd) => cmd.run(),
-        Command::Decrypt(cmd) => cmd.run(),
-        Command::Sign(cmd) => cmd.run(),
-        Command::Verify(cmd) => cmd.run(),
-        Command::Digest(cmd) => cmd.run(),
-        Command::Complete(cmd) => cmd.run(),
+        Cmd::SecretKey(cmd) => cmd.run(),
+        Cmd::PublicKey(cmd) => cmd.run(),
+        Cmd::DeriveKey(cmd) => cmd.run(),
+        Cmd::Encrypt(cmd) => cmd.run(),
+        Cmd::Decrypt(cmd) => cmd.run(),
+        Cmd::Sign(cmd) => cmd.run(),
+        Cmd::Verify(cmd) => cmd.run(),
+        Cmd::Digest(cmd) => cmd.run(),
+        Cmd::Complete(cmd) => cmd.run(),
     }
 }
 
@@ -34,16 +32,16 @@ fn main() -> Result<()> {
 #[clap(subcommand_required(true))]
 struct Opts {
     #[clap(subcommand)]
-    cmd: Command,
+    cmd: Cmd,
 }
 
-trait Cmd {
+trait Runnable {
     fn run(self) -> Result<()>;
 }
 
 #[derive(Debug, Subcommand)]
 #[clap(setting = AppSettings::DeriveDisplayOrder)]
-enum Command {
+enum Cmd {
     SecretKey(SecretKeyArgs),
     PublicKey(PublicKeyArgs),
     DeriveKey(DeriveKeyArgs),
@@ -75,7 +73,7 @@ struct SecretKeyArgs {
     passphrase_file: Option<PathBuf>,
 }
 
-impl Cmd for SecretKeyArgs {
+impl Runnable for SecretKeyArgs {
     fn run(self) -> Result<()> {
         let passphrase = prompt_passphrase(&self.passphrase_file)?;
         let secret_key = SecretKey::new();
@@ -105,7 +103,7 @@ struct PublicKeyArgs {
     passphrase_file: Option<PathBuf>,
 }
 
-impl Cmd for PublicKeyArgs {
+impl Runnable for PublicKeyArgs {
     fn run(mut self) -> Result<()> {
         let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
         let public_key = self.key_labels.iter().fold(secret_key.public_key(), |k, l| k.derive(l));
@@ -129,7 +127,7 @@ struct DeriveKeyArgs {
     output: Output,
 }
 
-impl Cmd for DeriveKeyArgs {
+impl Runnable for DeriveKeyArgs {
     fn run(mut self) -> Result<()> {
         let public_key = self.key_labels.iter().fold(self.public_key, |k, l| k.derive(l));
         write!(self.output.lock(), "{}", public_key)?;
@@ -173,7 +171,7 @@ struct EncryptArgs {
     passphrase_file: Option<PathBuf>,
 }
 
-impl Cmd for EncryptArgs {
+impl Runnable for EncryptArgs {
     fn run(mut self) -> Result<()> {
         let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
         let private_key = self.key_labels.iter().fold(secret_key.private_key(), |k, l| k.derive(l));
@@ -215,7 +213,7 @@ struct DecryptArgs {
     passphrase_file: Option<PathBuf>,
 }
 
-impl Cmd for DecryptArgs {
+impl Runnable for DecryptArgs {
     fn run(mut self) -> Result<()> {
         let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
         let private_key = self.key_labels.iter().fold(secret_key.private_key(), |k, l| k.derive(l));
@@ -252,7 +250,7 @@ struct SignArgs {
     passphrase_file: Option<PathBuf>,
 }
 
-impl Cmd for SignArgs {
+impl Runnable for SignArgs {
     fn run(mut self) -> Result<()> {
         let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
         let private_key = self.key_labels.iter().fold(secret_key.private_key(), |k, l| k.derive(l));
@@ -276,7 +274,7 @@ struct VerifyArgs {
     signature: Signature,
 }
 
-impl Cmd for VerifyArgs {
+impl Runnable for VerifyArgs {
     fn run(mut self) -> Result<()> {
         self.public_key.verify(&mut self.message.lock(), &self.signature)?;
         Ok(())
@@ -303,7 +301,7 @@ struct DigestArgs {
     output: Output,
 }
 
-impl Cmd for DigestArgs {
+impl Runnable for DigestArgs {
     fn run(mut self) -> Result<()> {
         let digest = Digest::new(&self.metadata, &mut self.message.lock())?;
         if let Some(check) = self.check {
@@ -331,9 +329,9 @@ struct CompleteArgs {
     output: PathBuf,
 }
 
-impl Cmd for CompleteArgs {
+impl Runnable for CompleteArgs {
     fn run(self) -> Result<()> {
-        let mut app: ClapCommand = Opts::command();
+        let mut app: Command = Opts::command();
         generate_to(self.shell, &mut app, "veil", &self.output)?;
         Ok(())
     }
