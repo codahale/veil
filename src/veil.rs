@@ -75,7 +75,7 @@ impl SecretKey {
         pbenc::encrypt(passphrase, time, space, &self.r)
     }
 
-    /// Decrypt the secret key with the given passphrase and `veil.pbenc` parameters.
+    /// Decrypt the secret key with the given passphrase.
     pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Result<SecretKey, DecryptionError> {
         // Check the ciphertext length.
         if ciphertext.len() != SECRET_KEY_LEN + pbenc::OVERHEAD {
