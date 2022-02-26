@@ -8,5 +8,13 @@ title = "Veil Cryptosystem"
 [preprocessor.katex]
 macros = "latex.txt"
 
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
+
 [build]
 build-dir = "../target/book"
+
+[output]
+
+[output.html]
+additional-js = ["mermaid.min.js", "mermaid-init.js"]

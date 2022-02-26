@@ -3,10 +3,11 @@
 To encrypt a message, you need your secret key, the recipients' public keys, and the message:
 
 ```shell
-veil encrypt ./my-secret-key --derive 'friends' --derive 'poker' \
+veil encrypt ./my-secret-key \
   message.txt message.txt.veil \
   TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa \
   BfksdzSKbmcS2Suav16dmYE2WxifqauPRL6FZpJt1476 \
+  --key-labels 'friends' 'poker' \
   --fakes 18 --padding 1234 
 ```
 
