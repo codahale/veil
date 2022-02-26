@@ -67,6 +67,7 @@
 
 pub use self::veil::*;
 
+mod ascii;
 mod constants;
 mod duplex;
 mod hkd;

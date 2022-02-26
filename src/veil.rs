@@ -11,6 +11,7 @@ use rand::Rng;
 use thiserror::Error;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
+use crate::ascii::AsciiEncoded;
 use crate::ristretto::{CanonicallyEncoded, G};
 use crate::ristretto::{Point, Scalar};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
@@ -224,22 +225,27 @@ pub struct Signature {
     sig: [u8; SIGNATURE_LEN],
 }
 
+impl AsciiEncoded for Signature {
+    fn from_bytes(b: &[u8]) -> Option<Self> {
+        Some(Signature { sig: b.try_into().ok()? })
+    }
+
+    fn to_bytes(&self) -> Vec<u8> {
+        self.sig.to_vec()
+    }
+}
+
 impl FromStr for Signature {
     type Err = SignatureError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        bs58::decode(s)
-            .into_vec()
-            .ok()
-            .and_then(|b| b.try_into().ok())
-            .map(|sig| Signature { sig })
-            .ok_or(SignatureError)
+        Signature::from_ascii(s).ok_or(SignatureError)
     }
 }
 
 impl fmt::Display for Signature {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", bs58::encode(self.sig).into_string())
+        write!(f, "{}", self.to_ascii())
     }
 }
 
@@ -275,9 +281,19 @@ impl PublicKey {
     }
 }
 
+impl AsciiEncoded for PublicKey {
+    fn from_bytes(b: &[u8]) -> Option<Self> {
+        Some(PublicKey { q: Point::from_canonical_encoding(b)? })
+    }
+
+    fn to_bytes(&self) -> Vec<u8> {
+        self.q.to_canonical_encoding()
+    }
+}
+
 impl fmt::Display for PublicKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", bs58::encode(self.q.to_canonical_encoding()).into_string())
+        write!(f, "{}", self.to_ascii())
     }
 }
 
@@ -285,12 +301,7 @@ impl FromStr for PublicKey {
     type Err = PublicKeyError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        bs58::decode(s)
-            .into_vec()
-            .ok()
-            .and_then(|b| Point::from_canonical_encoding(&b))
-            .map(|q| PublicKey { q })
-            .ok_or(PublicKeyError)
+        PublicKey::from_ascii(s).ok_or(PublicKeyError)
     }
 }
 
