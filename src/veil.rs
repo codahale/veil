@@ -133,18 +133,14 @@ impl PrivateKey {
     ///
     /// Optionally add a number of fake recipients to disguise the number of true recipients and/or
     /// random padding to disguise the message length.
-    pub fn encrypt<R, W>(
+    pub fn encrypt(
         &self,
-        reader: &mut R,
-        writer: &mut W,
+        reader: &mut impl Read,
+        writer: &mut impl Write,
         recipients: &[PublicKey],
         fakes: usize,
         padding: u64,
-    ) -> io::Result<u64>
-    where
-        R: Read,
-        W: Write,
-    {
+    ) -> io::Result<u64> {
         // Add fakes.
         let mut q_rs = recipients
             .iter()
@@ -163,16 +159,12 @@ impl PrivateKey {
     ///
     /// If the ciphertext has been modified, was not sent by the sender, or was not encrypted for
     /// this private key, returns [DecryptionError::InvalidCiphertext].
-    pub fn decrypt<R, W>(
+    pub fn decrypt(
         &self,
-        reader: &mut R,
-        writer: &mut W,
+        reader: &mut impl Read,
+        writer: &mut impl Write,
         sender: &PublicKey,
-    ) -> Result<u64, DecryptionError>
-    where
-        R: Read,
-        W: Write,
-    {
+    ) -> Result<u64, DecryptionError> {
         let (verified, written) =
             mres::decrypt(reader, &mut BufWriter::new(writer), &self.d, &self.pk.q, &sender.q)?;
 
@@ -184,10 +176,7 @@ impl PrivateKey {
     }
 
     /// Read the contents of the reader and return a digital signature.
-    pub fn sign<R>(&self, reader: &mut R) -> io::Result<Signature>
-    where
-        R: Read,
-    {
+    pub fn sign(&self, reader: &mut impl Read) -> io::Result<Signature> {
         let mut signer = Signer::new(io::sink());
         io::copy(reader, &mut signer)?;
         let (sig, _) = signer.sign(&self.d, &self.pk.q)?;
@@ -249,10 +238,7 @@ impl PublicKey {
     /// Read the contents of the reader and return `Ok(())` iff the given signature was created by
     /// this public key of the exact contents. Otherwise, returns
     /// [VerificationError::InvalidSignature].
-    pub fn verify<R>(&self, reader: &mut R, sig: &Signature) -> Result<(), VerificationError>
-    where
-        R: Read,
-    {
+    pub fn verify(&self, reader: &mut impl Read, sig: &Signature) -> Result<(), VerificationError> {
         let mut verifier = Verifier::new();
         io::copy(reader, &mut verifier)?;
 

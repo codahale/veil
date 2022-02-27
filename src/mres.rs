@@ -14,18 +14,14 @@ use crate::sres;
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
-pub fn encrypt<R, W>(
-    reader: &mut R,
-    writer: &mut W,
+pub fn encrypt(
+    reader: &mut impl Read,
+    writer: &mut impl Write,
     d_s: &Scalar,
     q_s: &Point,
     q_rs: &[Point],
     padding: u64,
-) -> Result<u64>
-where
-    R: Read,
-    W: Write,
-{
+) -> Result<u64> {
     // Initialize a duplex and absorb the sender's public key.
     let mut mres = Duplex::new("veil.mres");
     mres.absorb(&q_s.to_canonical_encoding());
@@ -79,11 +75,11 @@ where
     Ok(header_len + ciphertext_len + sig.len() as u64)
 }
 
-fn encrypt_message<R, W>(mres: &mut Duplex, reader: &mut R, writer: &mut W) -> Result<u64>
-where
-    R: Read,
-    W: Write,
-{
+fn encrypt_message(
+    mres: &mut Duplex,
+    reader: &mut impl Read,
+    writer: &mut impl Write,
+) -> Result<u64> {
     let mut buf = Vec::with_capacity(BLOCK_LEN);
     let mut written = 0;
 
@@ -114,17 +110,13 @@ where
 
 /// Decrypt the contents of `reader` iff they were originally encrypted by `q_s` for `q_r` and write
 /// the plaintext to `writer`.
-pub fn decrypt<R, W>(
-    reader: &mut R,
-    writer: &mut W,
+pub fn decrypt(
+    reader: &mut impl Read,
+    writer: &mut impl Write,
     d_r: &Scalar,
     q_r: &Point,
     q_s: &Point,
-) -> Result<(bool, u64)>
-where
-    R: Read,
-    W: Write,
-{
+) -> Result<(bool, u64)> {
     // Initialize a duplex and absorb the sender's public key.
     let mut mres = Duplex::new("veil.mres");
     mres.absorb(&q_s.to_canonical_encoding());
@@ -160,16 +152,12 @@ where
     }
 }
 
-fn decrypt_message<R, W>(
+fn decrypt_message(
     mres: &mut Duplex,
-    reader: &mut R,
-    writer: &mut W,
+    reader: &mut impl Read,
+    writer: &mut impl Write,
     verifier: &mut Verifier,
-) -> Result<(u64, Option<[u8; SIGNATURE_LEN]>)>
-where
-    R: Read,
-    W: Write,
-{
+) -> Result<(u64, Option<[u8; SIGNATURE_LEN]>)> {
     let mut buf = Vec::with_capacity(ENC_BLOCK_LEN + SIGNATURE_LEN);
     let mut written = 0;
 
@@ -215,17 +203,13 @@ where
     Ok((written, Some(sig.try_into().expect("invalid sig len"))))
 }
 
-fn decrypt_header<R, W>(
-    reader: &mut R,
-    verifier: &mut W,
+fn decrypt_header(
+    reader: &mut impl Read,
+    verifier: &mut impl Write,
     d_r: &Scalar,
     q_r: &Point,
     q_s: &Point,
-) -> Result<Option<(Vec<u8>, Point)>>
-where
-    R: Read,
-    W: Write,
-{
+) -> Result<Option<(Vec<u8>, Point)>> {
     let mut buf = Vec::with_capacity(ENC_HEADER_LEN);
     let mut hdr_offset = 0u64;
 

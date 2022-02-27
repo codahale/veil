@@ -108,7 +108,7 @@ fn bench_digest(c: &mut Criterion) {
     for n in [0, KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
         digest.throughput(Throughput::Elements(n));
         digest.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &n| {
-            b.iter(|| Digest::new::<&[u8], _>(&[], &mut io::repeat(0).take(n)).unwrap());
+            b.iter(|| Digest::new(&[] as &[&str], &mut io::repeat(0).take(n)).unwrap());
         });
     }
     digest.finish();
