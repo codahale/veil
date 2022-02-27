@@ -11,7 +11,6 @@ use rand::Rng;
 use thiserror::Error;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-pub use crate::ascii::AsciiEncoded;
 use crate::ristretto::{CanonicallyEncoded, Point, Scalar, G};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
 use crate::{hkd, mres, pbenc};
@@ -222,27 +221,21 @@ impl Debug for PrivateKey {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Signature([u8; SIGNATURE_LEN]);
 
-impl AsciiEncoded for Signature {
-    fn from_bytes(b: &[u8]) -> Option<Self> {
-        Some(Signature(b.try_into().ok()?))
-    }
-
-    fn to_bytes(&self) -> Vec<u8> {
-        self.0.to_vec()
-    }
-}
-
 impl FromStr for Signature {
     type Err = SignatureError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Signature::from_ascii(s).ok_or(SignatureError)
+        bs58::decode(s)
+            .into_vec()
+            .ok()
+            .and_then(|b| Some(Signature(b.try_into().ok()?)))
+            .ok_or(SignatureError)
     }
 }
 
 impl fmt::Display for Signature {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_ascii())
+        write!(f, "{}", bs58::encode(&self.0).into_string())
     }
 }
 
@@ -278,19 +271,9 @@ impl PublicKey {
     }
 }
 
-impl AsciiEncoded for PublicKey {
-    fn from_bytes(b: &[u8]) -> Option<Self> {
-        Some(PublicKey { q: Point::from_canonical_encoding(b)? })
-    }
-
-    fn to_bytes(&self) -> Vec<u8> {
-        self.q.to_canonical_encoding()
-    }
-}
-
 impl fmt::Display for PublicKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_ascii())
+        write!(f, "{}", bs58::encode(&self.q.to_canonical_encoding()).into_string())
     }
 }
 
@@ -298,7 +281,12 @@ impl FromStr for PublicKey {
     type Err = PublicKeyError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        PublicKey::from_ascii(s).ok_or(PublicKeyError)
+        bs58::decode(s)
+            .into_vec()
+            .ok()
+            .and_then(|b| Point::from_canonical_encoding(&b))
+            .map(|q| PublicKey { q })
+            .ok_or(PublicKeyError)
     }
 }
 

@@ -6,7 +6,6 @@ use std::{fmt, io};
 use subtle::{Choice, ConstantTimeEq};
 use thiserror::Error;
 
-use crate::ascii::AsciiEncoded;
 use crate::duplex::Duplex;
 
 /// Error due to invalid digest format.
@@ -18,27 +17,21 @@ pub struct DigestError;
 #[derive(Clone, Copy, Debug, Eq)]
 pub struct Digest([u8; DIGEST_LEN]);
 
-impl AsciiEncoded for Digest {
-    fn from_bytes(b: &[u8]) -> Option<Self> {
-        Some(Digest(b.try_into().ok()?))
-    }
-
-    fn to_bytes(&self) -> Vec<u8> {
-        self.0.to_vec()
-    }
-}
-
 impl FromStr for Digest {
     type Err = DigestError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Digest::from_ascii(s).ok_or(DigestError)
+        bs58::decode(s)
+            .into_vec()
+            .ok()
+            .and_then(|b| Some(Digest(b.try_into().ok()?)))
+            .ok_or(DigestError)
     }
 }
 
 impl fmt::Display for Digest {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_ascii())
+        write!(f, "{}", bs58::encode(&self.0).into_string())
     }
 }
 
