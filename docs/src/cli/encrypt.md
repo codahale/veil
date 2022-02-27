@@ -7,7 +7,7 @@ veil encrypt ./my-secret-key \
   message.txt message.txt.veil \
   TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa \
   BfksdzSKbmcS2Suav16dmYE2WxifqauPRL6FZpJt1476 \
-  --key-labels 'friends' 'poker' \
+  --key-path 'friends' 'poker' \
   --fakes 18 --padding 1234 
 ```
 

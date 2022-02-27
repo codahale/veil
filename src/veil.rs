@@ -134,13 +134,13 @@ impl PrivateKey {
         Ok(sig)
     }
 
-    /// Derive a private key with the given label sequence.
+    /// Derive a private key with the given key path.
     #[must_use]
-    pub fn derive<T>(&self, labels: &[T]) -> PrivateKey
+    pub fn derive<T>(&self, key_path: &[T]) -> PrivateKey
     where
         T: AsRef<[u8]>,
     {
-        let (d, q) = labels.iter().fold((self.d, self.pk.q), |(d, q), l| {
+        let (d, q) = key_path.iter().fold((self.d, self.pk.q), |(d, q), l| {
             let d = d + hkd::label_scalar(&q, l);
             (d, &d * &G)
         });
@@ -179,13 +179,13 @@ impl PublicKey {
         verifier.verify(&self.q, sig)
     }
 
-    /// Derive a public key with the given label sequence.
+    /// Derive a public key with the given key path.
     #[must_use]
-    pub fn derive<T>(&self, labels: &[T]) -> PublicKey
+    pub fn derive<T>(&self, key_path: &[T]) -> PublicKey
     where
         T: AsRef<[u8]>,
     {
-        PublicKey { q: labels.iter().fold(self.q, |q, l| q + &hkd::label_scalar(&q, l) * &G) }
+        PublicKey { q: key_path.iter().fold(self.q, |q, l| q + &hkd::label_scalar(&q, l) * &G) }
     }
 }
 

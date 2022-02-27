@@ -90,9 +90,9 @@ struct PublicKeyArgs {
     #[clap(value_hint = ValueHint::FilePath)]
     secret_key: PathBuf,
 
-    /// Derive a sub-key using the given labels.
+    /// Derive a sub-key using the given key path.
     #[clap(long, short, multiple_values(true))]
-    key_labels: Vec<String>,
+    key_path: Vec<String>,
 
     /// The path to the public key file or '-' for stdout.
     #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath, default_value = "-")]
@@ -106,7 +106,7 @@ struct PublicKeyArgs {
 impl Runnable for PublicKeyArgs {
     fn run(mut self) -> Result<()> {
         let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
-        let public_key = secret_key.public_key().derive(&self.key_labels);
+        let public_key = secret_key.public_key().derive(&self.key_path);
         write!(self.output.lock(), "{}", public_key)?;
         Ok(())
     }
@@ -118,9 +118,9 @@ struct DeriveKeyArgs {
     /// The public key.
     public_key: PublicKey,
 
-    /// Derive a sub-key using the given labels.
+    /// Derive a sub-key using the given key path.
     #[clap(long, short, multiple_values(true))]
-    key_labels: Vec<String>,
+    key_path: Vec<String>,
 
     /// The path to the public key file or '-' for stdout.
     #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath, default_value = "-")]
@@ -129,7 +129,7 @@ struct DeriveKeyArgs {
 
 impl Runnable for DeriveKeyArgs {
     fn run(mut self) -> Result<()> {
-        let public_key = self.public_key.derive(&self.key_labels);
+        let public_key = self.public_key.derive(&self.key_path);
         write!(self.output.lock(), "{}", public_key)?;
         Ok(())
     }
@@ -142,9 +142,9 @@ struct EncryptArgs {
     #[clap(value_hint = ValueHint::FilePath)]
     secret_key: PathBuf,
 
-    /// Derive a sub-key using the given labels.
+    /// Derive a sub-key using the given key path.
     #[clap(long, short, multiple_values(true))]
-    key_labels: Vec<String>,
+    key_path: Vec<String>,
 
     /// The path to the input file or '-' for stdin.
     #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
@@ -174,7 +174,7 @@ struct EncryptArgs {
 impl Runnable for EncryptArgs {
     fn run(mut self) -> Result<()> {
         let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
-        let private_key = secret_key.private_key().derive(&self.key_labels);
+        let private_key = secret_key.private_key().derive(&self.key_path);
         private_key.encrypt(
             &mut self.plaintext.lock(),
             &mut self.ciphertext.lock(),
@@ -193,9 +193,9 @@ struct DecryptArgs {
     #[clap(value_hint = ValueHint::FilePath)]
     secret_key: PathBuf,
 
-    /// Derive a sub-key using the given labels.
+    /// Derive a sub-key using the given key path.
     #[clap(long, short, multiple_values(true))]
-    key_labels: Vec<String>,
+    key_path: Vec<String>,
 
     /// The path to the input file or '-' for stdin.
     #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
@@ -216,7 +216,7 @@ struct DecryptArgs {
 impl Runnable for DecryptArgs {
     fn run(mut self) -> Result<()> {
         let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
-        let private_key = secret_key.private_key().derive(&self.key_labels);
+        let private_key = secret_key.private_key().derive(&self.key_path);
         private_key.decrypt(
             &mut self.ciphertext.lock(),
             &mut self.plaintext.lock(),
@@ -233,9 +233,9 @@ struct SignArgs {
     #[clap(value_hint = ValueHint::FilePath)]
     secret_key: PathBuf,
 
-    /// Derive a sub-key using the given labels.
+    /// Derive a sub-key using the given key path.
     #[clap(long, short, multiple_values(true))]
-    key_labels: Vec<String>,
+    key_path: Vec<String>,
 
     /// The path to the message file or '-' for stdin.
     #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
@@ -253,7 +253,7 @@ struct SignArgs {
 impl Runnable for SignArgs {
     fn run(mut self) -> Result<()> {
         let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
-        let private_key = secret_key.private_key().derive(&self.key_labels);
+        let private_key = secret_key.private_key().derive(&self.key_path);
         let sig = private_key.sign(&mut self.message.lock())?;
         write!(self.output.lock(), "{}", sig)?;
         Ok(())

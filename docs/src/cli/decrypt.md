@@ -1,13 +1,13 @@
 # Decrypting A Message
 
-To decrypt a message, you'll need the key labels of the public key the message was encrypted for, the encrypted message,
+To decrypt a message, you'll need the key path of the public key the message was encrypted for, the encrypted message,
 and the sender's public key:
 
 ```shell
 veil decrypt ./my-secret-key \
   reply.txt.veil reply.txt \
   TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa \
-  --key-labels 'friends' 'poker'
+  --key-path 'friends' 'poker'
 ```
 
 This will decrypt and verify the message. If successful, you'll know that the owner of the public key encrypted that
