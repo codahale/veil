@@ -129,10 +129,7 @@ pub fn decrypt(
     let mut mres = mres.absorb_stream(verifier);
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the verifier.
-    let (dek, q_e) = match decrypt_header(reader, &mut mres, d_r, q_r, q_s)? {
-        Some(header) => header,
-        None => return Err(DecryptionError::InvalidCiphertext),
-    };
+    let (dek, q_e) = decrypt_header(reader, &mut mres, d_r, q_r, q_s)?;
 
     // Unwrap the received cleartext writer.
     let (mut mres, mut verifier, _) = mres.into_inner()?;
@@ -142,10 +139,9 @@ pub fn decrypt(
 
     // Decrypt the message and get the signature.
     let (written, sig) = decrypt_message(&mut mres, reader, writer, &mut verifier)?;
-    let sig = sig.ok_or(DecryptionError::InvalidCiphertext)?;
 
     // Verify the signature.
-    match verifier.verify(&q_e, &Signature(sig)) {
+    match verifier.verify(&q_e, &sig) {
         Ok(()) => Ok(written),
         Err(VerificationError::InvalidSignature) => Err(DecryptionError::InvalidCiphertext),
         Err(VerificationError::IoError(e)) => Err(DecryptionError::IoError(e)),
@@ -157,7 +153,7 @@ fn decrypt_message(
     reader: &mut impl Read,
     writer: &mut impl Write,
     verifier: &mut Verifier,
-) -> io::Result<(u64, Option<[u8; SIGNATURE_LEN]>)> {
+) -> Result<(u64, Signature), DecryptionError> {
     let mut buf = Vec::with_capacity(ENC_BLOCK_LEN + SIGNATURE_LEN);
     let mut written = 0;
 
@@ -181,14 +177,11 @@ fn decrypt_message(
         // Add the block to the verifier.
         verifier.write_all(block)?;
 
-        // Decrypt the block and write the plaintext.
-        if let Some(plaintext) = mres.unseal(block) {
-            writer.write_all(&plaintext)?;
-            written += plaintext.len() as u64;
-        } else {
-            // If the tag is invalid, return the number of bytes written and no signature.
-            return Ok((written, None));
-        }
+        // Decrypt the block and write the plaintext. If the block cannot be decrypted, return an
+        // error.
+        let plaintext = mres.unseal(block).ok_or(DecryptionError::InvalidCiphertext)?;
+        writer.write_all(&plaintext)?;
+        written += plaintext.len() as u64;
 
         // Ratchet the duplex state.
         mres.ratchet();
@@ -200,7 +193,8 @@ fn decrypt_message(
     // Decrypt the signature.
     let sig = mres.decrypt(&buf);
 
-    Ok((written, Some(sig.try_into().expect("invalid sig len"))))
+    // Return the number of bytes and the decrypted signature.
+    Ok((written, Signature(sig.try_into().expect("invalid sig len"))))
 }
 
 fn decrypt_header(
@@ -209,7 +203,7 @@ fn decrypt_header(
     d_r: &Scalar,
     q_r: &Point,
     q_s: &Point,
-) -> io::Result<Option<(Vec<u8>, Point)>> {
+) -> Result<(Vec<u8>, Point), DecryptionError> {
     let mut buf = Vec::with_capacity(ENC_HEADER_LEN);
     let mut hdr_offset = 0u64;
 
@@ -221,7 +215,7 @@ fn decrypt_header(
 
         // If the header is short, we're at the end of the reader.
         if header.len() < ENC_HEADER_LEN {
-            return Ok(None);
+            return Err(DecryptionError::InvalidCiphertext);
         }
 
         // Pass the block to the verifier.
@@ -230,14 +224,14 @@ fn decrypt_header(
 
         // Try to decrypt the encrypted header.
         if let Some((dek, q_e, msg_offset)) =
-            sres::decrypt(d_r, q_r, q_s, header).and_then(|h| decode_header(&h))
+            sres::decrypt(d_r, q_r, q_s, header).and_then(decode_header)
         {
             // Read the remainder of the headers and padding and write them to the verifier.
             let mut remainder = reader.take(msg_offset - hdr_offset);
             io::copy(&mut remainder, verifier)?;
 
             // Return the DEK and ephemeral public key.
-            return Ok(Some((dek, q_e)));
+            return Ok((dek, q_e));
         }
 
         buf.clear();
@@ -245,7 +239,7 @@ fn decrypt_header(
 }
 
 #[inline]
-fn decode_header(header: &[u8]) -> Option<(Vec<u8>, Point, u64)> {
+fn decode_header(header: Vec<u8>) -> Option<(Vec<u8>, Point, u64)> {
     // Check header for proper length.
     if header.len() != HEADER_LEN {
         return None;
