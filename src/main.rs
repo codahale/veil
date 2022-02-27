@@ -106,7 +106,7 @@ struct PublicKeyArgs {
 impl Runnable for PublicKeyArgs {
     fn run(mut self) -> Result<()> {
         let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
-        let public_key = self.key_labels.iter().fold(secret_key.public_key(), |k, l| k.derive(l));
+        let public_key = secret_key.public_key().derive(&self.key_labels);
         write!(self.output.lock(), "{}", public_key)?;
         Ok(())
     }
@@ -129,7 +129,7 @@ struct DeriveKeyArgs {
 
 impl Runnable for DeriveKeyArgs {
     fn run(mut self) -> Result<()> {
-        let public_key = self.key_labels.iter().fold(self.public_key, |k, l| k.derive(l));
+        let public_key = self.public_key.derive(&self.key_labels);
         write!(self.output.lock(), "{}", public_key)?;
         Ok(())
     }
@@ -174,7 +174,7 @@ struct EncryptArgs {
 impl Runnable for EncryptArgs {
     fn run(mut self) -> Result<()> {
         let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
-        let private_key = self.key_labels.iter().fold(secret_key.private_key(), |k, l| k.derive(l));
+        let private_key = secret_key.private_key().derive(&self.key_labels);
         private_key.encrypt(
             &mut self.plaintext.lock(),
             &mut self.ciphertext.lock(),
@@ -216,7 +216,7 @@ struct DecryptArgs {
 impl Runnable for DecryptArgs {
     fn run(mut self) -> Result<()> {
         let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
-        let private_key = self.key_labels.iter().fold(secret_key.private_key(), |k, l| k.derive(l));
+        let private_key = secret_key.private_key().derive(&self.key_labels);
         private_key.decrypt(
             &mut self.ciphertext.lock(),
             &mut self.plaintext.lock(),
@@ -253,7 +253,7 @@ struct SignArgs {
 impl Runnable for SignArgs {
     fn run(mut self) -> Result<()> {
         let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
-        let private_key = self.key_labels.iter().fold(secret_key.private_key(), |k, l| k.derive(l));
+        let private_key = secret_key.private_key().derive(&self.key_labels);
         let sig = private_key.sign(&mut self.message.lock())?;
         write!(self.output.lock(), "{}", sig)?;
         Ok(())

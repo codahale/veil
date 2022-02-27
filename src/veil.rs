@@ -137,12 +137,18 @@ impl PrivateKey {
         Ok(sig)
     }
 
-    /// Derive a private key with the given label.
+    /// Derive a private key with the given label sequence.
     #[must_use]
-    pub fn derive(&self, label: &str) -> PrivateKey {
-        let r = hkd::label_scalar(&self.pk.q, label);
-        let d = self.d + r;
-        PrivateKey { d, pk: PublicKey { q: &d * &G } }
+    pub fn derive<T>(&self, labels: &[T]) -> PrivateKey
+    where
+        T: AsRef<str>,
+    {
+        let (mut d, mut q) = (self.d, self.pk.q);
+        for label in labels {
+            d += hkd::label_scalar(&q, label.as_ref());
+            q = &d * &G;
+        }
+        PrivateKey { d, pk: PublicKey { q } }
     }
 }
 
@@ -182,11 +188,18 @@ impl PublicKey {
         verifier.verify(&self.q, sig)
     }
 
-    /// Derive a public key with the given label.
+    /// Derive a public key with the given label sequence.
     #[must_use]
-    pub fn derive(&self, label: &str) -> PublicKey {
-        let r = hkd::label_scalar(&self.q, label);
-        PublicKey { q: self.q + (&r * &G) }
+    pub fn derive<T>(&self, labels: &[T]) -> PublicKey
+    where
+        T: AsRef<str>,
+    {
+        let mut q = self.q;
+        for label in labels {
+            let r = hkd::label_scalar(&q, label.as_ref());
+            q += &r * &G;
+        }
+        PublicKey { q }
     }
 }
 
@@ -219,13 +232,17 @@ mod tests {
     fn hierarchical_key_derivation() {
         let sk = SecretKey::new();
 
-        let abc = sk.private_key().derive("a").derive("b").derive("c").public_key();
-        let abc_p = sk.public_key().derive("a").derive("b").derive("c");
+        let abc = sk.private_key().derive(&["a", "b", "c"]).public_key();
+        let abc_p = sk.public_key().derive(&["a", "b", "c"]);
         assert_eq!(abc, abc_p, "invalid hierarchical derivation");
 
-        let abc = sk.private_key().derive("a").derive("b").derive("c");
-        let cba = sk.private_key().derive("c").derive("b").derive("a");
+        let abc = sk.private_key().derive(&["a", "b", "c"]);
+        let cba = sk.private_key().derive(&["c", "b", "a"]);
         assert_ne!(abc, cba, "invalid hierarchical derivation");
+
+        let abc = sk.private_key().derive(&["a"]).derive(&["b"]).derive(&["c"]).public_key();
+        let abc_p = sk.private_key().derive(&["a", "b", "c"]).public_key();
+        assert_eq!(abc, abc_p, "invalid hierarchical derivation");
     }
 
     #[test]
