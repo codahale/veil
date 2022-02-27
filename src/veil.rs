@@ -143,11 +143,10 @@ impl PrivateKey {
     where
         T: AsRef<[u8]>,
     {
-        let (mut d, mut q) = (self.d, self.pk.q);
-        for label in labels {
-            d += hkd::label_scalar(&q, label);
-            q = &d * &G;
-        }
+        let (d, q) = labels.iter().fold((self.d, self.pk.q), |(d, q), l| {
+            let d = d + hkd::label_scalar(&q, l);
+            (d, &d * &G)
+        });
         PrivateKey { d, pk: PublicKey { q } }
     }
 }
@@ -194,12 +193,7 @@ impl PublicKey {
     where
         T: AsRef<[u8]>,
     {
-        let mut q = self.q;
-        for label in labels {
-            let r = hkd::label_scalar(&q, label);
-            q += &r * &G;
-        }
-        PublicKey { q }
+        PublicKey { q: labels.iter().fold(self.q, |q, l| q + &hkd::label_scalar(&q, l) * &G) }
     }
 }
 
