@@ -19,7 +19,7 @@ subtle = "2.4.1"
 thiserror = "1.0.30"
 unicode-normalization = "0.1.19"
 xoodyak = "0.7.3"
-zeroize = { version = "1.5.2", features = ["derive"] }
+zeroize = { version = "1.5.3", features = ["derive"] }
 
 # cli-only deps
 anyhow = { version = "1.0.55", optional = true }
