@@ -1,6 +1,5 @@
 //! The Veil hybrid cryptosystem.
 
-use std::convert::TryInto;
 use std::fmt::{Debug, Formatter};
 use std::io::{BufWriter, Read, Write};
 use std::str::FromStr;
@@ -12,18 +11,9 @@ use thiserror::Error;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::ristretto::{CanonicallyEncoded, Point, Scalar, G};
-use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
+pub use crate::schnorr::{Signature, SignatureError};
+use crate::schnorr::{Signer, Verifier};
 use crate::{hkd, mres, pbenc};
-
-/// Error due to invalid public key format.
-#[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
-#[error("invalid public key")]
-pub struct PublicKeyError;
-
-/// Error due to invalid signature format.
-#[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
-#[error("invalid signature")]
-pub struct SignatureError;
 
 /// The error type for message decryption.
 #[derive(Debug, Error)]
@@ -180,7 +170,7 @@ impl PrivateKey {
         let mut signer = Signer::new(io::sink());
         io::copy(reader, &mut signer)?;
         let (sig, _) = signer.sign(&self.d, &self.pk.q)?;
-        Ok(Signature(sig))
+        Ok(sig)
     }
 
     /// Derive a private key with the given label.
@@ -206,27 +196,10 @@ impl Debug for PrivateKey {
     }
 }
 
-/// A Schnorr signature.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Signature([u8; SIGNATURE_LEN]);
-
-impl FromStr for Signature {
-    type Err = SignatureError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        bs58::decode(s)
-            .into_vec()
-            .ok()
-            .and_then(|b| Some(Signature(b.try_into().ok()?)))
-            .ok_or(SignatureError)
-    }
-}
-
-impl fmt::Display for Signature {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", bs58::encode(&self.0).into_string())
-    }
-}
+/// Error due to invalid public key format.
+#[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
+#[error("invalid public key")]
+pub struct PublicKeyError;
 
 /// A derived public key, used to verify messages.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Zeroize)]
@@ -242,7 +215,7 @@ impl PublicKey {
         let mut verifier = Verifier::new();
         io::copy(reader, &mut verifier)?;
 
-        if verifier.verify(&self.q, &sig.0)? {
+        if verifier.verify(&self.q, sig)? {
             Ok(())
         } else {
             Err(VerificationError::InvalidSignature)
@@ -311,25 +284,6 @@ mod tests {
             Err(PublicKeyError),
             "woot woot".parse::<PublicKey>(),
             "decoded invalid public key"
-        );
-    }
-
-    #[test]
-    fn signature_encoding() {
-        let sig = Signature([69u8; SIGNATURE_LEN]);
-        assert_eq!(
-            "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC",
-            sig.to_string(),
-            "invalid encoded signature"
-        );
-
-        let decoded = "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC".parse::<Signature>();
-        assert_eq!(Ok(sig), decoded, "error parsing signature");
-
-        assert_eq!(
-            Err(SignatureError),
-            "woot woot".parse::<Signature>(),
-            "parsed invalid signature"
         );
     }
 

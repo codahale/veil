@@ -1,8 +1,12 @@
 //! Schnorr-variant digital signatures.
 
 use std::convert::TryInto;
-use std::io;
+use std::fmt::Formatter;
 use std::io::{Result, Write};
+use std::str::FromStr;
+use std::{fmt, io, result};
+
+use thiserror::Error;
 
 use crate::duplex::{AbsorbWriter, Duplex};
 use crate::ristretto::{CanonicallyEncoded, G, POINT_LEN, SCALAR_LEN};
@@ -10,6 +14,33 @@ use crate::ristretto::{Point, Scalar};
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
+
+/// Error due to invalid signature format.
+#[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
+#[error("invalid signature")]
+pub struct SignatureError;
+
+/// A Schnorr signature.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Signature(pub(crate) [u8; SIGNATURE_LEN]);
+
+impl FromStr for Signature {
+    type Err = SignatureError;
+
+    fn from_str(s: &str) -> result::Result<Self, Self::Err> {
+        bs58::decode(s)
+            .into_vec()
+            .ok()
+            .and_then(|b| Some(Signature(b.try_into().ok()?)))
+            .ok_or(SignatureError)
+    }
+}
+
+impl fmt::Display for Signature {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", bs58::encode(&self.0).into_string())
+    }
+}
 
 /// A writer which accumulates message contents for signing before passing them along to an inner
 /// writer.
@@ -31,7 +62,7 @@ where
 
     /// Create a signature of the previously-written message contents using the given key pair.
     #[allow(clippy::many_single_char_names)]
-    pub fn sign(self, d: &Scalar, q: &Point) -> Result<([u8; SIGNATURE_LEN], W)> {
+    pub fn sign(self, d: &Scalar, q: &Point) -> Result<(Signature, W)> {
         // Unwrap the duplex and writer.
         let (mut schnorr, writer, _) = self.writer.into_inner()?;
 
@@ -57,7 +88,7 @@ where
         sig.extend(schnorr.encrypt(&s.to_canonical_encoding()));
 
         // Return the encrypted commitment point and proof scalar, plus the underlying writer.
-        Ok((sig.try_into().expect("invalid sig len"), writer))
+        Ok((Signature(sig.try_into().expect("invalid sig len")), writer))
     }
 }
 
@@ -90,7 +121,7 @@ impl Verifier {
     }
 
     /// Verify the previously-written message contents using the given public key and signature.
-    pub fn verify(self, q: &Point, sig: &[u8; SIGNATURE_LEN]) -> Result<bool> {
+    pub fn verify(self, q: &Point, sig: &Signature) -> Result<bool> {
         // Unwrap duplex.
         let (mut schnorr, _, _) = self.writer.into_inner()?;
 
@@ -98,7 +129,7 @@ impl Verifier {
         schnorr.absorb(&q.to_canonical_encoding());
 
         // Split the signature into parts.
-        let (i, s) = sig.split_at(POINT_LEN);
+        let (i, s) = sig.0.split_at(POINT_LEN);
 
         // Decrypt and decode the commitment point.
         let i = schnorr.decrypt(i);
@@ -226,7 +257,7 @@ mod tests {
         signer.flush()?;
 
         let (mut sig, _) = signer.sign(&d, &q).expect("error signing");
-        sig[22] ^= 1;
+        sig.0[22] ^= 1;
 
         let mut verifier = Verifier::new();
         verifier.write_all(b"this is a message that")?;
@@ -240,5 +271,24 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn signature_encoding() {
+        let sig = Signature([69u8; SIGNATURE_LEN]);
+        assert_eq!(
+            "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC",
+            sig.to_string(),
+            "invalid encoded signature"
+        );
+
+        let decoded = "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC".parse::<Signature>();
+        assert_eq!(Ok(sig), decoded, "error parsing signature");
+
+        assert_eq!(
+            Err(SignatureError),
+            "woot woot".parse::<Signature>(),
+            "parsed invalid signature"
+        );
     }
 }
