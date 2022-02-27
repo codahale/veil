@@ -119,7 +119,7 @@ struct DeriveKeyArgs {
     public_key: PublicKey,
 
     /// Derive a sub-key using the given key path.
-    #[clap(long, short, multiple_values(true))]
+    #[clap(long, short, multiple_values(true), required(true))]
     key_path: Vec<String>,
 
     /// The path to the public key file or '-' for stdout.
