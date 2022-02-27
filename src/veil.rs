@@ -10,40 +10,11 @@ use rand::Rng;
 use thiserror::Error;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
+pub use crate::mres::DecryptionError;
 use crate::ristretto::{CanonicallyEncoded, Point, Scalar, G};
-pub use crate::schnorr::{Signature, SignatureError};
+pub use crate::schnorr::{Signature, SignatureError, VerificationError};
 use crate::schnorr::{Signer, Verifier};
 use crate::{hkd, mres, pbenc};
-
-/// The error type for message decryption.
-#[derive(Debug, Error)]
-pub enum DecryptionError {
-    /// Error due to message/private key/public key mismatch.
-    ///
-    /// The ciphertext may have been altered, the message may not have been encrypted by the given
-    /// sender, or the message may not have been encrypted for the given recipient.
-    #[error("invalid ciphertext")]
-    InvalidCiphertext,
-
-    /// An error returned when there was an underlying IO error during decryption.
-    #[error("error decrypting: {0}")]
-    IoError(#[from] io::Error),
-}
-
-/// The error type for message verification.
-#[derive(Debug, Error)]
-pub enum VerificationError {
-    /// Error due to signature/message/public key mismatch.
-    ///
-    /// The message or signature may have been altered, or the message may not have been signed with
-    /// the given key.
-    #[error("invalid signature")]
-    InvalidSignature,
-
-    /// The reader containing the message returned an IO error.
-    #[error("error verifying: {0}")]
-    IoError(#[from] io::Error),
-}
 
 /// A 512-bit secret from which multiple private keys can be derived.
 #[derive(ZeroizeOnDrop)]
@@ -155,14 +126,7 @@ impl PrivateKey {
         writer: &mut impl Write,
         sender: &PublicKey,
     ) -> Result<u64, DecryptionError> {
-        let (verified, written) =
-            mres::decrypt(reader, &mut BufWriter::new(writer), &self.d, &self.pk.q, &sender.q)?;
-
-        if verified {
-            Ok(written)
-        } else {
-            Err(DecryptionError::InvalidCiphertext)
-        }
+        mres::decrypt(reader, &mut BufWriter::new(writer), &self.d, &self.pk.q, &sender.q)
     }
 
     /// Read the contents of the reader and return a digital signature.
@@ -215,11 +179,7 @@ impl PublicKey {
         let mut verifier = Verifier::new();
         io::copy(reader, &mut verifier)?;
 
-        if verifier.verify(&self.q, sig)? {
-            Ok(())
-        } else {
-            Err(VerificationError::InvalidSignature)
-        }
+        verifier.verify(&self.q, sig)
     }
 
     /// Derive a public key with the given label.

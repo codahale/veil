@@ -15,6 +15,21 @@ use crate::ristretto::{Point, Scalar};
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
 
+/// The error type for message verification.
+#[derive(Debug, Error)]
+pub enum VerificationError {
+    /// Error due to signature/message/public key mismatch.
+    ///
+    /// The message or signature may have been altered, or the message may not have been signed with
+    /// the given key.
+    #[error("invalid signature")]
+    InvalidSignature,
+
+    /// The reader containing the message returned an IO error.
+    #[error("error verifying: {0}")]
+    IoError(#[from] io::Error),
+}
+
 /// Error due to invalid signature format.
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
 #[error("invalid signature")]
@@ -121,7 +136,7 @@ impl Verifier {
     }
 
     /// Verify the previously-written message contents using the given public key and signature.
-    pub fn verify(self, q: &Point, sig: &Signature) -> Result<bool> {
+    pub fn verify(self, q: &Point, sig: &Signature) -> result::Result<(), VerificationError> {
         // Unwrap duplex.
         let (mut schnorr, _, _) = self.writer.into_inner()?;
 
@@ -134,6 +149,7 @@ impl Verifier {
         // Decrypt and decode the commitment point.
         let i = schnorr.decrypt(i);
         let i = Point::from_canonical_encoding(&i);
+        let i = i.ok_or(VerificationError::InvalidSignature)?;
 
         // Re-derive the challenge scalar.
         let r = schnorr.squeeze_scalar();
@@ -141,13 +157,16 @@ impl Verifier {
         // Decrypt and decode the proof scalar.
         let s = schnorr.decrypt(s);
         let s = Scalar::from_canonical_encoding(&s);
+        let s = s.ok_or(VerificationError::InvalidSignature)?;
 
         // Return true iff I and s are well-formed and I == [s]G - [r]Q. Use the variable-time
         // implementation here because the verifier has no secret data.
-        Ok(i.zip(s).map_or(false, |(i, s)| {
-            // I = [r](-Q) + [s]G = [s]G - [r]Q
-            i == Point::vartime_double_scalar_mul_basepoint(&r, &-q, &s /*G*/)
-        }))
+        //    I == [r](-Q) + [s]G == [s]G - [r]Q
+        if i == Point::vartime_double_scalar_mul_basepoint(&r, &-q, &s /*G*/) {
+            Ok(())
+        } else {
+            Err(VerificationError::InvalidSignature)
+        }
     }
 }
 
@@ -186,16 +205,23 @@ mod tests {
         assert_eq!(7, verifier.write(b" pieces")?, "invalid write count");
         verifier.flush()?;
 
-        assert!(
-            verifier.verify(&q, &sig).expect("error verifying"),
-            "should have verified a valid signature"
-        );
+        assert!(verifier.verify(&q, &sig).is_ok(), "should have verified a valid signature");
 
         Ok(())
     }
 
+    macro_rules! assert_failed {
+        ($action: expr) => {
+            match $action {
+                Ok(_) => panic!("verified but shouldn't have"),
+                Err(VerificationError::InvalidSignature) => Ok(()),
+                Err(e) => Err(e),
+            }
+        };
+    }
+
     #[test]
-    fn bad_message() -> Result<()> {
+    fn bad_message() -> result::Result<(), VerificationError> {
         let d = Scalar::random(&mut rand::thread_rng());
         let q = &d * &G;
 
@@ -212,16 +238,11 @@ mod tests {
         verifier.write_all(b" pieces")?;
         verifier.flush()?;
 
-        assert!(
-            !verifier.verify(&q, &sig).expect("error verifying"),
-            "verified an invalid signature"
-        );
-
-        Ok(())
+        assert_failed!(verifier.verify(&q, &sig))
     }
 
     #[test]
-    fn bad_key() -> Result<()> {
+    fn bad_key() -> result::Result<(), VerificationError> {
         let d = Scalar::random(&mut rand::thread_rng());
         let q = &d * &G;
 
@@ -238,16 +259,12 @@ mod tests {
         verifier.write_all(b" pieces")?;
         verifier.flush()?;
 
-        assert!(
-            !verifier.verify(&G.basepoint(), &sig).expect("error verifying"),
-            "verified an invalid signature"
-        );
-
-        Ok(())
+        let q = Point::random(&mut rand::thread_rng());
+        assert_failed!(verifier.verify(&q, &sig))
     }
 
     #[test]
-    fn bad_sig() -> Result<()> {
+    fn bad_sig() -> result::Result<(), VerificationError> {
         let d = Scalar::random(&mut rand::thread_rng());
         let q = &d * &G;
 
@@ -265,12 +282,7 @@ mod tests {
         verifier.write_all(b" pieces")?;
         verifier.flush()?;
 
-        assert!(
-            !verifier.verify(&q, &sig).expect("error verifying"),
-            "verified an invalid signature"
-        );
-
-        Ok(())
+        assert_failed!(verifier.verify(&q, &sig))
     }
 
     #[test]

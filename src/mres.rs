@@ -1,16 +1,42 @@
 //! A multi-recipient, hybrid cryptosystem.
 
 use std::convert::TryInto;
-use std::io::{self, Read, Result, Write};
+use std::io::{self, Read, Write};
 use std::mem;
+use std::result::Result;
 
 use rand::RngCore;
+use thiserror::Error;
 
 use crate::duplex::{Duplex, TAG_LEN};
 use crate::ristretto::{CanonicallyEncoded, G, POINT_LEN};
 use crate::ristretto::{Point, Scalar};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
-use crate::{sres, Signature};
+use crate::{sres, Signature, VerificationError};
+
+/// The error type for message decryption.
+#[derive(Debug, Error)]
+pub enum DecryptionError {
+    /// Error due to message/private key/public key mismatch.
+    ///
+    /// The ciphertext may have been altered, the message may not have been encrypted by the given
+    /// sender, or the message may not have been encrypted for the given recipient.
+    #[error("invalid ciphertext")]
+    InvalidCiphertext,
+
+    /// An error returned when there was an underlying IO error during decryption.
+    #[error("error decrypting: {0}")]
+    IoError(#[from] io::Error),
+}
+
+impl From<VerificationError> for DecryptionError {
+    fn from(e: VerificationError) -> Self {
+        match e {
+            VerificationError::IoError(e) => DecryptionError::IoError(e),
+            VerificationError::InvalidSignature => DecryptionError::InvalidCiphertext,
+        }
+    }
+}
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
@@ -21,7 +47,7 @@ pub fn encrypt(
     q_s: &Point,
     q_rs: &[Point],
     padding: u64,
-) -> Result<u64> {
+) -> io::Result<u64> {
     // Initialize a duplex and absorb the sender's public key.
     let mut mres = Duplex::new("veil.mres");
     mres.absorb(&q_s.to_canonical_encoding());
@@ -79,7 +105,7 @@ fn encrypt_message(
     mres: &mut Duplex,
     reader: &mut impl Read,
     writer: &mut impl Write,
-) -> Result<u64> {
+) -> io::Result<u64> {
     let mut buf = Vec::with_capacity(BLOCK_LEN);
     let mut written = 0;
 
@@ -116,7 +142,7 @@ pub fn decrypt(
     d_r: &Scalar,
     q_r: &Point,
     q_s: &Point,
-) -> Result<(bool, u64)> {
+) -> Result<u64, DecryptionError> {
     // Initialize a duplex and absorb the sender's public key.
     let mut mres = Duplex::new("veil.mres");
     mres.absorb(&q_s.to_canonical_encoding());
@@ -130,7 +156,7 @@ pub fn decrypt(
     // Find a header, decrypt it, and write the entirety of the headers and padding to the verifier.
     let (dek, q_e) = match decrypt_header(reader, &mut mres, d_r, q_r, q_s)? {
         Some(header) => header,
-        None => return Ok((false, 0)),
+        None => return Err(DecryptionError::InvalidCiphertext),
     };
 
     // Unwrap the received cleartext writer.
@@ -141,15 +167,13 @@ pub fn decrypt(
 
     // Decrypt the message and get the signature.
     let (written, sig) = decrypt_message(&mut mres, reader, writer, &mut verifier)?;
+    let sig = sig.ok_or(DecryptionError::InvalidCiphertext)?;
 
-    // Check to see if we decrypted the entire message.
-    if let Some(sig) = sig {
-        // Return the signature's validity and the number of bytes of plaintext written.
-        Ok((verifier.verify(&q_e, &Signature(sig))?, written))
-    } else {
-        // Otherwise, return a decryption failure and the number of bytes written.
-        Ok((false, written))
-    }
+    // Verify the signature.
+    verifier.verify(&q_e, &Signature(sig))?;
+
+    // Return the number of bytes of plaintext written.
+    Ok(written)
 }
 
 fn decrypt_message(
@@ -157,7 +181,7 @@ fn decrypt_message(
     reader: &mut impl Read,
     writer: &mut impl Write,
     verifier: &mut Verifier,
-) -> Result<(u64, Option<[u8; SIGNATURE_LEN]>)> {
+) -> io::Result<(u64, Option<[u8; SIGNATURE_LEN]>)> {
     let mut buf = Vec::with_capacity(ENC_BLOCK_LEN + SIGNATURE_LEN);
     let mut written = 0;
 
@@ -209,7 +233,7 @@ fn decrypt_header(
     d_r: &Scalar,
     q_r: &Point,
     q_s: &Point,
-) -> Result<Option<(Vec<u8>, Point)>> {
+) -> io::Result<Option<(Vec<u8>, Point)>> {
     let mut buf = Vec::with_capacity(ENC_HEADER_LEN);
     let mut hdr_offset = 0u64;
 
@@ -275,8 +299,18 @@ mod tests {
 
     use super::*;
 
+    macro_rules! assert_failed {
+        ($action: expr) => {
+            match $action {
+                Ok(_) => panic!("decrypted but shouldn't have"),
+                Err(DecryptionError::InvalidCiphertext) => Ok(()),
+                Err(e) => Err(e),
+            }
+        };
+    }
+
     #[test]
-    fn round_trip() -> Result<()> {
+    fn round_trip() -> Result<(), DecryptionError> {
         let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &d_s * &G;
 
@@ -293,16 +327,15 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
+        let ptx_len = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
         assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
         assert_eq!(message.to_vec(), dst.into_inner(), "incorrect plaintext");
-        assert!(verified, "valid message not verified");
 
         Ok(())
     }
 
     #[test]
-    fn bad_sender_public_key() -> Result<()> {
+    fn bad_sender_public_key() -> Result<(), DecryptionError> {
         let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &d_s * &G;
 
@@ -321,15 +354,11 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
-        assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
-        assert!(!verified, "invalid message not rejected");
-
-        Ok(())
+        assert_failed!(decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s))
     }
 
     #[test]
-    fn bad_recipient_public_key() -> Result<()> {
+    fn bad_recipient_public_key() -> Result<(), DecryptionError> {
         let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &d_s * &G;
 
@@ -348,15 +377,11 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
-        assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
-        assert!(!verified, "invalid message not rejected");
-
-        Ok(())
+        assert_failed!(decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s))
     }
 
     #[test]
-    fn bad_recipient_private_key() -> Result<()> {
+    fn bad_recipient_private_key() -> Result<(), DecryptionError> {
         let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &d_s * &G;
 
@@ -375,15 +400,11 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
-        assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
-        assert!(!verified, "invalid message not rejected");
-
-        Ok(())
+        assert_failed!(decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s))
     }
 
     #[test]
-    fn multi_block_message() -> Result<()> {
+    fn multi_block_message() -> Result<(), DecryptionError> {
         let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &d_s * &G;
 
@@ -400,16 +421,15 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
+        let ptx_len = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
         assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
         assert_eq!(message.to_vec(), dst.into_inner(), "incorrect plaintext");
-        assert!(verified, "valid message not verified");
 
         Ok(())
     }
 
     #[test]
-    fn split_sig() -> Result<()> {
+    fn split_sig() -> Result<(), DecryptionError> {
         let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &d_s * &G;
 
@@ -426,16 +446,15 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        let (verified, ptx_len) = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
+        let ptx_len = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
         assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
         assert_eq!(message.to_vec(), dst.into_inner(), "incorrect plaintext");
-        assert!(verified, "valid message not verified");
 
         Ok(())
     }
 
     #[test]
-    fn flip_every_bit() -> Result<()> {
+    fn flip_every_bit() -> Result<(), DecryptionError> {
         let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &d_s * &G;
 
@@ -456,8 +475,11 @@ mod tests {
                 ciphertext[i] ^= 1 << j;
                 let mut src = Cursor::new(ciphertext);
 
-                let (verified, _) = decrypt(&mut src, &mut io::sink(), &d_r, &q_r, &q_s)?;
-                assert!(!verified, "bit flip at byte {}, bit {} produced a valid message", i, j);
+                match decrypt(&mut src, &mut io::sink(), &d_r, &q_r, &q_s) {
+                    Err(DecryptionError::InvalidCiphertext) => {}
+                    Ok(_) => panic!("bit flip at byte {i}, bit {j} produced a valid message"),
+                    Err(e) => panic!("unknown error: {}", e),
+                };
             }
         }
 
