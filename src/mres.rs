@@ -6,37 +6,12 @@ use std::mem;
 use std::result::Result;
 
 use rand::RngCore;
-use thiserror::Error;
 
 use crate::duplex::{Duplex, TAG_LEN};
 use crate::ristretto::{CanonicallyEncoded, G, POINT_LEN};
 use crate::ristretto::{Point, Scalar};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
-use crate::{sres, Signature, VerificationError};
-
-/// The error type for message decryption.
-#[derive(Debug, Error)]
-pub enum DecryptionError {
-    /// Error due to message/private key/public key mismatch.
-    ///
-    /// The ciphertext may have been altered, the message may not have been encrypted by the given
-    /// sender, or the message may not have been encrypted for the given recipient.
-    #[error("invalid ciphertext")]
-    InvalidCiphertext,
-
-    /// An error returned when there was an underlying IO error during decryption.
-    #[error("error decrypting: {0}")]
-    IoError(#[from] io::Error),
-}
-
-impl From<VerificationError> for DecryptionError {
-    fn from(e: VerificationError) -> Self {
-        match e {
-            VerificationError::IoError(e) => DecryptionError::IoError(e),
-            VerificationError::InvalidSignature => DecryptionError::InvalidCiphertext,
-        }
-    }
-}
+use crate::{sres, DecryptionError, Signature};
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.

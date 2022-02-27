@@ -6,34 +6,13 @@ use std::io::{Result, Write};
 use std::str::FromStr;
 use std::{fmt, io, result};
 
-use thiserror::Error;
-
 use crate::duplex::{AbsorbWriter, Duplex};
 use crate::ristretto::{CanonicallyEncoded, G, POINT_LEN, SCALAR_LEN};
 use crate::ristretto::{Point, Scalar};
+use crate::{SignatureError, VerificationError};
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
-
-/// The error type for message verification.
-#[derive(Debug, Error)]
-pub enum VerificationError {
-    /// Error due to signature/message/public key mismatch.
-    ///
-    /// The message or signature may have been altered, or the message may not have been signed with
-    /// the given key.
-    #[error("invalid signature")]
-    InvalidSignature,
-
-    /// The reader containing the message returned an IO error.
-    #[error("error verifying: {0}")]
-    IoError(#[from] io::Error),
-}
-
-/// Error due to invalid signature format.
-#[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
-#[error("invalid signature")]
-pub struct SignatureError;
 
 /// A Schnorr signature.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

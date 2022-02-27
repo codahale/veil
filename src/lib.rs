@@ -66,10 +66,12 @@
 )]
 
 pub use self::digest::*;
+pub use self::errors::*;
 pub use self::veil::*;
 
 mod digest;
 mod duplex;
+mod errors;
 mod hkd;
 mod mres;
 mod pbenc;

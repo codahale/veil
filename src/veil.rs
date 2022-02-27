@@ -7,14 +7,12 @@ use std::{fmt, io, iter};
 
 use rand::prelude::SliceRandom;
 use rand::Rng;
-use thiserror::Error;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-pub use crate::mres::DecryptionError;
 use crate::ristretto::{CanonicallyEncoded, Point, Scalar, G};
-pub use crate::schnorr::{Signature, SignatureError, VerificationError};
+pub use crate::schnorr::Signature;
 use crate::schnorr::{Signer, Verifier};
-use crate::{hkd, mres, pbenc};
+use crate::{hkd, mres, pbenc, DecryptionError, PublicKeyError, VerificationError};
 
 /// A 512-bit secret from which multiple private keys can be derived.
 #[derive(ZeroizeOnDrop)]
@@ -164,11 +162,6 @@ impl Debug for PrivateKey {
         self.pk.fmt(f)
     }
 }
-
-/// Error due to invalid public key format.
-#[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
-#[error("invalid public key")]
-pub struct PublicKeyError;
 
 /// A derived public key, used to verify messages.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Zeroize)]

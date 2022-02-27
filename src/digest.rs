@@ -4,14 +4,9 @@ use std::str::FromStr;
 use std::{fmt, io};
 
 use subtle::{Choice, ConstantTimeEq};
-use thiserror::Error;
 
 use crate::duplex::Duplex;
-
-/// Error due to invalid digest format.
-#[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
-#[error("invalid digest")]
-pub struct DigestError;
+use crate::DigestError;
 
 /// The digest of a set of metadata and a message.
 #[derive(Clone, Copy, Debug, Eq)]
