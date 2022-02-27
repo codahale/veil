@@ -141,11 +141,11 @@ impl PrivateKey {
     #[must_use]
     pub fn derive<T>(&self, labels: &[T]) -> PrivateKey
     where
-        T: AsRef<str>,
+        T: AsRef<[u8]>,
     {
         let (mut d, mut q) = (self.d, self.pk.q);
         for label in labels {
-            d += hkd::label_scalar(&q, label.as_ref());
+            d += hkd::label_scalar(&q, label);
             q = &d * &G;
         }
         PrivateKey { d, pk: PublicKey { q } }
@@ -192,11 +192,11 @@ impl PublicKey {
     #[must_use]
     pub fn derive<T>(&self, labels: &[T]) -> PublicKey
     where
-        T: AsRef<str>,
+        T: AsRef<[u8]>,
     {
         let mut q = self.q;
         for label in labels {
-            let r = hkd::label_scalar(&q, label.as_ref());
+            let r = hkd::label_scalar(&q, label);
             q += &r * &G;
         }
         PublicKey { q }
