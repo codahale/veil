@@ -17,15 +17,6 @@ pub enum DecryptionError {
     IoError(#[from] io::Error),
 }
 
-impl From<VerificationError> for DecryptionError {
-    fn from(e: VerificationError) -> Self {
-        match e {
-            VerificationError::IoError(e) => DecryptionError::IoError(e),
-            VerificationError::InvalidSignature => DecryptionError::InvalidCiphertext,
-        }
-    }
-}
-
 /// The error type for message verification.
 #[derive(Debug, Error)]
 pub enum VerificationError {

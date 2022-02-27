@@ -11,7 +11,7 @@ use crate::duplex::{Duplex, TAG_LEN};
 use crate::ristretto::{CanonicallyEncoded, G, POINT_LEN};
 use crate::ristretto::{Point, Scalar};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
-use crate::{sres, DecryptionError, Signature};
+use crate::{sres, DecryptionError, Signature, VerificationError};
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
@@ -145,10 +145,11 @@ pub fn decrypt(
     let sig = sig.ok_or(DecryptionError::InvalidCiphertext)?;
 
     // Verify the signature.
-    verifier.verify(&q_e, &Signature(sig))?;
-
-    // Return the number of bytes of plaintext written.
-    Ok(written)
+    match verifier.verify(&q_e, &Signature(sig)) {
+        Ok(()) => Ok(written),
+        Err(VerificationError::InvalidSignature) => Err(DecryptionError::InvalidCiphertext),
+        Err(VerificationError::IoError(e)) => Err(DecryptionError::IoError(e)),
+    }
 }
 
 fn decrypt_message(
