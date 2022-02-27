@@ -10,9 +10,8 @@ use rand::Rng;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::ristretto::{CanonicallyEncoded, Point, Scalar, G};
-pub use crate::schnorr::Signature;
 use crate::schnorr::{Signer, Verifier};
-use crate::{hkd, mres, pbenc, DecryptionError, PublicKeyError, VerificationError};
+use crate::{hkd, mres, pbenc, DecryptionError, PublicKeyError, Signature, VerificationError};
 
 /// A 512-bit secret from which multiple private keys can be derived.
 #[derive(ZeroizeOnDrop)]

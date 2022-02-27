@@ -68,6 +68,7 @@
 pub use self::digest::*;
 pub use self::errors::*;
 pub use self::veil::*;
+pub use crate::schnorr::Signature;
 
 mod digest;
 mod duplex;
