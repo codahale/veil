@@ -37,9 +37,9 @@ impl fmt::Display for Digest {
 
 impl Digest {
     /// Create a digest from a set of metadata strings and a reader.
-    pub fn new<R, T>(metadata: &[T], reader: &mut R) -> io::Result<Digest>
+    pub fn new<M, R>(metadata: &[M], reader: &mut R) -> io::Result<Digest>
     where
-        T: AsRef<[u8]>,
+        M: AsRef<[u8]>,
         R: Read,
     {
         // Initialize the duplex.
