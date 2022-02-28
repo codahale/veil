@@ -61,7 +61,7 @@ where
         let (mut schnorr, writer, _) = self.writer.into_inner()?;
 
         // Allocate an output buffer.
-        let mut sig = Vec::with_capacity(SIGNATURE_LEN);
+        let mut out = Vec::with_capacity(SIGNATURE_LEN);
 
         // Absorb the signer's public key.
         schnorr.absorb(&q.to_canonical_encoding());
@@ -72,17 +72,17 @@ where
 
         // Calculate and encrypt the commitment point.
         let i = &k * &G;
-        sig.extend(schnorr.encrypt(&i.to_canonical_encoding()));
+        out.extend(schnorr.encrypt(&i.to_canonical_encoding()));
 
         // Squeeze a challenge scalar.
         let r = schnorr.squeeze_scalar();
 
         // Calculate and encrypt the proof scalar.
         let s = d * r + k;
-        sig.extend(schnorr.encrypt(&s.to_canonical_encoding()));
+        out.extend(schnorr.encrypt(&s.to_canonical_encoding()));
 
         // Return the encrypted commitment point and proof scalar, plus the underlying writer.
-        Ok((Signature(sig.try_into().expect("invalid sig len")), writer))
+        Ok((Signature(out.try_into().expect("invalid sig len")), writer))
     }
 }
 
