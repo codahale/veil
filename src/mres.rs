@@ -7,11 +7,11 @@ use std::result::Result;
 
 use rand::RngCore;
 
+use crate::{DecryptionError, Signature, sres, VerificationError};
 use crate::duplex::{Duplex, TAG_LEN};
 use crate::ristretto::{CanonicallyEncoded, G, POINT_LEN};
 use crate::ristretto::{Point, Scalar};
-use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
-use crate::{sres, DecryptionError, Signature, VerificationError};
+use crate::schnorr::{SIGNATURE_LEN, Signer, Verifier};
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
@@ -140,7 +140,8 @@ pub fn decrypt(
     // Decrypt the message and get the signature.
     let (written, sig) = decrypt_message(&mut mres, reader, writer, &mut verifier)?;
 
-    // Verify the signature.
+    // Verify the signature. If the signature is valid, return the number of plaintext bytes
+    // written. Otherwise, map the verification error to a decryption error.
     match verifier.verify(&q_e, &sig) {
         Ok(()) => Ok(written),
         Err(VerificationError::InvalidSignature) => Err(DecryptionError::InvalidCiphertext),
