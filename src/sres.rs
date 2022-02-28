@@ -212,19 +212,36 @@ mod tests {
 
     #[test]
     fn non_contributory_scalars() {
+        // No need for the sender's private key; we're forging a message.
         let (_, q_s, d_r, q_r) = setup();
+
         let fake = b"this is a fake";
         let mut out = Vec::with_capacity(fake.len() + OVERHEAD);
+
+        // Start encrypting the message like usual.
         let mut sres = Duplex::new("veil.sres");
         sres.absorb(&q_s.to_canonical_encoding());
         sres.absorb(&q_r.to_canonical_encoding());
+
+        // Use zero for the masking byte.
         sres.absorb(&[0]);
+
+        // Use the identity point for the shared secret.
         sres.rekey(&Point::identity().to_canonical_encoding());
+
+        // Encrypt the fake message.
         out.extend(sres.encrypt(fake));
+
+        // Ratchet the state and output a challenge scalar.
         sres.ratchet();
         out.extend(sres.squeeze_scalar().to_canonical_encoding());
+
+        // Send a zero as the proof scalar.
         out.extend(Scalar::zero().to_canonical_encoding());
 
+        // If we're not checking for contributory behavior, [d_r * s]([r]G + Q_s) will be
+        // [0]([r]G + Q_s), which will be 0. The recipient will use the identity point as the shared
+        // secret, the challenge scalar will be the same, and we'll have forged a message.
         assert!(decrypt(&d_r, &q_r, &q_s, &out).is_none());
     }
 
