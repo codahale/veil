@@ -34,13 +34,9 @@ impl SecretKey {
 
     /// Decrypt the secret key with the given passphrase.
     pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Result<SecretKey, DecryptionError> {
-        // Check the ciphertext length.
-        if ciphertext.len() != SECRET_KEY_LEN + pbenc::OVERHEAD {
-            return Err(DecryptionError::InvalidCiphertext);
-        }
-
         // Decrypt the ciphertext and use the plaintext as the secret key.
         pbenc::decrypt(passphrase, ciphertext)
+            .filter(|r| r.len() == SECRET_KEY_LEN)
             .map(|r| SecretKey { r })
             .ok_or(DecryptionError::InvalidCiphertext)
     }
