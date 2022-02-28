@@ -2,6 +2,7 @@
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoBasepointTable, RistrettoPoint};
+pub use curve25519_dalek::traits::Identity;
 
 /// A scalar on the Ristretto255 curve.
 pub type Scalar = curve25519_dalek::scalar::Scalar;

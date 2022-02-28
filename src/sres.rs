@@ -1,5 +1,6 @@
 //! An insider-secure hybrid signcryption implementation.
 
+use curve25519_dalek::traits::IsIdentity;
 use rand::Rng;
 
 use crate::duplex::Duplex;
@@ -96,8 +97,14 @@ pub fn decrypt(d_r: &Scalar, q_r: &Point, q_s: &Point, ciphertext: &[u8]) -> Opt
     // Calculate the masking byte and absorb it.
     sres.absorb(&[mr | (ms >> 4)]);
 
-    // Re-key with the shared secret.
+    // Calculate the shared secret and return an error if it's the identity point. If the point is
+    // the identity point, an attacker tried slipping a zero in for the proof scalar.
     let k = (d_r * s) * ((&r * &G) + q_s);
+    if k.is_identity() {
+        return None;
+    }
+
+    // Re-key the protocol with the shared secret.
     sres.rekey(&k.to_canonical_encoding());
 
     // Decrypt the ciphertext.
@@ -133,7 +140,7 @@ fn unmask_scalar(b: &[u8]) -> (Scalar, u8) {
 
 #[cfg(test)]
 mod tests {
-    use crate::ristretto::Point;
+    use crate::ristretto::{Identity, Point};
 
     use super::*;
 
@@ -201,6 +208,24 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn non_contributory_scalars() {
+        let (_, q_s, d_r, q_r) = setup();
+        let fake = b"this is a fake";
+        let mut out = Vec::with_capacity(fake.len() + OVERHEAD);
+        let mut sres = Duplex::new("veil.sres");
+        sres.absorb(&q_s.to_canonical_encoding());
+        sres.absorb(&q_r.to_canonical_encoding());
+        sres.absorb(&[0]);
+        sres.rekey(&Point::identity().to_canonical_encoding());
+        out.extend(sres.encrypt(fake));
+        sres.ratchet();
+        out.extend(sres.squeeze_scalar().to_canonical_encoding());
+        out.extend(Scalar::zero().to_canonical_encoding());
+
+        assert!(decrypt(&d_r, &q_r, &q_s, &out).is_none());
     }
 
     fn setup() -> (Scalar, Point, Scalar, Point) {
