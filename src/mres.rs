@@ -7,11 +7,11 @@ use std::result::Result;
 
 use rand::RngCore;
 
-use crate::{DecryptionError, Signature, sres, VerificationError};
 use crate::duplex::{Duplex, TAG_LEN};
 use crate::ristretto::{CanonicallyEncoded, G, POINT_LEN};
 use crate::ristretto::{Point, Scalar};
-use crate::schnorr::{SIGNATURE_LEN, Signer, Verifier};
+use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
+use crate::{sres, DecryptionError, Signature, VerificationError};
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
