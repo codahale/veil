@@ -272,4 +272,4 @@ In the event of an RNG failure, the commitment scalar $x$ will still be unique f
 
 [gamage]: https://link.springer.com/chapter/10.1007/3-540-49162-7_6
 
-[hpke]: https://eprint.iacr.org/2020/1499.pdf
+[hpke]: https://www.rfc-editor.org/rfc/rfc9180.html#name-key-compromise-impersonatio
