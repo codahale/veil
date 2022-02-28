@@ -227,7 +227,7 @@ mod tests {
         sres.absorb(&[0]);
 
         // Use the identity point for the shared secret.
-        sres.rekey(&Point::identity().to_canonical_encoding());
+        sres.rekey(&[0u8; 32]);
 
         // Encrypt the fake message.
         out.extend(sres.encrypt(fake));
@@ -237,7 +237,7 @@ mod tests {
         out.extend(sres.squeeze_scalar().to_canonical_encoding());
 
         // Send a zero as the proof scalar.
-        out.extend(Scalar::zero().to_canonical_encoding());
+        out.extend([0u8; 32]);
 
         // If we're not checking for contributory behavior, [d_r * s]([r]G + Q_s) will be
         // [0]([r]G + Q_s), which will be 0. The recipient will use the identity point as the shared
