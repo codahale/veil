@@ -1,11 +1,9 @@
 //! An insider-secure hybrid signcryption implementation.
 
-use curve25519_dalek::traits::IsIdentity;
 use rand::Rng;
 
 use crate::duplex::Duplex;
-use crate::ristretto::{CanonicallyEncoded, G, SCALAR_LEN};
-use crate::ristretto::{Point, Scalar};
+use crate::ristretto::{CanonicallyEncoded, IsIdentity, Point, Scalar, G, SCALAR_LEN};
 
 /// The number of bytes added to plaintext by [encrypt].
 pub const OVERHEAD: usize = SCALAR_LEN + SCALAR_LEN;
@@ -91,8 +89,8 @@ pub fn decrypt(d_r: &Scalar, q_r: &Point, q_s: &Point, ciphertext: &[u8]) -> Opt
     sres.absorb(&q_r.to_canonical_encoding());
 
     // Unmask the scalars.
-    let (r, mr) = unmask_scalar(mr);
-    let (s, ms) = unmask_scalar(ms);
+    let (r, mr) = unmask_scalar(mr)?;
+    let (s, ms) = unmask_scalar(ms)?;
 
     // Calculate the masking byte and absorb it.
     sres.absorb(&[mr | (ms >> 4)]);
@@ -131,16 +129,16 @@ fn mask_scalar(v: Scalar, mask: u8) -> Vec<u8> {
 
 // Zero out the top four bits of `b` and decode it as a scalar, returning the scalar and the mask.
 #[inline]
-fn unmask_scalar(b: &[u8]) -> (Scalar, u8) {
+fn unmask_scalar(b: &[u8]) -> Option<(Scalar, u8)> {
     let mut v: [u8; 32] = b.try_into().expect("invalid scalar len");
     let m = v[31] & 0xF0;
     v[31] &= 0x0F;
-    (Scalar::from_canonical_encoding(&v).expect("invalid scalar mask"), m)
+    Scalar::from_canonical_encoding(&v).map(|d| (d, m))
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::ristretto::{Identity, Point};
+    use crate::ristretto::Point;
 
     use super::*;
 
