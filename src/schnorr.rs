@@ -125,7 +125,7 @@ impl Verifier {
         // Split the signature into parts.
         let (i, s) = sig.0.split_at(POINT_LEN);
 
-        // Decrypt and decode the commitment point.
+        // Decrypt and decode the commitment point. Return an error if it's the identity point.
         let i = schnorr.decrypt(i);
         let i = Point::from_canonical_encoding(&i);
         let i = i.ok_or(VerificationError::InvalidSignature)?;
@@ -133,7 +133,7 @@ impl Verifier {
         // Re-derive the challenge scalar.
         let r = schnorr.squeeze_scalar();
 
-        // Decrypt and decode the proof scalar.
+        // Decrypt and decode the proof scalar. Return an error if it's zero.
         let s = schnorr.decrypt(s);
         let s = Scalar::from_canonical_encoding(&s);
         let s = s.ok_or(VerificationError::InvalidSignature)?;
