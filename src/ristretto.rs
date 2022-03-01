@@ -1,14 +1,14 @@
 //! Utility functions for Ristretto operations.
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
-use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoBasepointTable, RistrettoPoint};
+use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoBasepointTable};
 pub use curve25519_dalek::traits::{Identity, IsIdentity};
 
 /// A scalar on the Ristretto255 curve.
 pub type Scalar = curve25519_dalek::scalar::Scalar;
 
 /// A point on the Ristretto255 curve.
-pub type Point = RistrettoPoint;
+pub type Point = curve25519_dalek::ristretto::RistrettoPoint;
 
 /// The generator for the Ristretto group. Use the table version, which contains precomputed
 /// multiples, for performance.
@@ -44,7 +44,7 @@ impl CanonicallyEncoded for Scalar {
     }
 }
 
-impl CanonicallyEncoded for RistrettoPoint {
+impl CanonicallyEncoded for Point {
     fn from_canonical_encoding(b: &[u8]) -> Option<Self> {
         CompressedRistretto::from_slice(b).decompress().filter(|q| !q.is_identity())
     }
