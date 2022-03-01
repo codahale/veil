@@ -25,7 +25,8 @@ impl FromStr for Signature {
         bs58::decode(s)
             .into_vec()
             .ok()
-            .and_then(|b| Some(Signature(b.try_into().ok()?)))
+            .and_then(|b| b.try_into().ok())
+            .map(Signature)
             .ok_or(SignatureError)
     }
 }
