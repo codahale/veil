@@ -19,7 +19,8 @@ impl FromStr for Digest {
         bs58::decode(s)
             .into_vec()
             .ok()
-            .and_then(|b| Some(Digest(b.try_into().ok()?)))
+            .and_then(|b| b.try_into().ok())
+            .map(Digest)
             .ok_or(DigestError)
     }
 }
