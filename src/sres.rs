@@ -3,7 +3,7 @@
 use rand::Rng;
 
 use crate::duplex::Duplex;
-use crate::ristretto::{CanonicallyEncoded, IsIdentity, Point, Scalar, G, SCALAR_LEN};
+use crate::ristretto::{CanonicallyEncoded, Point, Scalar, G, SCALAR_LEN};
 
 /// The number of bytes added to plaintext by [encrypt].
 pub const OVERHEAD: usize = SCALAR_LEN + SCALAR_LEN;
@@ -88,19 +88,16 @@ pub fn decrypt(d_r: &Scalar, q_r: &Point, q_s: &Point, ciphertext: &[u8]) -> Opt
     // Absorb the receiver's public key.
     sres.absorb(&q_r.to_canonical_encoding());
 
-    // Unmask the scalars.
+    // Unmask the scalars. Early exit if either of them are zero.
     let (r, mr) = unmask_scalar(mr)?;
     let (s, ms) = unmask_scalar(ms)?;
 
     // Calculate the masking byte and absorb it.
     sres.absorb(&[mr | (ms >> 4)]);
 
-    // Calculate the shared secret and return an error if it's the identity point. If the point is
-    // the identity point, an attacker tried slipping a zero in for the proof scalar.
+    // Calculate the shared secret. Having validated `r` and `s` as non-zero scalars, we are assured
+    // here of contributory behavior.
     let k = (d_r * s) * ((&r * &G) + q_s);
-    if k.is_identity() {
-        return None;
-    }
 
     // Re-key the protocol with the shared secret.
     sres.rekey(&k.to_canonical_encoding());
