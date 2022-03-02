@@ -20,7 +20,7 @@ pub struct SecretKey {
 }
 
 impl SecretKey {
-    /// Return a randomly generated secret key.
+    /// Create a randomly generated secret key.
     #[must_use]
     pub fn new() -> SecretKey {
         SecretKey { r: rand::thread_rng().gen::<[u8; SECRET_KEY_LEN]>().to_vec() }
@@ -33,6 +33,11 @@ impl SecretKey {
     }
 
     /// Decrypt the secret key with the given passphrase.
+    ///
+    /// # Errors
+    ///
+    /// If the passphrase is incorrect and/or the ciphertext has been modified, a
+    /// [DecryptError::InvalidCiphertext] error will be returned.
     pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Result<SecretKey, DecryptError> {
         // Decrypt the ciphertext and use the plaintext as the secret key.
         pbenc::decrypt(passphrase, ciphertext)
@@ -41,14 +46,14 @@ impl SecretKey {
             .ok_or(DecryptError::InvalidCiphertext)
     }
 
-    /// The root private key.
+    /// Returns the root private key.
     #[must_use]
     pub fn private_key(&self) -> PrivateKey {
         let d = hkd::root_key(&self.r);
         PrivateKey { d, pk: PublicKey { q: &d * &G } }
     }
 
-    /// The root public key.
+    /// Returns the root public key.
     #[must_use]
     pub fn public_key(&self) -> PublicKey {
         self.private_key().public_key()
