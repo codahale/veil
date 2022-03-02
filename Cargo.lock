@@ -931,6 +931,7 @@ dependencies = [
  "duct",
  "mimalloc",
  "rand",
+ "rand_chacha",
  "rpassword",
  "subtle",
  "tempfile",
