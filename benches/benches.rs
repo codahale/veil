@@ -18,6 +18,7 @@ fn bench_encrypt(c: &mut Criterion) {
         encrypt.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &n| {
             b.iter(|| {
                 pk_a.encrypt(
+                    rand::thread_rng(),
                     &mut io::repeat(0).take(n),
                     &mut io::sink(),
                     &[pk_b.public_key()],
@@ -42,6 +43,7 @@ fn bench_decrypt(c: &mut Criterion) {
     for n in [0, KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
         let mut ciphertext = Cursor::new(Vec::new());
         pk_a.encrypt(
+            rand::thread_rng(),
             &mut io::repeat(0).take(n),
             &mut ciphertext,
             &[pk_b.public_key()],
@@ -74,7 +76,7 @@ fn bench_sign(c: &mut Criterion) {
     for n in [0, KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
         sign.throughput(Throughput::Elements(n));
         sign.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &n| {
-            b.iter(|| pk_a.sign(&mut io::repeat(0).take(n)).unwrap());
+            b.iter(|| pk_a.sign(rand::thread_rng(), &mut io::repeat(0).take(n)).unwrap());
         });
     }
     sign.finish();
@@ -86,7 +88,7 @@ fn bench_verify(c: &mut Criterion) {
 
     let mut verify = c.benchmark_group("verify");
     for n in [0, KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
-        let sig = pk_a.sign(&mut io::repeat(0).take(n)).unwrap();
+        let sig = pk_a.sign(rand::thread_rng(), &mut io::repeat(0).take(n)).unwrap();
         verify.throughput(Throughput::Elements(n));
         verify.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &n| {
             b.iter(|| pk_a.public_key().verify(&mut io::repeat(0).take(n), &sig).unwrap());

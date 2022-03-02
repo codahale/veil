@@ -35,6 +35,7 @@
 //! // Alice encrypts a secret message for Bea.
 //! let mut ciphertext = Cursor::new(Vec::new());
 //! alice_priv.encrypt(
+//!   rand::thread_rng(),
 //!   &mut Cursor::new("this is a secret message"),
 //!   &mut ciphertext,
 //!   &[bea_pub],

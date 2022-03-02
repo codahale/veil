@@ -177,6 +177,7 @@ impl Runnable for EncryptArgs {
         let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
         let private_key = secret_key.private_key().derive(&self.key_path);
         private_key.encrypt(
+            rand::thread_rng(),
             &mut self.plaintext.lock(),
             &mut self.ciphertext.lock(),
             &self.recipients,
@@ -255,7 +256,7 @@ impl Runnable for SignArgs {
     fn run(mut self) -> Result<()> {
         let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
         let private_key = secret_key.private_key().derive(&self.key_path);
-        let sig = private_key.sign(&mut self.message.lock())?;
+        let sig = private_key.sign(rand::thread_rng(), &mut self.message.lock())?;
         write!(self.output.lock(), "{}", sig)?;
         Ok(())
     }

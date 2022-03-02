@@ -94,6 +94,7 @@ impl PrivateKey {
     /// random padding to disguise the message length.
     pub fn encrypt(
         &self,
+        mut rng: impl Rng + CryptoRng,
         reader: &mut impl Read,
         writer: &mut impl Write,
         recipients: &[PublicKey],
@@ -104,15 +105,15 @@ impl PrivateKey {
         let mut q_rs = recipients
             .iter()
             .map(|pk| pk.q)
-            .chain(iter::repeat_with(|| Point::random(&mut rand::thread_rng())).take(fakes))
+            .chain(iter::repeat_with(|| Point::random(&mut rng)).take(fakes))
             .collect::<Vec<Point>>();
 
         // Shuffle the recipients list.
-        q_rs.shuffle(&mut rand::thread_rng());
+        q_rs.shuffle(&mut rng);
 
         // Finally, encrypt.
         mres::encrypt(
-            rand::thread_rng(),
+            &mut rng,
             reader,
             &mut BufWriter::new(writer),
             &self.d,
@@ -136,10 +137,10 @@ impl PrivateKey {
     }
 
     /// Read the contents of the reader and return a digital signature.
-    pub fn sign(&self, reader: &mut impl Read) -> io::Result<Signature> {
+    pub fn sign(&self, rng: impl Rng + CryptoRng, reader: &mut impl Read) -> io::Result<Signature> {
         let mut signer = Signer::new(io::sink());
         io::copy(reader, &mut signer)?;
-        let (sig, _) = signer.sign(rand::thread_rng(), &self.d, &self.pk.q)?;
+        let (sig, _) = signer.sign(rng, &self.d, &self.pk.q)?;
         Ok(sig)
     }
 
@@ -270,7 +271,14 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = priv_a.encrypt(&mut src, &mut dst, &[priv_b.public_key()], 20, 123)?;
+        let ctx_len = priv_a.encrypt(
+            rand::thread_rng(),
+            &mut src,
+            &mut dst,
+            &[priv_b.public_key()],
+            20,
+            123,
+        )?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
@@ -305,7 +313,14 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = priv_a.encrypt(&mut src, &mut dst, &[priv_b.public_key()], 20, 123)?;
+        let ctx_len = priv_a.encrypt(
+            rand::thread_rng(),
+            &mut src,
+            &mut dst,
+            &[priv_b.public_key()],
+            20,
+            123,
+        )?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
@@ -326,7 +341,14 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = priv_a.encrypt(&mut src, &mut dst, &[priv_a.public_key()], 20, 123)?;
+        let ctx_len = priv_a.encrypt(
+            rand::thread_rng(),
+            &mut src,
+            &mut dst,
+            &[priv_a.public_key()],
+            20,
+            123,
+        )?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
@@ -347,7 +369,14 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = priv_a.encrypt(&mut src, &mut dst, &[priv_b.public_key()], 20, 123)?;
+        let ctx_len = priv_a.encrypt(
+            rand::thread_rng(),
+            &mut src,
+            &mut dst,
+            &[priv_b.public_key()],
+            20,
+            123,
+        )?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut ciphertext = dst.into_inner();
@@ -365,7 +394,7 @@ mod tests {
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
 
-        let sig = sk.private_key().sign(&mut src)?;
+        let sig = sk.private_key().sign(rand::thread_rng(), &mut src)?;
 
         let mut src = Cursor::new(message);
         sk.public_key().verify(&mut src, &sig)
