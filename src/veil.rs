@@ -219,13 +219,17 @@ impl FromStr for PublicKey {
 
 #[cfg(test)]
 mod tests {
+    use rand::SeedableRng;
+    use rand_chacha::ChaChaRng;
     use std::io::Cursor;
 
     use super::*;
 
     #[test]
     fn hierarchical_key_derivation() {
-        let sk = SecretKey::random(rand::thread_rng());
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
+        let sk = SecretKey::random(&mut rng);
 
         let abc = sk.private_key().derive(&["a", "b", "c"]).public_key();
         let abc_p = sk.public_key().derive(&["a", "b", "c"]);
@@ -261,24 +265,20 @@ mod tests {
 
     #[test]
     fn round_trip() -> Result<(), DecryptError> {
-        let sk_a = SecretKey::random(rand::thread_rng());
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
+        let sk_a = SecretKey::random(&mut rng);
         let priv_a = sk_a.private_key();
 
-        let sk_b = SecretKey::random(rand::thread_rng());
+        let sk_b = SecretKey::random(&mut rng);
         let priv_b = sk_b.private_key();
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = priv_a.encrypt(
-            rand::thread_rng(),
-            &mut src,
-            &mut dst,
-            &[priv_b.public_key()],
-            20,
-            123,
-        )?;
+        let ctx_len =
+            priv_a.encrypt(&mut rng, &mut src, &mut dst, &[priv_b.public_key()], 20, 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
@@ -303,24 +303,20 @@ mod tests {
 
     #[test]
     fn bad_sender_key() -> Result<(), DecryptError> {
-        let sk_a = SecretKey::random(rand::thread_rng());
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
+        let sk_a = SecretKey::random(&mut rng);
         let priv_a = sk_a.private_key();
 
-        let sk_b = SecretKey::random(rand::thread_rng());
+        let sk_b = SecretKey::random(&mut rng);
         let priv_b = sk_b.private_key();
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = priv_a.encrypt(
-            rand::thread_rng(),
-            &mut src,
-            &mut dst,
-            &[priv_b.public_key()],
-            20,
-            123,
-        )?;
+        let ctx_len =
+            priv_a.encrypt(&mut rng, &mut src, &mut dst, &[priv_b.public_key()], 20, 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
@@ -331,24 +327,20 @@ mod tests {
 
     #[test]
     fn bad_recipient() -> Result<(), DecryptError> {
-        let sk_a = SecretKey::random(rand::thread_rng());
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
+        let sk_a = SecretKey::random(&mut rng);
         let priv_a = sk_a.private_key();
 
-        let sk_b = SecretKey::random(rand::thread_rng());
+        let sk_b = SecretKey::random(&mut rng);
         let priv_b = sk_b.private_key();
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = priv_a.encrypt(
-            rand::thread_rng(),
-            &mut src,
-            &mut dst,
-            &[priv_a.public_key()],
-            20,
-            123,
-        )?;
+        let ctx_len =
+            priv_a.encrypt(&mut rng, &mut src, &mut dst, &[priv_a.public_key()], 20, 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
@@ -359,24 +351,20 @@ mod tests {
 
     #[test]
     fn bad_ciphertext() -> Result<(), DecryptError> {
-        let sk_a = SecretKey::random(rand::thread_rng());
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
+        let sk_a = SecretKey::random(&mut rng);
         let priv_a = sk_a.private_key();
 
-        let sk_b = SecretKey::random(rand::thread_rng());
+        let sk_b = SecretKey::random(&mut rng);
         let priv_b = sk_b.private_key();
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = priv_a.encrypt(
-            rand::thread_rng(),
-            &mut src,
-            &mut dst,
-            &[priv_b.public_key()],
-            20,
-            123,
-        )?;
+        let ctx_len =
+            priv_a.encrypt(&mut rng, &mut src, &mut dst, &[priv_b.public_key()], 20, 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut ciphertext = dst.into_inner();
@@ -390,11 +378,13 @@ mod tests {
 
     #[test]
     fn sign_and_verify() -> Result<(), VerifyError> {
-        let sk = SecretKey::random(rand::thread_rng());
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
+        let sk = SecretKey::random(&mut rng);
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
 
-        let sig = sk.private_key().sign(rand::thread_rng(), &mut src)?;
+        let sig = sk.private_key().sign(&mut rng, &mut src)?;
 
         let mut src = Cursor::new(message);
         sk.public_key().verify(&mut src, &sig)
