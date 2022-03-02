@@ -164,6 +164,8 @@ impl Write for Verifier {
 
 #[cfg(test)]
 mod tests {
+    use rand::SeedableRng;
+    use rand_chacha::ChaChaRng;
     use std::io;
     use std::io::Write;
 
@@ -171,7 +173,9 @@ mod tests {
 
     #[test]
     fn sign_and_verify() -> Result<()> {
-        let d = Scalar::random(&mut rand::thread_rng());
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
+        let d = Scalar::random(&mut rng);
         let q = &d * &G;
 
         let mut signer = Signer::new(io::sink());
@@ -179,7 +183,7 @@ mod tests {
         assert_eq!(30, signer.write(b" is written in multiple pieces")?, "invalid write count");
         signer.flush()?;
 
-        let (sig, _) = signer.sign(rand::thread_rng(), &d, &q).expect("error signing");
+        let (sig, _) = signer.sign(&mut rng, &d, &q).expect("error signing");
 
         let mut verifier = Verifier::new();
         assert_eq!(22, verifier.write(b"this is a message that")?, "invalid write count");
@@ -204,7 +208,9 @@ mod tests {
 
     #[test]
     fn bad_message() -> result::Result<(), VerifyError> {
-        let d = Scalar::random(&mut rand::thread_rng());
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
+        let d = Scalar::random(&mut rng);
         let q = &d * &G;
 
         let mut signer = Signer::new(io::sink());
@@ -212,7 +218,7 @@ mod tests {
         signer.write_all(b" is written in multiple pieces")?;
         signer.flush()?;
 
-        let (sig, _) = signer.sign(rand::thread_rng(), &d, &q).expect("error signing");
+        let (sig, _) = signer.sign(&mut rng, &d, &q).expect("error signing");
 
         let mut verifier = Verifier::new();
         verifier.write_all(b"this NOT is a message that")?;
@@ -225,7 +231,9 @@ mod tests {
 
     #[test]
     fn bad_key() -> result::Result<(), VerifyError> {
-        let d = Scalar::random(&mut rand::thread_rng());
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
+        let d = Scalar::random(&mut rng);
         let q = &d * &G;
 
         let mut signer = Signer::new(io::sink());
@@ -233,7 +241,7 @@ mod tests {
         signer.write_all(b" is written in multiple pieces")?;
         signer.flush()?;
 
-        let (sig, _) = signer.sign(rand::thread_rng(), &d, &q).expect("error signing");
+        let (sig, _) = signer.sign(&mut rng, &d, &q).expect("error signing");
 
         let mut verifier = Verifier::new();
         verifier.write_all(b"this is a message that")?;
@@ -241,13 +249,15 @@ mod tests {
         verifier.write_all(b" pieces")?;
         verifier.flush()?;
 
-        let q = Point::random(&mut rand::thread_rng());
+        let q = Point::random(&mut rng);
         assert_failed!(verifier.verify(&q, &sig))
     }
 
     #[test]
     fn bad_sig() -> result::Result<(), VerifyError> {
-        let d = Scalar::random(&mut rand::thread_rng());
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
+        let d = Scalar::random(&mut rng);
         let q = &d * &G;
 
         let mut signer = Signer::new(io::sink());
@@ -255,7 +265,7 @@ mod tests {
         signer.write_all(b" is written in multiple pieces")?;
         signer.flush()?;
 
-        let (mut sig, _) = signer.sign(rand::thread_rng(), &d, &q).expect("error signing");
+        let (mut sig, _) = signer.sign(&mut rng, &d, &q).expect("error signing");
         sig.0[22] ^= 1;
 
         let mut verifier = Verifier::new();
