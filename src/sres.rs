@@ -140,16 +140,18 @@ fn unmask_scalar(b: &[u8]) -> Option<(Scalar, u8)> {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use crate::ristretto::Point;
+    use rand::SeedableRng;
+    use rand_chacha::ChaChaRng;
 
     use super::*;
 
     #[test]
     fn round_trip() {
-        let (d_s, q_s, d_r, q_r) = setup();
+        let (mut rng, d_s, q_s, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
-        let ciphertext = encrypt(rand::thread_rng(), &d_s, &q_s, &q_r, plaintext);
+        let ciphertext = encrypt(&mut rng, &d_s, &q_s, &q_r, plaintext);
 
         let recovered = decrypt(&d_r, &q_r, &q_s, &ciphertext);
         assert_eq!(Some(plaintext.to_vec()), recovered, "invalid plaintext");
@@ -157,11 +159,11 @@ mod tests {
 
     #[test]
     fn wrong_recipient_private_key() {
-        let (d_s, q_s, _, q_r) = setup();
+        let (mut rng, d_s, q_s, _, q_r) = setup();
         let plaintext = b"ok this is fun";
-        let ciphertext = encrypt(rand::thread_rng(), &d_s, &q_s, &q_r, plaintext);
+        let ciphertext = encrypt(&mut rng, &d_s, &q_s, &q_r, plaintext);
 
-        let d_r = Scalar::random(&mut rand::thread_rng());
+        let d_r = Scalar::random(&mut rng);
 
         let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -169,11 +171,11 @@ mod tests {
 
     #[test]
     fn wrong_recipient_public_key() {
-        let (d_s, q_s, d_r, q_r) = setup();
+        let (mut rng, d_s, q_s, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
-        let ciphertext = encrypt(rand::thread_rng(), &d_s, &q_s, &q_r, plaintext);
+        let ciphertext = encrypt(&mut rng, &d_s, &q_s, &q_r, plaintext);
 
-        let q_r = Point::random(&mut rand::thread_rng());
+        let q_r = Point::random(&mut rng);
 
         let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -181,11 +183,11 @@ mod tests {
 
     #[test]
     fn wrong_sender_public_key() {
-        let (d_s, q_s, d_r, q_r) = setup();
+        let (mut rng, d_s, q_s, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
-        let ciphertext = encrypt(rand::thread_rng(), &d_s, &q_s, &q_r, plaintext);
+        let ciphertext = encrypt(&mut rng, &d_s, &q_s, &q_r, plaintext);
 
-        let q_s = Point::random(&mut rand::thread_rng());
+        let q_s = Point::random(&mut rng);
 
         let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -193,9 +195,9 @@ mod tests {
 
     #[test]
     fn flip_every_bit() {
-        let (d_s, q_s, d_r, q_r) = setup();
+        let (mut rng, d_s, q_s, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
-        let ciphertext = encrypt(rand::thread_rng(), &d_s, &q_s, &q_r, plaintext);
+        let ciphertext = encrypt(&mut rng, &d_s, &q_s, &q_r, plaintext);
 
         for i in 0..ciphertext.len() {
             for j in 0u8..8 {
@@ -214,7 +216,7 @@ mod tests {
     #[test]
     fn non_contributory_scalars() {
         // No need for the sender's private key; we're forging a message.
-        let (_, q_s, d_r, q_r) = setup();
+        let (_, _, q_s, d_r, q_r) = setup();
 
         let fake = b"this is a fake";
         let mut out = Vec::with_capacity(fake.len() + OVERHEAD);
@@ -246,13 +248,15 @@ mod tests {
         assert!(decrypt(&d_r, &q_r, &q_s, &out).is_none());
     }
 
-    fn setup() -> (Scalar, Point, Scalar, Point) {
-        let d_s = Scalar::random(&mut rand::thread_rng());
+    pub fn setup() -> (ChaChaRng, Scalar, Point, Scalar, Point) {
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
+        let d_s = Scalar::random(&mut rng);
         let q_s = &d_s * &G;
 
-        let d_r = Scalar::random(&mut rand::thread_rng());
+        let d_r = Scalar::random(&mut rng);
         let q_r = &d_r * &G;
 
-        (d_s, q_s, d_r, q_r)
+        (rng, d_s, q_s, d_r, q_r)
     }
 }
