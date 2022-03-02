@@ -118,7 +118,7 @@ pub fn decrypt(d_r: &Scalar, q_r: &Point, q_s: &Point, ciphertext: &[u8]) -> Opt
 
 // Use the bottom four bits of `mask` to mask the top four bits of `v`.
 #[inline]
-fn mask_scalar(v: Scalar, mask: u8) -> Vec<u8> {
+fn mask_scalar(v: Scalar, mask: u8) -> [u8; SCALAR_LEN] {
     let mut b = v.to_canonical_encoding();
     b[31] |= mask;
     b

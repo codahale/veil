@@ -2,7 +2,7 @@
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoBasepointTable};
-pub use curve25519_dalek::traits::{Identity, IsIdentity};
+use curve25519_dalek::traits::IsIdentity;
 
 /// A scalar on the Ristretto255 curve.
 pub type Scalar = curve25519_dalek::scalar::Scalar;
@@ -21,37 +21,38 @@ pub const POINT_LEN: usize = 32;
 pub const SCALAR_LEN: usize = 32;
 
 /// An extension trait to centralize canonical encoding of scalars and points.
-pub trait CanonicallyEncoded: Sized {
+pub trait CanonicallyEncoded<const N: usize>: Sized {
     /// Parses the given slice and decodes it iff the encoding is canonical.
     #[must_use]
     fn from_canonical_encoding(b: &[u8]) -> Option<Self>;
 
     /// Canonically encodes the value.
     #[must_use]
-    fn to_canonical_encoding(&self) -> Vec<u8>;
+    fn to_canonical_encoding(&self) -> [u8; N];
 }
 
-impl CanonicallyEncoded for Scalar {
+impl CanonicallyEncoded<SCALAR_LEN> for Scalar {
     fn from_canonical_encoding(b: &[u8]) -> Option<Self> {
         Scalar::from_canonical_bytes(b.try_into().ok()?).filter(|d| d != &Scalar::zero())
     }
 
-    fn to_canonical_encoding(&self) -> Vec<u8> {
+    fn to_canonical_encoding(&self) -> [u8; SCALAR_LEN] {
         debug_assert!(self.is_canonical());
         debug_assert!(self != &Scalar::zero());
 
-        self.to_bytes().to_vec()
+        self.to_bytes()
     }
 }
 
-impl CanonicallyEncoded for Point {
+impl CanonicallyEncoded<POINT_LEN> for Point {
     fn from_canonical_encoding(b: &[u8]) -> Option<Self> {
         CompressedRistretto::from_slice(b).decompress().filter(|q| !q.is_identity())
     }
 
-    fn to_canonical_encoding(&self) -> Vec<u8> {
+    fn to_canonical_encoding(&self) -> [u8; POINT_LEN] {
         debug_assert!(!self.is_identity());
-        self.compress().to_bytes().to_vec()
+
+        self.compress().to_bytes()
     }
 }
 
