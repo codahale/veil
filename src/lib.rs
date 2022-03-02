@@ -11,11 +11,13 @@
 //! You should not use this.
 //!
 //!
-//! ```
+//! ```rust
 //! use std::io;
 //! use std::io::Cursor;
 //! use veil::SecretKey;
-//!
+//! # use std::error::Error;
+//! #
+//! # fn main() -> Result<(), Box<dyn Error>> {
 //! // Alice creates a secret key.
 //! let alice_sk = SecretKey::new();
 //!
@@ -38,7 +40,7 @@
 //!   &[bea_pub],
 //!   20,
 //!   1234,
-//! ).expect("encryption failed");
+//! )?;
 //!
 //! // Bea decrypts the message.
 //! let mut plaintext = Cursor::new(Vec::new());
@@ -46,10 +48,13 @@
 //!   &mut Cursor::new(ciphertext.into_inner()),
 //!   &mut plaintext,
 //!   &alice_pub,
-//! ).expect("decryption failed");
+//! )?;
 //!
 //! // Having decrypted the message, Bea can read the plaintext.
 //! assert_eq!(b"this is a secret message".to_vec(), plaintext.into_inner(), "invalid plaintext");
+//! #
+//! #   Ok(())
+//! # }
 //! ```
 
 #![forbid(unsafe_code)]
@@ -65,10 +70,11 @@
     clippy::needless_borrow
 )]
 
+pub use crate::schnorr::Signature;
+
 pub use self::digest::*;
 pub use self::errors::*;
 pub use self::veil::*;
-pub use crate::schnorr::Signature;
 
 mod digest;
 mod duplex;
