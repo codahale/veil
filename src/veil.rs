@@ -6,7 +6,7 @@ use std::str::FromStr;
 use std::{fmt, io, iter};
 
 use rand::prelude::SliceRandom;
-use rand::Rng;
+use rand::{CryptoRng, Rng};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::ristretto::{CanonicallyEncoded, Point, Scalar, G};
@@ -22,8 +22,8 @@ pub struct SecretKey {
 impl SecretKey {
     /// Create a randomly generated secret key.
     #[must_use]
-    pub fn new() -> SecretKey {
-        SecretKey { r: rand::thread_rng().gen::<[u8; SECRET_KEY_LEN]>().to_vec() }
+    pub fn random(mut rng: impl Rng + CryptoRng) -> SecretKey {
+        SecretKey { r: rng.gen::<[u8; SECRET_KEY_LEN]>().to_vec() }
     }
 
     /// Encrypt the secret key with the given passphrase and `veil.pbenc` parameters.
@@ -57,12 +57,6 @@ impl SecretKey {
     #[must_use]
     pub fn public_key(&self) -> PublicKey {
         self.private_key().public_key()
-    }
-}
-
-impl Default for SecretKey {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -216,7 +210,7 @@ mod tests {
 
     #[test]
     fn hierarchical_key_derivation() {
-        let sk = SecretKey::new();
+        let sk = SecretKey::random(rand::thread_rng());
 
         let abc = sk.private_key().derive(&["a", "b", "c"]).public_key();
         let abc_p = sk.public_key().derive(&["a", "b", "c"]);
@@ -252,10 +246,10 @@ mod tests {
 
     #[test]
     fn round_trip() -> Result<(), DecryptError> {
-        let sk_a = SecretKey::new();
+        let sk_a = SecretKey::random(rand::thread_rng());
         let priv_a = sk_a.private_key();
 
-        let sk_b = SecretKey::new();
+        let sk_b = SecretKey::random(rand::thread_rng());
         let priv_b = sk_b.private_key();
 
         let message = b"this is a thingy";
@@ -287,10 +281,10 @@ mod tests {
 
     #[test]
     fn bad_sender_key() -> Result<(), DecryptError> {
-        let sk_a = SecretKey::new();
+        let sk_a = SecretKey::random(rand::thread_rng());
         let priv_a = sk_a.private_key();
 
-        let sk_b = SecretKey::new();
+        let sk_b = SecretKey::random(rand::thread_rng());
         let priv_b = sk_b.private_key();
 
         let message = b"this is a thingy";
@@ -308,10 +302,10 @@ mod tests {
 
     #[test]
     fn bad_recipient() -> Result<(), DecryptError> {
-        let sk_a = SecretKey::new();
+        let sk_a = SecretKey::random(rand::thread_rng());
         let priv_a = sk_a.private_key();
 
-        let sk_b = SecretKey::new();
+        let sk_b = SecretKey::random(rand::thread_rng());
         let priv_b = sk_b.private_key();
 
         let message = b"this is a thingy";
@@ -329,10 +323,10 @@ mod tests {
 
     #[test]
     fn bad_ciphertext() -> Result<(), DecryptError> {
-        let sk_a = SecretKey::new();
+        let sk_a = SecretKey::random(rand::thread_rng());
         let priv_a = sk_a.private_key();
 
-        let sk_b = SecretKey::new();
+        let sk_b = SecretKey::random(rand::thread_rng());
         let priv_b = sk_b.private_key();
 
         let message = b"this is a thingy";
@@ -353,7 +347,7 @@ mod tests {
 
     #[test]
     fn sign_and_verify() -> Result<(), VerifyError> {
-        let sk = SecretKey::new();
+        let sk = SecretKey::random(rand::thread_rng());
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
 

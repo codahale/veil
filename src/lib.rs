@@ -18,11 +18,11 @@
 //! # use std::error::Error;
 //! #
 //! # fn main() -> Result<(), Box<dyn Error>> {
-//! // Alice creates a secret key.
-//! let alice_sk = SecretKey::new();
+//! // Alice generates a secret key.
+//! let alice_sk = SecretKey::random(rand::thread_rng());
 //!
-//! // Bea creates a secret key.
-//! let bea_sk = SecretKey::new();
+//! // Bea generates a secret key.
+//! let bea_sk = SecretKey::random(rand::thread_rng());
 //!
 //! // Alice derives a private key for messaging with Bea and shares the corresponding public key.
 //! let alice_priv = alice_sk.private_key().derive(&["friends", "bea"]);

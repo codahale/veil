@@ -6,10 +6,10 @@ use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criteri
 use veil::{Digest, SecretKey};
 
 fn bench_encrypt(c: &mut Criterion) {
-    let sk_a = SecretKey::new();
+    let sk_a = SecretKey::random(rand::thread_rng());
     let pk_a = sk_a.private_key();
 
-    let sk_b = SecretKey::new();
+    let sk_b = SecretKey::random(rand::thread_rng());
     let pk_b = sk_b.private_key();
 
     let mut encrypt = c.benchmark_group("encrypt");
@@ -32,10 +32,10 @@ fn bench_encrypt(c: &mut Criterion) {
 }
 
 fn bench_decrypt(c: &mut Criterion) {
-    let sk_a = SecretKey::new();
+    let sk_a = SecretKey::random(rand::thread_rng());
     let pk_a = sk_a.private_key();
 
-    let sk_b = SecretKey::new();
+    let sk_b = SecretKey::random(rand::thread_rng());
     let pk_b = sk_b.private_key();
 
     let mut decrypt = c.benchmark_group("decrypt");
@@ -67,7 +67,7 @@ fn bench_decrypt(c: &mut Criterion) {
 }
 
 fn bench_sign(c: &mut Criterion) {
-    let sk_a = SecretKey::new();
+    let sk_a = SecretKey::random(rand::thread_rng());
     let pk_a = sk_a.private_key();
 
     let mut sign = c.benchmark_group("sign");
@@ -81,7 +81,7 @@ fn bench_sign(c: &mut Criterion) {
 }
 
 fn bench_verify(c: &mut Criterion) {
-    let sk_a = SecretKey::new();
+    let sk_a = SecretKey::random(rand::thread_rng());
     let pk_a = sk_a.private_key();
 
     let mut verify = c.benchmark_group("verify");
@@ -96,7 +96,7 @@ fn bench_verify(c: &mut Criterion) {
 }
 
 fn bench_pbenc(c: &mut Criterion) {
-    let sk = SecretKey::new();
+    let sk = SecretKey::random(rand::thread_rng());
 
     c.bench_function("pbenc", |b| {
         b.iter(|| sk.encrypt(black_box("passphrase"), black_box(10), black_box(10)))
