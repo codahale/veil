@@ -28,7 +28,7 @@ pub fn encrypt(d_s: &Scalar, q_s: &Point, q_r: &Point, plaintext: &[u8]) -> Vec<
     sres.absorb(&[mask]);
 
     // Generate a secret commitment scalar.
-    let x = sres.hedge(d_s, |clone| {
+    let x = sres.hedge(rand::thread_rng(), d_s, |clone| {
         // Also hedge with the plaintext message to ensure (d_s, plaintext, x) uniqueness.
         clone.absorb(plaintext);
         clone.squeeze_scalar()

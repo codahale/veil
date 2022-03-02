@@ -29,7 +29,8 @@ pub fn encrypt(
 
     // Derive a random ephemeral key pair and data encryption key from the duplex's current state,
     // the sender's private key, and a random nonce.
-    let (d_e, dek) = mres.hedge(d_s, |clone| (clone.squeeze_scalar(), clone.squeeze(DEK_LEN)));
+    let (d_e, dek) = mres
+        .hedge(rand::thread_rng(), d_s, |clone| (clone.squeeze_scalar(), clone.squeeze(DEK_LEN)));
     let q_e = &d_e * &G;
 
     // Encode the DEK, the ephemeral public key, and the message offset in a header.

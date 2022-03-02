@@ -3,7 +3,7 @@
 use std::io;
 use std::io::Write;
 
-use rand::Rng;
+use rand::{CryptoRng, Rng};
 use subtle::ConstantTimeEq;
 use xoodyak::{XoodyakCommon, XoodyakKeyed};
 
@@ -57,7 +57,7 @@ impl Duplex {
     /// Clone the duplex and use it to absorb the given secret and 64 random bytes. Pass the clone
     /// to the given function and return the result of that function as a secret.
     #[must_use]
-    pub fn hedge<R, F>(&self, secret: &Scalar, f: F) -> R
+    pub fn hedge<R, F>(&self, mut rng: impl Rng + CryptoRng, secret: &Scalar, f: F) -> R
     where
         F: Fn(&mut Duplex) -> R,
     {
@@ -68,7 +68,7 @@ impl Duplex {
         clone.absorb(secret.as_bytes());
 
         // Absorb a random value.
-        clone.absorb(&rand::thread_rng().gen::<[u8; 64]>());
+        clone.absorb(&rng.gen::<[u8; 64]>());
 
         // Call the given function with the clone.
         f(&mut clone)
