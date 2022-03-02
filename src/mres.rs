@@ -281,6 +281,7 @@ const ENC_BLOCK_LEN: usize = BLOCK_LEN + TAG_LEN;
 
 #[cfg(test)]
 mod tests {
+    use crate::sres::tests::setup;
     use std::io::Cursor;
 
     use super::*;
@@ -297,18 +298,13 @@ mod tests {
 
     #[test]
     fn round_trip() -> Result<(), DecryptError> {
-        let d_s = Scalar::random(&mut rand::thread_rng());
-        let q_s = &d_s * &G;
-
-        let d_r = Scalar::random(&mut rand::thread_rng());
-        let q_r = &d_r * &G;
+        let (mut rng, d_s, q_s, d_r, q_r) = setup();
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len =
-            encrypt(rand::thread_rng(), &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
+        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
@@ -323,21 +319,16 @@ mod tests {
 
     #[test]
     fn bad_sender_public_key() -> Result<(), DecryptError> {
-        let d_s = Scalar::random(&mut rand::thread_rng());
-        let q_s = &d_s * &G;
-
-        let d_r = Scalar::random(&mut rand::thread_rng());
-        let q_r = &d_r * &G;
+        let (mut rng, d_s, q_s, d_r, q_r) = setup();
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len =
-            encrypt(rand::thread_rng(), &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
+        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
-        let q_s = Point::random(&mut rand::thread_rng());
+        let q_s = Point::random(&mut rng);
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
@@ -347,21 +338,16 @@ mod tests {
 
     #[test]
     fn bad_recipient_public_key() -> Result<(), DecryptError> {
-        let d_s = Scalar::random(&mut rand::thread_rng());
-        let q_s = &d_s * &G;
-
-        let d_r = Scalar::random(&mut rand::thread_rng());
-        let q_r = &d_r * &G;
+        let (mut rng, d_s, q_s, d_r, q_r) = setup();
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len =
-            encrypt(rand::thread_rng(), &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
+        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
-        let q_r = Point::random(&mut rand::thread_rng());
+        let q_r = Point::random(&mut rng);
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
@@ -371,21 +357,16 @@ mod tests {
 
     #[test]
     fn bad_recipient_private_key() -> Result<(), DecryptError> {
-        let d_s = Scalar::random(&mut rand::thread_rng());
-        let q_s = &d_s * &G;
-
-        let d_r = Scalar::random(&mut rand::thread_rng());
-        let q_r = &d_r * &G;
+        let (mut rng, d_s, q_s, _, q_r) = setup();
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len =
-            encrypt(rand::thread_rng(), &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
+        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
-        let d_r = Scalar::random(&mut rand::thread_rng());
+        let d_r = Scalar::random(&mut rng);
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
@@ -395,18 +376,13 @@ mod tests {
 
     #[test]
     fn multi_block_message() -> Result<(), DecryptError> {
-        let d_s = Scalar::random(&mut rand::thread_rng());
-        let q_s = &d_s * &G;
-
-        let d_r = Scalar::random(&mut rand::thread_rng());
-        let q_r = &d_r * &G;
+        let (mut rng, d_s, q_s, d_r, q_r) = setup();
 
         let message = [69u8; 65 * 1024];
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len =
-            encrypt(rand::thread_rng(), &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
+        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
@@ -421,17 +397,13 @@ mod tests {
 
     #[test]
     fn split_sig() -> Result<(), DecryptError> {
-        let d_s = Scalar::random(&mut rand::thread_rng());
-        let q_s = &d_s * &G;
-
-        let d_r = Scalar::random(&mut rand::thread_rng());
-        let q_r = &d_r * &G;
+        let (mut rng, d_s, q_s, d_r, q_r) = setup();
 
         let message = [69u8; 32 * 1024 - 37];
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(rand::thread_rng(), &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 0)?;
+        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 0)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
@@ -446,17 +418,13 @@ mod tests {
 
     #[test]
     fn flip_every_bit() -> Result<(), DecryptError> {
-        let d_s = Scalar::random(&mut rand::thread_rng());
-        let q_s = &d_s * &G;
-
-        let d_r = Scalar::random(&mut rand::thread_rng());
-        let q_r = &d_r * &G;
+        let (mut rng, d_s, q_s, d_r, q_r) = setup();
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        encrypt(rand::thread_rng(), &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
+        encrypt(&mut rng, &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
 
         let ciphertext = dst.into_inner();
 
