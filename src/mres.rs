@@ -48,7 +48,7 @@ pub fn encrypt(
 
     // For each recipient, encrypt a copy of the header with veil.sres.
     for q_r in q_rs {
-        let ciphertext = sres::encrypt(d_s, q_s, q_r, &header);
+        let ciphertext = sres::encrypt(rand::thread_rng(), d_s, q_s, q_r, &header);
         mres.write_all(&ciphertext)?;
     }
 

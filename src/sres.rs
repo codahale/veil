@@ -1,6 +1,6 @@
 //! An insider-secure hybrid signcryption implementation.
 
-use rand::Rng;
+use rand::{CryptoRng, Rng};
 
 use crate::duplex::Duplex;
 use crate::ristretto::{CanonicallyEncoded, Point, Scalar, G, SCALAR_LEN};
@@ -10,7 +10,13 @@ pub const OVERHEAD: usize = SCALAR_LEN + SCALAR_LEN;
 
 /// Given the sender's key pair, the recipient's public key, and a plaintext, encrypts the given
 /// plaintext and returns the ciphertext.
-pub fn encrypt(d_s: &Scalar, q_s: &Point, q_r: &Point, plaintext: &[u8]) -> Vec<u8> {
+pub fn encrypt(
+    mut rng: impl Rng + CryptoRng,
+    d_s: &Scalar,
+    q_s: &Point,
+    q_r: &Point,
+    plaintext: &[u8],
+) -> Vec<u8> {
     // Allocate an output buffer.
     let mut out = Vec::with_capacity(plaintext.len() + OVERHEAD);
 
@@ -24,11 +30,11 @@ pub fn encrypt(d_s: &Scalar, q_s: &Point, q_r: &Point, plaintext: &[u8]) -> Vec<
     sres.absorb(&q_r.to_canonical_encoding());
 
     // Generate and absorb a random masking byte.
-    let mask = rand::thread_rng().gen::<u8>();
+    let mask = rng.gen::<u8>();
     sres.absorb(&[mask]);
 
     // Generate a secret commitment scalar.
-    let x = sres.hedge(rand::thread_rng(), d_s, |clone| {
+    let x = sres.hedge(&mut rng, d_s, |clone| {
         // Also hedge with the plaintext message to ensure (d_s, plaintext, x) uniqueness.
         clone.absorb(plaintext);
         clone.squeeze_scalar()
@@ -50,7 +56,7 @@ pub fn encrypt(d_s: &Scalar, q_s: &Point, q_r: &Point, plaintext: &[u8]) -> Vec<
         // If we magically happen to extract a challenge scalar which is the same as the sender's
         // private key but negative, x/(r+dS) will be undefined. Re-try this operation with a
         // different random commitment scalar.
-        return encrypt(d_s, q_s, q_r, plaintext);
+        return encrypt(rng, d_s, q_s, q_r, plaintext);
     }
 
     // Calculate the proof scalar.
@@ -143,7 +149,7 @@ mod tests {
     fn round_trip() {
         let (d_s, q_s, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
-        let ciphertext = encrypt(&d_s, &q_s, &q_r, plaintext);
+        let ciphertext = encrypt(rand::thread_rng(), &d_s, &q_s, &q_r, plaintext);
 
         let recovered = decrypt(&d_r, &q_r, &q_s, &ciphertext);
         assert_eq!(Some(plaintext.to_vec()), recovered, "invalid plaintext");
@@ -153,7 +159,7 @@ mod tests {
     fn wrong_recipient_private_key() {
         let (d_s, q_s, _, q_r) = setup();
         let plaintext = b"ok this is fun";
-        let ciphertext = encrypt(&d_s, &q_s, &q_r, plaintext);
+        let ciphertext = encrypt(rand::thread_rng(), &d_s, &q_s, &q_r, plaintext);
 
         let d_r = Scalar::random(&mut rand::thread_rng());
 
@@ -165,7 +171,7 @@ mod tests {
     fn wrong_recipient_public_key() {
         let (d_s, q_s, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
-        let ciphertext = encrypt(&d_s, &q_s, &q_r, plaintext);
+        let ciphertext = encrypt(rand::thread_rng(), &d_s, &q_s, &q_r, plaintext);
 
         let q_r = Point::random(&mut rand::thread_rng());
 
@@ -177,7 +183,7 @@ mod tests {
     fn wrong_sender_public_key() {
         let (d_s, q_s, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
-        let ciphertext = encrypt(&d_s, &q_s, &q_r, plaintext);
+        let ciphertext = encrypt(rand::thread_rng(), &d_s, &q_s, &q_r, plaintext);
 
         let q_s = Point::random(&mut rand::thread_rng());
 
@@ -189,7 +195,7 @@ mod tests {
     fn flip_every_bit() {
         let (d_s, q_s, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
-        let ciphertext = encrypt(&d_s, &q_s, &q_r, plaintext);
+        let ciphertext = encrypt(rand::thread_rng(), &d_s, &q_s, &q_r, plaintext);
 
         for i in 0..ciphertext.len() {
             for j in 0u8..8 {
