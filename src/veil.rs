@@ -125,7 +125,7 @@ impl PrivateKey {
     pub fn sign(&self, reader: &mut impl Read) -> io::Result<Signature> {
         let mut signer = Signer::new(io::sink());
         io::copy(reader, &mut signer)?;
-        let (sig, _) = signer.sign(&self.d, &self.pk.q)?;
+        let (sig, _) = signer.sign(rand::thread_rng(), &self.d, &self.pk.q)?;
         Ok(sig)
     }
 

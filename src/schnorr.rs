@@ -6,6 +6,8 @@ use std::io::{Result, Write};
 use std::str::FromStr;
 use std::{fmt, io, result};
 
+use rand::{CryptoRng, Rng};
+
 use crate::duplex::{AbsorbWriter, Duplex};
 use crate::ristretto::{CanonicallyEncoded, G, POINT_LEN, SCALAR_LEN};
 use crate::ristretto::{Point, Scalar};
@@ -57,7 +59,7 @@ where
 
     /// Create a signature of the previously-written message contents using the given key pair.
     #[allow(clippy::many_single_char_names)]
-    pub fn sign(self, d: &Scalar, q: &Point) -> Result<(Signature, W)> {
+    pub fn sign(self, rng: impl Rng + CryptoRng, d: &Scalar, q: &Point) -> Result<(Signature, W)> {
         // Unwrap the duplex and writer.
         let (mut schnorr, writer, _) = self.writer.into_inner()?;
 
@@ -69,7 +71,7 @@ where
 
         // Derive a commitment scalar from the protocol's current state, the signer's private key,
         // and a random nonce.
-        let k = schnorr.hedge(rand::thread_rng(), d, Duplex::squeeze_scalar);
+        let k = schnorr.hedge(rng, d, Duplex::squeeze_scalar);
 
         // Calculate and encrypt the commitment point.
         let i = &k * &G;
@@ -177,7 +179,7 @@ mod tests {
         assert_eq!(30, signer.write(b" is written in multiple pieces")?, "invalid write count");
         signer.flush()?;
 
-        let (sig, _) = signer.sign(&d, &q).expect("error signing");
+        let (sig, _) = signer.sign(rand::thread_rng(), &d, &q).expect("error signing");
 
         let mut verifier = Verifier::new();
         assert_eq!(22, verifier.write(b"this is a message that")?, "invalid write count");
@@ -210,7 +212,7 @@ mod tests {
         signer.write_all(b" is written in multiple pieces")?;
         signer.flush()?;
 
-        let (sig, _) = signer.sign(&d, &q).expect("error signing");
+        let (sig, _) = signer.sign(rand::thread_rng(), &d, &q).expect("error signing");
 
         let mut verifier = Verifier::new();
         verifier.write_all(b"this NOT is a message that")?;
@@ -231,7 +233,7 @@ mod tests {
         signer.write_all(b" is written in multiple pieces")?;
         signer.flush()?;
 
-        let (sig, _) = signer.sign(&d, &q).expect("error signing");
+        let (sig, _) = signer.sign(rand::thread_rng(), &d, &q).expect("error signing");
 
         let mut verifier = Verifier::new();
         verifier.write_all(b"this is a message that")?;
@@ -253,7 +255,7 @@ mod tests {
         signer.write_all(b" is written in multiple pieces")?;
         signer.flush()?;
 
-        let (mut sig, _) = signer.sign(&d, &q).expect("error signing");
+        let (mut sig, _) = signer.sign(rand::thread_rng(), &d, &q).expect("error signing");
         sig.0[22] ^= 1;
 
         let mut verifier = Verifier::new();

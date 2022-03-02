@@ -53,8 +53,8 @@ pub fn encrypt(
     }
 
     // Add random padding to the end of the headers.
-    let rng: &mut dyn RngCore = &mut rand::thread_rng();
-    io::copy(&mut rng.take(padding), &mut mres)?;
+    let padding_rng: &mut dyn RngCore = &mut rand::thread_rng();
+    io::copy(&mut padding_rng.take(padding), &mut mres)?;
 
     // Unwrap the headers and padding writer.
     let (mut mres, mut signer, header_len) = mres.into_inner()?;
@@ -66,7 +66,7 @@ pub fn encrypt(
     let ciphertext_len = encrypt_message(&mut mres, reader, &mut signer)?;
 
     // Sign the encrypted headers and ciphertext with the ephemeral key pair.
-    let (sig, writer) = signer.sign(&d_e, &q_e)?;
+    let (sig, writer) = signer.sign(rand::thread_rng(), &d_e, &q_e)?;
 
     // Encrypt the signature.
     let sig = mres.encrypt(&sig.0);
