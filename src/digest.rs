@@ -6,14 +6,14 @@ use std::{fmt, io};
 use subtle::{Choice, ConstantTimeEq};
 
 use crate::duplex::Duplex;
-use crate::DigestError;
+use crate::ParseDigestError;
 
 /// The digest of a set of metadata and a message.
 #[derive(Clone, Copy, Debug, Eq)]
 pub struct Digest([u8; DIGEST_LEN]);
 
 impl FromStr for Digest {
-    type Err = DigestError;
+    type Err = ParseDigestError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         bs58::decode(s)
@@ -21,7 +21,7 @@ impl FromStr for Digest {
             .ok()
             .and_then(|b| b.try_into().ok())
             .map(Digest)
-            .ok_or(DigestError)
+            .ok_or(ParseDigestError)
     }
 }
 
@@ -114,6 +114,10 @@ mod tests {
         let decoded = "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC".parse::<Digest>();
         assert_eq!(Ok(sig), decoded, "error parsing signature");
 
-        assert_eq!(Err(DigestError), "woot woot".parse::<Digest>(), "parsed invalid signature");
+        assert_eq!(
+            Err(ParseDigestError),
+            "woot woot".parse::<Digest>(),
+            "parsed invalid signature"
+        );
     }
 }

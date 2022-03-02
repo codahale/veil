@@ -9,7 +9,7 @@ use std::{fmt, io, result};
 use crate::duplex::{AbsorbWriter, Duplex};
 use crate::ristretto::{CanonicallyEncoded, G, POINT_LEN, SCALAR_LEN};
 use crate::ristretto::{Point, Scalar};
-use crate::{SignatureError, VerificationError};
+use crate::{ParseSignatureError, VerifyError};
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
@@ -19,7 +19,7 @@ pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
 pub struct Signature(pub(crate) [u8; SIGNATURE_LEN]);
 
 impl FromStr for Signature {
-    type Err = SignatureError;
+    type Err = ParseSignatureError;
 
     fn from_str(s: &str) -> result::Result<Self, Self::Err> {
         bs58::decode(s)
@@ -27,7 +27,7 @@ impl FromStr for Signature {
             .ok()
             .and_then(|b| b.try_into().ok())
             .map(Signature)
-            .ok_or(SignatureError)
+            .ok_or(ParseSignatureError)
     }
 }
 
@@ -116,7 +116,7 @@ impl Verifier {
     }
 
     /// Verify the previously-written message contents using the given public key and signature.
-    pub fn verify(self, q: &Point, sig: &Signature) -> result::Result<(), VerificationError> {
+    pub fn verify(self, q: &Point, sig: &Signature) -> result::Result<(), VerifyError> {
         // Unwrap duplex.
         let (mut schnorr, _, _) = self.writer.into_inner()?;
 
@@ -129,7 +129,7 @@ impl Verifier {
         // Decrypt and decode the commitment point. Return an error if it's the identity point.
         let i = schnorr.decrypt(i);
         let i = Point::from_canonical_encoding(&i);
-        let i = i.ok_or(VerificationError::InvalidSignature)?;
+        let i = i.ok_or(VerifyError::InvalidSignature)?;
 
         // Re-derive the challenge scalar.
         let r = schnorr.squeeze_scalar();
@@ -137,7 +137,7 @@ impl Verifier {
         // Decrypt and decode the proof scalar. Return an error if it's zero.
         let s = schnorr.decrypt(s);
         let s = Scalar::from_canonical_encoding(&s);
-        let s = s.ok_or(VerificationError::InvalidSignature)?;
+        let s = s.ok_or(VerifyError::InvalidSignature)?;
 
         // Return true iff I and s are well-formed and I == [s]G - [r]Q. Use the variable-time
         // implementation here because the verifier has no secret data.
@@ -145,7 +145,7 @@ impl Verifier {
         if i == Point::vartime_double_scalar_mul_basepoint(&r, &-q, &s /*G*/) {
             Ok(())
         } else {
-            Err(VerificationError::InvalidSignature)
+            Err(VerifyError::InvalidSignature)
         }
     }
 }
@@ -194,14 +194,14 @@ mod tests {
         ($action: expr) => {
             match $action {
                 Ok(_) => panic!("verified but shouldn't have"),
-                Err(VerificationError::InvalidSignature) => Ok(()),
+                Err(VerifyError::InvalidSignature) => Ok(()),
                 Err(e) => Err(e),
             }
         };
     }
 
     #[test]
-    fn bad_message() -> result::Result<(), VerificationError> {
+    fn bad_message() -> result::Result<(), VerifyError> {
         let d = Scalar::random(&mut rand::thread_rng());
         let q = &d * &G;
 
@@ -222,7 +222,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_key() -> result::Result<(), VerificationError> {
+    fn bad_key() -> result::Result<(), VerifyError> {
         let d = Scalar::random(&mut rand::thread_rng());
         let q = &d * &G;
 
@@ -244,7 +244,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_sig() -> result::Result<(), VerificationError> {
+    fn bad_sig() -> result::Result<(), VerifyError> {
         let d = Scalar::random(&mut rand::thread_rng());
         let q = &d * &G;
 
@@ -278,7 +278,7 @@ mod tests {
         assert_eq!(Ok(sig), decoded, "error parsing signature");
 
         assert_eq!(
-            Err(SignatureError),
+            Err(ParseSignatureError),
             "woot woot".parse::<Signature>(),
             "parsed invalid signature"
         );

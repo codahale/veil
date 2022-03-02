@@ -11,7 +11,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::ristretto::{CanonicallyEncoded, Point, Scalar, G};
 use crate::schnorr::{Signer, Verifier};
-use crate::{hkd, mres, pbenc, DecryptionError, PublicKeyError, Signature, VerificationError};
+use crate::{hkd, mres, pbenc, DecryptError, ParsePublicKeyError, Signature, VerifyError};
 
 /// A 512-bit secret from which multiple private keys can be derived.
 #[derive(ZeroizeOnDrop)]
@@ -33,12 +33,12 @@ impl SecretKey {
     }
 
     /// Decrypt the secret key with the given passphrase.
-    pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Result<SecretKey, DecryptionError> {
+    pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Result<SecretKey, DecryptError> {
         // Decrypt the ciphertext and use the plaintext as the secret key.
         pbenc::decrypt(passphrase, ciphertext)
             .filter(|r| r.len() == SECRET_KEY_LEN)
             .map(|r| SecretKey { r })
-            .ok_or(DecryptionError::InvalidCiphertext)
+            .ok_or(DecryptError::InvalidCiphertext)
     }
 
     /// The root private key.
@@ -118,7 +118,7 @@ impl PrivateKey {
         reader: &mut impl Read,
         writer: &mut impl Write,
         sender: &PublicKey,
-    ) -> Result<u64, DecryptionError> {
+    ) -> Result<u64, DecryptError> {
         mres::decrypt(reader, &mut BufWriter::new(writer), &self.d, &self.pk.q, &sender.q)
     }
 
@@ -168,7 +168,7 @@ impl PublicKey {
     /// Read the contents of the reader and return `Ok(())` iff the given signature was created by
     /// this public key of the exact contents. Otherwise, returns
     /// [VerificationError::InvalidSignature].
-    pub fn verify(&self, reader: &mut impl Read, sig: &Signature) -> Result<(), VerificationError> {
+    pub fn verify(&self, reader: &mut impl Read, sig: &Signature) -> Result<(), VerifyError> {
         let mut verifier = Verifier::new();
         io::copy(reader, &mut verifier)?;
 
@@ -192,7 +192,7 @@ impl fmt::Display for PublicKey {
 }
 
 impl FromStr for PublicKey {
-    type Err = PublicKeyError;
+    type Err = ParsePublicKeyError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         bs58::decode(s)
@@ -200,7 +200,7 @@ impl FromStr for PublicKey {
             .ok()
             .and_then(|b| Point::from_canonical_encoding(&b))
             .map(|q| PublicKey { q })
-            .ok_or(PublicKeyError)
+            .ok_or(ParsePublicKeyError)
     }
 }
 
@@ -240,14 +240,14 @@ mod tests {
         assert_eq!(Ok(base), decoded, "error parsing public key");
 
         assert_eq!(
-            Err(PublicKeyError),
+            Err(ParsePublicKeyError),
             "woot woot".parse::<PublicKey>(),
             "decoded invalid public key"
         );
     }
 
     #[test]
-    fn round_trip() -> Result<(), DecryptionError> {
+    fn round_trip() -> Result<(), DecryptError> {
         let sk_a = SecretKey::new();
         let priv_a = sk_a.private_key();
 
@@ -275,14 +275,14 @@ mod tests {
         ($action: expr) => {
             match $action {
                 Ok(_) => panic!("decrypted but shouldn't have"),
-                Err(DecryptionError::InvalidCiphertext) => Ok(()),
+                Err(DecryptError::InvalidCiphertext) => Ok(()),
                 Err(e) => Err(e),
             }
         };
     }
 
     #[test]
-    fn bad_sender_key() -> Result<(), DecryptionError> {
+    fn bad_sender_key() -> Result<(), DecryptError> {
         let sk_a = SecretKey::new();
         let priv_a = sk_a.private_key();
 
@@ -303,7 +303,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_recipient() -> Result<(), DecryptionError> {
+    fn bad_recipient() -> Result<(), DecryptError> {
         let sk_a = SecretKey::new();
         let priv_a = sk_a.private_key();
 
@@ -324,7 +324,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_ciphertext() -> Result<(), DecryptionError> {
+    fn bad_ciphertext() -> Result<(), DecryptError> {
         let sk_a = SecretKey::new();
         let priv_a = sk_a.private_key();
 
@@ -348,7 +348,7 @@ mod tests {
     }
 
     #[test]
-    fn sign_and_verify() -> Result<(), VerificationError> {
+    fn sign_and_verify() -> Result<(), VerifyError> {
         let sk = SecretKey::new();
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);

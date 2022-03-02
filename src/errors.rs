@@ -2,47 +2,48 @@ use std::io;
 
 use thiserror::Error;
 
-/// The error type for message decryption.
+/// An error returned when decrypting a message was unsuccessful.
 #[derive(Debug, Error)]
-pub enum DecryptionError {
-    /// Error due to message/private key/public key mismatch.
+pub enum DecryptError {
+    /// Decryption was unsuccessful due to a message/private key/public key mismatch.
     ///
     /// The ciphertext may have been altered, the message may not have been encrypted by the given
     /// sender, or the message may not have been encrypted for the given recipient.
     #[error("invalid ciphertext")]
     InvalidCiphertext,
 
-    /// An error returned when there was an underlying IO error during decryption.
+    /// Decryption was unsuccessful due to an IO error reading the ciphertext or writing the
+    /// plaintext.
     #[error("error decrypting: {0}")]
     IoError(#[from] io::Error),
 }
 
-/// The error type for message verification.
+/// An error returned when verifying a signature was unsuccessful.
 #[derive(Debug, Error)]
-pub enum VerificationError {
-    /// Error due to signature/message/public key mismatch.
+pub enum VerifyError {
+    /// Verification was unsuccessful due to a signature/message/public key mismatch.
     ///
     /// The message or signature may have been altered, or the message may not have been signed with
     /// the given key.
     #[error("invalid signature")]
     InvalidSignature,
 
-    /// The reader containing the message returned an IO error.
+    /// Verification was unsuccessful due to an IO error reading the message.
     #[error("error verifying: {0}")]
     IoError(#[from] io::Error),
 }
 
-/// Error due to invalid signature format.
+/// An error returned when parsing a signature was unsuccessful.
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
 #[error("invalid signature")]
-pub struct SignatureError;
+pub struct ParseSignatureError;
 
-/// Error due to invalid public key format.
+/// An error returned when parsing a public key was unsuccessful.
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
 #[error("invalid public key")]
-pub struct PublicKeyError;
+pub struct ParsePublicKeyError;
 
-/// Error due to invalid digest format.
+/// An error returned when parsing a digest was unsuccessful.
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
 #[error("invalid digest")]
-pub struct DigestError;
+pub struct ParseDigestError;

@@ -11,7 +11,7 @@ use crate::duplex::{Duplex, TAG_LEN};
 use crate::ristretto::{CanonicallyEncoded, G, POINT_LEN};
 use crate::ristretto::{Point, Scalar};
 use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
-use crate::{sres, DecryptionError, Signature, VerificationError};
+use crate::{sres, DecryptError, Signature, VerifyError};
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
@@ -117,7 +117,7 @@ pub fn decrypt(
     d_r: &Scalar,
     q_r: &Point,
     q_s: &Point,
-) -> Result<u64, DecryptionError> {
+) -> Result<u64, DecryptError> {
     // Initialize a duplex and absorb the sender's public key.
     let mut mres = Duplex::new("veil.mres");
     mres.absorb(&q_s.to_canonical_encoding());
@@ -144,8 +144,8 @@ pub fn decrypt(
     // written. Otherwise, map the verification error to a decryption error.
     match verifier.verify(&q_e, &sig) {
         Ok(()) => Ok(written),
-        Err(VerificationError::InvalidSignature) => Err(DecryptionError::InvalidCiphertext),
-        Err(VerificationError::IoError(e)) => Err(DecryptionError::IoError(e)),
+        Err(VerifyError::InvalidSignature) => Err(DecryptError::InvalidCiphertext),
+        Err(VerifyError::IoError(e)) => Err(DecryptError::IoError(e)),
     }
 }
 
@@ -154,7 +154,7 @@ fn decrypt_message(
     reader: &mut impl Read,
     writer: &mut impl Write,
     verifier: &mut Verifier,
-) -> Result<(u64, Signature), DecryptionError> {
+) -> Result<(u64, Signature), DecryptError> {
     let mut buf = Vec::with_capacity(ENC_BLOCK_LEN + SIGNATURE_LEN);
     let mut written = 0;
 
@@ -180,7 +180,7 @@ fn decrypt_message(
 
         // Decrypt the block and write the plaintext. If the block cannot be decrypted, return an
         // error.
-        let plaintext = mres.unseal(block).ok_or(DecryptionError::InvalidCiphertext)?;
+        let plaintext = mres.unseal(block).ok_or(DecryptError::InvalidCiphertext)?;
         writer.write_all(&plaintext)?;
         written += plaintext.len() as u64;
 
@@ -204,7 +204,7 @@ fn decrypt_header(
     d_r: &Scalar,
     q_r: &Point,
     q_s: &Point,
-) -> Result<(Vec<u8>, Point), DecryptionError> {
+) -> Result<(Vec<u8>, Point), DecryptError> {
     let mut buf = Vec::with_capacity(ENC_HEADER_LEN);
     let mut hdr_offset = 0u64;
 
@@ -216,7 +216,7 @@ fn decrypt_header(
 
         // If the header is short, we're at the end of the reader.
         if header.len() < ENC_HEADER_LEN {
-            return Err(DecryptionError::InvalidCiphertext);
+            return Err(DecryptError::InvalidCiphertext);
         }
 
         // Pass the block to the verifier.
@@ -274,14 +274,14 @@ mod tests {
         ($action: expr) => {
             match $action {
                 Ok(_) => panic!("decrypted but shouldn't have"),
-                Err(DecryptionError::InvalidCiphertext) => Ok(()),
+                Err(DecryptError::InvalidCiphertext) => Ok(()),
                 Err(e) => Err(e),
             }
         };
     }
 
     #[test]
-    fn round_trip() -> Result<(), DecryptionError> {
+    fn round_trip() -> Result<(), DecryptError> {
         let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &d_s * &G;
 
@@ -306,7 +306,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_sender_public_key() -> Result<(), DecryptionError> {
+    fn bad_sender_public_key() -> Result<(), DecryptError> {
         let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &d_s * &G;
 
@@ -329,7 +329,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_recipient_public_key() -> Result<(), DecryptionError> {
+    fn bad_recipient_public_key() -> Result<(), DecryptError> {
         let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &d_s * &G;
 
@@ -352,7 +352,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_recipient_private_key() -> Result<(), DecryptionError> {
+    fn bad_recipient_private_key() -> Result<(), DecryptError> {
         let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &d_s * &G;
 
@@ -375,7 +375,7 @@ mod tests {
     }
 
     #[test]
-    fn multi_block_message() -> Result<(), DecryptionError> {
+    fn multi_block_message() -> Result<(), DecryptError> {
         let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &d_s * &G;
 
@@ -400,7 +400,7 @@ mod tests {
     }
 
     #[test]
-    fn split_sig() -> Result<(), DecryptionError> {
+    fn split_sig() -> Result<(), DecryptError> {
         let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &d_s * &G;
 
@@ -425,7 +425,7 @@ mod tests {
     }
 
     #[test]
-    fn flip_every_bit() -> Result<(), DecryptionError> {
+    fn flip_every_bit() -> Result<(), DecryptError> {
         let d_s = Scalar::random(&mut rand::thread_rng());
         let q_s = &d_s * &G;
 
@@ -447,7 +447,7 @@ mod tests {
                 let mut src = Cursor::new(ciphertext);
 
                 match decrypt(&mut src, &mut io::sink(), &d_r, &q_r, &q_s) {
-                    Err(DecryptionError::InvalidCiphertext) => {}
+                    Err(DecryptError::InvalidCiphertext) => {}
                     Ok(_) => panic!("bit flip at byte {i}, bit {j} produced a valid message"),
                     Err(e) => panic!("unknown error: {}", e),
                 };
