@@ -112,7 +112,7 @@ impl PrivateKey {
     /// Decrypt the contents of the reader, if possible, and write the plaintext to the writer.
     ///
     /// If the ciphertext has been modified, was not sent by the sender, or was not encrypted for
-    /// this private key, returns [DecryptionError::InvalidCiphertext].
+    /// this private key, returns [DecryptError::InvalidCiphertext].
     pub fn decrypt(
         &self,
         reader: &mut impl Read,
@@ -166,8 +166,7 @@ pub struct PublicKey {
 
 impl PublicKey {
     /// Read the contents of the reader and return `Ok(())` iff the given signature was created by
-    /// this public key of the exact contents. Otherwise, returns
-    /// [VerificationError::InvalidSignature].
+    /// this public key of the exact contents. Otherwise, returns [VerifyError::InvalidSignature].
     pub fn verify(&self, reader: &mut impl Read, sig: &Signature) -> Result<(), VerifyError> {
         let mut verifier = Verifier::new();
         io::copy(reader, &mut verifier)?;
