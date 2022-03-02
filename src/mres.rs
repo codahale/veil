@@ -5,7 +5,7 @@ use std::io::{self, Read, Write};
 use std::mem;
 use std::result::Result;
 
-use rand::RngCore;
+use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Duplex, TAG_LEN};
 use crate::ristretto::{CanonicallyEncoded, G, POINT_LEN};
@@ -16,6 +16,7 @@ use crate::{sres, DecryptError, Signature, VerifyError};
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
 pub fn encrypt(
+    mut rng: impl Rng + CryptoRng,
     reader: &mut impl Read,
     writer: &mut impl Write,
     d_s: &Scalar,
@@ -29,8 +30,8 @@ pub fn encrypt(
 
     // Derive a random ephemeral key pair and data encryption key from the duplex's current state,
     // the sender's private key, and a random nonce.
-    let (d_e, dek) = mres
-        .hedge(rand::thread_rng(), d_s, |clone| (clone.squeeze_scalar(), clone.squeeze(DEK_LEN)));
+    let (d_e, dek) =
+        mres.hedge(&mut rng, d_s, |clone| (clone.squeeze_scalar(), clone.squeeze(DEK_LEN)));
     let q_e = &d_e * &G;
 
     // Encode the DEK, the ephemeral public key, and the message offset in a header.
@@ -48,13 +49,12 @@ pub fn encrypt(
 
     // For each recipient, encrypt a copy of the header with veil.sres.
     for q_r in q_rs {
-        let ciphertext = sres::encrypt(rand::thread_rng(), d_s, q_s, q_r, &header);
+        let ciphertext = sres::encrypt(&mut rng, d_s, q_s, q_r, &header);
         mres.write_all(&ciphertext)?;
     }
 
     // Add random padding to the end of the headers.
-    let padding_rng: &mut dyn RngCore = &mut rand::thread_rng();
-    io::copy(&mut padding_rng.take(padding), &mut mres)?;
+    io::copy(&mut RngRead(&mut rng).take(padding), &mut mres)?;
 
     // Unwrap the headers and padding writer.
     let (mut mres, mut signer, header_len) = mres.into_inner()?;
@@ -66,7 +66,7 @@ pub fn encrypt(
     let ciphertext_len = encrypt_message(&mut mres, reader, &mut signer)?;
 
     // Sign the encrypted headers and ciphertext with the ephemeral key pair.
-    let (sig, writer) = signer.sign(rand::thread_rng(), &d_e, &q_e)?;
+    let (sig, writer) = signer.sign(&mut rng, &d_e, &q_e)?;
 
     // Encrypt the signature.
     let sig = mres.encrypt(&sig.0);
@@ -259,6 +259,20 @@ fn decode_header(header: Vec<u8>) -> Option<(Vec<u8>, Point, u64)> {
     Some((dek, q_e, msg_offset))
 }
 
+struct RngRead<R>(R)
+where
+    R: Rng + CryptoRng;
+
+impl<R> Read for RngRead<R>
+where
+    R: Rng + CryptoRng,
+{
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.0.try_fill_bytes(buf)?;
+        Ok(buf.len())
+    }
+}
+
 const DEK_LEN: usize = 32;
 const HEADER_LEN: usize = DEK_LEN + POINT_LEN + mem::size_of::<u64>();
 const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
@@ -293,7 +307,8 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
+        let ctx_len =
+            encrypt(rand::thread_rng(), &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
@@ -318,7 +333,8 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
+        let ctx_len =
+            encrypt(rand::thread_rng(), &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let q_s = Point::random(&mut rand::thread_rng());
@@ -341,7 +357,8 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
+        let ctx_len =
+            encrypt(rand::thread_rng(), &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let q_r = Point::random(&mut rand::thread_rng());
@@ -364,7 +381,8 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
+        let ctx_len =
+            encrypt(rand::thread_rng(), &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let d_r = Scalar::random(&mut rand::thread_rng());
@@ -387,7 +405,8 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
+        let ctx_len =
+            encrypt(rand::thread_rng(), &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
@@ -412,7 +431,7 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 0)?;
+        let ctx_len = encrypt(rand::thread_rng(), &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 0)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
@@ -437,7 +456,7 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        encrypt(&mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
+        encrypt(rand::thread_rng(), &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
 
         let ciphertext = dst.into_inner();
 

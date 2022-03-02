@@ -111,7 +111,15 @@ impl PrivateKey {
         q_rs.shuffle(&mut rand::thread_rng());
 
         // Finally, encrypt.
-        mres::encrypt(reader, &mut BufWriter::new(writer), &self.d, &self.pk.q, &q_rs, padding)
+        mres::encrypt(
+            rand::thread_rng(),
+            reader,
+            &mut BufWriter::new(writer),
+            &self.d,
+            &self.pk.q,
+            &q_rs,
+            padding,
+        )
     }
 
     /// Decrypt the contents of the reader, if possible, and write the plaintext to the writer.
