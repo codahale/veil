@@ -2,14 +2,18 @@ use std::io;
 use std::io::{Cursor, Read};
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use rand::SeedableRng;
+use rand_chacha::ChaChaRng;
 
 use veil::{Digest, SecretKey};
 
 fn bench_encrypt(c: &mut Criterion) {
-    let sk_a = SecretKey::random(rand::thread_rng());
+    let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
+    let sk_a = SecretKey::random(&mut rng);
     let pk_a = sk_a.private_key();
 
-    let sk_b = SecretKey::random(rand::thread_rng());
+    let sk_b = SecretKey::random(&mut rng);
     let pk_b = sk_b.private_key();
 
     let mut encrypt = c.benchmark_group("encrypt");
@@ -18,7 +22,7 @@ fn bench_encrypt(c: &mut Criterion) {
         encrypt.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &n| {
             b.iter(|| {
                 pk_a.encrypt(
-                    rand::thread_rng(),
+                    &mut rng,
                     &mut io::repeat(0).take(n),
                     &mut io::sink(),
                     &[pk_b.public_key()],
@@ -33,17 +37,19 @@ fn bench_encrypt(c: &mut Criterion) {
 }
 
 fn bench_decrypt(c: &mut Criterion) {
-    let sk_a = SecretKey::random(rand::thread_rng());
+    let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
+    let sk_a = SecretKey::random(&mut rng);
     let pk_a = sk_a.private_key();
 
-    let sk_b = SecretKey::random(rand::thread_rng());
+    let sk_b = SecretKey::random(&mut rng);
     let pk_b = sk_b.private_key();
 
     let mut decrypt = c.benchmark_group("decrypt");
     for n in [0, KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
         let mut ciphertext = Cursor::new(Vec::new());
         pk_a.encrypt(
-            rand::thread_rng(),
+            &mut rng,
             &mut io::repeat(0).take(n),
             &mut ciphertext,
             &[pk_b.public_key()],
@@ -69,26 +75,30 @@ fn bench_decrypt(c: &mut Criterion) {
 }
 
 fn bench_sign(c: &mut Criterion) {
-    let sk_a = SecretKey::random(rand::thread_rng());
+    let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
+    let sk_a = SecretKey::random(&mut rng);
     let pk_a = sk_a.private_key();
 
     let mut sign = c.benchmark_group("sign");
     for n in [0, KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
         sign.throughput(Throughput::Elements(n));
         sign.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &n| {
-            b.iter(|| pk_a.sign(rand::thread_rng(), &mut io::repeat(0).take(n)).unwrap());
+            b.iter(|| pk_a.sign(&mut rng, &mut io::repeat(0).take(n)).unwrap());
         });
     }
     sign.finish();
 }
 
 fn bench_verify(c: &mut Criterion) {
-    let sk_a = SecretKey::random(rand::thread_rng());
+    let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
+    let sk_a = SecretKey::random(&mut rng);
     let pk_a = sk_a.private_key();
 
     let mut verify = c.benchmark_group("verify");
     for n in [0, KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
-        let sig = pk_a.sign(rand::thread_rng(), &mut io::repeat(0).take(n)).unwrap();
+        let sig = pk_a.sign(&mut rng, &mut io::repeat(0).take(n)).unwrap();
         verify.throughput(Throughput::Elements(n));
         verify.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &n| {
             b.iter(|| pk_a.public_key().verify(&mut io::repeat(0).take(n), &sig).unwrap());
@@ -98,12 +108,12 @@ fn bench_verify(c: &mut Criterion) {
 }
 
 fn bench_pbenc(c: &mut Criterion) {
-    let sk = SecretKey::random(rand::thread_rng());
+    let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
+    let sk = SecretKey::random(&mut rng);
 
     c.bench_function("pbenc", |b| {
-        b.iter(|| {
-            sk.encrypt(rand::thread_rng(), black_box("passphrase"), black_box(10), black_box(10))
-        })
+        b.iter(|| sk.encrypt(&mut rng, black_box("passphrase"), black_box(10), black_box(10)))
     });
 }
 
