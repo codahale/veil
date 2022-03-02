@@ -155,12 +155,16 @@ const U32_LEN: usize = mem::size_of::<u32>();
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand::SeedableRng;
+    use rand_chacha::ChaChaRng;
 
     #[test]
     fn round_trip() {
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let ciphertext = encrypt(rand::thread_rng(), passphrase, 5, 3, message);
+        let ciphertext = encrypt(&mut rng, passphrase, 5, 3, message);
 
         let plaintext = decrypt(passphrase, &ciphertext);
         assert_eq!(Some(message.to_vec()), plaintext, "invalid plaintext");
@@ -168,9 +172,11 @@ mod tests {
 
     #[test]
     fn bad_passphrase() {
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let ciphertext = encrypt(rand::thread_rng(), passphrase, 5, 3, message);
+        let ciphertext = encrypt(&mut rng, passphrase, 5, 3, message);
 
         let plaintext = decrypt("whoops", &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -178,9 +184,11 @@ mod tests {
 
     #[test]
     fn bad_time() {
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt(rand::thread_rng(), passphrase, 5, 3, message);
+        let mut ciphertext = encrypt(&mut rng, passphrase, 5, 3, message);
         ciphertext[0] ^= 1;
 
         let plaintext = decrypt(passphrase, &ciphertext);
@@ -189,9 +197,11 @@ mod tests {
 
     #[test]
     fn bad_space() {
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt(rand::thread_rng(), passphrase, 5, 3, message);
+        let mut ciphertext = encrypt(&mut rng, passphrase, 5, 3, message);
         ciphertext[8] ^= 1;
 
         let plaintext = decrypt(passphrase, &ciphertext);
@@ -200,9 +210,11 @@ mod tests {
 
     #[test]
     fn bad_salt() {
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt(rand::thread_rng(), passphrase, 5, 3, message);
+        let mut ciphertext = encrypt(&mut rng, passphrase, 5, 3, message);
         ciphertext[9] ^= 1;
 
         let plaintext = decrypt(passphrase, &ciphertext);
@@ -211,9 +223,11 @@ mod tests {
 
     #[test]
     fn bad_ciphertext() {
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt(rand::thread_rng(), passphrase, 5, 3, message);
+        let mut ciphertext = encrypt(&mut rng, passphrase, 5, 3, message);
         ciphertext[OVERHEAD - TAG_LEN + 1] ^= 1;
 
         let plaintext = decrypt(passphrase, &ciphertext);
@@ -222,9 +236,11 @@ mod tests {
 
     #[test]
     fn bad_tag() {
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt(rand::thread_rng(), passphrase, 5, 3, message);
+        let mut ciphertext = encrypt(&mut rng, passphrase, 5, 3, message);
         ciphertext[message.len() + OVERHEAD - 1] ^= 1;
 
         let plaintext = decrypt(passphrase, &ciphertext);
