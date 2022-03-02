@@ -75,9 +75,10 @@ struct SecretKeyArgs {
 
 impl Runnable for SecretKeyArgs {
     fn run(self) -> Result<()> {
+        let mut rng = rand::thread_rng();
         let passphrase = prompt_passphrase(&self.passphrase_file)?;
-        let secret_key = SecretKey::random(rand::thread_rng());
-        let ciphertext = secret_key.encrypt(&passphrase, self.time, self.space);
+        let secret_key = SecretKey::random(&mut rng);
+        let ciphertext = secret_key.encrypt(rng, &passphrase, self.time, self.space);
         fs::write(self.output, ciphertext)?;
         Ok(())
     }

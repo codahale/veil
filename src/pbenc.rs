@@ -3,7 +3,7 @@
 use std::convert::TryInto;
 use std::mem;
 
-use rand::Rng;
+use rand::{CryptoRng, Rng};
 use unicode_normalization::UnicodeNormalization;
 
 use crate::duplex::{Duplex, TAG_LEN};
@@ -13,9 +13,15 @@ pub const OVERHEAD: usize = U32_LEN + U32_LEN + SALT_LEN + TAG_LEN;
 
 /// Encrypt the given plaintext using the given passphrase.
 #[must_use]
-pub fn encrypt(passphrase: &str, time: u32, space: u32, plaintext: &[u8]) -> Vec<u8> {
+pub fn encrypt(
+    mut rng: impl Rng + CryptoRng,
+    passphrase: &str,
+    time: u32,
+    space: u32,
+    plaintext: &[u8],
+) -> Vec<u8> {
     // Generate a random salt.
-    let salt: [u8; SALT_LEN] = rand::thread_rng().gen();
+    let salt: [u8; SALT_LEN] = rng.gen();
 
     // Perform the balloon hashing.
     let mut pbenc = init(passphrase, &salt, time, space);
@@ -154,7 +160,7 @@ mod tests {
     fn round_trip() {
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let ciphertext = encrypt(passphrase, 5, 3, message);
+        let ciphertext = encrypt(rand::thread_rng(), passphrase, 5, 3, message);
 
         let plaintext = decrypt(passphrase, &ciphertext);
         assert_eq!(Some(message.to_vec()), plaintext, "invalid plaintext");
@@ -164,7 +170,7 @@ mod tests {
     fn bad_passphrase() {
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let ciphertext = encrypt(passphrase, 5, 3, message);
+        let ciphertext = encrypt(rand::thread_rng(), passphrase, 5, 3, message);
 
         let plaintext = decrypt("whoops", &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -174,7 +180,7 @@ mod tests {
     fn bad_time() {
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt(passphrase, 5, 3, message);
+        let mut ciphertext = encrypt(rand::thread_rng(), passphrase, 5, 3, message);
         ciphertext[0] ^= 1;
 
         let plaintext = decrypt(passphrase, &ciphertext);
@@ -185,7 +191,7 @@ mod tests {
     fn bad_space() {
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt(passphrase, 5, 3, message);
+        let mut ciphertext = encrypt(rand::thread_rng(), passphrase, 5, 3, message);
         ciphertext[8] ^= 1;
 
         let plaintext = decrypt(passphrase, &ciphertext);
@@ -196,7 +202,7 @@ mod tests {
     fn bad_salt() {
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt(passphrase, 5, 3, message);
+        let mut ciphertext = encrypt(rand::thread_rng(), passphrase, 5, 3, message);
         ciphertext[9] ^= 1;
 
         let plaintext = decrypt(passphrase, &ciphertext);
@@ -207,7 +213,7 @@ mod tests {
     fn bad_ciphertext() {
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt(passphrase, 5, 3, message);
+        let mut ciphertext = encrypt(rand::thread_rng(), passphrase, 5, 3, message);
         ciphertext[OVERHEAD - TAG_LEN + 1] ^= 1;
 
         let plaintext = decrypt(passphrase, &ciphertext);
@@ -218,7 +224,7 @@ mod tests {
     fn bad_tag() {
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt(passphrase, 5, 3, message);
+        let mut ciphertext = encrypt(rand::thread_rng(), passphrase, 5, 3, message);
         ciphertext[message.len() + OVERHEAD - 1] ^= 1;
 
         let plaintext = decrypt(passphrase, &ciphertext);

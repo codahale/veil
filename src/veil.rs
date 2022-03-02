@@ -28,8 +28,14 @@ impl SecretKey {
 
     /// Encrypt the secret key with the given passphrase and `veil.pbenc` parameters.
     #[must_use]
-    pub fn encrypt(&self, passphrase: &str, time: u32, space: u32) -> Vec<u8> {
-        pbenc::encrypt(passphrase, time, space, &self.r)
+    pub fn encrypt(
+        &self,
+        rng: impl Rng + CryptoRng,
+        passphrase: &str,
+        time: u32,
+        space: u32,
+    ) -> Vec<u8> {
+        pbenc::encrypt(rng, passphrase, time, space, &self.r)
     }
 
     /// Decrypt the secret key with the given passphrase.
