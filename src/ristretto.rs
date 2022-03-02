@@ -59,10 +59,14 @@ impl CanonicallyEncoded<POINT_LEN> for Point {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand::SeedableRng;
+    use rand_chacha::ChaChaRng;
 
     #[test]
     fn scalar_round_trip() {
-        let d = Scalar::random(&mut rand::thread_rng());
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
+        let d = Scalar::random(&mut rng);
         let b = d.to_canonical_encoding();
         let d_p = Scalar::from_canonical_encoding(&b);
 
@@ -71,7 +75,9 @@ mod tests {
 
     #[test]
     fn point_round_trip() {
-        let q = Point::random(&mut rand::thread_rng());
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
+        let q = Point::random(&mut rng);
         let b = q.to_canonical_encoding();
         let q_p = Point::from_canonical_encoding(&b);
 
