@@ -61,6 +61,24 @@ mod tests {
     use super::*;
 
     #[test]
+    fn scalar_round_trip() {
+        let d = Scalar::random(&mut rand::thread_rng());
+        let b = d.to_canonical_encoding();
+        let d_p = Scalar::from_canonical_encoding(&b);
+
+        assert_eq!(Some(d), d_p);
+    }
+
+    #[test]
+    fn point_round_trip() {
+        let q = Point::random(&mut rand::thread_rng());
+        let b = q.to_canonical_encoding();
+        let q_p = Point::from_canonical_encoding(&b);
+
+        assert_eq!(Some(q), q_p);
+    }
+
+    #[test]
     fn identity_scalars() {
         assert_eq!(None, Scalar::from_canonical_encoding(&[0u8; 32]));
     }
