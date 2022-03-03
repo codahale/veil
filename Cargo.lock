@@ -256,7 +256,7 @@ dependencies = [
 [[package]]
 name = "curve25519-dalek"
 version = "3.2.0"
-source = "git+https://github.com/codahale/curve25519-dalek?branch=updated-deps#c299290e9ace74de11724214251f729961fdd1d2"
+source = "git+https://github.com/codahale/curve25519-dalek?branch=updated-deps#8557a83bf753ec7c2f8a6cc6477a155640283dc9"
 dependencies = [
  "byteorder",
  "digest",
