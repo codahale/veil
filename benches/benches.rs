@@ -112,9 +112,21 @@ fn bench_pbenc(c: &mut Criterion) {
 
     let sk = SecretKey::random(&mut rng);
 
-    c.bench_function("pbenc", |b| {
-        b.iter(|| sk.encrypt(&mut rng, black_box("passphrase"), black_box(10), black_box(10)))
-    });
+    let mut pbenc = c.benchmark_group("pbenc");
+
+    for time in [1, 2, 3, 4] {
+        for space in [1, 4, 8, 12] {
+            pbenc.bench_with_input(
+                format!("t={}/s={}", time, space),
+                &(time, space),
+                |b, &(time, space)| {
+                    b.iter(|| sk.encrypt(&mut rng, black_box("passphrase"), time, space))
+                },
+            );
+        }
+    }
+
+    pbenc.finish();
 }
 
 fn bench_digest(c: &mut Criterion) {

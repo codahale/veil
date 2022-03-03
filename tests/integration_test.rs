@@ -157,9 +157,9 @@ fn create_secret_key(secret_key_path: &Path, passphrase_path: &Path) -> Result<(
         "--passphrase-file",
         passphrase_path,
         "--time",
-        "10",
+        "2",
         "--space",
-        "15",
+        "2",
     )
     .run()?;
 

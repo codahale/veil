@@ -60,13 +60,13 @@ struct SecretKeyArgs {
     #[clap(value_hint = ValueHint::FilePath)]
     output: PathBuf,
 
-    /// The time parameter for encryption.
-    #[clap(long, default_value = "128")]
-    time: u32,
+    /// The time parameter for encryption, logarithmic scale.
+    #[clap(long, default_value = "4")]
+    time: u8,
 
-    /// The space parameter for encryption.
-    #[clap(long, default_value = "1024")]
-    space: u32,
+    /// The space parameter for encryption, logarithmic scale..
+    #[clap(long, default_value = "15")]
+    space: u8,
 
     /// The path to read the passphrase from
     #[clap(long, value_hint = ValueHint::FilePath)]

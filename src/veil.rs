@@ -32,8 +32,8 @@ impl SecretKey {
         &self,
         rng: impl Rng + CryptoRng,
         passphrase: &str,
-        time: u32,
-        space: u32,
+        time: u8,
+        space: u8,
     ) -> Vec<u8> {
         pbenc::encrypt(rng, passphrase, time, space, &self.r)
     }

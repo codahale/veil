@@ -5,8 +5,9 @@ construction.
 
 ## Initialization
 
-The protocol is initialized as follows, given a passphrase $P$, a salt $S \rgets \allbits{128}$, time parameter $N_T$, space
-parameter $N_S$, delta constant $D$, and block size $N_B$. 
+The protocol is initialized as follows, given a passphrase $P$, a salt $S \rgets \allbits{128}$, time parameter
+$0 \le N_T \lt 256$, space parameter $0 \le N_S \lt 256$, delta constant $D = 3$, and block size constant
+$N_B = 32$. 
 
 A duplex is initialized with a constant key and used to absorb the passphrase, salt, and parameters:
 
@@ -14,10 +15,10 @@ $$
 \Cyclist{\literal{veil.pbenc}} \\
 \Absorb{P} \\
 \Absorb{S} \\
-\Absorb{\LE{U64}{N_T}} \\
-\Absorb{\LE{U64}{N_S}} \\
-\Absorb{\LE{U64}{N_B}} \\
-\Absorb{\LE{U64}{D}} \\
+\Absorb{N_T} \\
+\Absorb{N_S} \\
+\Absorb{N_B} \\
+\Absorb{D} \\
  \\
 $$
 
@@ -33,20 +34,17 @@ C \gets C+1 \\
 B_O \gets \Squeeze{N_B} \\
 $$
 
-The expanding phase of the algorithm is performed as described by [Boneh et al][bh].
+The expanding phase of the algorithm is performed as described by [Boneh et al][bh], with $2^{N_T}$ iterations of 
+the time loop and $2^{N_S}$ iterations in the space loop.
 
-For the mixing phase of the algorithm, the loop variables $t$, $m$, and $i$ are encoded in a block $b$:
-
-$$
-b \gets \LE{U64}{t} || \LE{U64}{m} || \LE{U64}{i} \\
-$$
-
-This is absorbed along with the salt $S$:
+For the mixing phase of the algorithm, the loop variables $t$, $m$, and $i$ are encoded in a block $b$ and absorbed
+along with the salt $S$:
 
 $$
 \Absorb{\LE{U64}{C}} \\
 C \gets C+1 \\
 \Absorb{S} \\
+b \gets \LE{U64}{t} || \LE{U64}{m} || \LE{U64}{i} \\
 \Absorb{b} \\
 $$
 
@@ -84,7 +82,7 @@ $$
 The returned ciphertext consists of the following:
 
 $$
-\LE{U32}{N_T} || \LE{U32}{N_S} || S || C || M
+N_T || N_S || S || C || M
 $$
 
 ## Decryption

@@ -17,8 +17,8 @@ cargo build --release --all-features
 cp target/release/veil target/release/veil-control
 
 # create a secret key with minimal KDF expansion, using both commands to make sure they work
-./target/release/veil-control secret-key /tmp/secret-key --passphrase-file=README.md --space=1 --time=1
-./target/release/veil-experiment secret-key /tmp/secret-key --passphrase-file=README.md --space=1 --time=1
+./target/release/veil-control secret-key /tmp/secret-key --passphrase-file=README.md --space=0 --time=0
+./target/release/veil-experiment secret-key /tmp/secret-key --passphrase-file=README.md --space=0 --time=0
 
 case $1 in
 "encrypt")

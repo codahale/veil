@@ -1,6 +1,5 @@
 //! Passphrase-based encryption based on Balloon Hashing.
 
-use std::convert::TryInto;
 use std::mem;
 
 use rand::{CryptoRng, Rng};
@@ -9,15 +8,15 @@ use unicode_normalization::UnicodeNormalization;
 use crate::duplex::{Duplex, TAG_LEN};
 
 /// The number of bytes encryption adds to a plaintext.
-pub const OVERHEAD: usize = U32_LEN + U32_LEN + SALT_LEN + TAG_LEN;
+pub const OVERHEAD: usize = 1 + 1 + SALT_LEN + TAG_LEN;
 
 /// Encrypt the given plaintext using the given passphrase.
 #[must_use]
 pub fn encrypt(
     mut rng: impl Rng + CryptoRng,
     passphrase: &str,
-    time: u32,
-    space: u32,
+    time: u8,
+    space: u8,
     plaintext: &[u8],
 ) -> Vec<u8> {
     // Generate a random salt.
@@ -50,10 +49,10 @@ pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Vec<u8>> {
     }
 
     // Decode the parameters.
-    let (time, ciphertext) = ciphertext.split_at(U32_LEN);
-    let time = u32::from_le_bytes(time.try_into().expect("invalid u32 len"));
-    let (space, ciphertext) = ciphertext.split_at(U32_LEN);
-    let space = u32::from_le_bytes(space.try_into().expect("invalid u32 len"));
+    let (time, ciphertext) = ciphertext.split_at(1);
+    let time = time[0];
+    let (space, ciphertext) = ciphertext.split_at(1);
+    let space = space[0];
 
     // Perform the balloon hashing.
     let (salt, ciphertext) = ciphertext.split_at(SALT_LEN);
@@ -77,7 +76,7 @@ macro_rules! hash_counter {
     };
 }
 
-fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> Duplex {
+fn init(passphrase: &str, salt: &[u8], time: u8, space: u8) -> Duplex {
     // Normalize the passphrase into NFKC form.
     let passphrase = normalize(passphrase);
 
@@ -89,14 +88,14 @@ fn init(passphrase: &str, salt: &[u8], time: u32, space: u32) -> Duplex {
 
     // Absorb the salt, time, space, block size, and delta parameters.
     pbenc.absorb(salt);
-    pbenc.absorb(&time.to_le_bytes());
-    pbenc.absorb(&space.to_le_bytes());
-    pbenc.absorb(&(N as u32).to_le_bytes());
-    pbenc.absorb(&(DELTA as u32).to_le_bytes());
+    pbenc.absorb(&[time]);
+    pbenc.absorb(&[space]);
+    pbenc.absorb(&[N as u8]);
+    pbenc.absorb(&[DELTA as u8]);
 
-    // Convert params.
-    let time = time as usize;
-    let space = space as usize;
+    // Convert time and space params into linear terms.
+    let time = 1usize << time;
+    let space = 1usize << space;
 
     // Allocate buffers.
     let mut ctr = 0u64;
@@ -150,13 +149,13 @@ fn normalize(passphrase: &str) -> Vec<u8> {
 const SALT_LEN: usize = 16;
 const DELTA: usize = 3;
 const N: usize = 32;
-const U32_LEN: usize = mem::size_of::<u32>();
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rand::SeedableRng;
     use rand_chacha::ChaChaRng;
+
+    use super::*;
 
     #[test]
     fn round_trip() {
@@ -164,7 +163,7 @@ mod tests {
 
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let ciphertext = encrypt(&mut rng, passphrase, 5, 3, message);
+        let ciphertext = encrypt(&mut rng, passphrase, 2, 6, message);
 
         let plaintext = decrypt(passphrase, &ciphertext);
         assert_eq!(Some(message.to_vec()), plaintext, "invalid plaintext");
@@ -176,7 +175,7 @@ mod tests {
 
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let ciphertext = encrypt(&mut rng, passphrase, 5, 3, message);
+        let ciphertext = encrypt(&mut rng, passphrase, 2, 6, message);
 
         let plaintext = decrypt("whoops", &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -188,7 +187,7 @@ mod tests {
 
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt(&mut rng, passphrase, 5, 3, message);
+        let mut ciphertext = encrypt(&mut rng, passphrase, 2, 6, message);
         ciphertext[0] ^= 1;
 
         let plaintext = decrypt(passphrase, &ciphertext);
@@ -201,8 +200,8 @@ mod tests {
 
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt(&mut rng, passphrase, 5, 3, message);
-        ciphertext[8] ^= 1;
+        let mut ciphertext = encrypt(&mut rng, passphrase, 2, 6, message);
+        ciphertext[1] ^= 1;
 
         let plaintext = decrypt(passphrase, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
