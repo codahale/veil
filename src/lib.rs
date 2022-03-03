@@ -39,8 +39,8 @@
 //!   &mut Cursor::new("this is a secret message"),
 //!   &mut ciphertext,
 //!   &[bea_pub],
-//!   20,
-//!   1234,
+//!   Some(20),
+//!   Some(1234),
 //! )?;
 //!
 //! // Bea decrypts the message.

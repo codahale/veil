@@ -160,12 +160,12 @@ struct EncryptArgs {
     recipients: Vec<PublicKey>,
 
     /// Add fake recipients.
-    #[clap(long, default_value = "0")]
-    fakes: usize,
+    #[clap(long)]
+    fakes: Option<usize>,
 
     /// Add random bytes of padding.
-    #[clap(long, default_value = "0")]
-    padding: u64,
+    #[clap(long)]
+    padding: Option<u64>,
 
     /// The path to read the passphrase from.
     #[clap(long, value_hint = ValueHint::FilePath)]

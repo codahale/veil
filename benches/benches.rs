@@ -26,8 +26,8 @@ fn bench_encrypt(c: &mut Criterion) {
                     &mut io::repeat(0).take(n),
                     &mut io::sink(),
                     &[pk_b.public_key()],
-                    black_box(0),
-                    black_box(0),
+                    black_box(None),
+                    black_box(None),
                 )
                 .unwrap()
             });
@@ -53,8 +53,8 @@ fn bench_decrypt(c: &mut Criterion) {
             &mut io::repeat(0).take(n),
             &mut ciphertext,
             &[pk_b.public_key()],
-            black_box(0),
-            black_box(0),
+            black_box(None),
+            black_box(None),
         )
         .unwrap();
         let ciphertext = ciphertext.into_inner();
