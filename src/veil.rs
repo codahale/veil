@@ -20,13 +20,13 @@ pub struct SecretKey {
 }
 
 impl SecretKey {
-    /// Create a randomly generated secret key.
+    /// Creates a randomly generated secret key.
     #[must_use]
     pub fn random(mut rng: impl Rng + CryptoRng) -> SecretKey {
         SecretKey { r: rng.gen::<[u8; SECRET_KEY_LEN]>().to_vec() }
     }
 
-    /// Encrypt the secret key with the given passphrase and `veil.pbenc` parameters.
+    /// Encrypts the secret key with the given passphrase and `veil.pbenc` parameters.
     #[must_use]
     pub fn encrypt(
         &self,
@@ -38,7 +38,7 @@ impl SecretKey {
         pbenc::encrypt(rng, passphrase, time, space, &self.r)
     }
 
-    /// Decrypt the secret key with the given passphrase.
+    /// Decrypts the secret key with the given passphrase.
     ///
     /// # Errors
     ///
@@ -82,16 +82,23 @@ pub struct PrivateKey {
 }
 
 impl PrivateKey {
-    /// Return the corresponding public key.
+    /// Returns the corresponding public key.
     #[must_use]
     pub const fn public_key(&self) -> PublicKey {
         self.pk
     }
 
-    /// Encrypt the contents of the reader and write the ciphertext to the writer.
+    /// Encrypts the contents of the reader and write the ciphertext to the writer.
     ///
     /// Optionally add a number of fake recipients to disguise the number of true recipients and/or
     /// random padding to disguise the message length.
+    ///
+    /// Returns the number of bytes of ciphertext written to `writer`.
+    ///
+    /// # Errors
+    ///
+    /// If there is an error while reading from `reader` or writing to `writer`, an [io::Error] will
+    /// be returned.
     pub fn encrypt(
         &self,
         mut rng: impl Rng + CryptoRng,
@@ -123,10 +130,15 @@ impl PrivateKey {
         )
     }
 
-    /// Decrypt the contents of the reader, if possible, and write the plaintext to the writer.
+    /// Decrypts the contents of `reader`, if possible, and writes the plaintext to `writer`.
+    ///
+    /// Returns the number of bytes of plaintext written to `writer`.
+    ///
+    /// # Errors
     ///
     /// If the ciphertext has been modified, was not sent by the sender, or was not encrypted for
-    /// this private key, returns [DecryptError::InvalidCiphertext].
+    /// this private key, returns [DecryptError::InvalidCiphertext]. If there was an error reading
+    /// from `reader` or writing to `writer`, returns [DecryptError::IoError].
     pub fn decrypt(
         &self,
         reader: &mut impl Read,
@@ -136,7 +148,11 @@ impl PrivateKey {
         mres::decrypt(reader, &mut BufWriter::new(writer), &self.d, &self.pk.q, &sender.q)
     }
 
-    /// Read the contents of the reader and return a digital signature.
+    /// Reads the contents of the reader and returns a digital signature.
+    ///
+    /// # Errors
+    ///
+    /// If there is an error while reading from `reader`, an [io::Error] will be returned.
     pub fn sign(&self, rng: impl Rng + CryptoRng, reader: &mut impl Read) -> io::Result<Signature> {
         let mut signer = Signer::new(io::sink());
         io::copy(reader, &mut signer)?;
@@ -144,7 +160,7 @@ impl PrivateKey {
         Ok(sig)
     }
 
-    /// Derive a private key with the given key path.
+    /// Derives a private key with the given key path.
     #[must_use]
     pub fn derive<T>(&self, key_path: &[T]) -> PrivateKey
     where
@@ -179,8 +195,14 @@ pub struct PublicKey {
 }
 
 impl PublicKey {
-    /// Read the contents of the reader and return `Ok(())` iff the given signature was created by
-    /// this public key of the exact contents. Otherwise, returns [VerifyError::InvalidSignature].
+    /// Verifies that the given signature was created by the owner of this public key for the exact
+    /// contents of `reader`. Returns `Ok(())` if successful.
+    ///
+    /// # Errors
+    ///
+    /// If the message has been modified or was not signed by the owner of this public key, returns
+    /// [VerifyError::InvalidSignature]. If there was an error reading from `reader` or writing to
+    /// `writer`, returns [VerifyError::IoError].
     pub fn verify(&self, reader: &mut impl Read, sig: &Signature) -> Result<(), VerifyError> {
         let mut verifier = Verifier::new();
         io::copy(reader, &mut verifier)?;
@@ -188,7 +210,7 @@ impl PublicKey {
         verifier.verify(&self.q, sig)
     }
 
-    /// Derive a public key with the given key path.
+    /// Derives a public key with the given key path.
     #[must_use]
     pub fn derive<T>(&self, key_path: &[T]) -> PublicKey
     where
@@ -219,9 +241,10 @@ impl FromStr for PublicKey {
 
 #[cfg(test)]
 mod tests {
+    use std::io::Cursor;
+
     use rand::SeedableRng;
     use rand_chacha::ChaChaRng;
-    use std::io::Cursor;
 
     use super::*;
 
