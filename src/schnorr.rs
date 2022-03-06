@@ -11,7 +11,7 @@ use rand::{CryptoRng, Rng};
 use crate::duplex::{AbsorbWriter, Duplex};
 use crate::ristretto::{CanonicallyEncoded, G, POINT_LEN, SCALAR_LEN};
 use crate::ristretto::{Point, Scalar};
-use crate::{ParseSignatureError, VerifyError};
+use crate::{AsciiEncoded, ParseSignatureError, VerifyError};
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
@@ -20,22 +20,29 @@ pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Signature(pub(crate) [u8; SIGNATURE_LEN]);
 
+impl AsciiEncoded for Signature {
+    type Err = ParseSignatureError;
+
+    fn from_bytes(b: &[u8]) -> result::Result<Self, Self::Err> {
+        Ok(Signature(b.try_into().map_err(|_| ParseSignatureError::InvalidLength)?))
+    }
+
+    fn to_bytes(&self) -> Vec<u8> {
+        self.0.to_vec()
+    }
+}
+
 impl FromStr for Signature {
     type Err = ParseSignatureError;
 
     fn from_str(s: &str) -> result::Result<Self, Self::Err> {
-        bs58::decode(s)
-            .into_vec()
-            .ok()
-            .and_then(|b| b.try_into().ok())
-            .map(Signature)
-            .ok_or(ParseSignatureError)
+        Signature::from_ascii(s)
     }
 }
 
 impl fmt::Display for Signature {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", bs58::encode(&self.0).into_string())
+        write!(f, "{}", self.to_ascii())
     }
 }
 
@@ -164,10 +171,11 @@ impl Write for Verifier {
 
 #[cfg(test)]
 mod tests {
-    use rand::SeedableRng;
-    use rand_chacha::ChaChaRng;
     use std::io;
     use std::io::Write;
+
+    use rand::SeedableRng;
+    use rand_chacha::ChaChaRng;
 
     use super::*;
 
@@ -290,7 +298,10 @@ mod tests {
         assert_eq!(Ok(sig), decoded, "error parsing signature");
 
         assert_eq!(
-            Err(ParseSignatureError),
+            Err(ParseSignatureError::BadEncoding(bs58::decode::Error::InvalidCharacter {
+                character: ' ',
+                index: 4
+            })),
             "woot woot".parse::<Signature>(),
             "parsed invalid signature"
         );

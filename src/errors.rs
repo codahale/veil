@@ -36,7 +36,15 @@ pub enum VerifyError {
 /// An error returned when parsing a signature was unsuccessful.
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
 #[error("invalid signature")]
-pub struct ParseSignatureError;
+pub enum ParseSignatureError {
+    /// Parsing failed because the value was not the correct length.
+    #[error("invalid signature length")]
+    InvalidLength,
+
+    /// Parsing failed because the signature was not valid base58.
+    #[error("invalid base58 encoding")]
+    BadEncoding(#[from] bs58::decode::Error),
+}
 
 /// An error returned when parsing a public key was unsuccessful.
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
