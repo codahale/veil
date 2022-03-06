@@ -6,28 +6,35 @@ use std::{fmt, io};
 use subtle::{Choice, ConstantTimeEq};
 
 use crate::duplex::Duplex;
-use crate::ParseDigestError;
+use crate::{AsciiEncoded, ParseDigestError};
 
 /// The digest of a set of metadata and a message.
 #[derive(Clone, Copy, Debug, Eq)]
 pub struct Digest([u8; DIGEST_LEN]);
 
+impl AsciiEncoded for Digest {
+    type Err = ParseDigestError;
+
+    fn from_bytes(b: &[u8]) -> Result<Self, Self::Err> {
+        Ok(Digest(b.try_into().map_err(|_| ParseDigestError::InvalidLength)?))
+    }
+
+    fn to_bytes(&self) -> Vec<u8> {
+        self.0.to_vec()
+    }
+}
+
 impl FromStr for Digest {
     type Err = ParseDigestError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        bs58::decode(s)
-            .into_vec()
-            .ok()
-            .and_then(|b| b.try_into().ok())
-            .map(Digest)
-            .ok_or(ParseDigestError)
+        Digest::from_ascii(s)
     }
 }
 
 impl fmt::Display for Digest {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", bs58::encode(&self.0).into_string())
+        write!(f, "{}", self.to_ascii())
     }
 }
 
@@ -115,7 +122,10 @@ mod tests {
         assert_eq!(Ok(sig), decoded, "error parsing signature");
 
         assert_eq!(
-            Err(ParseDigestError),
+            Err(ParseDigestError::BadEncoding(bs58::decode::Error::InvalidCharacter {
+                character: ' ',
+                index: 4
+            })),
             "woot woot".parse::<Digest>(),
             "parsed invalid signature"
         );

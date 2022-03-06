@@ -45,5 +45,12 @@ pub struct ParsePublicKeyError;
 
 /// An error returned when parsing a digest was unsuccessful.
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
-#[error("invalid digest")]
-pub struct ParseDigestError;
+pub enum ParseDigestError {
+    /// Parsing failed because the value was not the correct length.
+    #[error("invalid digest length")]
+    InvalidLength,
+
+    /// Parsing failed because the digest was not valid base58.
+    #[error("invalid base58 encoding")]
+    BadEncoding(#[from] bs58::decode::Error),
+}
