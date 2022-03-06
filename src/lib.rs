@@ -73,10 +73,12 @@
 
 pub use crate::schnorr::Signature;
 
+pub use self::ascii::*;
 pub use self::digest::*;
 pub use self::errors::*;
 pub use self::veil::*;
 
+mod ascii;
 mod digest;
 mod duplex;
 mod errors;
