@@ -23,7 +23,7 @@ pub struct Signature(pub(crate) [u8; SIGNATURE_LEN]);
 impl AsciiEncoded for Signature {
     type Err = ParseSignatureError;
 
-    fn from_bytes(b: &[u8]) -> result::Result<Self, Self::Err> {
+    fn from_bytes(b: &[u8]) -> result::Result<Self, <Self as AsciiEncoded>::Err> {
         Ok(Signature(b.try_into().map_err(|_| ParseSignatureError::InvalidLength)?))
     }
 

@@ -225,7 +225,7 @@ impl PublicKey {
 impl AsciiEncoded for PublicKey {
     type Err = ParsePublicKeyError;
 
-    fn from_bytes(b: &[u8]) -> Result<Self, Self::Err> {
+    fn from_bytes(b: &[u8]) -> Result<Self, <Self as AsciiEncoded>::Err> {
         Ok(PublicKey {
             q: Point::from_canonical_encoding(b).ok_or(ParsePublicKeyError::InvalidPublicKey)?,
         })

@@ -15,7 +15,7 @@ pub struct Digest([u8; DIGEST_LEN]);
 impl AsciiEncoded for Digest {
     type Err = ParseDigestError;
 
-    fn from_bytes(b: &[u8]) -> Result<Self, Self::Err> {
+    fn from_bytes(b: &[u8]) -> Result<Self, <Self as AsciiEncoded>::Err> {
         Ok(Digest(b.try_into().map_err(|_| ParseDigestError::InvalidLength)?))
     }
 
