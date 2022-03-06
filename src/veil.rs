@@ -11,7 +11,9 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::ristretto::{CanonicallyEncoded, Point, Scalar, G};
 use crate::schnorr::{Signer, Verifier};
-use crate::{hkd, mres, pbenc, DecryptError, ParsePublicKeyError, Signature, VerifyError};
+use crate::{
+    hkd, mres, pbenc, AsciiEncoded, DecryptError, ParsePublicKeyError, Signature, VerifyError,
+};
 
 /// A 512-bit secret from which multiple private keys can be derived.
 #[derive(ZeroizeOnDrop)]
@@ -220,9 +222,23 @@ impl PublicKey {
     }
 }
 
+impl AsciiEncoded for PublicKey {
+    type Err = ParsePublicKeyError;
+
+    fn from_bytes(b: &[u8]) -> Result<Self, Self::Err> {
+        Ok(PublicKey {
+            q: Point::from_canonical_encoding(b).ok_or(ParsePublicKeyError::InvalidPublicKey)?,
+        })
+    }
+
+    fn to_bytes(&self) -> Vec<u8> {
+        self.q.to_canonical_encoding().to_vec()
+    }
+}
+
 impl fmt::Display for PublicKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", bs58::encode(&self.q.to_canonical_encoding()).into_string())
+        write!(f, "{}", self.to_ascii())
     }
 }
 
@@ -230,12 +246,7 @@ impl FromStr for PublicKey {
     type Err = ParsePublicKeyError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        bs58::decode(s)
-            .into_vec()
-            .ok()
-            .and_then(|b| Point::from_canonical_encoding(&b))
-            .map(|q| PublicKey { q })
-            .ok_or(ParsePublicKeyError)
+        PublicKey::from_ascii(s)
     }
 }
 
@@ -280,7 +291,10 @@ mod tests {
         assert_eq!(Ok(base), decoded, "error parsing public key");
 
         assert_eq!(
-            Err(ParsePublicKeyError),
+            Err(ParsePublicKeyError::BadEncoding(bs58::decode::Error::InvalidCharacter {
+                character: ' ',
+                index: 4
+            })),
             "woot woot".parse::<PublicKey>(),
             "decoded invalid public key"
         );

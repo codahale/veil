@@ -49,7 +49,15 @@ pub enum ParseSignatureError {
 /// An error returned when parsing a public key was unsuccessful.
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
 #[error("invalid public key")]
-pub struct ParsePublicKeyError;
+pub enum ParsePublicKeyError {
+    /// Parsing failed because the value was not a valid public key.
+    #[error("invalid public key")]
+    InvalidPublicKey,
+
+    /// Parsing failed because the public key was not valid base58.
+    #[error("invalid base58 encoding")]
+    BadEncoding(#[from] bs58::decode::Error),
+}
 
 /// An error returned when parsing a digest was unsuccessful.
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
