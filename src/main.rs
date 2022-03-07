@@ -2,7 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Result};
-use clap::{AppSettings, Command, IntoApp, Parser, Subcommand, ValueHint};
+use clap::{AppSettings, IntoApp, Parser, Subcommand, ValueHint};
 use clap_complete::{generate_to, Shell};
 use clio::{Input, Output};
 use mimalloc::MiMalloc;
@@ -333,7 +333,7 @@ struct CompleteArgs {
 
 impl Runnable for CompleteArgs {
     fn run(self) -> Result<()> {
-        let mut app: Command = Opts::command();
+        let mut app = Opts::command();
         generate_to(self.shell, &mut app, "veil", &self.output)?;
         Ok(())
     }
