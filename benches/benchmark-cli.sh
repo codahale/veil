@@ -10,7 +10,7 @@ rm -f target/release/veil-control
 cargo build --release --all-features
 cp target/release/veil target/release/veil-experiment
 
-# stash the current state and build the last commit as releast
+# stash the current state and build the last commit as release
 git stash
 
 cargo build --release --all-features
