@@ -13,7 +13,7 @@ use veil::{Digest, PublicKey, SecretKey, Signature};
 static GLOBAL: MiMalloc = MiMalloc;
 
 fn main() -> Result<()> {
-    let opts: Opts = Opts::parse();
+    let opts = Opts::parse();
     match opts.cmd {
         Cmd::SecretKey(cmd) => cmd.run(),
         Cmd::PublicKey(cmd) => cmd.run(),
