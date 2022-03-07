@@ -1,13 +1,13 @@
 # Passphrase-based Encryption
 
-`veil.pbenc` implements memory-hard password-based encryption using [balloon hashing][bh] and Xoodyak's AEAD
-construction.
+`veil.pbenc` implements memory-hard password-based encryption using [balloon hashing][bh] and
+Xoodyak's AEAD construction.
 
 ## Initialization
 
-The protocol is initialized as follows, given a passphrase $P$, a salt $S \rgets \allbits{128}$, time parameter
-$0 \le N_T \lt 256$, space parameter $0 \le N_S \lt 256$, delta constant $D = 3$, and block size constant
-$N_B = 32$.
+The protocol is initialized as follows, given a passphrase $P$, a salt $S \rgets \allbits{128}$,
+time parameter $0 \le N_T \lt 256$, space parameter $0 \le N_S \lt 256$, delta constant $D = 3$, and
+block size constant $N_B = 32$.
 
 A duplex is initialized with a constant key and used to absorb the passphrase, salt, and parameters:
 
@@ -22,9 +22,9 @@ $$
  \\
 $$
 
-For each iteration of the balloon hashing algorithm, given a counter $C$, input blocks $(B_L, B_R)$, and an output block
-$B_O$, the counter is encoded as a little-endian 64-bit integer and absorbed, the blocks are absorbed left-to-right, and
-the output block is filled with duplex output:
+For each iteration of the balloon hashing algorithm, given a counter $C$, input blocks $(B_L, B_R)$,
+and an output block $B_O$, the counter is encoded as a little-endian 64-bit integer and absorbed,
+the blocks are absorbed left-to-right, and the output block is filled with duplex output:
 
 $$
 \Absorb{\LE{U64}{C}} \\
@@ -34,11 +34,11 @@ C \gets C+1 \\
 B_O \gets \Squeeze{N_B} \\
 $$
 
-The expanding phase of the algorithm is performed as described by [Boneh et al][bh], with $2^{N_T}$ iterations of
-the time loop and $2^{N_S}$ iterations in the space loop.
+The expanding phase of the algorithm is performed as described by [Boneh et al][bh], with $2^{N_T}$
+iterations of the time loop and $2^{N_S}$ iterations in the space loop.
 
-For the mixing phase of the algorithm, the loop variables $t$, $m$, and $i$ are encoded in a block $b$ and absorbed
-along with the salt $S$:
+For the mixing phase of the algorithm, the loop variables $t$, $m$, and $i$ are encoded in a block
+$b$ and absorbed along with the salt $S$:
 
 $$
 \Absorb{\LE{U64}{C}} \\
@@ -48,7 +48,8 @@ b \gets \LE{U64}{t} || \LE{U64}{m} || \LE{U64}{i} \\
 \Absorb{b} \\
 $$
 
-A 64-bit little-endian integer is derived from duplex output. That integer is mapped to a block index:
+A 64-bit little-endian integer is derived from duplex output. That integer is mapped to a block
+index:
 
 $$
 v \gets \Squeeze{8} \bmod N_B \\
@@ -87,7 +88,8 @@ $$
 
 ## Decryption
 
-Given an initialized, keyed duplex, the decryption of a ciphertext $C$ and authentication tag $T$ is as follows:
+Given an initialized, keyed duplex, the decryption of a ciphertext $C$ and authentication tag $T$ is
+as follows:
 
 $$
 P' \gets \Encrypt{C} \\
@@ -97,7 +99,7 @@ $$
 
 If the $T' = T$, the plaintext $P'$ is returned as authentic.
 
-It should be noted that there is no standard balloon hashing algorithm, so this protocol is in the very, very tall grass
-of cryptography and should never be used.
+It should be noted that there is no standard balloon hashing algorithm, so this protocol is in the
+very, very tall grass of cryptography and should never be used.
 
 [bh]: https://eprint.iacr.org/2016/027.pdf

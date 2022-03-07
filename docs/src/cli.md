@@ -11,10 +11,11 @@ git clone https://github.com/codahale/veil
 cargo install
 ```
 
-Because this is a cryptosystem designed by one person with no formal training and has not been audited, it will never be
-packaged conveniently. Cryptographic software is primarily used in high-risk environments where strong assurances of
-correctness, confidentiality, integrity, etc. are required, and `veil` does not provide those assurances. It's more
-of an art installation than a practical tool.
+Because this is a cryptosystem designed by one person with no formal training and has not been
+audited, it will never be packaged conveniently. Cryptographic software is primarily used in
+high-risk environments where strong assurances of correctness, confidentiality, integrity, etc. are
+required, and `veil` does not provide those assurances. It's more of an art installation than a
+practical tool.
 
 ## Shell Completion
 

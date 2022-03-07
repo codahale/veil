@@ -1,7 +1,7 @@
 # Deriving A Public Key
 
-In the same way you can use a secret key to generate a public key with a key path, you can also derive a public key from
-another public key using a key path.
+In the same way you can use a secret key to generate a public key with a key path, you can also
+derive a public key from another public key using a key path.
 
 Let's say someone creates a public key with the key path `one` and `two`.
 
@@ -36,8 +36,8 @@ flowchart LR
     two --> three
 ```
 
-This produces the same public key as if the owner of the secret key had generated the public key with the key path
-`one`, `two`, and `three`:
+This produces the same public key as if the owner of the secret key had generated the public key
+with the key path `one`, `two`, and `three`:
 
 ```shell
 veil public-key ./secret-key --key-path 'one' 'two' 'three'

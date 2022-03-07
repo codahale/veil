@@ -10,7 +10,8 @@ veil digest announcement.txt
 
 ## Including Metadata
 
-The `digest` command accepts optional metadata strings which are included in the calculation of the digest:
+The `digest` command accepts optional metadata strings which are included in the calculation of the
+digest:
 
 ```shell
 veil digest announcement.txt --metadata 'announcement.txt' --metadata 'made-with-veil'

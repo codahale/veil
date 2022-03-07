@@ -4,8 +4,8 @@ Each participant in Veil has a secret key, which is a string $S \rgets \allbits{
 
 ## Deriving The Root Key
 
-To derive a root private key from a secret key, a duplex is initialized with a constant key and used to absorb $S$. A
-scalar $d$ is then derived from output:
+To derive a root private key from a secret key, a duplex is initialized with a constant key and used
+to absorb $S$. A scalar $d$ is then derived from output:
 
 $$
 \Cyclist{\literal{veil.hkd.root}} \\
@@ -15,8 +15,8 @@ $$
 
 ## Deriving A Private Key From Another Private Key
 
-To derive a private key $d'$ from another private key $d$ with a label $L$, a duplex initialized with a constant key is
-used to absorb $[d]G$ and $L$ and squeeze a scalar value:
+To derive a private key $d'$ from another private key $d$ with a label $L$, a duplex initialized
+with a constant key is used to absorb $[d]G$ and $L$ and squeeze a scalar value:
 
 $$
 \Cyclist{\literal{veil.hkd.label}} \\
@@ -28,8 +28,8 @@ $$
 
 ## Deriving A Public Key From Another Public Key
 
-To derive a public key $Q'$ from another public key $Q$ with a label $L$, a duplex initialized with a constant key is
-used to absorb $Q$ and $L$ and squeeze a scalar value:
+To derive a public key $Q'$ from another public key $Q$ with a label $L$, a duplex initialized with
+a constant key is used to absorb $Q$ and $L$ and squeeze a scalar value:
 
 $$
 \Cyclist{\literal{veil.hkd.label}} \\
@@ -41,12 +41,12 @@ $$
 
 ## Hierarchical Keys
 
-This is used to provide hierarchical key derivation, deriving a final key from a secret key via a path of labels
-$L_0..L_n$.
+This is used to provide hierarchical key derivation, deriving a final key from a secret key via a
+path of labels $L_0..L_n$.
 
-Using a key path $\literal{friends} \to \literal{alice}$, the secret key is mapped to a private key via
-`veil.scaldf.root`, which is then mapped to an intermediate private key via the label `friends`, which is then mapped to
-the final private key via the label `alice`.
+Using a key path $\literal{friends} \to \literal{alice}$, the secret key is mapped to a private key
+via `veil.scaldf.root`, which is then mapped to an intermediate private key via the label `friends`,
+which is then mapped to the final private key via the label `alice`.
 
 This allows a single secret key to be used to generate a tree of domain-separated keys:
 
@@ -63,8 +63,9 @@ flowchart TD
 This design allows for the use of disposable, anonymous keys based on a single secret key.
 
 If Alice wants to communicate anonymously with Bea, she can generate a private key with the key path
-`ee4c176352b1d0b2df4a699d430ea48e` and share the corresponding public key with Bea via an anonymous channel. Unless Bea
-can guess that key path, Bea will be unable to determine if her anonymous pen pal is Alice even if she has Alice's key.
+`ee4c176352b1d0b2df4a699d430ea48e` and share the corresponding public key with Bea via an anonymous
+channel. Unless Bea can guess that key path, Bea will be unable to determine if her anonymous pen
+pal is Alice even if she has Alice's key.
 
-These disposable keys are stateless, as well: if Alice wants to burn that key, all she needs to do is forget the key
-path.
+These disposable keys are stateless, as well: if Alice wants to burn that key, all she needs to do
+is forget the key path.

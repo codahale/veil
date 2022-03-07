@@ -27,7 +27,8 @@ veil public-key ./my-secret-key --key-path 'test-keys'
 #=> 26UQ714wrvgp3YCFtMRoxWGM8GyxQkFBmknnudUaBQQL
 ```
 
-This derives a public key from your root public key using a key path with a single label, `test-keys`:
+This derives a public key from your root public key using a key path with a single label,
+`test-keys`:
 
 ```mermaid
 flowchart LR
@@ -51,6 +52,6 @@ flowchart LR
     s([secret]) -.-> r(root) --> test-keys --> example
 ```
 
-Each key path you use will produce a different public key, which allows you to give different public keys to different
-people. If those people compare those public keys, they won't be able to know they're both yours unless you tell them,
-or they have your root public key and guess the key path.
+Each key path you use will produce a different public key, which allows you to give different public
+keys to different people. If those people compare those public keys, they won't be able to know
+they're both yours unless you tell them, or they have your root public key and guess the key path.

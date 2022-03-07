@@ -2,8 +2,9 @@
 
 Veil can create message digests given a set of metadata and a message.
 
-Given a set of metadata strings $V_0..V_n$ and a message in 16-byte blocks $M_0..M_n$, a duplex is initialized with a
-constant key and used to absorb the metadata and message blocks. Finally, a 64-byte digest $D$ is squeezed:
+Given a set of metadata strings $V_0..V_n$ and a message in 16-byte blocks $M_0..M_n$, a duplex is
+initialized with a constant key and used to absorb the metadata and message blocks. Finally, a
+64-byte digest $D$ is squeezed:
 
 $$
 \Cyclist{\literal{veil.digest}} \\
