@@ -100,7 +100,7 @@ This construction uses the Xoodyak duplex as a hash function. Consequently, the 
 the fitness of Xoodyak as a random oracle and the hardness of the discrete-logarithm problem relative to ristretto255.
 
 Unlike Construction 13.12 of _Modern Cryptography 3e_, `veil.schnorr` transmits the commitment point $I$ as part of the
-signature and the verifier calculates $I'$ vs transmitting the challenge scalar $r$ and calculating $r'$. In this way, 
+signature and the verifier calculates $I'$ vs transmitting the challenge scalar $r$ and calculating $r'$. In this way,
 `veil.schnorr` is closer to [EdDSA][ed25519] or the Schnorr variant proposed in the [STROBE][strobe] paper.
 
 Some Schnorr/EdDSA implementations (e.g. [ed25519][ed25519]) suffer from malleability issues, allowing for multiple
@@ -124,7 +124,7 @@ When implemented with a prime order group and canonical encoding routines, The S
 ## Indistinguishability and Pseudorandomness
 
 Per [Fleischhacker et al.][ind-sig], this construction produces indistinguishable signatures (i.e., signatures which do
-not reveal anything about the signing key or signed message). When encrypted with an unrelated key (i.e., via 
+not reveal anything about the signing key or signed message). When encrypted with an unrelated key (i.e., via
 $\text{Encrypt}$), the construction is isomorphic to Fleischhacker et al.'s DRPC compiler for producing pseudorandom
 signatures, which are indistinguishable from random.
 

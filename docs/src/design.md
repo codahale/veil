@@ -62,7 +62,7 @@ Finally, the use of Xoodyak means all protocols which end in $\text{Squeeze}$ ou
 ## Confidentiality & Integrity
 
 Veil messages are designed to provide confidentiality and integrity against all known attacks, providing CCA2
-security against both non-recipients _and_ recipients. 
+security against both non-recipients _and_ recipients.
 
 ## Unforgeability & Non-malleability
 

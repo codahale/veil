@@ -16,7 +16,7 @@ flowchart LR
     s([secret]) -.-> r(root) --> one --> two
 ```
 
-But they sign a message using the key path `one`, `two`, and `three`. 
+But they sign a message using the key path `one`, `two`, and `three`.
 
 ```mermaid
 flowchart LR

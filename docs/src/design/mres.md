@@ -6,7 +6,7 @@ encryption construction and a sUF-CMA secure signature scheme.
 ## Encryption
 
 Encrypting a message begins as follows, given the sender's key pair, $d_S$ and $Q_S$, a plaintext message in blocks
-$P_0..P_n$, a list of recipient public keys, $Q_{R^0}..Q_{R^m}$, and a DEK size $N_{K}$. 
+$P_0..P_n$, a list of recipient public keys, $Q_{R^0}..Q_{R^m}$, and a DEK size $N_{K}$.
 
 First, a duplex is initialized with a constant key and used to absorb the sender's public key:
 
@@ -45,7 +45,7 @@ H_\text{pad} \rgets \allbits{\text{pad}} \\
 $$
 
 The duplex is keyed with $K$, the plaintext message is divided into 32KiB blocks
-$P_0 || P_1 || \dots P_i \dots || P_n$. Each block $P_i$ is encrypted as ciphertext $C_i$ and an authentication tag 
+$P_0 || P_1 || \dots P_i \dots || P_n$. Each block $P_i$ is encrypted as ciphertext $C_i$ and an authentication tag
 $T_i$ is generated and appended. After each block, the duplex state is ratcheted to prevent rollback:
 
 $$
@@ -117,17 +117,17 @@ The message is considered successfully decrypted if $v$ is true.
 
 ## Insider Security
 
-While `veil.mres` has some similarity to the Encrypt-then-Sign ($\EtS$) sequential signcryption construction, unlike 
+While `veil.mres` has some similarity to the Encrypt-then-Sign ($\EtS$) sequential signcryption construction, unlike
 $\EtS$ it offers multi-user insider security (i.e. FSO/FUO-IND-CCA2 and FSO/FUO-sUF-CMA in the multi-user setting).
 
 _Practical Signcryption_ (p. 32) describes the tradeoffs inherent in the sequential constructions:
 
-> If we consider the signcryption security corresponding to the security of the operation performed _first_ (i.e., 
+> If we consider the signcryption security corresponding to the security of the operation performed _first_ (i.e.,
 > privacy in the $\EtS$ method and authenticity in the $\StE$ method), then results differ depending on the security
 > models and the composition methods. In the insider security model, the security of the first operation is not
 > preserved against the strongest security notions of privacy and authenticity (i.e., IND-CCA2 security and sUF-CMA
 > security) although it is preserved against weaker security notions (e.g., IND-CPA, IND-gCCA2, and UF-CMA security).
-> This is because the adversary who knows the secret key of the other component (i.e., the signature scheme in the 
+> This is because the adversary who knows the secret key of the other component (i.e., the signature scheme in the
 > $\EtS$ method and the encryption scheme in the $\StE$ method) can manipulate the given signcryption ciphertext by
 > re-signing it and submitting the modified ciphertext as a unsigncryption oracle query (in the attack against the
 > IND-CCA2 security of the $\EtS$ method) or re-encrypting it and submit the modified ciphertext as a forgery (in the
@@ -146,11 +146,11 @@ Proof 1 of Theorem 2.2 of _Practical Signcryption_ describes a successful distin
 game in the insider security model against the $\EtS$ construction:
 
 > Given the induced decryption oracle $\text{Decrypt}$ and the induced encryption key ${pk}^{enc}$, $\Attacker$ picks
-> two messages $(m_0,m_1)$, where $m_0 = 0$ and $m_1 = 1$, and then outputs them to get the challenge ciphertext 
-> $C = (c, σ )$. Next, $\Attacker$ gets the message part $c$ and re-signs $c$ by computing a "new" signature 
+> two messages $(m_0,m_1)$, where $m_0 = 0$ and $m_1 = 1$, and then outputs them to get the challenge ciphertext
+> $C = (c, σ )$. Next, $\Attacker$ gets the message part $c$ and re-signs $c$ by computing a "new" signature
 > $\sigma' \rgets \text{Sign}({sk}^{sig}_S,c)$ of $c$, where $\sigma' \not = \sigma$, and then queries the induced
 > decryption oracle with $C' = (c,\sigma')$. Notice that since we assumed $\S$ is probabilistic (not deterministic),
-> with a non-negligible probability one can find a different signature for the same message in polynomial time. Since 
+> with a non-negligible probability one can find a different signature for the same message in polynomial time. Since
 > $C' \not = C$, and $\sigma'$ is a valid signature of $c$, $\Attacker$ can obtain the decryption of $c$. Once the
 > decrypted message $m$ is obtained, $\Attacker$ compares it with its own message pair $(m_0,m_1)$ and outputs the bit
 > $b$ where $m_b = m$.

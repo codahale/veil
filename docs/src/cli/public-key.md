@@ -8,7 +8,7 @@ veil public-key ./my-secret-key
 #=> TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa
 ```
 
-This is your root public key, which means it's derived directly from your secret key: 
+This is your root public key, which means it's derived directly from your secret key:
 
 ```mermaid
 flowchart LR

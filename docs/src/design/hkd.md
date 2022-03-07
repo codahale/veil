@@ -44,7 +44,7 @@ $$
 This is used to provide hierarchical key derivation, deriving a final key from a secret key via a path of labels
 $L_0..L_n$.
 
-Using a key path $\literal{friends} \to \literal{alice}$, the secret key is mapped to a private key via 
+Using a key path $\literal{friends} \to \literal{alice}$, the secret key is mapped to a private key via
 `veil.scaldf.root`, which is then mapped to an intermediate private key via the label `friends`, which is then mapped to
 the final private key via the label `alice`.
 

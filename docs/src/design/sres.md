@@ -52,7 +52,7 @@ $$
 
 (In the rare event that $r+d_S=0$, the procedure is re-run with a different $x$.)
 
-Finally, the top four bits of both $r$ and $s$ are masked with the top and bottom four bits of $m$, respectively, as 
+Finally, the top four bits of both $r$ and $s$ are masked with the top and bottom four bits of $m$, respectively, as
 $S_0$ and $S_1$:
 
 $$
@@ -114,17 +114,17 @@ Per Theorem 7.3 of _Practical Signcryption_:
 > Let SC be a hybrid signcryption scheme constructed from a signcryption tag-KEM and a DEM. If the signcryption tag-KEM
 > is IND-CCA2 secure and the DEM is IND-CPA secure, then SC is multi-user outsider FSO/FUO-IND-CCA2 secure with the
 > bound
-> 
+>
 > $$
 {\varepsilon}_\text{SC,IND-CCA2} \leq 2{\varepsilon}_\text{SCTK,IND-CCA2} + {\varepsilon}_\text{DEM,IND-CPA}
 $$
 > Furthermore, if the signcryption tag-KEM is sUF-CMA secure, then SC is multi-user insider FSO/FUO-sUF-CMA secure with
 > the bound
-> 
+>
 > $$
 {\varepsilon}_\text{SC,sUF-CMA} \leq {\varepsilon}_\text{SCTK,sUF-CMA}
 $$
-> 
+>
 
 For `veil.sres` to be insider secure (i.e multi-user insider FSO/FUO-sUF-CMA secure), we must demonstrate that
 Zheng-SCTK is both IND-CCA2 secure and sUF-CMA secure, and that Xoodyak's $\text{Encrypt}$ operation is IND-CPA secure.
