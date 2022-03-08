@@ -15,7 +15,7 @@ true length, and fake recipients can be added to disguise their true number from
 Further, Veil supports hierarchical key derivation (allowing for domain-separated and disposable
 keys), message digests, and message authentication codes.
 
-See the `docs` directory for more.
+See `DESIGN.md` and `MANUAL.md` for more.
 
 ## License
 
