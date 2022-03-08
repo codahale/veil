@@ -474,8 +474,8 @@ m \gets ((S_0 \gg 252) \ll 4) | (S_1 \gg 252) \\
 \Absorb{m} \\
 \end{gather*}
 
-Third, the challenge scalar $r$ and the proof scalar $s$ are unmasked and used to calculate the shared secret $K$, which
-is used to re-key the duplex:
+Third, the challenge scalar $r$ and the proof scalar $s$ are unmasked and used to calculate the
+shared secret $K$, which is used to re-key the duplex:
 
 \begin{gather*}
 r \gets S_0 \land \lnot(2^8 \ll 252) \bmod \ell \\
@@ -484,8 +484,8 @@ K \gets [{d_R}s] ([r]G+Q_S) \\
 \Cyclist{K} \\
 \end{gather*}
 
-Fourth, the ciphertext $C$ is decrypted as the unauthenticated plaintext $P'$, the duplex's state is ratcheted, and a
-counterfactual challenge scalar $r'$ is derived from output:
+Fourth, the ciphertext $C$ is decrypted as the unauthenticated plaintext $P'$, the duplex's state is
+ratcheted, and a counterfactual challenge scalar $r'$ is derived from output:
 
 \begin{gather*}
 P' \gets \Decrypt{C} \\
@@ -498,8 +498,8 @@ If $r' = r$, the plaintext $P'$ is returned as authentic; otherwise, an error is
 
 ### Insider Security Of Headers
 
-This construction combines the Zheng-SCTK construction from _Practical Signcryption_ (Figure 7.6) with a
-Xoodyak-based DEM ($\text{Encrypt}$).
+This construction combines the Zheng-SCTK construction from _Practical Signcryption_ (Figure 7.6)
+with a Xoodyak-based DEM ($\text{Encrypt}$).
 
 Per Theorem 7.3 of _Practical Signcryption_:
 
