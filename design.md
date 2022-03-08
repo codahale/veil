@@ -381,18 +381,18 @@ with an unrelated key (i.e., via $\text{Encrypt}$), the construction is isomorph
 et al.'s DRPC compiler for producing pseudorandom signatures, which are indistinguishable from
 random.
 
-### Ephemeral Scalar Hedging
+### Ephemeral Scalar Hedging For Signatures
 
 In deriving the ephemeral scalar from a cloned context, `veil.schnorr` uses [Aranha et al.'s "hedged
 signature" technique][hedge] to mitigate against both catastrophic randomness failures and
 differential fault attacks against purely deterministic signature schemes.
 
-## Single-recipient Messages {#veil.sres}
+## Single-recipient Headers {#veil.sres}
 
 `veil.sres` implements a single-recipient, insider secure, deniable signcryption scheme based on the
 Zheng signcryption tag-KEM in _Practical Signcryption_ (Zheng-SCTK).
 
-### Encryption
+### Header Encryption
 
 Encryption takes a sender's key pair, $(d_S, Q_S)$, a recipient's public key, $Q_R$, and a plaintext
 message $P$.
@@ -453,7 +453,7 @@ S_1 \gets s \lor ((m \ll 4) \ll 252) \\
 
 The final ciphertext is $S_0 || S_1 || C$.
 
-### Decryption
+### Header Decryption
 
 Encryption takes a recipient's key pair, $(d_R, Q_R)$, a sender's public key, $Q_S$, two masked
 scalars $(S_0, S_1)$, and a ciphertext $C$.
@@ -496,7 +496,7 @@ r' \checkeq r \\
 
 If $r' = r$, the plaintext $P'$ is returned as authentic; otherwise, an error is returned.
 
-### Insider Security
+### Insider Security Of Headers
 
 This construction combines the Zheng-SCTK construction from _Practical Signcryption_ (Figure 7.6) with a
 Xoodyak-based DEM ($\text{Encrypt}$).
@@ -569,7 +569,7 @@ information about the plaintext.
 Finally, the inclusion of the masked bits of scalars $S_0$ and $S_1$ prior to generating the
 challenge scalar $r$ makes their masked bits (and thus the entire ciphertext) non-malleable.
 
-### Indistinguishability From Random Noise
+### Header Indistinguishability From Random Noise
 
 `veil.sres` ciphertexts are indistinguishable from random bitstrings.
 
@@ -628,7 +628,7 @@ by an attacker in possession of the recipient's private key $d_S$ and the sender
 both the shared secret $K$ and the proof scalar $s$. The recipient can use their own private key
 $d_R$ to reconstruct $K$ and authenticate the plaintext $P$, but cannot themselves re-create $s$.
 
-### Deniability
+### Header Deniability
 
 `veil.sres` authenticates the plaintext with what is effectively a designated-verifier signature. In
 order to decrypt and verify a ciphertext, a recipient must calculate the shared secret point
@@ -643,7 +643,7 @@ et al.][gamage] which offers public verifiability of ciphertexts. Where Gamage's
 curve's generator point $G$ to calculate the shared secret, Zheng-SCTK uses the recipient's public
 key $Q_R$, requiring the use of the recipient's private key $d_R$ for decapsulation.
 
-### Ephemeral Scalar Hedging
+### Ephemeral Scalar Hedging For Headers
 
 In deriving the ephemeral scalar from a cloned duplex, `veil.sres` uses [Aranha et al.'s "hedged
 signature" technique][hedge] to mitigate against both catastrophic randomness failures and
@@ -657,7 +657,7 @@ P)$ combination.
 `veil.mres` is a multi-recipient signcryption scheme, using an encrypt-then-sign construction with
 an IND-CCA2 secure encryption construction and a sUF-CMA secure signature scheme.
 
-### Encryption
+### Message Encryption
 
 Encrypting a message begins as follows, given the sender's key pair, $d_S$ and $Q_S$, a plaintext
 message in blocks $P_0..P_n$, a list of recipient public keys, $Q_{R^0}..Q_{R^m}$, and a DEK size
@@ -726,7 +726,7 @@ The resulting ciphertext then contains, in order: the [`veil.sres`](#veil.sres)-
 random padding, a series of ciphertext and authentication tag block pairs, and a
 [`veil.schnorr`](#veil.schnorr) signature of the entire ciphertext.
 
-### Decryption
+### Message Decryption
 
 Decryption begins as follows, given the recipient's key pair, $d_R$ and $Q_R$, the sender's public
 key, $Q_S$.
@@ -774,7 +774,7 @@ v \gets \invoke{veil.schnorr}{Verify}{s, Q_E, H_0..H_n || H_{pad} || ((C_0,T_0).
 
 The message is considered successfully decrypted if $v$ is true.
 
-### Insider Security
+### Insider Security Of Messages
 
 While `veil.mres` has some similarity to the Encrypt-then-Sign ($\EtS$) sequential signcryption
 construction, unlike $\EtS$ it offers multi-user insider security (i.e. FSO/FUO-IND-CCA2 and
@@ -858,7 +858,7 @@ without the user's awareness. The first three blocks of a message, for example, 
 MALLORY $100`, `GIVE HER YOUR CAR`, `DO WHAT SHE SAYS`, while the last block might read `JUST
 KIDDING`.
 
-### Deniability
+### Message Deniability
 
 The headers are signcrypted with [`veil.sres`](#veil.sres), which achieves both authentication and
 deniability. The message itself is encrypted with a randomly-generated symmetric key, which isn't
@@ -867,7 +867,7 @@ randomly-generated ephemeral key.
 
 Despite providing strong authenticity, `veil.mres` produces fully deniable ciphertexts.
 
-### Ephemeral Scalar Hedging
+### Ephemeral Key Hedging
 
 In deriving the DEK and ephemeral private key from a cloned duplex, `veil.mres` uses [Aranha et
 al.'s "hedged signature" technique][hedge] to mitigate against both catastrophic randomness failures
