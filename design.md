@@ -976,52 +976,28 @@ If the $T' = T$, the plaintext $P'$ is returned as authentic.
 It should be noted that there is no standard balloon hashing algorithm, so this protocol is in the
 very, very tall grass of cryptography and should never be used.
 
-[bh]: https://eprint.iacr.org/2016/027.pdf
-
-[oae2]: https://eprint.iacr.org/2015/189.pdf
-
-[ik-cca]: https://iacr.org/archive/asiacrypt2001/22480568.pdf
-
-[kci]: https://eprint.iacr.org/2006/252.pdf
-
-[bjørstad]: http://www.ii.uib.no/~tor/pdf/PKC_tagkem.pdf
-
 [abe]: https://eprint.iacr.org/2005/027.pdf
-
-[duplex]: https://keccak.team/files/SpongeDuplex.pdf
-
-[sponge]: https://keccak.team/files/SpongeIndifferentiability.pdf
-
-[gamage]: https://link.springer.com/chapter/10.1007/3-540-49162-7_6
-
-[hpke]: https://www.rfc-editor.org/rfc/rfc9180.html#name-key-compromise-impersonatio
-
-[ed25519]: https://eprint.iacr.org/2020/823.pdf
-
-[eddsa]: https://eprint.iacr.org/2020/1244.pdf
-
-[schnorr-cma]: https://www.di.ens.fr/david.pointcheval/Documents/Papers/2000_joc.pdf
-
-[schnorr-hash]: http://www.neven.org/papers/schnorr.pdf
-
-[ind-sig]: https://eprint.iacr.org/2011/673.pdf
-
-[hedge]: https://eprint.iacr.org/2019/956.pdf
-
-[strobe]: https://eprint.iacr.org/2017/003.pdf
-
-[r255]: https://www.ietf.org/archive/id/draft-irtf-cfrg-ristretto255-decaf448-03.html
-
-[r255-why]: https://ristretto.group/why_ristretto.html
-
-[keccak]: https://keccak.team/third_party.html
-
 [agl]: https://www.imperialviolet.org/2016/05/16/agility.html
-
+[bh]: https://eprint.iacr.org/2016/027.pdf
+[bjørstad]: http://www.ii.uib.no/~tor/pdf/PKC_tagkem.pdf
 [cce]: https://eprint.iacr.org/2017/664.pdf
-
-[xoodyak]: https://csrc.nist.gov/CSRC/media/Projects/lightweight-cryptography/documents/finalist-round/updated-spec-doc/xoodyak-spec-final.pdf
-
 [duplex]: https://keccak.team/files/SpongeDuplex.pdf
-
+[duplex]: https://keccak.team/files/SpongeDuplex.pdf
+[ed25519]: https://eprint.iacr.org/2020/823.pdf
+[eddsa]: https://eprint.iacr.org/2020/1244.pdf
+[gamage]: https://link.springer.com/chapter/10.1007/3-540-49162-7_6
+[hedge]: https://eprint.iacr.org/2019/956.pdf
+[hpke]: https://www.rfc-editor.org/rfc/rfc9180.html#name-key-compromise-impersonatio
+[ik-cca]: https://iacr.org/archive/asiacrypt2001/22480568.pdf
+[ind-sig]: https://eprint.iacr.org/2011/673.pdf
+[kci]: https://eprint.iacr.org/2006/252.pdf
+[keccak]: https://keccak.team/third_party.html
+[oae2]: https://eprint.iacr.org/2015/189.pdf
+[r255-why]: https://ristretto.group/why_ristretto.html
+[r255]: https://www.ietf.org/archive/id/draft-irtf-cfrg-ristretto255-decaf448-03.html
+[schnorr-cma]: https://www.di.ens.fr/david.pointcheval/Documents/Papers/2000_joc.pdf
+[schnorr-hash]: http://www.neven.org/papers/schnorr.pdf
 [sponge]: https://keccak.team/files/SpongeIndifferentiability.pdf
+[sponge]: https://keccak.team/files/SpongeIndifferentiability.pdf
+[strobe]: https://eprint.iacr.org/2017/003.pdf
+[xoodyak]: https://csrc.nist.gov/CSRC/media/Projects/lightweight-cryptography/documents/finalist-round/updated-spec-doc/xoodyak-spec-final.pdf
