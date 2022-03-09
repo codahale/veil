@@ -1,4 +1,4 @@
-all: fmt test lint
+all: fmt test lint docs
 
 fmt:
 	cargo fmt
