@@ -17,7 +17,6 @@ pub fn root_key(r: &[u8]) -> Scalar {
 }
 
 /// Derive a label scalar from a parent public key and a label.
-#[inline]
 #[must_use]
 pub fn label_scalar(q: &Point, label: &impl AsRef<[u8]>) -> Scalar {
     // Initialize the duplex.
