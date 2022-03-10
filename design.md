@@ -4,6 +4,9 @@ author: Coda Hale
 lang: en-US
 indent: true
 colorlinks: true
+csl: ieee.csl
+link-citations: true
+bibliography: references.bibtex
 ---
 
 \newcommand{\Cyclist}[1]{\text{Cyclist}(#1, \epsilon, \epsilon)}
@@ -35,10 +38,10 @@ Veil is designed to be simple, understandable, and robust.
 
 Veil uses just two distinct primitives:
 
-* [Xoodyak][xoodyak] for confidentiality, authentication, and integrity.
-* [ristretto255][r255] for key encapsulation and authenticity.
+* Xoodyak [@daemen2020] for confidentiality, authentication, and integrity.
+* ristretto255 [@deValence2020] for key encapsulation and authenticity.
 
-The underlying philosophy is that expressed by [Adam Langley][agl]:
+The underlying philosophy is that expressed by Adam Langley [@langley2016]:
 
 > There's a lesson in all this: have one joint and keep it well oiled. … \[O\]ne needs to minimise
 > complexity, concentrate all extensibility in a single place and _actively defend it_.
@@ -49,23 +52,23 @@ a random permutation.
 
 #### ristretto255
 
-[ristretto255][r255-why] uses a safe curve, is a prime-order cyclic group, has non-malleable
+ristretto255 uses a safe curve, is a prime-order cyclic group, has non-malleable
 encodings, and has no co-factor concerns. This allows for the use of a wide variety of cryptographic
 constructions built on group operations. It targets a 128-bit security level, lends itself to
-constant-time implementations, and can run in constrained environments.
+constant-time implementations, and can run in constrained environments [@deValence2018].
 
 #### Xoodyak
 
-Xoodyak is a cryptographic [duplex][duplex], a relatively new cryptographic primitive that provides
+Xoodyak is a cryptographic duplex, a relatively new cryptographic primitive that provides
 symmetric-key confidentiality, integrity, and authentication via a single object. Duplexes offer a
 way to replace complex, ad-hoc constructions combining encryption algorithms, cipher modes, AEADs,
-MACs, and hash algorithms using a single primitive.
+MACs, and hash algorithms using a single primitive [@daemen2020; @bertoni2011].
 
-Duplexes have security properties which reduce to the properties of the cryptographic
-[sponge][sponge], which themselves reduce to the strength of the underlying permutation. Xoodyak is
-based on the Xoodoo permutation, an adaptation of the Keccak-_p_ permutation (upon which SHA-3 is
-built) for lower-resource environments. While Xoodyak is not standardized, it is currently a
-finalist in the NIST Lightweight Cryptography standardization process.
+Duplexes have security properties which reduce to the properties of the cryptographic, which
+themselves reduce to the strength of the underlying permutation [@bertoni2008]. Xoodyak is based on
+the Xoodoo permutation, an adaptation of the Keccak-_p_ permutation (upon which SHA-3 is built) for
+lower-resource environments. While Xoodyak is not standardized, it is currently a finalist in the
+NIST Lightweight Cryptography standardization process.
 
 Like Ristretto255, it targets a 128-bit security level, lends itself to constant-time
 implementations, and can run in constrained environments.
@@ -92,8 +95,8 @@ for indistinguishability and not confidentiality. Constructions which provide co
 by calling the $\text{Cyclist}$ function with a secret key, essentially using the duplex's prior
 state as authenticated data.
 
-Finally, the use of Xoodyak means all protocols which end in $\text{Squeeze}$ outputs are [compactly
-committing][cce].
+Finally, the use of Xoodyak means all protocols which end in $\text{Squeeze}$ outputs are compactly
+committing [@grubbs2017].
 
 ### Confidentiality & Integrity
 
@@ -332,13 +335,13 @@ The signature is valid if-and-only-if $I' = I$.
 The Schnorr signature scheme is the application of the Fiat-Shamir transform to the Schnorr
 identification scheme.
 
-Per Theorem 13.10 of _Modern Cryptography 3e_:
+Per Theorem 13.10 of _Modern Cryptography 3e_ [@katz2020, p. 478]:
 
 > Let $\Pi$ be an identification scheme, and let $\Pi'$ be the signature scheme that results by
 > applying the Fiat-Shamir transform to it. If $\Pi$ is secure and $H$ is modeled as a random
 > oracle, then $\Pi'$ is secure.
 
-Per Theorem 13.11 of _Modern Cryptography 3e_:
+Per Theorem 13.11 of _Modern Cryptography 3e_ [@katz2020, p. 481]:
 
 > If the discrete-logarithm problem is hard relative to $\mathcal{G}$, then the Schnorr
 > identification scheme is secure.
@@ -347,15 +350,15 @@ This construction uses the Xoodyak duplex as a hash function. Consequently, the 
 construction assumes the fitness of Xoodyak as a random oracle and the hardness of the
 discrete-logarithm problem relative to ristretto255.
 
-Unlike Construction 13.12 of _Modern Cryptography 3e_, `veil.schnorr` transmits the commitment point
-$I$ as part of the signature and the verifier calculates $I'$ vs transmitting the challenge scalar
-$r$ and calculating $r'$. In this way, `veil.schnorr` is closer to [EdDSA][ed25519] or the Schnorr
-variant proposed in the [STROBE][strobe] paper.
+Unlike Construction 13.12 of _Modern Cryptography 3e_ [@katz2020, p. 482], `veil.schnorr` transmits
+the commitment point $I$ as part of the signature and the verifier calculates $I'$ vs transmitting
+the challenge scalar $r$ and calculating $r'$. In this way, `veil.schnorr` is closer to
+EdDSA [@brendel2021] or the Schnorr variant proposed by Hamburg in [@hamburg2017].
 
-Some Schnorr/EdDSA implementations (e.g. [ed25519][ed25519]) suffer from malleability issues,
-allowing for multiple valid signatures for a given signer and message. [Chalkias et al.][eddsa]
-describe a strict verification function for Ed25519 which achieves sUF-CMA security in addition to
-strong binding:
+Some Schnorr/EdDSA implementations (e.g. ed25519) suffer from malleability issues, allowing for
+multiple valid signatures for a given signer and message [@brendel2021]. Chalkias et al.
+[@chalkias2020] describe a strict verification function for Ed25519 which achieves sUF-CMA security
+in addition to strong binding:
 
 > 1. Reject the signature if $S \not\in \{0,\ldots,L-1\}$.
 > 2. Reject the signature if the public key $A$ is one of 8 small order points.
@@ -369,28 +372,28 @@ routines obviate the need for these checks. Likewise, ristretto255 is a prime or
 obviates the need for cofactoring in verification.
 
 When implemented with a prime order group and canonical encoding routines, The Schnorr signature
-scheme is [strongly unforgeable under chosen message attack (sUF-CMA) in the random oracle
-model][schnorr-cma] and [even with practical cryptographic hash functions][schnorr-hash]. As a
+scheme is strongly unforgeable under chosen message attack (sUF-CMA) in the random oracle model
+[@pointcheval2000] and even with practical cryptographic hash functions [@neven2009]. As a
 consequence, the signatures are non-malleable.
 
 ### Indistinguishability and Pseudorandomness
 
-Per [Fleischhacker et al.][ind-sig], this construction produces indistinguishable signatures (i.e.,
-signatures which do not reveal anything about the signing key or signed message). When encrypted
-with an unrelated key (i.e., via $\text{Encrypt}$), the construction is isomorphic to Fleischhacker
-et al.'s DRPC compiler for producing pseudorandom signatures, which are indistinguishable from
-random.
+Per Fleischhacker et al. [@fleischhacker2013], this construction produces indistinguishable
+signatures (i.e., signatures which do not reveal anything about the signing key or signed message).
+When encrypted with an unrelated key (i.e., via $\text{Encrypt}$), the construction is isomorphic to
+Fleischhacker et al.'s DRPC compiler for producing pseudorandom signatures, which are
+indistinguishable from random.
 
 ### Ephemeral Scalar Hedging For Signatures
 
-In deriving the ephemeral scalar from a cloned context, `veil.schnorr` uses [Aranha et al.'s "hedged
-signature" technique][hedge] to mitigate against both catastrophic randomness failures and
+In deriving the ephemeral scalar from a cloned context, `veil.schnorr` uses Aranha et al.'s "hedged
+signature" technique [@aranha2020] to mitigate against both catastrophic randomness failures and
 differential fault attacks against purely deterministic signature schemes.
 
 ## Single-recipient Headers {#veil.sres}
 
 `veil.sres` implements a single-recipient, insider secure, deniable signcryption scheme based on the
-Zheng signcryption tag-KEM in _Practical Signcryption_ (Zheng-SCTK).
+Zheng signcryption tag-KEM in _Practical Signcryption_ (Zheng-SCTK) [@bjorstad2010].
 
 ### Header Encryption
 
@@ -498,10 +501,10 @@ If $r' = r$, the plaintext $P'$ is returned as authentic; otherwise, an error is
 
 ### Insider Security Of Headers
 
-This construction combines the Zheng-SCTK construction from _Practical Signcryption_ (Figure 7.6)
-with a Xoodyak-based DEM ($\text{Encrypt}$).
+This construction combines the Zheng-SCTK construction from Bjørstad [@bjorstad2010, p. 141, figure
+7.6] with a Xoodyak-based DEM ($\text{Encrypt}$).
 
-Per Theorem 7.3 of _Practical Signcryption_:
+Per Theorem 7.3 of _Practical Signcryption_ [@bjorstad2010, p. 143]:
 
 > Let SC be a hybrid signcryption scheme constructed from a signcryption tag-KEM and a DEM. If the
 > signcryption tag-KEM is IND-CCA2 secure and the DEM is IND-CPA secure, then SC is multi-user
@@ -521,12 +524,12 @@ $\text{Encrypt}$ operation is IND-CPA secure.
 
 #### Zheng-SCTK's Security
 
-Per Theorem 4.1 of _Practical Signcryption_:
+Per Theorem 4.1 of _Practical Signcryption_ [@barreto2010, p. 61]:
 
 > If the GDH problem is hard and the symmetric encryption scheme is IND-CPA secure, then Zheng's
 > scheme is multi-user outsider FSO/FUO-IND-CCA secure in the random oracle model.
 
-Per Theorem 4.2 of _Practical Signcryption_:
+Per Theorem 4.2 of _Practical Signcryption_ [@barreto2010, p. 61]:
 
 > If the Gap Discrete Logarithm problem is hard, then Zheng's scheme is multi-user insider
 > secret-key-ignorant FSO-UF-CMA-SKI secure in the random oracle model.
@@ -534,15 +537,16 @@ Per Theorem 4.2 of _Practical Signcryption_:
 (FSO-UF-CMA-SKI is a stronger security notion than FSO-sUF-CMA, where the attacker need not produce
 a valid secret key for a forgery; FSO-UF-CMA-SKI implies FSO-sUF-CMA.)
 
-Finally, [Bjørstad and Dent][bjørstad] built on [Abe et al.][abe]'s work on tag-KEMs, demonstrating
-that adapting Zheng's signcryption scheme for the KEM/DEM construction preserves its security.
+Finally, Bjørstad and Dent [@bjorstad2006] built on Abe et al.'s work on tag-KEMs [@abe2005],
+demonstrating that adapting Zheng's signcryption scheme for the KEM/DEM construction preserves its
+security.
 
 #### Xoodyak's Security
 
-Xoodyak is a [duplex construction][duplex], which is essentially a cascade of sponge functions.
-Sponge functions are [negligibly distinguishable][sponge] from random oracles in the single-stage
-setting provided the underlying permutation is random. The [Xoodyak spec][xoodyak] claims 128 bits
-of security for indistinguishability in the multi-user setting.
+Xoodyak [@daemen2020] is a duplex construction [@bertoni2011], which is essentially a cascade of
+sponge functions. Sponge functions are negligibly distinguishable [@bertoni2008] from random oracles
+in the single-stage setting provided the underlying permutation is random. Xoodyak [@daemen2020]
+claims 128 bits of security for indistinguishability in the multi-user setting.
 
 #### Combined Security
 
@@ -557,7 +561,8 @@ encrypted with $\text{Encrypt}$ and the state mutated with $\text{Ratchet}$.
 
 This process ensures the derivation of the challenge scalar $r$ from $\text{SqueezeKey}$ output is
 cryptographically dependent on the public keys $Q_S$ and $Q_R$, the shared secret $K$, and the
-ciphertext $C$. This is equivalent to the dependency described in _Practical Signcryption_:
+ciphertext $C$. This is equivalent to the dependency described in _Practical Signcryption_
+[@bjorstad2010, p. 141]:
 
 $$r \gets H(\tau || {pk}_S || {pk}_R || \kappa)$$
 
@@ -587,8 +592,8 @@ of Xoodyak.
 
 ### IK-CCA Security
 
-`veil.sres` is IK-CCA secure (per [Bellare][ik-cca]), in that it is impossible for an attacker in
-possession of two public keys to determine which of the two keys a given ciphertext was encrypted
+`veil.sres` is IK-CCA secure (per Bellare [@bellare2001]), in that it is impossible for an attacker
+in possession of two public keys to determine which of the two keys a given ciphertext was encrypted
 with in either chosen-plaintext or chosen-ciphertext attacks.
 
 Informally, `veil.sres` ciphertexts consist exclusively of Xoodyak ciphertext and PRF output; an
@@ -604,7 +609,7 @@ thus unable to re-derive the shared secret.
 
 ### Key Compromise Impersonation
 
-Per [Strangio][kci]:
+Per Strangio [@strangio2006]:
 
 > \[S\]uppose an adversary (say Eve) has learned the private key of Alice either by compromising the
 > machine running an instance of the protocol (e.g. with the private key stored in conventional
@@ -620,9 +625,10 @@ Per [Strangio][kci]:
 > case 2. Eve could establish a session with Alice while masquerading as another party; this is
 > known as Key Compromise Impersonation (KCI)...
 
-A static Diffie-Hellman exchange is vulnerable to KCI attacks (e.g. [HPKE][hpke], in that the shared
-secret point ${Z}$ can be calculated as $[{d_S}]{Q_R}$ by an authentic sender or as $[{d_R}]{Q_S}$
-by an attacker in possession of the recipient's private key $d_S$ and the sender's public key $Q_S$.
+A static Diffie-Hellman exchange is vulnerable to KCI attacks (e.g. HPKE [@rfc9180], in that the
+shared secret point ${Z}$ can be calculated as $[{d_S}]{Q_R}$ by an authentic sender or as
+$[{d_R}]{Q_S}$ by an attacker in possession of the recipient's private key $d_S$ and the sender's
+public key $Q_S$.
 
 `veil.sres` prevents KCI attacks by using the sender's public key $d_S$ in the process of creating
 both the shared secret $K$ and the proof scalar $s$. The recipient can use their own private key
@@ -638,15 +644,15 @@ As such, a dishonest recipient cannot prove to a third party that the messages w
 sender without revealing their own private key. (A sender, of course, can keep the commitment scalar
 $x$ and re-create the message or just reveal the message directly.)
 
-This is a key point of distinction between the Zheng-SCTK scheme and [the related scheme by Gamage
-et al.][gamage] which offers public verifiability of ciphertexts. Where Gamage's scheme uses the
+This is a key point of distinction between the Zheng-SCTK scheme and the related scheme by Gamage et
+al. [@gamage1999] which offers public verifiability of ciphertexts. Where Gamage's scheme uses the
 curve's generator point $G$ to calculate the shared secret, Zheng-SCTK uses the recipient's public
 key $Q_R$, requiring the use of the recipient's private key $d_R$ for decapsulation.
 
 ### Ephemeral Scalar Hedging For Headers
 
-In deriving the ephemeral scalar from a cloned duplex, `veil.sres` uses [Aranha et al.'s "hedged
-signature" technique][hedge] to mitigate against both catastrophic randomness failures and
+In deriving the ephemeral scalar from a cloned duplex, `veil.sres` uses Aranha et al.'s "hedged
+signature" technique [@aranha2020] to mitigate against both catastrophic randomness failures and
 differential fault attacks against purely deterministic signature schemes.
 
 In the event of an RNG failure, the commitment scalar $x$ will still be unique for each $(d_S, Q_R,
@@ -777,10 +783,10 @@ The message is considered successfully decrypted if $v$ is true.
 ### Insider Security Of Messages
 
 While `veil.mres` has some similarity to the Encrypt-then-Sign ($\EtS$) sequential signcryption
-construction, unlike $\EtS$ it offers multi-user insider security (i.e. FSO/FUO-IND-CCA2 and
-FSO/FUO-sUF-CMA in the multi-user setting).
+construction, unlike $\EtS$ it offers two-user insider security (i.e. FSO/FUO-IND-CCA2 and
+FSO/FUO-sUF-CMA in the two-user setting).
 
-_Practical Signcryption_ (p. 32) describes the tradeoffs inherent in the sequential constructions:
+An [@an2010, p. 32] describes the tradeoffs inherent in the sequential constructions:
 
 > If we consider the signcryption security corresponding to the security of the operation performed
 > _first_ (i.e., privacy in the $\EtS$ method and authenticity in the $\StE$ method), then results
@@ -799,13 +805,14 @@ _Practical Signcryption_ (p. 32) describes the tradeoffs inherent in the sequent
 
 Given that the [`veil.schnorr`](#veil.schnorr) signature is the final operation in `veil.mres` and
 is sUF-CMA secure, we can conclude that `veil.mres` is sUF-CMA secure in the insider security model
-per Theorem 2.1 of _Practical Signcryption_:
+per Theorem 2.1 of _Practical Signcryption_ [@an2010, p. 33]:
 
 > If $\S$ is sUF-CMA secure, then the signcryption scheme $\Pi$ built using the $\EtS$ method is
 > sUF-CMA secure in the insider model. \[…\]
 
-Proof 1 of Theorem 2.2 of _Practical Signcryption_ describes a successful distinguisher $\Attacker$
-in the IND-CCA2 game in the insider security model against the $\EtS$ construction:
+Proof 1 of Theorem 2.2 of _Practical Signcryption_ [@an2010, p. 34] describes a successful
+distinguisher $\Attacker$ in the IND-CCA2 game in the insider security model against the $\EtS$
+construction:
 
 > Given the induced decryption oracle $\text{Decrypt}$ and the induced encryption key ${pk}^{enc}$,
 > $\Attacker$ picks two messages $(m_0,m_1)$, where $m_0 = 0$ and $m_1 = 1$, and then outputs them
@@ -831,7 +838,7 @@ key effectively forces $\Attacker$ from the insider security model into the outs
 with respect to the IND-CCA2 game.
 
 In the outsider security model, `veil.mres` is IND-CCA2 secure per Theorem 2.3 of _Practical
-Signcryption_:
+Signcryption_ [@an2010, p. 35]:
 
 > If $\BigE$ is IND-CPA secure and $\BigS$ is sUF-CMA secure, then the signcryption scheme $\Pi$
 > built using $\EtS$ is IND-CCA2 secure in the outsider security model.
@@ -842,13 +849,13 @@ secure) in both the insider and outsider security models.
 
 ### Authenticated Encryption And Partial Decryption
 
-The division of the plaintext stream into blocks takes its inspiration from the [CHAIN
-construction][oae2], but the use of Xoodyak allows for a significant reduction in complexity.
-Instead of using the nonce and associated data to create a feed-forward ciphertext dependency, the
-Xoodyak duplex ensures all encryption operations are cryptographically dependent on the ciphertext
-of all previous encryption operations. Likewise, because the `veil.mres` ciphertext is terminated
-with a [`veil.schnorr`](#veil.schnorr) signature, using a special operation for the final message
-block isn't required.
+The division of the plaintext stream into blocks takes its inspiration from the CHAIN construction
+[@hoang2015], but the use of Xoodyak allows for a significant reduction in complexity. Instead of
+using the nonce and associated data to create a feed-forward ciphertext dependency, the Xoodyak
+duplex ensures all encryption operations are cryptographically dependent on the ciphertext of all
+previous encryption operations. Likewise, because the `veil.mres` ciphertext is terminated with a
+[`veil.schnorr`](#veil.schnorr) signature, using a special operation for the final message block
+isn't required.
 
 The major limitation of such a system is the possibility of the partial decryption of invalid
 ciphertexts. If an attacker flips a bit on the fourth block of a ciphertext, `veil.mres` will
@@ -869,13 +876,13 @@ Despite providing strong authenticity, `veil.mres` produces fully deniable ciphe
 
 ### Ephemeral Key Hedging
 
-In deriving the DEK and ephemeral private key from a cloned duplex, `veil.mres` uses [Aranha et
-al.'s "hedged signature" technique][hedge] to mitigate against both catastrophic randomness failures
+In deriving the DEK and ephemeral private key from a cloned duplex, `veil.mres` uses Aranha et al.'s
+"hedged signature" technique [@aranha2020] to mitigate against both catastrophic randomness failures
 and differential fault attacks against purely deterministic encryption schemes.
 
 ## Passphrase-based Encryption {#veil.pbenc}
 
-`veil.pbenc` implements memory-hard password-based encryption using [balloon hashing][bh] and
+`veil.pbenc` implements memory-hard password-based encryption using balloon hashing [@boneh2016] and
 Xoodyak's AEAD construction.
 
 ### Initialization
@@ -908,8 +915,8 @@ C \gets C+1 \\
 B_O \gets \Squeeze{N_B} \\
 \end{gather*}
 
-The expanding phase of the algorithm is performed as described by [Boneh et al][bh], with $2^{N_T}$
-iterations of the time loop and $2^{N_S}$ iterations in the space loop.
+The expanding phase of the algorithm is performed as described by Boneh et al. [@boneh2016], with
+$2^{N_T}$ iterations of the time loop and $2^{N_S}$ iterations in the space loop.
 
 For the mixing phase of the algorithm, the loop variables $t$, $m$, and $i$ are encoded in a block
 $b$ and absorbed along with the salt $S$:
@@ -976,28 +983,4 @@ If the $T' = T$, the plaintext $P'$ is returned as authentic.
 It should be noted that there is no standard balloon hashing algorithm, so this protocol is in the
 very, very tall grass of cryptography and should never be used.
 
-[abe]: https://eprint.iacr.org/2005/027.pdf
-[agl]: https://www.imperialviolet.org/2016/05/16/agility.html
-[bh]: https://eprint.iacr.org/2016/027.pdf
-[bjørstad]: http://www.ii.uib.no/~tor/pdf/PKC_tagkem.pdf
-[cce]: https://eprint.iacr.org/2017/664.pdf
-[duplex]: https://keccak.team/files/SpongeDuplex.pdf
-[duplex]: https://keccak.team/files/SpongeDuplex.pdf
-[ed25519]: https://eprint.iacr.org/2020/823.pdf
-[eddsa]: https://eprint.iacr.org/2020/1244.pdf
-[gamage]: https://link.springer.com/chapter/10.1007/3-540-49162-7_6
-[hedge]: https://eprint.iacr.org/2019/956.pdf
-[hpke]: https://www.rfc-editor.org/rfc/rfc9180.html#name-key-compromise-impersonatio
-[ik-cca]: https://iacr.org/archive/asiacrypt2001/22480568.pdf
-[ind-sig]: https://eprint.iacr.org/2011/673.pdf
-[kci]: https://eprint.iacr.org/2006/252.pdf
-[keccak]: https://keccak.team/third_party.html
-[oae2]: https://eprint.iacr.org/2015/189.pdf
-[r255-why]: https://ristretto.group/why_ristretto.html
-[r255]: https://www.ietf.org/archive/id/draft-irtf-cfrg-ristretto255-decaf448-03.html
-[schnorr-cma]: https://www.di.ens.fr/david.pointcheval/Documents/Papers/2000_joc.pdf
-[schnorr-hash]: http://www.neven.org/papers/schnorr.pdf
-[sponge]: https://keccak.team/files/SpongeIndifferentiability.pdf
-[sponge]: https://keccak.team/files/SpongeIndifferentiability.pdf
-[strobe]: https://eprint.iacr.org/2017/003.pdf
-[xoodyak]: https://csrc.nist.gov/CSRC/media/Projects/lightweight-cryptography/documents/finalist-round/updated-spec-doc/xoodyak-spec-final.pdf
+## References
