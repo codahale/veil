@@ -34,11 +34,10 @@ pub fn encrypt(
         mres.hedge(&mut rng, d_s, |clone| (clone.squeeze_scalar(), clone.squeeze(DEK_LEN)));
     let q_e = &d_e * &G;
 
-    // Encode the DEK, the ephemeral public key, and the message offset in a header.
+    // Encode the DEK and the message offset in a header.
     let msg_offset = ((q_rs.len() as u64) * ENC_HEADER_LEN as u64) + padding;
     let mut header = Vec::with_capacity(HEADER_LEN);
     header.extend(&dek);
-    header.extend(q_e.to_canonical_encoding());
     header.extend(&msg_offset.to_le_bytes());
 
     // Count and sign all of the bytes written to `writer`.
@@ -49,7 +48,7 @@ pub fn encrypt(
 
     // For each recipient, encrypt a copy of the header with veil.sres.
     for q_r in q_rs {
-        let ciphertext = sres::encrypt(&mut rng, d_s, q_s, q_r, &header);
+        let ciphertext = sres::encrypt(&mut rng, d_s, q_s, &d_e, &q_e, q_r, &header);
         mres.write_all(&ciphertext)?;
     }
 
@@ -241,19 +240,17 @@ fn decrypt_header(
 }
 
 #[inline]
-fn decode_header(header: Vec<u8>) -> Option<(Vec<u8>, Point, u64)> {
+fn decode_header((q_e, header): (Point, Vec<u8>)) -> Option<(Vec<u8>, Point, u64)> {
     // Check header for proper length.
     if header.len() != HEADER_LEN {
         return None;
     }
 
     // Split header into components.
-    let (dek, q_e) = header.split_at(DEK_LEN);
-    let (q_e, msg_offset) = q_e.split_at(POINT_LEN);
+    let (dek, msg_offset) = header.split_at(POINT_LEN);
 
     // Decode components.
     let dek = dek.to_vec();
-    let q_e = Point::from_canonical_encoding(q_e)?;
     let msg_offset = u64::from_le_bytes(msg_offset.try_into().expect("invalid u64 len"));
 
     Some((dek, q_e, msg_offset))
@@ -274,14 +271,15 @@ where
 }
 
 const DEK_LEN: usize = 32;
-const HEADER_LEN: usize = DEK_LEN + POINT_LEN + mem::size_of::<u64>();
+const HEADER_LEN: usize = DEK_LEN + mem::size_of::<u64>();
 const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
 const BLOCK_LEN: usize = 32 * 1024;
 const ENC_BLOCK_LEN: usize = BLOCK_LEN + TAG_LEN;
 
 #[cfg(test)]
 mod tests {
-    use crate::sres::tests::setup;
+    use rand::SeedableRng;
+    use rand_chacha::ChaChaRng;
     use std::io::Cursor;
 
     use super::*;
@@ -443,5 +441,17 @@ mod tests {
         }
 
         Ok(())
+    }
+
+    fn setup() -> (ChaChaRng, Scalar, Point, Scalar, Point) {
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
+        let d_s = Scalar::random(&mut rng);
+        let q_s = &d_s * &G;
+
+        let d_r = Scalar::random(&mut rng);
+        let q_r = &d_r * &G;
+
+        (rng, d_s, q_s, d_r, q_r)
     }
 }
