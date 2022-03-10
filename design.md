@@ -543,10 +543,10 @@ security.
 
 #### Xoodyak's Security
 
-Xoodyak [@daemen2020] is a duplex construction [@bertoni2011], which is essentially a cascade of
-sponge functions. Sponge functions are negligibly distinguishable [@bertoni2008] from random oracles
-in the single-stage setting provided the underlying permutation is random. Xoodyak [@daemen2020]
-claims 128 bits of security for indistinguishability in the multi-user setting.
+Xoodyak is a duplex construction [@bertoni2011], which is essentially a cascade of sponge functions.
+Sponge functions are negligibly distinguishable [@bertoni2008] from random oracles in the
+single-stage setting provided the underlying permutation is random. Xoodyak claims 128 bits of
+security for indistinguishability in the multi-user setting [@daemen2020].
 
 #### Combined Security
 
