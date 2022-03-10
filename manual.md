@@ -94,7 +94,7 @@ digraph hkd1 {
 
 ### Hierarchically Derived Keys
 
-You can use a key path with multiple labels to [hierarchically derive keys](../design/hkd.md):
+You can use a key path with multiple labels to hierarchically derive keys:
 
 ```text
 $ veil public-key ./my-secret-key --key-path 'test-keys' 'example'
