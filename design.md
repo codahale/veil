@@ -6,7 +6,7 @@ indent: true
 colorlinks: true
 csl: ieee.csl
 link-citations: true
-bibliography: references.bibtex
+bibliography: references.bib
 ---
 
 \newcommand{\Cyclist}[1]{\text{Cyclist}(#1, \epsilon, \epsilon)}
