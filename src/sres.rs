@@ -178,96 +178,102 @@ mod tests {
         assert_eq!(Some((q_e, plaintext.to_vec())), recovered, "invalid plaintext");
     }
 
-    // #[test]
-    // fn wrong_recipient_private_key() {
-    //     let (mut rng, d_s, q_s, _, q_r) = setup();
-    //     let plaintext = b"ok this is fun";
-    //     let ciphertext = encrypt(&mut rng, &d_s, &q_s, &q_r, plaintext);
-    //
-    //     let d_r = Scalar::random(&mut rng);
-    //
-    //     let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
-    //     assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
-    // }
-    //
-    // #[test]
-    // fn wrong_recipient_public_key() {
-    //     let (mut rng, d_s, q_s, d_r, q_r) = setup();
-    //     let plaintext = b"ok this is fun";
-    //     let ciphertext = encrypt(&mut rng, &d_s, &q_s, &q_r, plaintext);
-    //
-    //     let q_r = Point::random(&mut rng);
-    //
-    //     let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
-    //     assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
-    // }
-    //
-    // #[test]
-    // fn wrong_sender_public_key() {
-    //     let (mut rng, d_s, q_s, d_r, q_r) = setup();
-    //     let plaintext = b"ok this is fun";
-    //     let ciphertext = encrypt(&mut rng, &d_s, &q_s, &q_r, plaintext);
-    //
-    //     let q_s = Point::random(&mut rng);
-    //
-    //     let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
-    //     assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
-    // }
-    //
-    // #[test]
-    // fn flip_every_bit() {
-    //     let (mut rng, d_s, q_s, d_r, q_r) = setup();
-    //     let plaintext = b"ok this is fun";
-    //     let ciphertext = encrypt(&mut rng, &d_s, &q_s, &q_r, plaintext);
-    //
-    //     for i in 0..ciphertext.len() {
-    //         for j in 0u8..8 {
-    //             let mut ciphertext = ciphertext.clone();
-    //             ciphertext[i] ^= 1 << j;
-    //             assert!(
-    //                 decrypt(&d_r, &q_r, &q_s, &ciphertext).is_none(),
-    //                 "bit flip at byte {}, bit {} produced a valid message",
-    //                 i,
-    //                 j
-    //             );
-    //         }
-    //     }
-    // }
-    //
-    // #[test]
-    // fn non_contributory_scalars() {
-    //     // No need for the sender's private key; we're forging a message.
-    //     let (_, _, q_s, d_r, q_r) = setup();
-    //
-    //     let fake = b"this is a fake";
-    //     let mut out = Vec::with_capacity(fake.len() + OVERHEAD);
-    //
-    //     // Start encrypting the message like usual.
-    //     let mut sres = Duplex::new("veil.sres");
-    //     sres.absorb(&q_s.to_canonical_encoding());
-    //     sres.absorb(&q_r.to_canonical_encoding());
-    //
-    //     // Use zero for the masking byte.
-    //     sres.absorb(&[0]);
-    //
-    //     // Use the identity point for the shared secret.
-    //     sres.rekey(&[0u8; 32]);
-    //
-    //     // Encrypt the fake message.
-    //     out.extend(sres.encrypt(fake));
-    //
-    //     // Ratchet the state and output a challenge scalar.
-    //     sres.ratchet();
-    //     out.extend(sres.squeeze_scalar().to_canonical_encoding());
-    //
-    //     // Send a zero as the proof scalar.
-    //     out.extend([0u8; 32]);
-    //
-    //     // If we're not checking for contributory behavior, [d_r * s]([r]G + Q_s) will be
-    //     // [0]([r]G + Q_s), which will be 0. The recipient will use the identity point as the shared
-    //     // secret, the challenge scalar will be the same, and we'll have forged a message.
-    //     assert!(decrypt(&d_r, &q_r, &q_s, &out).is_none());
-    // }
+    #[test]
+    fn wrong_recipient_private_key() {
+        let (mut rng, d_s, q_s, d_e, q_e, _, q_r) = setup();
+        let plaintext = b"ok this is fun";
+        let ciphertext = encrypt(&mut rng, &d_s, &q_s, &d_e, &q_e, &q_r, plaintext);
+
+        let d_r = Scalar::random(&mut rng);
+
+        let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
+        assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
+    }
+
+    #[test]
+    fn wrong_recipient_public_key() {
+        let (mut rng, d_s, q_s, d_e, q_e, d_r, q_r) = setup();
+        let plaintext = b"ok this is fun";
+        let ciphertext = encrypt(&mut rng, &d_s, &q_s, &d_e, &q_e, &q_r, plaintext);
+
+        let q_r = Point::random(&mut rng);
+
+        let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
+        assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
+    }
+
+    #[test]
+    fn wrong_sender_public_key() {
+        let (mut rng, d_s, q_s, d_e, q_e, d_r, q_r) = setup();
+        let plaintext = b"ok this is fun";
+        let ciphertext = encrypt(&mut rng, &d_s, &q_s, &d_e, &q_e, &q_r, plaintext);
+
+        let q_s = Point::random(&mut rng);
+
+        let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
+        assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
+    }
+
+    #[test]
+    fn flip_every_bit() {
+        let (mut rng, d_s, q_s, d_e, q_e, d_r, q_r) = setup();
+        let plaintext = b"ok this is fun";
+        let ciphertext = encrypt(&mut rng, &d_s, &q_s, &d_e, &q_e, &q_r, plaintext);
+
+        for i in 0..ciphertext.len() {
+            for j in 0u8..8 {
+                let mut ciphertext = ciphertext.clone();
+                ciphertext[i] ^= 1 << j;
+                assert!(
+                    decrypt(&d_r, &q_r, &q_s, &ciphertext).is_none(),
+                    "bit flip at byte {}, bit {} produced a valid message",
+                    i,
+                    j
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn non_contributory_scalars() {
+        // No need for the sender's private key; we're forging a message.
+        let (_, _, q_s, _, _, d_r, q_r) = setup();
+
+        let fake = b"this is a fake";
+        let mut out = Vec::with_capacity(fake.len() + OVERHEAD);
+
+        // Start encrypting the message like usual.
+        let mut sres = Duplex::new("veil.sres");
+        sres.absorb(&q_s.to_canonical_encoding());
+        sres.absorb(&q_r.to_canonical_encoding());
+
+        // Use zero for the masking byte.
+        sres.absorb(&[0]);
+
+        // Use the identity point for the shared secret.
+        sres.rekey(&[0u8; 32]);
+
+        // Encrypt the identity point as the DH shared secret.
+        out.extend(sres.encrypt(&[0u8; 32]));
+
+        // Use the identity point for the shared secret again.
+        sres.rekey(&[0u8; 32]);
+
+        // Encrypt the fake message.
+        out.extend(sres.encrypt(fake));
+
+        // Ratchet the state and output a challenge scalar.
+        sres.ratchet();
+        out.extend(sres.squeeze_scalar().to_canonical_encoding());
+
+        // Send a zero as the proof scalar.
+        out.extend([0u8; 32]);
+
+        // If we're not checking for contributory behavior, [d_r * s]([r]G + Q_s) will be
+        // [0]([r]G + Q_s), which will be 0. The recipient will use the identity point as the shared
+        // secret, the challenge scalar will be the same, and we'll have forged a message.
+        assert!(decrypt(&d_r, &q_r, &q_s, &out).is_none());
+    }
 
     fn setup() -> (ChaChaRng, Scalar, Point, Scalar, Point, Scalar, Point) {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
