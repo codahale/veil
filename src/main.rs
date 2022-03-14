@@ -349,6 +349,6 @@ fn decrypt_secret_key(passphrase_file: &Option<PathBuf>, path: &Path) -> Result<
 fn prompt_passphrase(passphrase_file: &Option<PathBuf>) -> Result<String> {
     match passphrase_file {
         Some(p) => Ok(fs::read_to_string(p)?),
-        None => Ok(rpassword::read_password_from_tty(Some("Enter passphrase: "))?),
+        None => Ok(rpassword::prompt_password("Enter passphrase: ")?),
     }
 }
