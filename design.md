@@ -690,9 +690,9 @@ Per Strangio [@strangio2006]:
 > case 2. Eve could establish a session with Alice while masquerading as another party; this is
 > known as Key Compromise Impersonation (KCI)...
 
-A static Diffie-Hellman exchange is vulnerable to KCI attacks (e.g. HPKE [@rfc9180], in that the shared secret point
-${Z}$ can be calculated as $[{d_S}]{Q_R}$ by an authentic sender or as $[{d_R}]{Q_S}$ by an attacker in possession of
-the recipient's private key $d_S$ and the sender's public key $Q_S$.
+A static Diffie-Hellman exchange is vulnerable to KCI attacks (e.g. HPKE [@rfc9180, Section 9.1.1], in that the shared
+secret point ${Z}$ can be calculated as $[{d_S}]{Q_R}$ by an authentic sender or as $[{d_R}]{Q_S}$ by an attacker in
+possession of the recipient's private key $d_S$ and the sender's public key $Q_S$.
 
 `veil.sres` prevents KCI attacks by using the sender's public key $d_S$ in the process of creating both the shared
 secret $K_0$ and the proof scalar $s$. The recipient can use their own private key $d_R$ to reconstruct $K_0$ and
