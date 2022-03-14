@@ -867,7 +867,7 @@ An and Rabin [@an2010, p. 32] describe the tradeoffs inherent in the sequential 
 > security corresponding to the security of the operation performed first is not possible when the
 > adversary knows the secret key of the operation performed last.
 
-The effects of these tradeoffs are magnified in the multi-user setting [@an2010, pp. 40-41]:
+The effects of these tradeoffs are magnified in the multi-user setting [@an2010, pp. 40--41]:
 
 > We can see that the signcryption algorithms that are built by generic composition of encryption and signature schemes
 > (i.e., $\EtS$ and $\StE$) are not secure in the multi-user setting. If the $\EtS$ method is used in the multi-user
