@@ -1,0 +1,54 @@
+\section{Message Digests \& Authentication Codes}\label{sec:veil.digest}
+
+Veil can create message digests given a set of metadata and a message.
+
+\subsection{Creating A Message Digest}\label{subsec:veil.digest-digest}
+
+Creating a message digest is described in full in Alg.~\ref{alg:veil.digest}.
+
+\begin{algorithm}[h]
+    \caption{Creating a message digest with metadata strings $V$ and message $M$.}
+    \begin{algorithmic}
+        \Function{Digest}{$V,M$}
+            \State \Call{Cyclist}{\texttt{veil.digest}, $\epsilon$, $\epsilon$} \Comment{Initialize duplex with constant key.}
+            \ForAll{$V_i \in V$}
+                \State \Call{Absorb}{$V_i$} \Comment{Absorb metadata strings in order.}
+            \EndFor
+            \ForAll{$M_i \in M$}
+                \State \Call{AbsorbMore}{$M_i$, $16$} \Comment{Absorb message in 16-byte blocks.}
+            \EndFor
+            \State $D \gets$ \Call{Squeeze}{$64$} \Comment{Squeeze a 64-byte digest.}
+            \State \textbf{return} $D$
+        \EndFunction
+    \end{algorithmic}
+    \label{alg:veil.digest}
+\end{algorithm}
+
+\subsection{Creating A Message Authentication Code}\label{subsec:veil.digest-mac}
+
+By passing a symmetric key as a metadata string, \texttt{veil.digest} can be adapted to produce message authentication
+codes (see Alg.~\ref{alg:veil.digest-mac}).
+
+\begin{algorithm}[h]
+    \caption{Creating a message authentication code with key $K$, metadata strings $V$, and message $M$.}
+    \begin{algorithmic}
+        \Function{Mac}{$K,V,M$}
+            \State $T \gets$ \Call{Digest}{$K || V$, $M$} \Comment{Include the key as metadata.}
+            \State \textbf{return} $T$
+        \EndFunction
+    \end{algorithmic}
+    \label{alg:veil.digest-mac}
+\end{algorithm}
+
+\subsection{Preimage Security and Collision Resistance}\label{subsec:veil.digest-preimage}
+
+The duplex is indistinguishable from a random oracle given that the underlying permutation is indistinguishable from a
+random permutation~\cite[Sec. 8.5]{bertoni2011sponge}.
+If Xoodoo is strong, an attacker has negligible advantage in finding first or second preimages.
+
+\subsection{sUF-CMA Security}\label{subsec:veil.digest-suf-cma}
+
+Similarly, the security of a duplex as a MAC reduces to the strength of the
+permutation~\cite[Sec. 8.6]{bertoni2011sponge}.
+An attack which forges a message for a given key and MAC would imply Xoodyak's \textsc{Squeeze} operation is not sUF-CMA
+secure.

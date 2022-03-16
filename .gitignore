@@ -1,2 +1,20 @@
 /target
 .vscode
+
+# LaTeX temporary files
+*.aux
+*.bbl
+*.blg
+*.dvi
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.pdf
+*.run.xml
+*.synctex.gz
+*.toc
+*.loa
+
+# Intermediate formats for docs
+*.eps

@@ -1,4 +1,4 @@
-all: check docs
+all: check docs-pdf
 
 check: fmt test lint
 
@@ -14,12 +14,6 @@ test: build
 lint:
 	cargo clippy --all-features --tests --benches
 
-docs: docs-html docs-pdf
-
-docs-html:
-	pandoc design.md -o target/doc/design.html -f markdown+latex_macros+header_attributes -t html --citeproc --toc --self-contained --standalone --katex
-	pandoc manual.md -o target/doc/manual.html -f markdown+latex_macros+header_attributes -t html --citeproc --toc --self-contained --standalone --katex
-
 docs-pdf:
-	pandoc design.md -o target/doc/design.pdf -f markdown+latex_macros+header_attributes -t pdf --citeproc --toc --self-contained --standalone --katex
-	pandoc manual.md -o target/doc/manual.pdf -f markdown+latex_macros+header_attributes -t pdf --citeproc --toc --self-contained --standalone --katex
+	latexmk -cd docs/design.tex -pdf
+	latexmk -cd docs/manual.tex -pdf

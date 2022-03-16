@@ -1,0 +1,80 @@
+\section{Construction Techniques}\label{sec:construction-techniques}
+
+Veil uses a few common construction techniques in its design which bear specific mention.
+
+\subsection{Integrated Constructions}\label{subsec:cons-integrated-constructions}
+
+Xoodyak is a cryptographic duplex, thus each operation is cryptographically dependent on the previous operations.
+Veil makes use of this by integrating different types of constructions to produce a unified construction.
+Instead of having to pass forward specific values (e.g.\ hashes of values or derived keys) to ensure cryptographic
+dependency, Xoodyak allows for constructions which simply absorb all values, thus ensuring transcript integrity of
+complex protocols.
+
+For example, a traditional hybrid encryption scheme like HPKE~\cite{rfc9180} will describe a key encapsulation mechanism
+(KEM) like ephemeral Diffie-Hellman and a data encapsulation mechanism (DEM) like AES-GCM and link the two together via
+a key derivation function (KDF) like HKDF by deriving a key and nonce for the DEM from the KEM output.
+
+In contrast, the same construction using Xoodyak would be the following three operations, in order (\ref{alg:hpke}):
+
+\begin{algorithm}[ht]
+    \caption{HPKE in Xoodyak.}
+    \begin{algorithmic}[1]
+        \State \Call{Cyclist}{$[d_E]Q_R$, $\epsilon$, $\epsilon$} \label{alg:hpke:key}
+        \State $C \gets $ \Call{Encrypt}{$P$} \label{alg:hpke:encrypt}
+        \State $T \gets $ \Call{Squeeze}{$16$} \label{alg:hpke:tag}
+    \end{algorithmic}
+    \label{alg:hpke}
+\end{algorithm}
+
+The duplex is keyed with the shared secret point (line~\ref{alg:hpke:key}), used to encrypt the plaintext
+(line~\ref{alg:hpke:encrypt}), and finally used to squeeze an authentication tag (line~\ref{alg:hpke:tag}).
+Each operation modifies the duplex's state, making the final $\textsc{Squeeze}$ operation dependent on both the
+previous $\textsc{Encrypt}$ operation (and its argument, $P$) but also the $\textsc{Cyclist}$ operation before it.
+
+This is both a dramatically clearer way of expressing the overall hybrid public-key encryption construction and more
+efficient: because the ephemeral shared secret point is unique, no nonce need be derived (or no all-zero nonce need be
+justified in an audit).
+
+\subsubsection{Process History As Hidden State}
+
+A subtle but critical benefit of integrating constructions via a cryptographic duplex is that authenticators produced
+via \textsc{Squeeze} operations are dependent on the entire process history of the duplex, not just on the emitted
+ciphertext.
+The DEM components of Alg.~\ref{alg:hpke} (i.e.\ \textsc{Encrypt}/\textsc{Squeeze}) are superficially similar to an
+Encrypt-then-MAC ($\EtM$) construction, but where an adversary in possession of the MAC key can forge authenticators
+given an $\EtM$ ciphertext, the duplex-based approach makes that impossible.
+The output of the \textsc{Squeeze} operation is dependent not just on the keying material (i.e.\ the \textsc{Cyclist}
+operation) but also on the plaintext $P$.
+An adversary attempting to forge an authenticator given only key material and ciphertext will be unable to reconstruct
+the duplex's state and thus unable to compute their forgery.
+
+\subsection{Hedged Ephemeral Values}\label{subsec:cons-hedged-ephemeral-values}
+
+When generating ephemeral values, Veil uses Aranha et al.'s ``hedged signature'' technique~\cite{aranha2020} to mitigate
+against both catastrophic randomness failures and differential fault attacks against purely deterministic schemes.
+
+Specifically, the duplex's state is cloned, and the clone absorbs a context-specific secret value (e.g.\ the signer's
+private key in a digital signature scheme) and a 64-byte random.
+The clone duplex is used to produce the ephemeral value or values for the scheme.
+
+For example, the following operations would be performed on the cloned duplex (\ref{alg:hedged-ephemeral}):
+
+\begin{algorithm}[ht]
+    \caption{Hedged ephemeral generation with Xoodyak.}
+    \begin{algorithmic}[0]
+        \Clone \Comment{Clone the duplex's state.}
+        \State \Call{Absorb}{$d$}\Comment{Absorb a private key.}
+        \State $v \rgets \allbits{512}$\Comment{Generate a random value.}
+        \State \Call{Absorb}{$v$}\Comment{Absorb the random value.}
+        \State $x \gets$ \Call{SqueezeKey}{$64$} $\modl$\Comment{Squeeze a hedged ephemeral scalar.}
+        \State \textbf{yield} $x$
+        \End
+    \end{algorithmic}
+    \label{alg:hedged-ephemeral}
+\end{algorithm}
+
+The ephemeral scalar $x$ is returned to the context of the original construction and the cloned duplex is discarded.
+This ensures that even in the event of a catastrophic failure of the random number generator, $x$ is still unique
+relative to $d$.
+Depending on the uniqueness needs of the construction, an ephemeral value can be hedged with a plaintext in addition to
+a private key.

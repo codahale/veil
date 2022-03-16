@@ -1,0 +1,39 @@
+\section{Cryptographic Primitives}\label{sec:cryptographic-primitives}
+
+In the interests of cryptographic minimalism, Veil uses just two distinct cryptographic primitives:
+
+\begin{itemize}
+    \item Xoodyak~\cite{daemen2020} for confidentiality, authentication, and integrity.
+    \item Ristretto255~\cite{deValence2020} for key agreement and authenticity.
+\end{itemize}
+
+\subsection{Xoodyak}\label{subsec:xoodyak}
+
+Xoodyak is a cryptographic duplex, a cryptographic primitive that provides symmetric-key confidentiality,
+integrity, and authentication via a single object.
+Duplexes offer a way to replace complex, ad-hoc constructions combining encryption algorithms, cipher modes,
+AEADs, MACs, and hash algorithms using a single primitive~\cite{daemen2020, bertoni2011duplex}.
+
+Duplexes have security properties which reduce to the properties of the cryptographic, which themselves reduce to the
+strength of the underlying permutation~\cite{bertoni2008}.
+Xoodyak is based on the Xoodoo permutation, an adaptation of the
+Keccak-\emph{p} permutation (upon which SHA-3 is built) for lower-resource environments.
+While Xoodyak is not standardized, it is currently a finalist in the NIST Lightweight Cryptography
+standardization process.
+It targets a 128-bit security level, lends itself to constant-time implementations, and can run in constrained
+environments~\cite{daemen2020}.
+
+Veil's security assumes that Xoodyak's \textsc{Encrypt} operation is IND-CPA secure, its
+\textsc{Squeeze} operation is sUF-CMA secure, and its
+\textsc{Encrypt}/\textsc{Squeeze}-based AEAD construction is IND-CCA2 secure.
+
+\subsection{Ristretto255}\label{subsec:ristretto255}
+
+Ristretto255 uses a safe curve, is a prime-order cyclic group, has non-malleable encodings, and has no
+co-factor concerns.
+This allows for the use of a wide variety of cryptographic constructions built on group operations.
+Like Xoodyak, it targets a 128-bit security level, lends itself to constant-time implementations, and can
+run in constrained environments~\cite{deValence2018}.
+
+Veil's security assumes that the Gap Discrete Logarithm and Gap Diffie-Hellman problems are hard relative to
+Ristretto255.
