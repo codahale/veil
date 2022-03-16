@@ -13,15 +13,15 @@ abstract: |
   how they are combined to implement Veil's feature set.
 ---
 
-\newcommand{\Cyclist}[1]{\text{Cyclist}(#1, \epsilon, \epsilon)}
-\newcommand{\Absorb}[1]{\text{Absorb}(#1)}
-\newcommand{\AbsorbMore}[2]{\text{AbsorbMore}(#1, #2)}
-\newcommand{\Squeeze}[1]{\text{Squeeze}(#1)}
-\newcommand{\SqueezeKey}[1]{\text{SqueezeKey}(#1)}
-\newcommand{\Encrypt}[1]{\text{Encrypt}(#1)}
-\newcommand{\Decrypt}[1]{\text{Decrypt}(#1)}
-\newcommand{\Ratchet}[0]{\text{Ratchet}()}
-\newcommand{\SqueezeScalar}[0]{\text{SqueezeKey}(64) \bmod \ell}
+\newcommand{\Cyclist}[1]{\textsf{Cyclist}(#1, \epsilon, \epsilon)}
+\newcommand{\Absorb}[1]{\textsf{Absorb}(#1)}
+\newcommand{\AbsorbMore}[2]{\textsf{AbsorbMore}(#1, #2)}
+\newcommand{\Squeeze}[1]{\textsf{Squeeze}(#1)}
+\newcommand{\SqueezeKey}[1]{\textsf{SqueezeKey}(#1)}
+\newcommand{\Encrypt}[1]{\textsf{Encrypt}(#1)}
+\newcommand{\Decrypt}[1]{\textsf{Decrypt}(#1)}
+\newcommand{\Ratchet}[0]{\textsf{Ratchet}()}
+\newcommand{\SqueezeScalar}[0]{\textsf{SqueezeKey}(64) \bmod \ell}
 \newcommand{\rgets}[0]{\stackrel{\$}{\gets}}
 \newcommand{\checkeq}[0]{\stackrel{?}{=}}
 \newcommand{\allbits}[1]{\{0,1\}^{#1}}
@@ -136,8 +136,8 @@ Keccak-_p_ permutation (upon which SHA-3 is built) for lower-resource environmen
 it is currently a finalist in the NIST Lightweight Cryptography standardization process. It targets a 128-bit security
 level, lends itself to constant-time implementations, and can run in constrained environments [@daemen2020].
 
-Veil's security assumes that Xoodyak's $\text{Encrypt}$ operation is IND-CPA secure, its $\text{Squeeze}$ operation is
-sUF-CMA secure, and its $\text{Encrypt}/\text{Squeeze}$-based AEAD construction is IND-CCA2 secure.
+Veil's security assumes that Xoodyak's $\textsf{Encrypt}$ operation is IND-CPA secure, its $\textsf{Squeeze}$ operation
+is sUF-CMA secure, and its $\textsf{Encrypt}/\textsf{Squeeze}$-based AEAD construction is IND-CCA2 secure.
 
 ### ristretto255
 
@@ -173,8 +173,8 @@ T \gets \Squeeze{16}
 \end{gather}
 
 The duplex is keyed with the shared secret point ($1$), used to encrypt the plaintext ($2$), and finally used to squeeze
-an authentication tag ($3$). Each operation modifies the duplex's state, making the final $\text{Squeeze}$ operation
-dependent on both the previous $\text{Encrypt}$ operation (and its argument, $P$) but also the $\text{Cyclist}$
+an authentication tag ($3$). Each operation modifies the duplex's state, making the final $\textsf{Squeeze}$ operation
+dependent on both the previous $\textsf{Encrypt}$ operation (and its argument, $P$) but also the $\textsf{Cyclist}$
 operation before it.
 
 This is both a dramatically clearer way of expressing the overall hybrid public-key encryption construction and more
@@ -452,7 +452,7 @@ cryptographic hash functions [@neven2009]. Thus, the signatures are non-malleabl
 
 Per Fleischhacker et al. [@fleischhacker2013], this construction produces indistinguishable signatures (i.e., signatures
 which do not reveal anything about the signing key or signed message). When encrypted with an unrelated key (i.e., via
-$\text{Encrypt}$), the construction is isomorphic to Fleischhacker et al.'s DRPC compiler for producing pseudorandom
+$\textsf{Encrypt}$), the construction is isomorphic to Fleischhacker et al.'s DRPC compiler for producing pseudorandom
 signatures, which are indistinguishable from random.
 
 ## `veil.sres`
@@ -588,11 +588,11 @@ returned.
 
 ### Adapting Zheng-SCTK To The Duplex
 
-Instead of passing a ciphertext-dependent tag $\tau$ into the KEM's $\text{Encap}$ function, `veil.sres` begins
-$\text{Encap}$ operations using the keyed duplex after the ciphertext has been encrypted with $\text{Encrypt}$ and the
-state mutated with $\text{Ratchet}$.
+Instead of passing a ciphertext-dependent tag $\tau$ into the KEM's $\textsf{Encap}$ function, `veil.sres` begins
+$\textsf{Encap}$ operations using the keyed duplex after the ciphertext has been encrypted with $\textsf{Encrypt}$ and
+the state mutated with $\textsf{Ratchet}$.
 
-This process ensures the derivation of the challenge scalar $r$ from $\text{SqueezeKey}$ output is cryptographically
+This process ensures the derivation of the challenge scalar $r$ from $\textsf{SqueezeKey}$ output is cryptographically
 dependent on the public keys $Q_S$ and $Q_R$, the shared secret $K_0$, and the ciphertext $C$. This is equivalent to the
 dependency described by Bjørstad [@bjorstad2010, p. 141]:
 
@@ -893,9 +893,9 @@ In the outsider security model, `veil.mres` is IND-CCA2 secure per Theorem 2.3 o
 > If $\BigE$ is IND-CPA secure and $\BigS$ is sUF-CMA secure, then the signcryption scheme $\Pi$
 > built using $\EtS$ is IND-CCA2 secure in the outsider security model.
 
-Xoodyak's $\text{Encrypt}$ operation is IND-CPA secure (see [`veil.sres`](#veilsres)) and [`veil.schnorr`](#veilschnorr)
-is sUF-CMA secure, thus `veil.mres` is IND-CCA2 secure (and sUF-CMA secure) in both the insider and outsider security
-models.
+Xoodyak's $\textsf{Encrypt}$ operation is IND-CPA secure (see [`veil.sres`](#veilsres)) and
+[`veil.schnorr`](#veilschnorr) is sUF-CMA secure, thus `veil.mres` is IND-CCA2 secure (and sUF-CMA secure) in both the
+insider and outsider security models.
 
 ### Authenticated Encryption And Partial Decryption
 
