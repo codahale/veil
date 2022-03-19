@@ -16,43 +16,27 @@ pub fn encrypt_and_decrypt_a_message() -> Result<()> {
     let passphrase_path_a = &dir.path().join("passphrase-a");
     fs::write(passphrase_path_a, "excelsior")?;
 
-    // Alice generates a secret key.
-    let secret_key_path_a = &dir.path().join("secret-key-a");
-    create_secret_key(secret_key_path_a, passphrase_path_a)?;
+    // Alice generates a private key.
+    let private_key_path_a = &dir.path().join("private-key-a");
+    create_private_key(private_key_path_a, passphrase_path_a)?;
 
     // Alice generates a public key.
-    let public_key_a = cmd!(
-        VEIL_PATH,
-        "public-key",
-        secret_key_path_a,
-        "--key-path",
-        "friends",
-        "bea",
-        "--passphrase-file",
-        passphrase_path_a
-    )
-    .read()?;
+    let public_key_a =
+        cmd!(VEIL_PATH, "public-key", private_key_path_a, "--passphrase-file", passphrase_path_a)
+            .read()?;
 
     // Bea picks a passphrase.
     let passphrase_path_b = &dir.path().join("passphrase-b");
     fs::write(passphrase_path_b, "dingus")?;
 
-    // Bea generates a secret key.
-    let secret_key_path_b = &dir.path().join("secret-key-b");
-    create_secret_key(secret_key_path_b, passphrase_path_b)?;
+    // Bea generates a private key.
+    let private_key_path_b = &dir.path().join("private-key-b");
+    create_private_key(private_key_path_b, passphrase_path_b)?;
 
     // Bea generates a public key.
-    let public_key_b = cmd!(
-        VEIL_PATH,
-        "public-key",
-        secret_key_path_b,
-        "--key-path",
-        "friends",
-        "alice",
-        "--passphrase-file",
-        passphrase_path_b
-    )
-    .read()?;
+    let public_key_b =
+        cmd!(VEIL_PATH, "public-key", private_key_path_b, "--passphrase-file", passphrase_path_b)
+            .read()?;
 
     // Alice writes a plaintext message.
     let message_file = &dir.path().join("message");
@@ -63,13 +47,10 @@ pub fn encrypt_and_decrypt_a_message() -> Result<()> {
     cmd!(
         VEIL_PATH,
         "encrypt",
-        secret_key_path_a,
+        private_key_path_a,
         message_file,
         ciphertext_path,
         &public_key_b,
-        "--key-path",
-        "friends",
-        "bea",
         "--fakes",
         "20",
         "--padding",
@@ -84,13 +65,10 @@ pub fn encrypt_and_decrypt_a_message() -> Result<()> {
     cmd!(
         VEIL_PATH,
         "decrypt",
-        secret_key_path_b,
+        private_key_path_b,
         ciphertext_path,
         plaintext_path,
         &public_key_a,
-        "--key-path",
-        "friends",
-        "alice",
         "--passphrase-file",
         passphrase_path_b,
     )
@@ -111,21 +89,14 @@ fn sign_and_verify_message() -> Result<()> {
     let passphrase_path = &dir.path().join("passphrase-a");
     fs::write(passphrase_path, "excelsior")?;
 
-    // Alice generates a secret key.
-    let secret_key_path = &dir.path().join("secret-key-a");
-    create_secret_key(secret_key_path, passphrase_path)?;
+    // Alice generates a private key.
+    let private_key_path = &dir.path().join("private-key-a");
+    create_private_key(private_key_path, passphrase_path)?;
 
     // Alice generates a public key.
-    let public_key = cmd!(
-        VEIL_PATH,
-        "public-key",
-        secret_key_path,
-        "--key-path",
-        "friends",
-        "--passphrase-file",
-        passphrase_path
-    )
-    .read()?;
+    let public_key =
+        cmd!(VEIL_PATH, "public-key", private_key_path, "--passphrase-file", passphrase_path)
+            .read()?;
 
     // Alice writes a plaintext message.
     let message_file = &dir.path().join("message");
@@ -135,10 +106,8 @@ fn sign_and_verify_message() -> Result<()> {
     let sig = cmd!(
         VEIL_PATH,
         "sign",
-        secret_key_path,
+        private_key_path,
         message_file,
-        "--key-path",
-        "friends",
         "--passphrase-file",
         passphrase_path,
     )
@@ -149,11 +118,11 @@ fn sign_and_verify_message() -> Result<()> {
     Ok(())
 }
 
-fn create_secret_key(secret_key_path: &Path, passphrase_path: &Path) -> Result<()> {
+fn create_private_key(private_key_path: &Path, passphrase_path: &Path) -> Result<()> {
     cmd!(
         VEIL_PATH,
-        "secret-key",
-        secret_key_path,
+        "private-key",
+        private_key_path,
         "--passphrase-file",
         passphrase_path,
         "--time",

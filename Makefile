@@ -17,9 +17,9 @@ lint:
 docs: docs-html docs-pdf
 
 docs-html:
-	pandoc design.md -o target/doc/design.html -f markdown+latex_macros+header_attributes -t html --citeproc --toc --self-contained --standalone --lua-filter=diagram-generator.lua --katex
-	pandoc manual.md -o target/doc/manual.html -f markdown+latex_macros+header_attributes -t html --citeproc --toc --self-contained --standalone --lua-filter=diagram-generator.lua --katex
+	pandoc design.md -o target/doc/design.html -f markdown+latex_macros+header_attributes -t html --citeproc --toc --self-contained --standalone --katex
+	pandoc manual.md -o target/doc/manual.html -f markdown+latex_macros+header_attributes -t html --citeproc --toc --self-contained --standalone --katex
 
 docs-pdf:
-	pandoc design.md -o target/doc/design.pdf -f markdown+latex_macros+header_attributes -t pdf --citeproc --toc --self-contained --standalone --lua-filter=diagram-generator.lua --katex
-	pandoc manual.md -o target/doc/manual.pdf -f markdown+latex_macros+header_attributes -t pdf --citeproc --toc --self-contained --standalone --lua-filter=diagram-generator.lua --katex
+	pandoc design.md -o target/doc/design.pdf -f markdown+latex_macros+header_attributes -t pdf --citeproc --toc --self-contained --standalone --katex
+	pandoc manual.md -o target/doc/manual.pdf -f markdown+latex_macros+header_attributes -t pdf --citeproc --toc --self-contained --standalone --katex

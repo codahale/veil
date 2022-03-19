@@ -14,22 +14,18 @@
 //! ```rust
 //! use std::io;
 //! use std::io::Cursor;
-//! use veil::SecretKey;
+//! use veil::PrivateKey;
 //! # use std::error::Error;
 //! #
 //! # fn main() -> Result<(), Box<dyn Error>> {
-//! // Alice generates a secret key.
-//! let alice_sk = SecretKey::random(rand::thread_rng());
+//! // Alice generates a private key.
+//! let alice_priv = PrivateKey::random(rand::thread_rng());
 //!
-//! // Bea generates a secret key.
-//! let bea_sk = SecretKey::random(rand::thread_rng());
+//! // Bea generates a private key.
+//! let bea_priv = PrivateKey::random(rand::thread_rng());
 //!
-//! // Alice derives a private key for messaging with Bea and shares the corresponding public key.
-//! let alice_priv = alice_sk.private_key().derive(&["friends", "bea"]);
+//! // Alice and Bea share public keys.
 //! let alice_pub = alice_priv.public_key();
-//!
-//! // Bea derives a private key for messaging with Alice and shares the corresponding public key.
-//! let bea_priv = bea_sk.private_key().derive(&["buddies", "cool-ones", "alice"]);
 //! let bea_pub = bea_priv.public_key();
 //!
 //! // Alice encrypts a secret message for Bea.
@@ -82,7 +78,6 @@ mod ascii;
 mod digest;
 mod duplex;
 mod errors;
-mod hkd;
 mod mres;
 mod pbenc;
 mod ristretto;

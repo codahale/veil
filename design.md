@@ -236,101 +236,6 @@ relative to $d$.
 
 # Cryptopgraphic Constructions
 
-## `veil.hkd`
-
-Each participant in Veil has a secret key, which is a string $S \rgets \allbits{512}$.
-
-### Deriving The Root Key
-
-To derive a root private key from a secret key, a duplex is initialized with a constant key and used to absorb $S$. A
-scalar $d$ is then derived from output:
-
-\begin{gather*}
-\Cyclist{\literal{veil.hkd.root}} \\
-\Absorb{S} \\
-d \gets \SqueezeScalar \\
-\end{gather*}
-
-### Deriving A Private Key From Another Private Key
-
-To derive a private key $d'$ from another private key $d$ with a label $L$, a duplex initialized with a constant key is
-used to absorb $[d]G$ and $L$ and squeeze a scalar value:
-
-\begin{gather*}
-\Cyclist{\literal{veil.hkd.label}} \\
-\Absorb{[d]G} \\
-\Absorb{L} \\
-r \gets \SqueezeScalar \\
-d' \gets d + r \\
-\end{gather*}
-
-### Deriving A Public Key From Another Public Key
-
-To derive a public key $Q'$ from another public key $Q$ with a label $L$, a duplex initialized with a constant key is
-used to absorb $Q$ and $L$ and squeeze a scalar value:
-
-\begin{gather*}
-\Cyclist{\literal{veil.hkd.label}} \\
-\Absorb{Q} \\
-\Absorb{L} \\
-r \gets \SqueezeScalar \\
-Q' \gets Q + [r]G \\
-\end{gather*}
-
-### Hierarchical Keys
-
-This is used to provide hierarchical key derivation, deriving a final key from a secret key via a path of labels
-$L_0..L_n$.
-
-Using a key path $\literal{friends} \to \literal{alice}$, the secret key is mapped to a private key via
-`veil.scaldf.root`, which is then mapped to an intermediate private key via the label `friends`, which is then mapped to
-the final private key via the label `alice`.
-
-This allows a single secret key to be used to generate a tree of domain-separated keys:
-
-```{.graphviz}
-digraph hkd {
-    node [style=rounded];
-    secret_key [ label = "secret-key", shape = rect, style = bold ];
-    root [ label = "root", shape = rect ];
-    friends [ label = "friends", fontname = "Courier" ]
-    work [ label = "work", fontname = "Courier" ]
-    crime_fighting [ label = "crime-fighting", fontname = "Courier" ]
-    superfriends [ label = "superfriends", fontname = "Courier" ]
-    justice_league [ label = "justice-league", fontname = "Courier" ]
-    avengers [ label = "avengers", fontname = "Courier" ]
-    official_blog [ label = "official-blog", fontname = "Courier" ]
-    packages [ label = "packages", fontname = "Courier" ]
-    alice [ label = "alice", fontname = "Courier" ]
-    carol [ label = "carol", fontname = "Courier" ]
-    daphne [ label = "daphne", fontname = "Courier" ]
-
-    secret_key -> root;
-    root -> friends;
-    root -> work;
-    root -> crime_fighting;
-    friends -> alice;
-    friends -> carol;
-    friends -> daphne;
-    crime_fighting -> superfriends;
-    crime_fighting -> justice_league;
-    crime_fighting -> avengers;
-    work -> official_blog;
-    work -> packages;
-}
-```
-
-### Disposable Keys
-
-This design allows for the use of disposable, anonymous keys based on a single secret key.
-
-If Alice wants to communicate anonymously with Bea, she can generate a private key with the key path
-`ee4c176352b1d0b2df4a699d430ea48e` and share the corresponding public key with Bea via an anonymous channel. Unless Bea
-can guess that key path, Bea will be unable to determine if her anonymous pen pal is Alice even if she has Alice's key.
-
-These disposable keys are stateless, as well: if Alice wants to burn that key, all she needs to do is forget the key
-path.
-
 ## `veil.schnorr`
 
 `veil.schnorr` implements a Schnorr digital signature scheme.
@@ -353,8 +258,8 @@ First, a duplex is initialized with a constant key and used to absorb the messag
 The signer's public key is absorbed after the message to allow [`veil.mres`](#veilmres) to search for a header without
 having to buffer the results.)
 
-A [hedged ephemeral scalar](#hedged-ephemeral-values) $k$ is derived the signer's private key $d_S$, and the commitment
-point $I=[k]G$ is calculated and encrypted as $S_0$:
+A [hedged ephemeral scalar](#hedged-ephemeral-values) $k$ is derived from the signer's private key $d_S$, and the
+commitment point $I=[k]G$ is calculated and encrypted as $S_0$:
 
 \begin{gather*}
 I \gets [k]G \\
@@ -948,7 +853,7 @@ By passing a symmetric key as a metadata string, `veil.digest` can be adapted to
 ## `veil.pbenc`
 
 `veil.pbenc` implements memory-hard passphrase-based encryption using balloon hashing [@boneh2016] and Xoodyak's AEAD
-construction. This construction is used to secure secret keys.
+construction. This construction is used to secure private keys at rest.
 
 ### Initialization
 

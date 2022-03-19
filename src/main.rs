@@ -1,4 +1,5 @@
 use std::fs;
+use std::fs::File;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Result};
@@ -7,7 +8,7 @@ use clap_complete::{generate_to, Shell};
 use clio::{Input, Output};
 use mimalloc::MiMalloc;
 
-use veil::{Digest, PublicKey, SecretKey, Signature};
+use veil::{Digest, PrivateKey, PublicKey, Signature};
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -15,9 +16,8 @@ static GLOBAL: MiMalloc = MiMalloc;
 fn main() -> Result<()> {
     let opts = Opts::parse();
     match opts.cmd {
-        Cmd::SecretKey(cmd) => cmd.run(),
+        Cmd::PrivateKey(cmd) => cmd.run(),
         Cmd::PublicKey(cmd) => cmd.run(),
-        Cmd::DeriveKey(cmd) => cmd.run(),
         Cmd::Encrypt(cmd) => cmd.run(),
         Cmd::Decrypt(cmd) => cmd.run(),
         Cmd::Sign(cmd) => cmd.run(),
@@ -42,9 +42,8 @@ trait Runnable {
 #[derive(Debug, Subcommand)]
 #[clap(setting = AppSettings::DeriveDisplayOrder)]
 enum Cmd {
-    SecretKey(SecretKeyArgs),
+    PrivateKey(PrivateKeyArgs),
     PublicKey(PublicKeyArgs),
-    DeriveKey(DeriveKeyArgs),
     Encrypt(EncryptArgs),
     Decrypt(DecryptArgs),
     Sign(SignArgs),
@@ -53,12 +52,12 @@ enum Cmd {
     Complete(CompleteArgs),
 }
 
-/// Generate a new secret key.
+/// Generate a new private key.
 #[derive(Debug, Parser)]
-struct SecretKeyArgs {
-    /// The output path for the encrypted secret key.
-    #[clap(value_hint = ValueHint::FilePath)]
-    output: PathBuf,
+struct PrivateKeyArgs {
+    /// The path to the encrypted private key file or '-' for stdout.
+    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
+    output: Output,
 
     /// The time parameter for encryption, logarithmic scale.
     #[clap(long, default_value = "4")]
@@ -73,27 +72,22 @@ struct SecretKeyArgs {
     passphrase_file: Option<PathBuf>,
 }
 
-impl Runnable for SecretKeyArgs {
-    fn run(self) -> Result<()> {
+impl Runnable for PrivateKeyArgs {
+    fn run(mut self) -> Result<()> {
         let mut rng = rand::thread_rng();
         let passphrase = prompt_passphrase(&self.passphrase_file)?;
-        let secret_key = SecretKey::random(&mut rng);
-        let ciphertext = secret_key.encrypt(rng, &passphrase, self.time, self.space);
-        fs::write(self.output, ciphertext)?;
+        let private_key = PrivateKey::random(&mut rng);
+        private_key.store(self.output.lock(), rng, &passphrase, self.time, self.space)?;
         Ok(())
     }
 }
 
-/// Derive a public key from a secret key.
+/// Derive a public key from a private key.
 #[derive(Debug, Parser)]
 struct PublicKeyArgs {
-    /// The path of the encrypted secret key.
+    /// The path of the encrypted private key.
     #[clap(value_hint = ValueHint::FilePath)]
-    secret_key: PathBuf,
-
-    /// Derive a sub-key using the given key path.
-    #[clap(long, short, multiple_values(true))]
-    key_path: Vec<String>,
+    private_key: PathBuf,
 
     /// The path to the public key file or '-' for stdout.
     #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath, default_value = "-")]
@@ -106,31 +100,8 @@ struct PublicKeyArgs {
 
 impl Runnable for PublicKeyArgs {
     fn run(mut self) -> Result<()> {
-        let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
-        let public_key = secret_key.public_key().derive(&self.key_path);
-        write!(self.output.lock(), "{}", public_key)?;
-        Ok(())
-    }
-}
-
-/// Derive a public key from another public key.
-#[derive(Debug, Parser)]
-struct DeriveKeyArgs {
-    /// The public key.
-    public_key: PublicKey,
-
-    /// Derive a sub-key using the given key path.
-    #[clap(long, short, multiple_values(true), required(true))]
-    key_path: Vec<String>,
-
-    /// The path to the public key file or '-' for stdout.
-    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath, default_value = "-")]
-    output: Output,
-}
-
-impl Runnable for DeriveKeyArgs {
-    fn run(mut self) -> Result<()> {
-        let public_key = self.public_key.derive(&self.key_path);
+        let private_key = decrypt_private_key(&self.passphrase_file, &self.private_key)?;
+        let public_key = private_key.public_key();
         write!(self.output.lock(), "{}", public_key)?;
         Ok(())
     }
@@ -139,13 +110,9 @@ impl Runnable for DeriveKeyArgs {
 /// Encrypt a message for a set of recipients.
 #[derive(Debug, Parser)]
 struct EncryptArgs {
-    /// The path of the encrypted secret key.
+    /// The path of the encrypted private key.
     #[clap(value_hint = ValueHint::FilePath)]
-    secret_key: PathBuf,
-
-    /// Derive a sub-key using the given key path.
-    #[clap(long, short, multiple_values(true))]
-    key_path: Vec<String>,
+    private_key: PathBuf,
 
     /// The path to the input file or '-' for stdin.
     #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
@@ -174,8 +141,7 @@ struct EncryptArgs {
 
 impl Runnable for EncryptArgs {
     fn run(mut self) -> Result<()> {
-        let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
-        let private_key = secret_key.private_key().derive(&self.key_path);
+        let private_key = decrypt_private_key(&self.passphrase_file, &self.private_key)?;
         private_key.encrypt(
             rand::thread_rng(),
             &mut self.plaintext.lock(),
@@ -191,13 +157,9 @@ impl Runnable for EncryptArgs {
 /// Decrypt and verify a message.
 #[derive(Debug, Parser)]
 struct DecryptArgs {
-    /// The path of the encrypted secret key.
+    /// The path of the encrypted private key.
     #[clap(value_hint = ValueHint::FilePath)]
-    secret_key: PathBuf,
-
-    /// Derive a sub-key using the given key path.
-    #[clap(long, short, multiple_values(true))]
-    key_path: Vec<String>,
+    private_key: PathBuf,
 
     /// The path to the input file or '-' for stdin.
     #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
@@ -217,8 +179,7 @@ struct DecryptArgs {
 
 impl Runnable for DecryptArgs {
     fn run(mut self) -> Result<()> {
-        let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
-        let private_key = secret_key.private_key().derive(&self.key_path);
+        let private_key = decrypt_private_key(&self.passphrase_file, &self.private_key)?;
         private_key.decrypt(
             &mut self.ciphertext.lock(),
             &mut self.plaintext.lock(),
@@ -231,13 +192,9 @@ impl Runnable for DecryptArgs {
 /// Sign a message.
 #[derive(Debug, Parser)]
 struct SignArgs {
-    /// The path of the encrypted secret key.
+    /// The path of the encrypted private key.
     #[clap(value_hint = ValueHint::FilePath)]
-    secret_key: PathBuf,
-
-    /// Derive a sub-key using the given key path.
-    #[clap(long, short, multiple_values(true))]
-    key_path: Vec<String>,
+    private_key: PathBuf,
 
     /// The path to the message file or '-' for stdin.
     #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
@@ -254,8 +211,7 @@ struct SignArgs {
 
 impl Runnable for SignArgs {
     fn run(mut self) -> Result<()> {
-        let secret_key = decrypt_secret_key(&self.passphrase_file, &self.secret_key)?;
-        let private_key = secret_key.private_key().derive(&self.key_path);
+        let private_key = decrypt_private_key(&self.passphrase_file, &self.private_key)?;
         let sig = private_key.sign(rand::thread_rng(), &mut self.message.lock())?;
         write!(self.output.lock(), "{}", sig)?;
         Ok(())
@@ -339,11 +295,11 @@ impl Runnable for CompleteArgs {
     }
 }
 
-fn decrypt_secret_key(passphrase_file: &Option<PathBuf>, path: &Path) -> Result<SecretKey> {
+fn decrypt_private_key(passphrase_file: &Option<PathBuf>, path: &Path) -> Result<PrivateKey> {
     let passphrase = prompt_passphrase(passphrase_file)?;
-    let ciphertext = fs::read(path)?;
-    let sk = SecretKey::decrypt(&passphrase, &ciphertext)?;
-    Ok(sk)
+    let ciphertext = File::open(path)?;
+    let pk = PrivateKey::load(ciphertext, &passphrase)?;
+    Ok(pk)
 }
 
 fn prompt_passphrase(passphrase_file: &Option<PathBuf>) -> Result<String> {

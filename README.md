@@ -12,9 +12,6 @@ encrypted. As a result, a global passive adversary would be unable to gain any i
 Veil message beyond traffic analysis. Messages can be padded with random bytes to disguise their
 true length, and fake recipients can be added to disguise their true number from other recipients.
 
-Further, Veil supports hierarchical key derivation (allowing for domain-separated and disposable
-keys), message digests, and message authentication codes.
-
 See `DESIGN.md` and `MANUAL.md` for more.
 
 ## License

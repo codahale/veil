@@ -9,74 +9,11 @@ use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::ristretto::{CanonicallyEncoded, Point, Scalar, G};
+use crate::ristretto::{CanonicallyEncoded, Point, Scalar, G, SCALAR_LEN};
 use crate::schnorr::{Signer, Verifier};
-use crate::{
-    hkd, mres, pbenc, AsciiEncoded, DecryptError, ParsePublicKeyError, Signature, VerifyError,
-};
+use crate::{mres, pbenc, AsciiEncoded, DecryptError, ParsePublicKeyError, Signature, VerifyError};
 
-/// A 512-bit secret from which multiple private keys can be derived.
-#[derive(ZeroizeOnDrop)]
-pub struct SecretKey {
-    r: Vec<u8>,
-}
-
-impl SecretKey {
-    /// Creates a randomly generated secret key.
-    #[must_use]
-    pub fn random(mut rng: impl Rng + CryptoRng) -> SecretKey {
-        SecretKey { r: rng.gen::<[u8; SECRET_KEY_LEN]>().to_vec() }
-    }
-
-    /// Encrypts the secret key with the given passphrase and `veil.pbenc` parameters.
-    #[must_use]
-    pub fn encrypt(
-        &self,
-        rng: impl Rng + CryptoRng,
-        passphrase: &str,
-        time: u8,
-        space: u8,
-    ) -> Vec<u8> {
-        pbenc::encrypt(rng, passphrase, time, space, &self.r)
-    }
-
-    /// Decrypts the secret key with the given passphrase.
-    ///
-    /// # Errors
-    ///
-    /// If the passphrase is incorrect and/or the ciphertext has been modified, a
-    /// [DecryptError::InvalidCiphertext] error will be returned.
-    pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Result<SecretKey, DecryptError> {
-        // Decrypt the ciphertext and use the plaintext as the secret key.
-        pbenc::decrypt(passphrase, ciphertext)
-            .filter(|r| r.len() == SECRET_KEY_LEN)
-            .map(|r| SecretKey { r })
-            .ok_or(DecryptError::InvalidCiphertext)
-    }
-
-    /// Returns the root private key.
-    #[must_use]
-    pub fn private_key(&self) -> PrivateKey {
-        let d = hkd::root_key(&self.r);
-        PrivateKey { d, pk: PublicKey { q: &d * &G } }
-    }
-
-    /// Returns the root public key.
-    #[must_use]
-    pub fn public_key(&self) -> PublicKey {
-        self.private_key().public_key()
-    }
-}
-
-impl Debug for SecretKey {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.public_key().fmt(f)
-    }
-}
-
-const SECRET_KEY_LEN: usize = 64;
-
-/// A derived private key, used to encrypt, decrypt, and sign messages.
+/// A private key, used to encrypt, decrypt, and sign messages.
 #[derive(ZeroizeOnDrop)]
 pub struct PrivateKey {
     d: Scalar,
@@ -84,10 +21,54 @@ pub struct PrivateKey {
 }
 
 impl PrivateKey {
+    fn from_scalar(d: Scalar) -> PrivateKey {
+        let q = &d * &G;
+        PrivateKey { d, pk: PublicKey { q } }
+    }
+
+    /// Creates a randomly generated private key.
+    #[must_use]
+    pub fn random(mut rng: impl Rng + CryptoRng) -> PrivateKey {
+        PrivateKey::from_scalar(Scalar::random(&mut rng))
+    }
+
     /// Returns the corresponding public key.
     #[must_use]
     pub const fn public_key(&self) -> PublicKey {
         self.pk
+    }
+
+    /// Encrypts the private key with the given passphrase and `veil.pbenc` parameters and writes it
+    /// to the given writer.
+    pub fn store(
+        &self,
+        mut writer: impl Write,
+        rng: impl Rng + CryptoRng,
+        passphrase: &str,
+        time: u8,
+        space: u8,
+    ) -> io::Result<usize> {
+        let b = pbenc::encrypt(rng, passphrase, time, space, &self.d.to_canonical_encoding());
+        writer.write_all(&b)?;
+        Ok(b.len())
+    }
+
+    /// Loads and decrypts the private key from the given reader with the given passphrase.
+    ///
+    /// # Errors
+    ///
+    /// If the passphrase is incorrect and/or the ciphertext has been modified, a
+    /// [DecryptError::InvalidCiphertext] error will be returned. If an error occurred while
+    /// reading, a [DecryptError::IoError] error will be returned.
+    pub fn load(mut reader: impl Read, passphrase: &str) -> Result<PrivateKey, DecryptError> {
+        let mut b = Vec::with_capacity(SCALAR_LEN);
+        reader.read_to_end(&mut b)?;
+
+        // Decrypt the ciphertext and use the plaintext as the private key.
+        pbenc::decrypt(passphrase, &b)
+            .and_then(|b| Scalar::from_canonical_encoding(&b))
+            .map(PrivateKey::from_scalar)
+            .ok_or(DecryptError::InvalidCiphertext)
     }
 
     /// Encrypts the contents of the reader and write the ciphertext to the writer.
@@ -161,19 +142,6 @@ impl PrivateKey {
         let (sig, _) = signer.sign(rng, &self.d, &self.pk.q)?;
         Ok(sig)
     }
-
-    /// Derives a private key with the given key path.
-    #[must_use]
-    pub fn derive<T>(&self, key_path: &[T]) -> PrivateKey
-    where
-        T: AsRef<[u8]>,
-    {
-        let (d, q) = key_path.iter().fold((self.d, self.pk.q), |(d, q), l| {
-            let d = d + hkd::label_scalar(&q, l);
-            (d, &d * &G)
-        });
-        PrivateKey { d, pk: PublicKey { q } }
-    }
 }
 
 impl Eq for PrivateKey {}
@@ -190,7 +158,7 @@ impl Debug for PrivateKey {
     }
 }
 
-/// A derived public key, used to verify messages.
+/// A public key, used to verify messages.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Zeroize)]
 pub struct PublicKey {
     q: Point,
@@ -210,15 +178,6 @@ impl PublicKey {
         io::copy(reader, &mut verifier)?;
 
         verifier.verify(&self.q, sig)
-    }
-
-    /// Derives a public key with the given key path.
-    #[must_use]
-    pub fn derive<T>(&self, key_path: &[T]) -> PublicKey
-    where
-        T: AsRef<[u8]>,
-    {
-        PublicKey { q: key_path.iter().fold(self.q, |q, l| q + &hkd::label_scalar(&q, l) * &G) }
     }
 }
 
@@ -260,25 +219,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn hierarchical_key_derivation() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-
-        let sk = SecretKey::random(&mut rng);
-
-        let abc = sk.private_key().derive(&["a", "b", "c"]).public_key();
-        let abc_p = sk.public_key().derive(&["a", "b", "c"]);
-        assert_eq!(abc, abc_p, "invalid hierarchical derivation");
-
-        let abc = sk.private_key().derive(&["a", "b", "c"]);
-        let cba = sk.private_key().derive(&["c", "b", "a"]);
-        assert_ne!(abc, cba, "invalid hierarchical derivation");
-
-        let abc = sk.private_key().derive(&["a"]).derive(&["b"]).derive(&["c"]).public_key();
-        let abc_p = sk.private_key().derive(&["a", "b", "c"]).public_key();
-        assert_eq!(abc, abc_p, "invalid hierarchical derivation");
-    }
-
-    #[test]
     fn public_key_encoding() {
         let base = PublicKey { q: G.basepoint() };
         assert_eq!(
@@ -303,12 +243,8 @@ mod tests {
     #[test]
     fn round_trip() -> Result<(), DecryptError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-
-        let sk_a = SecretKey::random(&mut rng);
-        let priv_a = sk_a.private_key();
-
-        let sk_b = SecretKey::random(&mut rng);
-        let priv_b = sk_b.private_key();
+        let priv_a = PrivateKey::random(&mut rng);
+        let priv_b = PrivateKey::random(&mut rng);
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
@@ -347,12 +283,8 @@ mod tests {
     #[test]
     fn bad_sender_key() -> Result<(), DecryptError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-
-        let sk_a = SecretKey::random(&mut rng);
-        let priv_a = sk_a.private_key();
-
-        let sk_b = SecretKey::random(&mut rng);
-        let priv_b = sk_b.private_key();
+        let priv_a = PrivateKey::random(&mut rng);
+        let priv_b = PrivateKey::random(&mut rng);
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
@@ -377,12 +309,8 @@ mod tests {
     #[test]
     fn bad_recipient() -> Result<(), DecryptError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-
-        let sk_a = SecretKey::random(&mut rng);
-        let priv_a = sk_a.private_key();
-
-        let sk_b = SecretKey::random(&mut rng);
-        let priv_b = sk_b.private_key();
+        let priv_a = PrivateKey::random(&mut rng);
+        let priv_b = PrivateKey::random(&mut rng);
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
@@ -407,12 +335,8 @@ mod tests {
     #[test]
     fn bad_ciphertext() -> Result<(), DecryptError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-
-        let sk_a = SecretKey::random(&mut rng);
-        let priv_a = sk_a.private_key();
-
-        let sk_b = SecretKey::random(&mut rng);
-        let priv_b = sk_b.private_key();
+        let priv_a = PrivateKey::random(&mut rng);
+        let priv_b = PrivateKey::random(&mut rng);
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
@@ -441,13 +365,13 @@ mod tests {
     fn sign_and_verify() -> Result<(), VerifyError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let sk = SecretKey::random(&mut rng);
+        let priv_key = PrivateKey::random(&mut rng);
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
 
-        let sig = sk.private_key().sign(&mut rng, &mut src)?;
+        let sig = priv_key.sign(&mut rng, &mut src)?;
 
         let mut src = Cursor::new(message);
-        sk.public_key().verify(&mut src, &sig)
+        priv_key.public_key().verify(&mut src, &sig)
     }
 }
