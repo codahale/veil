@@ -47,4 +47,3 @@ required-features = ["cli"]
 [profile.release]
 codegen-units = 1
 lto = "fat"
-strip = true
