@@ -6,7 +6,7 @@ use crate::duplex::Duplex;
 use crate::ristretto::{CanonicallyEncoded, Point, Scalar, G, POINT_LEN, SCALAR_LEN};
 
 /// The number of bytes added to plaintext by [encrypt].
-pub const OVERHEAD: usize = POINT_LEN + SCALAR_LEN + SCALAR_LEN;
+pub const OVERHEAD: usize = NONCE_LEN + POINT_LEN + POINT_LEN + POINT_LEN;
 
 /// Given the sender's key pair, the ephemeral key pair, the recipient's public key, and a
 /// plaintext, encrypts the given plaintext and returns the ciphertext.
@@ -31,52 +31,42 @@ pub fn encrypt(
     // Absorb the receiver's public key.
     sres.absorb(&q_r.to_canonical_encoding());
 
-    // Generate and absorb a random masking byte.
-    let mask = rng.gen::<u8>();
-    sres.absorb(&[mask]);
+    // Re-key the duplex with the static Diffie-Hellman shared secret.
+    sres.rekey(&(d_s * q_r).to_canonical_encoding());
 
-    // Generate a secret commitment scalar.
-    let x = sres.hedge(&mut rng, d_s, |clone| {
-        // Also hedge with the plaintext message to ensure (d_s, plaintext, x) uniqueness.
-        clone.absorb(plaintext);
-        clone.squeeze_scalar()
-    });
+    // Generate and absorb a random nonce.
+    let nonce: [u8; NONCE_LEN] = rng.gen();
+    sres.absorb(&nonce);
+    out.extend(nonce);
 
-    // Re-key with the shared secret.
-    let k = x * q_r;
-    sres.rekey(&k.to_canonical_encoding());
-
-    // Encrypt a copy of the ephemeral public key.
+    // Encrypt the ephemeral public key.
     out.extend(sres.encrypt(&q_e.to_canonical_encoding()));
 
-    // Re-key with the ephemeral Diffie-Hellman shared secret.
+    // Re-key the duplex with the ephemeral Diffie-Hellman shared secret.
     sres.rekey(&(d_e * q_r).to_canonical_encoding());
 
     // Encrypt the plaintext.
     out.extend(sres.encrypt(plaintext));
 
-    // Ratchet the duplex state to prevent rollback.
-    sres.ratchet();
+    // Squeeze a commitment scalar from the sender's private key, the ephemeral public key, and the
+    // plaintext.
+    let k = sres.hedge(rng, d_s, Duplex::squeeze_scalar);
 
-    // Squeeze a challenge scalar.
+    // Calculate the commitment point and encrypt it.
+    let i = &k * &G;
+    out.extend(sres.encrypt(&i.to_canonical_encoding()));
+
+    // Squeeze a challenge scalar from the public keys, plaintext, and commitment point.
     let r = sres.squeeze_scalar();
-    if &-r == d_s {
-        // If we magically happen to extract a challenge scalar which is the same as the sender's
-        // private key but negative, x/(r+dS) will be undefined. Re-try this operation with a
-        // different random commitment scalar.
-        return encrypt(rng, d_s, q_s, d_e, q_e, q_r, plaintext);
-    }
 
     // Calculate the proof scalar.
-    let s = x * (r + d_s).invert();
+    let s = d_s * r + k;
 
-    // Mask the challenge scalar with the top 4 bits of the mask byte.
-    out.extend(mask_scalar(r, mask & 0xF0));
+    // Calculate the proof point and encrypt it.
+    let x = s * q_r;
+    out.extend(sres.encrypt(&x.to_canonical_encoding()));
 
-    // Mask the proof scalar with the bottom 4 bits of the mask byte.
-    out.extend(mask_scalar(s, mask << 4));
-
-    // Return the full ciphertext.
+    // Return the encrypted ephemeral public key, plaintext, commitment point, and proof point.
     out
 }
 
@@ -95,9 +85,10 @@ pub fn decrypt(
     }
 
     // Split the ciphertext into its components.
-    let (q_e, ciphertext) = ciphertext.split_at(POINT_LEN);
-    let (ciphertext, mr) = ciphertext.split_at(ciphertext.len() - SCALAR_LEN - SCALAR_LEN);
-    let (mr, ms) = mr.split_at(SCALAR_LEN);
+    let (nonce, q_e) = ciphertext.split_at(NONCE_LEN);
+    let (q_e, ciphertext) = q_e.split_at(POINT_LEN);
+    let (ciphertext, i) = ciphertext.split_at(ciphertext.len() - POINT_LEN - POINT_LEN);
+    let (i, x) = i.split_at(SCALAR_LEN);
 
     // Initialize a duplex.
     let mut sres = Duplex::new("veil.sres");
@@ -108,56 +99,46 @@ pub fn decrypt(
     // Absorb the receiver's public key.
     sres.absorb(&q_r.to_canonical_encoding());
 
-    // Unmask the scalars. Early exit if either of them are zero.
-    let (r, mr) = unmask_scalar(mr)?;
-    let (s, ms) = unmask_scalar(ms)?;
+    // Re-key the duplex with the static Diffie-Hellman shared secret.
+    sres.rekey(&(d_r * q_s).to_canonical_encoding());
 
-    // Calculate the masking byte and absorb it.
-    sres.absorb(&[mr | (ms >> 4)]);
-
-    // Calculate the shared secret. Having validated `r` and `s` as non-zero scalars, we are assured
-    // here of contributory behavior.
-    let k = (d_r * s) * ((&r * &G) + q_s);
-
-    // Re-key the protocol with the shared secret.
-    sres.rekey(&k.to_canonical_encoding());
+    // Absorb the nonce.
+    sres.absorb(nonce);
 
     // Decrypt and decode the ephemeral public key.
-    let q_e = Point::from_canonical_encoding(&sres.decrypt(q_e))?;
+    let q_e = sres.decrypt(q_e);
+    let q_e = Point::from_canonical_encoding(&q_e)?;
 
-    // Re-key the protocol with the Diffie-Hellman shared secret.
+    // Re-key the duplex with the ephemeral Diffie-Hellman shared secret.
     sres.rekey(&(d_r * q_e).to_canonical_encoding());
 
-    // Decrypt the ciphertext.
+    // Decrypt the plaintext.
     let plaintext = sres.decrypt(ciphertext);
 
-    // Ratchet the protocol state.
-    sres.ratchet();
+    // Decrypt the decode the commitment point.
+    let i = sres.decrypt(i);
+    let i = Point::from_canonical_encoding(&i)?;
 
-    // If the counterfactual challenge scalar is valid, return the plaintext.
-    if r == sres.squeeze_scalar() {
+    // Squeeze a challenge scalar from the public keys, plaintext, and commitment point.
+    let r = sres.squeeze_scalar();
+
+    // Decrypt the decode the proof point.
+    let x = sres.decrypt(x);
+    let x = Point::from_canonical_encoding(&x)?;
+
+    // Re-calculate the proof point.
+    let x_p = d_r * (i + (r * q_s));
+
+    // If the re-calculated proof point matches the decrypted proof point, return the authenticated
+    // ephemeral public key and plaintext.
+    if x == x_p {
         Some((q_e, plaintext))
     } else {
         None
     }
 }
 
-// Use the bottom four bits of `mask` to mask the top four bits of `v`.
-#[inline]
-fn mask_scalar(v: Scalar, mask: u8) -> [u8; SCALAR_LEN] {
-    let mut b = v.to_canonical_encoding();
-    b[31] |= mask;
-    b
-}
-
-// Zero out the top four bits of `b` and decode it as a scalar, returning the scalar and the mask.
-#[inline]
-fn unmask_scalar(b: &[u8]) -> Option<(Scalar, u8)> {
-    let mut v: [u8; 32] = b.try_into().expect("invalid scalar len");
-    let m = v[31] & 0xF0;
-    v[31] &= 0x0F;
-    Scalar::from_canonical_encoding(&v).map(|d| (d, m))
-}
+const NONCE_LEN: usize = 16;
 
 #[cfg(test)]
 mod tests {
@@ -232,47 +213,6 @@ mod tests {
                 );
             }
         }
-    }
-
-    #[test]
-    fn non_contributory_scalars() {
-        // No need for the sender's private key; we're forging a message.
-        let (_, _, q_s, _, _, d_r, q_r) = setup();
-
-        let fake = b"this is a fake";
-        let mut out = Vec::with_capacity(fake.len() + OVERHEAD);
-
-        // Start encrypting the message like usual.
-        let mut sres = Duplex::new("veil.sres");
-        sres.absorb(&q_s.to_canonical_encoding());
-        sres.absorb(&q_r.to_canonical_encoding());
-
-        // Use zero for the masking byte.
-        sres.absorb(&[0]);
-
-        // Use the identity point for the shared secret.
-        sres.rekey(&[0u8; 32]);
-
-        // Encrypt the identity point as the DH shared secret.
-        out.extend(sres.encrypt(&[0u8; 32]));
-
-        // Use the identity point for the shared secret again.
-        sres.rekey(&[0u8; 32]);
-
-        // Encrypt the fake message.
-        out.extend(sres.encrypt(fake));
-
-        // Ratchet the state and output a challenge scalar.
-        sres.ratchet();
-        out.extend(sres.squeeze_scalar().to_canonical_encoding());
-
-        // Send a zero as the proof scalar.
-        out.extend([0u8; 32]);
-
-        // If we're not checking for contributory behavior, [d_r * s]([r]G + Q_s) will be
-        // [0]([r]G + Q_s), which will be 0. The recipient will use the identity point as the shared
-        // secret, the challenge scalar will be the same, and we'll have forged a message.
-        assert!(decrypt(&d_r, &q_r, &q_s, &out).is_none());
     }
 
     fn setup() -> (ChaChaRng, Scalar, Point, Scalar, Point, Scalar, Point) {
