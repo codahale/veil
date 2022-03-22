@@ -46,6 +46,9 @@ pub fn encrypt(
     // Absorb all encrypted headers and padding as they're read.
     let mut mres = mres.absorb_stream(signer);
 
+    // Write a masked copy of the ephemeral public key.
+    mres.write_all(&mask_point(&mut rng, q_e))?;
+
     // For each recipient, encrypt a copy of the header with veil.sres.
     for q_r in q_rs {
         let ciphertext = sres::encrypt(&mut rng, d_s, q_s, &d_e, &q_e, q_r, &header);
@@ -128,8 +131,14 @@ pub fn decrypt(
     // Absorb all encrypted headers and padding as they're read.
     let mut mres = mres.absorb_stream(verifier);
 
+    // Read, unmask, and decode the ephemeral public key.
+    let mut q_e = [0u8; 32];
+    reader.read_exact(&mut q_e)?;
+    mres.write_all(&q_e)?;
+    let q_e = unmask_point(q_e).ok_or(DecryptError::InvalidCiphertext)?;
+
     // Find a header, decrypt it, and write the entirety of the headers and padding to the verifier.
-    let (dek, q_e) = decrypt_header(reader, &mut mres, d_r, q_r, q_s)?;
+    let dek = decrypt_header(reader, &mut mres, d_r, q_r, &q_e, q_s)?;
 
     // Unwrap the received cleartext writer.
     let (mut mres, mut verifier, _) = mres.into_inner()?;
@@ -203,8 +212,9 @@ fn decrypt_header(
     verifier: &mut impl Write,
     d_r: &Scalar,
     q_r: &Point,
+    q_e: &Point,
     q_s: &Point,
-) -> Result<(Vec<u8>, Point), DecryptError> {
+) -> Result<Vec<u8>, DecryptError> {
     let mut buf = Vec::with_capacity(ENC_HEADER_LEN);
     let mut hdr_offset = 0u64;
 
@@ -224,15 +234,15 @@ fn decrypt_header(
         hdr_offset += ENC_HEADER_LEN as u64;
 
         // Try to decrypt the encrypted header.
-        if let Some((dek, q_e, msg_offset)) =
-            sres::decrypt(d_r, q_r, q_s, header).and_then(decode_header)
+        if let Some((dek, msg_offset)) =
+            sres::decrypt(d_r, q_r, q_e, q_s, header).and_then(decode_header)
         {
             // Read the remainder of the headers and padding and write them to the verifier.
             let mut remainder = reader.take(msg_offset - hdr_offset);
             io::copy(&mut remainder, verifier)?;
 
             // Return the DEK and ephemeral public key.
-            return Ok((dek, q_e));
+            return Ok(dek);
         }
 
         buf.clear();
@@ -240,7 +250,7 @@ fn decrypt_header(
 }
 
 #[inline]
-fn decode_header((q_e, header): (Point, Vec<u8>)) -> Option<(Vec<u8>, Point, u64)> {
+fn decode_header(header: Vec<u8>) -> Option<(Vec<u8>, u64)> {
     // Check header for proper length.
     if header.len() != HEADER_LEN {
         return None;
@@ -253,7 +263,27 @@ fn decode_header((q_e, header): (Point, Vec<u8>)) -> Option<(Vec<u8>, Point, u64
     let dek = dek.to_vec();
     let msg_offset = u64::from_le_bytes(msg_offset.try_into().expect("invalid u64 len"));
 
-    Some((dek, q_e, msg_offset))
+    Some((dek, msg_offset))
+}
+
+// Encode the given point and randomly mask the two bits which are always zero. This does not
+// produce a bitstring which is uniformly distributed, but rather one which is biased to 25% of the
+// space. In the absence of a bijective Elligator2-style mapping for Ristretto, this is the best
+// we can do.
+#[inline]
+fn mask_point(mut rng: impl Rng + CryptoRng, q: Point) -> [u8; 32] {
+    let mask: u8 = rng.gen();
+    let mut b = q.to_canonical_encoding();
+    b[0] |= mask & !0xfe;
+    b[31] |= mask & !0x7f;
+    b
+}
+
+#[inline]
+fn unmask_point(mut b: [u8; 32]) -> Option<Point> {
+    b[0] &= 0xfe;
+    b[31] &= 0x7f;
+    Point::from_canonical_encoding(&b)
 }
 
 struct RngRead<R>(R)
