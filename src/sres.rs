@@ -3,7 +3,8 @@
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::Duplex;
-use crate::ristretto::{CanonicallyEncoded, Point, Scalar, G, POINT_LEN};
+use crate::ristretto::{CanonicallyEncoded, Point, Scalar, POINT_LEN};
+use crate::schnorr;
 
 /// The number of bytes added to plaintext by [encrypt].
 pub const OVERHEAD: usize = POINT_LEN + POINT_LEN;
@@ -40,19 +41,9 @@ pub fn encrypt(
     // Encrypt the plaintext.
     out.extend(sres.encrypt(plaintext));
 
-    // Squeeze a commitment scalar from the sender's private key, the ephemeral public key, and the
-    // plaintext.
-    let k = sres.hedge(rng, d_s, Duplex::squeeze_scalar);
-
-    // Calculate the commitment point and encrypt it.
-    let i = &k * &G;
-    out.extend(sres.encrypt(&i.to_canonical_encoding()));
-
-    // Squeeze a challenge scalar from the public keys, plaintext, and commitment point.
-    let r = sres.squeeze_scalar();
-
-    // Calculate the proof scalar.
-    let s = d_s * r + k;
+    // Create a Schnorr signature using the duplex.
+    let (i, s) = schnorr::sign(&mut sres, rng, d_s);
+    out.extend(i);
 
     // Calculate the proof point and encrypt it.
     let x = s * q_r;
@@ -127,7 +118,7 @@ mod tests {
     use rand::SeedableRng;
     use rand_chacha::ChaChaRng;
 
-    use crate::ristretto::Point;
+    use crate::ristretto::{Point, G};
 
     use super::*;
 
