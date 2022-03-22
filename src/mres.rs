@@ -45,7 +45,7 @@ pub fn encrypt(
     let mut mres = mres.absorb_stream(writer);
 
     // Write a masked copy of the ephemeral public key.
-    mres.write_all(&mask_point(&mut rng, q_e))?;
+    mres.write_all(&mask_point(&mut rng, &q_e))?;
 
     // For each recipient, encrypt a copy of the header with veil.sres.
     for q_r in q_rs {
@@ -257,7 +257,7 @@ fn decode_header(header: Vec<u8>) -> Option<(Vec<u8>, u64)> {
 // space. In the absence of a bijective Elligator2-style mapping for Ristretto, this is the best
 // we can do.
 #[inline]
-fn mask_point(mut rng: impl Rng + CryptoRng, q: Point) -> [u8; 32] {
+fn mask_point(mut rng: impl Rng + CryptoRng, q: &Point) -> [u8; 32] {
     let mask: u8 = rng.gen();
     let mut b = q.to_canonical_encoding();
     b[0] |= mask & !0xfe;
@@ -458,6 +458,15 @@ mod tests {
         }
 
         Ok(())
+    }
+
+    #[test]
+    fn point_masking() {
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        for _ in 0..1000 {
+            let q = Point::random(&mut rng);
+            assert_eq!(Some(q), unmask_point(mask_point(&mut rng, &q)));
+        }
     }
 
     fn setup() -> (ChaChaRng, Scalar, Point, Scalar, Point) {
