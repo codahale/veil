@@ -28,8 +28,8 @@ pub fn encrypt(
     let mut mres = Duplex::new("veil.mres");
     mres.absorb(&q_s.to_canonical_encoding());
 
-    // Derive a random ephemeral key pair and data encryption key from the duplex's current state,
-    // the sender's private key, and a random nonce.
+    // Derive a random ephemeral key pair, commitment scalar, and data encryption key from the
+    // duplex's current state, the sender's private key, and a random nonce.
     let (d_e, k, dek) = mres.hedge(&mut rng, d_s, |clone| {
         (clone.squeeze_scalar(), clone.squeeze_scalar(), clone.squeeze(DEK_LEN))
     });
@@ -56,7 +56,8 @@ pub fn encrypt(
     // Add random padding to the end of the headers.
     io::copy(&mut RngRead(&mut rng).take(padding), &mut mres)?;
 
-    // Unwrap the headers and padding writer.
+    // Unwrap the absorb writer, having absorbed the masked ephemeral public key, encrypted headers,
+    // and padding.
     let (mut mres, mut writer, header_len) = mres.into_inner()?;
 
     // Use the DEK to key the duplex.
@@ -194,7 +195,7 @@ fn decrypt_message(
 
 fn decrypt_header(
     reader: &mut impl Read,
-    verifier: &mut impl Write,
+    mres: &mut impl Write,
     d_r: &Scalar,
     q_r: &Point,
     q_e: &Point,
@@ -214,19 +215,19 @@ fn decrypt_header(
             return Err(DecryptError::InvalidCiphertext);
         }
 
-        // Pass the block to the verifier.
-        verifier.write_all(header)?;
+        // Absorb the block with the duplex.
+        mres.write_all(header)?;
         hdr_offset += ENC_HEADER_LEN as u64;
 
         // Try to decrypt the encrypted header.
         if let Some((dek, msg_offset)) =
             sres::decrypt(d_r, q_r, q_e, q_s, header).and_then(decode_header)
         {
-            // Read the remainder of the headers and padding and write them to the verifier.
+            // Read the remainder of the headers and padding and absorb them with the duplex.
             let mut remainder = reader.take(msg_offset - hdr_offset);
-            io::copy(&mut remainder, verifier)?;
+            io::copy(&mut remainder, mres)?;
 
-            // Return the DEK and ephemeral public key.
+            // Return the DEK.
             return Ok(dek);
         }
 
