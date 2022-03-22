@@ -76,19 +76,11 @@ where
         // Absorb the signer's public key.
         schnorr.absorb(&q.to_canonical_encoding());
 
-        // Derive a commitment scalar from the protocol's current state, the signer's private key,
-        // and a random nonce.
-        let k = schnorr.hedge(rng, d, Duplex::squeeze_scalar);
+        // Calculate the encrypted commitment point and proof scalar.
+        let (i, s) = sign(&mut schnorr, rng, d);
 
-        // Calculate and encrypt the commitment point.
-        let i = &k * &G;
-        out.extend(schnorr.encrypt(&i.to_canonical_encoding()));
-
-        // Squeeze a challenge scalar.
-        let r = schnorr.squeeze_scalar();
-
-        // Calculate and encrypt the proof scalar.
-        let s = d * r + k;
+        // Encrypt the proof scalar.
+        out.extend(i);
         out.extend(schnorr.encrypt(&s.to_canonical_encoding()));
 
         // Return the encrypted commitment point and proof scalar, plus the underlying writer.
@@ -107,6 +99,27 @@ where
     fn flush(&mut self) -> Result<()> {
         self.writer.flush()
     }
+}
+
+/// Create a Schnorr signature of the given duplex's state using the given private key. Returns
+/// the encrypted commitment point and the proof scalar.
+pub fn sign(duplex: &mut Duplex, rng: impl Rng + CryptoRng, d: &Scalar) -> (Vec<u8>, Scalar) {
+    // Derive a commitment scalar from the duplex's current state, the signer's private key,
+    // and a random nonce.
+    let k = duplex.hedge(rng, d, Duplex::squeeze_scalar);
+
+    // Calculate and encrypt the commitment point.
+    let i = &k * &G;
+    let i = duplex.encrypt(&i.to_canonical_encoding());
+
+    // Squeeze a challenge scalar.
+    let r = duplex.squeeze_scalar();
+
+    // Calculate the proof scalar.
+    let s = d * r + k;
+
+    // Return the encrypted commitment point and the proof scalar.
+    (i, s)
 }
 
 /// A writer which accumulates message contents for verifying.
