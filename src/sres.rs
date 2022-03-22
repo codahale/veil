@@ -53,13 +53,13 @@ pub fn encrypt(
     let x = s * q_r;
     out.extend(sres.encrypt(&x.to_canonical_encoding()));
 
-    // Return the encrypted ephemeral public key, plaintext, commitment point, and proof point.
+    // Return the ciphertext, encrypted commitment point, and encrypted proof point.
     out
 }
 
-/// Given the recipient's key pair, the sender's public key, and a ciphertext, decrypts the given
-/// ciphertext and returns the ephemeral public key and plaintext iff the ciphertext was encrypted
-/// for the recipient by the sender.
+/// Given the recipient's key pair, the ephemeral public key, the sender's public key, and a
+/// ciphertext, decrypts the given ciphertext and returns the plaintext iff the ciphertext was
+/// encrypted for the recipient by the sender.
 pub fn decrypt(
     d_r: &Scalar,
     q_r: &Point,
