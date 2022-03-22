@@ -76,8 +76,12 @@ where
         // Absorb the signer's public key.
         schnorr.absorb(&q.to_canonical_encoding());
 
+        // Derive a commitment scalar from the duplex's current state, the signer's private key,
+        // and a random nonce.
+        let k = schnorr.hedge(rng, d, Duplex::squeeze_scalar);
+
         // Calculate the encrypted commitment point and proof scalar.
-        let (i, s) = sign(&mut schnorr, rng, d);
+        let (i, s) = sign(&mut schnorr, d, k);
 
         // Encrypt the proof scalar.
         out.extend(i);
@@ -103,11 +107,7 @@ where
 
 /// Create a Schnorr signature of the given duplex's state using the given private key. Returns
 /// the encrypted commitment point and the proof scalar.
-pub fn sign(duplex: &mut Duplex, rng: impl Rng + CryptoRng, d: &Scalar) -> (Vec<u8>, Scalar) {
-    // Derive a commitment scalar from the duplex's current state, the signer's private key,
-    // and a random nonce.
-    let k = duplex.hedge(rng, d, Duplex::squeeze_scalar);
-
+pub fn sign(duplex: &mut Duplex, d: &Scalar, k: Scalar) -> (Vec<u8>, Scalar) {
     // Calculate and encrypt the commitment point.
     let i = &k * &G;
     let i = duplex.encrypt(&i.to_canonical_encoding());
@@ -145,33 +145,38 @@ impl Verifier {
         // Absorb the signer's public key.
         schnorr.absorb(&q.to_canonical_encoding());
 
-        // Split the signature into parts.
-        let (i, s) = sig.0.split_at(POINT_LEN);
-
-        // Decrypt and decode the commitment point. Return an error if it's the identity point.
-        let i = schnorr.decrypt(i);
-        let i = Point::from_canonical_encoding(&i);
-        let i = i.ok_or(VerifyError::InvalidSignature)?;
-
-        // Re-derive the challenge scalar.
-        let r = schnorr.squeeze_scalar();
-
-        // Decrypt and decode the proof scalar. Return an error if it's zero.
-        let s = schnorr.decrypt(s);
-        let s = Scalar::from_canonical_encoding(&s);
-        let s = s.ok_or(VerifyError::InvalidSignature)?;
-
-        // Return true iff I and s are well-formed and I == [s]G - [r]Q. Use the variable-time
-        // implementation here because the verifier has no secret data.
-        //    I == [r](-Q) + [s]G == [s]G - [r]Q
-        if i == Point::vartime_double_scalar_mul_basepoint(&r, &-q, &s /*G*/) {
-            Ok(())
-        } else {
-            Err(VerifyError::InvalidSignature)
-        }
+        // Verify the signature.
+        verify(&mut schnorr, q, &sig.0)
     }
 }
 
+/// Verify a Schnorr signature of the given duplex's state using the given public key.
+pub fn verify(duplex: &mut Duplex, q: &Point, sig: &[u8]) -> result::Result<(), VerifyError> {
+    // Split the signature into parts.
+    let (i, s) = sig.split_at(POINT_LEN);
+
+    // Decrypt and decode the commitment point. Return an error if it's the identity point.
+    let i = duplex.decrypt(i);
+    let i = Point::from_canonical_encoding(&i);
+    let i = i.ok_or(VerifyError::InvalidSignature)?;
+
+    // Re-derive the challenge scalar.
+    let r = duplex.squeeze_scalar();
+
+    // Decrypt and decode the proof scalar. Return an error if it's zero.
+    let s = duplex.decrypt(s);
+    let s = Scalar::from_canonical_encoding(&s);
+    let s = s.ok_or(VerifyError::InvalidSignature)?;
+
+    // Return true iff I and s are well-formed and I == [s]G - [r]Q. Use the variable-time
+    // implementation here because the verifier has no secret data.
+    //    I == [r](-Q) + [s]G == [s]G - [r]Q
+    if i == Point::vartime_double_scalar_mul_basepoint(&r, &-q, &s /*G*/) {
+        Ok(())
+    } else {
+        Err(VerifyError::InvalidSignature)
+    }
+}
 impl Write for Verifier {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         self.writer.write(buf)

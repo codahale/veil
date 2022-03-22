@@ -10,8 +10,8 @@ use rand::{CryptoRng, Rng};
 use crate::duplex::{Duplex, TAG_LEN};
 use crate::ristretto::{CanonicallyEncoded, G, POINT_LEN};
 use crate::ristretto::{Point, Scalar};
-use crate::schnorr::{Signer, Verifier, SIGNATURE_LEN};
-use crate::{sres, DecryptError, Signature, VerifyError};
+use crate::schnorr::SIGNATURE_LEN;
+use crate::{schnorr, sres, DecryptError};
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
@@ -30,8 +30,9 @@ pub fn encrypt(
 
     // Derive a random ephemeral key pair and data encryption key from the duplex's current state,
     // the sender's private key, and a random nonce.
-    let (d_e, dek) =
-        mres.hedge(&mut rng, d_s, |clone| (clone.squeeze_scalar(), clone.squeeze(DEK_LEN)));
+    let (d_e, k, dek) = mres.hedge(&mut rng, d_s, |clone| {
+        (clone.squeeze_scalar(), clone.squeeze_scalar(), clone.squeeze(DEK_LEN))
+    });
     let q_e = &d_e * &G;
 
     // Encode the DEK and the message offset in a header.
@@ -40,11 +41,8 @@ pub fn encrypt(
     header.extend(&dek);
     header.extend(&msg_offset.to_le_bytes());
 
-    // Count and sign all of the bytes written to `writer`.
-    let signer = Signer::new(writer);
-
-    // Absorb all encrypted headers and padding as they're read.
-    let mut mres = mres.absorb_stream(signer);
+    // Absorb all encrypted headers and padding as they're written.
+    let mut mres = mres.absorb_stream(writer);
 
     // Write a masked copy of the ephemeral public key.
     mres.write_all(&mask_point(&mut rng, q_e))?;
@@ -59,24 +57,25 @@ pub fn encrypt(
     io::copy(&mut RngRead(&mut rng).take(padding), &mut mres)?;
 
     // Unwrap the headers and padding writer.
-    let (mut mres, mut signer, header_len) = mres.into_inner()?;
+    let (mut mres, mut writer, header_len) = mres.into_inner()?;
 
     // Use the DEK to key the duplex.
     mres.rekey(&dek);
 
-    // Encrypt the plaintext, pass it through the signer, and write it.
-    let ciphertext_len = encrypt_message(&mut mres, reader, &mut signer)?;
+    // Encrypt the plaintext in blocks and write them.
+    let ciphertext_len = encrypt_message(&mut mres, reader, &mut writer)?;
 
-    // Sign the encrypted headers and ciphertext with the ephemeral key pair.
-    let (sig, writer) = signer.sign(&mut rng, &d_e, &q_e)?;
+    // Sign the duplex's final state with the ephemeral private key.
+    let (i, s) = schnorr::sign(&mut mres, &d_e, k);
 
-    // Encrypt the signature.
-    let sig = mres.encrypt(&sig.0);
+    // Encrypt the proof scalar.
+    let s = mres.encrypt(&s.to_canonical_encoding());
 
-    // Write the encrypted signature.
-    writer.write_all(&sig)?;
+    // Write the signature components.
+    writer.write_all(&i)?;
+    writer.write_all(&s)?;
 
-    Ok(header_len + ciphertext_len + sig.len() as u64)
+    Ok(header_len + ciphertext_len + i.len() as u64 + s.len() as u64)
 }
 
 fn encrypt_message(
@@ -125,11 +124,8 @@ pub fn decrypt(
     let mut mres = Duplex::new("veil.mres");
     mres.absorb(&q_s.to_canonical_encoding());
 
-    // Initialize a verifier for the entire ciphertext.
-    let verifier = Verifier::new();
-
     // Absorb all encrypted headers and padding as they're read.
-    let mut mres = mres.absorb_stream(verifier);
+    let mut mres = mres.absorb_stream(io::sink());
 
     // Read, unmask, and decode the ephemeral public key.
     let mut q_e = [0u8; 32];
@@ -140,30 +136,22 @@ pub fn decrypt(
     // Find a header, decrypt it, and write the entirety of the headers and padding to the verifier.
     let dek = decrypt_header(reader, &mut mres, d_r, q_r, &q_e, q_s)?;
 
-    // Unwrap the received cleartext writer.
-    let (mut mres, mut verifier, _) = mres.into_inner()?;
+    // Unwrap the duplex state.
+    let (mut mres, _, _) = mres.into_inner()?;
 
     // Use the DEK to key the duplex.
     mres.rekey(&dek);
 
-    // Decrypt the message and get the signature.
-    let (written, sig) = decrypt_message(&mut mres, reader, writer, &mut verifier)?;
-
-    // Verify the signature. If the signature is valid, return the number of plaintext bytes
-    // written. Otherwise, map the verification error to a decryption error.
-    match verifier.verify(&q_e, &sig) {
-        Ok(()) => Ok(written),
-        Err(VerifyError::InvalidSignature) => Err(DecryptError::InvalidCiphertext),
-        Err(VerifyError::IoError(e)) => Err(DecryptError::IoError(e)),
-    }
+    // Decrypt the message and verify the signature.
+    decrypt_message(&mut mres, &q_e, reader, writer)
 }
 
 fn decrypt_message(
     mres: &mut Duplex,
+    q_e: &Point,
     reader: &mut impl Read,
     writer: &mut impl Write,
-    verifier: &mut Verifier,
-) -> Result<(u64, Signature), DecryptError> {
+) -> Result<u64, DecryptError> {
     let mut buf = Vec::with_capacity(ENC_BLOCK_LEN + SIGNATURE_LEN);
     let mut written = 0;
 
@@ -184,9 +172,6 @@ fn decrypt_message(
         let n = buf.len() - SIGNATURE_LEN;
         let block = &buf[..n];
 
-        // Add the block to the verifier.
-        verifier.write_all(block)?;
-
         // Decrypt the block and write the plaintext. If the block cannot be decrypted, return an
         // error.
         let plaintext = mres.unseal(block).ok_or(DecryptError::InvalidCiphertext)?;
@@ -200,11 +185,11 @@ fn decrypt_message(
         buf.drain(0..n);
     }
 
-    // Decrypt the signature.
-    let sig = mres.decrypt(&buf);
+    // Verify the signature.
+    schnorr::verify(mres, q_e, &buf).map_err(|_| DecryptError::InvalidCiphertext)?;
 
-    // Return the number of bytes and the decrypted signature.
-    Ok((written, Signature(sig.try_into().expect("invalid sig len"))))
+    // Return the number of bytes.
+    Ok(written)
 }
 
 fn decrypt_header(
@@ -308,9 +293,10 @@ const ENC_BLOCK_LEN: usize = BLOCK_LEN + TAG_LEN;
 
 #[cfg(test)]
 mod tests {
+    use std::io::Cursor;
+
     use rand::SeedableRng;
     use rand_chacha::ChaChaRng;
-    use std::io::Cursor;
 
     use super::*;
 
