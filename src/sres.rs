@@ -3,15 +3,15 @@
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::Duplex;
-use crate::ristretto::{CanonicallyEncoded, Point, Scalar, G, POINT_LEN, SCALAR_LEN};
+use crate::ristretto::{CanonicallyEncoded, Point, Scalar, G, POINT_LEN};
 
 /// The number of bytes added to plaintext by [encrypt].
-pub const OVERHEAD: usize = NONCE_LEN + POINT_LEN + POINT_LEN + POINT_LEN;
+pub const OVERHEAD: usize = POINT_LEN + POINT_LEN;
 
 /// Given the sender's key pair, the ephemeral key pair, the recipient's public key, and a
 /// plaintext, encrypts the given plaintext and returns the ciphertext.
 pub fn encrypt(
-    mut rng: impl Rng + CryptoRng,
+    rng: impl Rng + CryptoRng,
     d_s: &Scalar,
     q_s: &Point,
     d_e: &Scalar,
@@ -31,16 +31,8 @@ pub fn encrypt(
     // Absorb the receiver's public key.
     sres.absorb(&q_r.to_canonical_encoding());
 
-    // Re-key the duplex with the static Diffie-Hellman shared secret.
-    sres.rekey(&(d_s * q_r).to_canonical_encoding());
-
-    // Generate and absorb a random nonce.
-    let nonce: [u8; NONCE_LEN] = rng.gen();
-    sres.absorb(&nonce);
-    out.extend(nonce);
-
-    // Encrypt the ephemeral public key.
-    out.extend(sres.encrypt(&q_e.to_canonical_encoding()));
+    // Absorb the ephemeral public public key.
+    sres.absorb(&q_e.to_canonical_encoding());
 
     // Re-key the duplex with the ephemeral Diffie-Hellman shared secret.
     sres.rekey(&(d_e * q_r).to_canonical_encoding());
@@ -76,19 +68,18 @@ pub fn encrypt(
 pub fn decrypt(
     d_r: &Scalar,
     q_r: &Point,
+    q_e: &Point,
     q_s: &Point,
     ciphertext: &[u8],
-) -> Option<(Point, Vec<u8>)> {
+) -> Option<Vec<u8>> {
     // Check for too-small ciphertexts.
     if ciphertext.len() < OVERHEAD {
         return None;
     }
 
     // Split the ciphertext into its components.
-    let (nonce, q_e) = ciphertext.split_at(NONCE_LEN);
-    let (q_e, ciphertext) = q_e.split_at(POINT_LEN);
-    let (ciphertext, i) = ciphertext.split_at(ciphertext.len() - POINT_LEN - POINT_LEN);
-    let (i, x) = i.split_at(SCALAR_LEN);
+    let (ciphertext, i) = ciphertext.split_at(ciphertext.len() - OVERHEAD);
+    let (i, x) = i.split_at(POINT_LEN);
 
     // Initialize a duplex.
     let mut sres = Duplex::new("veil.sres");
@@ -99,15 +90,8 @@ pub fn decrypt(
     // Absorb the receiver's public key.
     sres.absorb(&q_r.to_canonical_encoding());
 
-    // Re-key the duplex with the static Diffie-Hellman shared secret.
-    sres.rekey(&(d_r * q_s).to_canonical_encoding());
-
-    // Absorb the nonce.
-    sres.absorb(nonce);
-
-    // Decrypt and decode the ephemeral public key.
-    let q_e = sres.decrypt(q_e);
-    let q_e = Point::from_canonical_encoding(&q_e)?;
+    // Absorb the ephemeral public public key.
+    sres.absorb(&q_e.to_canonical_encoding());
 
     // Re-key the duplex with the ephemeral Diffie-Hellman shared secret.
     sres.rekey(&(d_r * q_e).to_canonical_encoding());
@@ -132,13 +116,11 @@ pub fn decrypt(
     // If the re-calculated proof point matches the decrypted proof point, return the authenticated
     // ephemeral public key and plaintext.
     if x == x_p {
-        Some((q_e, plaintext))
+        Some(plaintext)
     } else {
         None
     }
 }
-
-const NONCE_LEN: usize = 16;
 
 #[cfg(test)]
 mod tests {
@@ -155,8 +137,8 @@ mod tests {
         let plaintext = b"ok this is fun";
         let ciphertext = encrypt(&mut rng, &d_s, &q_s, &d_e, &q_e, &q_r, plaintext);
 
-        let recovered = decrypt(&d_r, &q_r, &q_s, &ciphertext);
-        assert_eq!(Some((q_e, plaintext.to_vec())), recovered, "invalid plaintext");
+        let recovered = decrypt(&d_r, &q_r, &q_e, &q_s, &ciphertext);
+        assert_eq!(Some(plaintext.to_vec()), recovered, "invalid plaintext");
     }
 
     #[test]
@@ -167,7 +149,7 @@ mod tests {
 
         let d_r = Scalar::random(&mut rng);
 
-        let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
+        let plaintext = decrypt(&d_r, &q_r, &q_e, &q_s, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -179,7 +161,19 @@ mod tests {
 
         let q_r = Point::random(&mut rng);
 
-        let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
+        let plaintext = decrypt(&d_r, &q_r, &q_e, &q_s, &ciphertext);
+        assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
+    }
+
+    #[test]
+    fn wrong_ephemeral_public_key() {
+        let (mut rng, d_s, q_s, d_e, q_e, d_r, q_r) = setup();
+        let plaintext = b"ok this is fun";
+        let ciphertext = encrypt(&mut rng, &d_s, &q_s, &d_e, &q_e, &q_r, plaintext);
+
+        let q_e = Point::random(&mut rng);
+
+        let plaintext = decrypt(&d_r, &q_r, &q_e, &q_s, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -191,7 +185,7 @@ mod tests {
 
         let q_s = Point::random(&mut rng);
 
-        let plaintext = decrypt(&d_r, &q_r, &q_s, &ciphertext);
+        let plaintext = decrypt(&d_r, &q_r, &q_e, &q_s, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -206,7 +200,7 @@ mod tests {
                 let mut ciphertext = ciphertext.clone();
                 ciphertext[i] ^= 1 << j;
                 assert!(
-                    decrypt(&d_r, &q_r, &q_s, &ciphertext).is_none(),
+                    decrypt(&d_r, &q_r, &q_e, &q_s, &ciphertext).is_none(),
                     "bit flip at byte {}, bit {} produced a valid message",
                     i,
                     j
