@@ -7,8 +7,11 @@ case "${1:-}" in
   latexmk -cd docs/design.tex -C
   latexmk -cd docs/manual.tex -C
   ;;
+"watch")
+  latexmk -cd docs/"$2".tex -pvc -view=none
+  ;;
 "view")
-  latexmk -cd docs/"$2".tex -pvc
+  latexmk -cd docs/"$2".tex -pv
   ;;
 *)
   latexmk -cd docs/design.tex -pdf
