@@ -241,8 +241,8 @@ the use of Xoodyak allows for a significant reduction in complexity.
 Instead of using the nonce and associated data to create a feed-forward ciphertext dependency, the Xoodyak duplex
 ensures all encryption operations are cryptographically dependent on the ciphertext of all previous encryption
 operations.
-Likewise, because the \texttt{veil.mres} ciphertext is terminated with a \texttt{veil.schnorr} (see
-Sec.~\ref{sec:veil.schnorr}) signature, using a special operation for the final message block isn't required.
+Likewise, because the \texttt{veil.mres} ciphertext is terminated with a Schnorr signature (see
+Sec.~\ref{sec:veil.schnorr}), using a special operation for the final message block isn't required.
 
 The major limitation of such a system is the possibility of the partial decryption of invalid ciphertexts.
 If an attacker flips a bit on the fourth block of a ciphertext, \texttt{veil.mres} will successfully decrypt the first

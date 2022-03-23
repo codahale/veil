@@ -72,7 +72,7 @@ pub fn encrypt(
     let ciphertext_len = encrypt_message(&mut mres, reader, &mut writer)?;
 
     // Sign the duplex's final state with the ephemeral private key.
-    let (i, s) = schnorr::sign(&mut mres, &d_e, k);
+    let (i, s) = schnorr::sign_duplex(&mut mres, &d_e, k);
 
     // Encrypt the proof scalar.
     let s = mres.encrypt(&s.to_canonical_encoding());
@@ -185,7 +185,7 @@ fn decrypt_message(
     }
 
     // Verify the signature.
-    schnorr::verify(mres, q_e, &buf).map_err(|_| DecryptError::InvalidCiphertext)?;
+    schnorr::verify_duplex(mres, q_e, &buf).map_err(|_| DecryptError::InvalidCiphertext)?;
 
     // Return the number of bytes.
     Ok(written)

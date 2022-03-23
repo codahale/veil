@@ -10,8 +10,9 @@ use rand::{CryptoRng, Rng};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::ristretto::{CanonicallyEncoded, Point, Scalar, G, SCALAR_LEN};
-use crate::schnorr::{Signer, Verifier};
-use crate::{mres, pbenc, AsciiEncoded, DecryptError, ParsePublicKeyError, Signature, VerifyError};
+use crate::{
+    mres, pbenc, schnorr, AsciiEncoded, DecryptError, ParsePublicKeyError, Signature, VerifyError,
+};
 
 /// A private key, used to encrypt, decrypt, and sign messages.
 #[derive(ZeroizeOnDrop)]
@@ -134,12 +135,13 @@ impl PrivateKey {
     ///
     /// # Errors
     ///
-    /// If there is an error while reading from `reader`, an [io::Error] will be returned.
-    pub fn sign(&self, rng: impl Rng + CryptoRng, reader: &mut impl Read) -> io::Result<Signature> {
-        let mut signer = Signer::new(io::sink());
-        io::copy(reader, &mut signer)?;
-        let (sig, _) = signer.sign(rng, &self.d, &self.pk.q)?;
-        Ok(sig)
+    /// If there is an error while reading from `message`, an [io::Error] will be returned.
+    pub fn sign(
+        &self,
+        rng: impl Rng + CryptoRng,
+        message: &mut impl Read,
+    ) -> io::Result<Signature> {
+        schnorr::sign(rng, (&self.d, &self.pk.q), message)
     }
 }
 
@@ -165,18 +167,15 @@ pub struct PublicKey {
 
 impl PublicKey {
     /// Verifies that the given signature was created by the owner of this public key for the exact
-    /// contents of `reader`. Returns `Ok(())` if successful.
+    /// contents of `message`. Returns `Ok(())` if successful.
     ///
     /// # Errors
     ///
     /// If the message has been modified or was not signed by the owner of this public key, returns
-    /// [VerifyError::InvalidSignature]. If there was an error reading from `reader` or writing to
+    /// [VerifyError::InvalidSignature]. If there was an error reading from `message` or writing to
     /// `writer`, returns [VerifyError::IoError].
-    pub fn verify(&self, reader: &mut impl Read, sig: &Signature) -> Result<(), VerifyError> {
-        let mut verifier = Verifier::new();
-        io::copy(reader, &mut verifier)?;
-
-        verifier.verify(&self.q, sig)
+    pub fn verify(&self, message: &mut impl Read, sig: &Signature) -> Result<(), VerifyError> {
+        schnorr::verify(&self.q, message, sig)
     }
 }
 

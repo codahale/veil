@@ -48,7 +48,7 @@ pub fn encrypt(
     let k = sres.hedge(rng, d_s, Duplex::squeeze_scalar);
 
     // Create a Schnorr signature using the duplex.
-    let (i, s) = schnorr::sign(&mut sres, d_s, k);
+    let (i, s) = schnorr::sign_duplex(&mut sres, d_s, k);
     out.extend(i);
 
     // Calculate the proof point and encrypt it.
