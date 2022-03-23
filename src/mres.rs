@@ -7,11 +7,11 @@ use std::result::Result;
 
 use rand::{CryptoRng, Rng};
 
+use crate::{DecryptError, schnorr, sres};
 use crate::duplex::{Duplex, TAG_LEN};
 use crate::ristretto::{CanonicallyEncoded, G, POINT_LEN};
 use crate::ristretto::{Point, Scalar};
 use crate::schnorr::SIGNATURE_LEN;
-use crate::{schnorr, sres, DecryptError};
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
@@ -51,7 +51,8 @@ pub fn encrypt(
 
     // For each recipient, encrypt a copy of the header with veil.sres.
     for q_r in q_rs {
-        let ciphertext = sres::encrypt(&mut rng, d_s, q_s, &d_e, &q_e, q_r, &header);
+        let ad = mres.squeeze(TAG_LEN);
+        let ciphertext = sres::encrypt(&mut rng, d_s, q_s, &d_e, &q_e, q_r, &header, &ad);
         mres.absorb(&ciphertext);
         writer.write_all(&ciphertext)?;
         written += ciphertext.len() as u64;
@@ -218,22 +219,26 @@ fn decrypt_header(
             return Err(DecryptError::InvalidCiphertext);
         }
 
-        // Absorb the encrypted header with the duplex.
-        mres.absorb(header);
-        i += 1;
+        // Squeeze authenticated data regardless of whether we need to in order to keep the duplex
+        // state consistent.
+        let ad = mres.squeeze(TAG_LEN);
 
         // If a header hasn't been decrypted yet, try to decrypt this one.
         if dek.is_none() {
-            if let Some((hdr_dek, hdr_hdr_count, hdr_padding)) =
-                sres::decrypt(d_r, q_r, q_e, q_s, header).and_then(decode_header)
+            if let Some((d, c, p)) =
+                sres::decrypt(d_r, q_r, q_e, q_s, header, &ad).and_then(decode_header)
             {
                 // If the header was successfully decrypted, keep the DEK and padding and update the
                 // loop variable to not be effectively infinite.
-                dek = Some(hdr_dek);
-                hdr_count = hdr_hdr_count;
-                padding = Some(hdr_padding);
+                dek = Some(d);
+                hdr_count = c;
+                padding = Some(p);
             }
         }
+
+        // Absorb the encrypted header with the duplex.
+        mres.absorb(header);
+        i += 1;
 
         buf.clear();
     }

@@ -12,15 +12,16 @@ Encrypting a header is described in full in Alg.~\ref{alg:veil.sres-encrypt}.
 \begin{algorithm}[!htp]
     \caption{
         Encrypting a header with sender's key pair $(d_S, Q_S)$, ephemeral key pair $(d_E, Q_E)$, receiver's public key
-        $Q_R$, and plaintext $P$.
+        $Q_R$, plaintext $P$, and authenticated data $D$.
     }
     \begin{algorithmic}[1]
-        \Function{EncryptHeader}{$(d_S, Q_S), (d_E, Q_E), Q_R, P$}
+        \Function{EncryptHeader}{$(d_S, Q_S), (d_E, Q_E), Q_R, P, D$}
             \State \Call{Cyclist}{\texttt{veil.sres}, $\epsilon$, $\epsilon$}\Comment{Initialize duplex with constant key.}
 
             \State \Call{Absorb}{$Q_S$}\label{alg:veil.sres-encrypt-bind-sender}\Comment{Absorb the sender's public key.}
             \State \Call{Absorb}{$Q_R$}\Comment{Absorb the receiver's public key.}
             \State \Call{Absorb}{$Q_E$}\Comment{Absorb the ephemeral public key.}
+            \State \Call{Absorb}{$D$}\Comment{Absorb the authenticated data.}
             \State
 
             \State \Call{Cyclist}{$d_S[Q_E]$, $\epsilon$, $\epsilon$}\Comment{Re-key duplex with ephemeral shared secret.}
@@ -59,14 +60,15 @@ Decrypting a header is described in full in Alg.~\ref{alg:veil.sres-decrypt}.
 \begin{algorithm}[!htp]
     \caption{
         Decrypting a header with receiver's key pair $(d_R, Q_R)$, sender's public key $Q_S$, ephemeral public key
-        $Q_E$, and ciphertext $C||S_0||S_1$.
+        $Q_E$, ciphertext $C||S_0||S_1$, and authenticated data $D$.
     }
     \begin{algorithmic}[1]
-        \Function{DecryptHeader}{$(d_R, Q_R), Q_S, Q_E, C||S_0||S_1$}
+        \Function{DecryptHeader}{$(d_R, Q_R), Q_S, Q_E, C||S_0||S_1, D$}
             \State \Call{Cyclist}{\texttt{veil.sres}, $\epsilon$, $\epsilon$} \Comment{Initialize duplex with constant key.}
             \State \Call{Absorb}{$Q_S$}\label{alg:veil.sres-decrypt-bind-sender}\Comment{Absorb the sender's public key.}
             \State \Call{Absorb}{$Q_R$}\Comment{Absorb the receiver's public key.}
             \State \Call{Absorb}{$Q_E$}\Comment{Absorb the ephemeral public key.}
+            \State \Call{Absorb}{$D$}\Comment{Absorb the authenticated data.}
             \State
             \State \Call{Cyclist}{$d_R[Q_E]$, $\epsilon$, $\epsilon$}\Comment{Re-key duplex with ephemeral shared secret.}
             \State $P' \gets$ \Call{Decrypt}{$C$}\Comment{Decrypt the plaintext.}
@@ -93,9 +95,9 @@ Decrypting a header is described in full in Alg.~\ref{alg:veil.sres-decrypt}.
 and a designated-verifier Schnorr signature scheme.
 
 The initial portion of \texttt{veil.sres} is equivalent to ECIES (see Construction 12.23 of~\cite[p. 435]{katz2020}),
-(with the commitment point $I$ as an addition to the ciphertext and the challenge scalar $r$ serving as the
-authentication tag for the data encapsulation mechanism) and is IND-CCA2 secure (see Corollary 12.14
-of~\cite[p. 436]{katz2020}).
+(with the tag $T$ as authenticated data, the commitment point $I$ as an addition to the ciphertext, and the challenge
+scalar $r$ serving as the authentication tag for the data encapsulation mechanism) and is IND-CCA2 secure (see Corollary
+12.14 of~\cite[p. 436]{katz2020}).
 
 The latter portion of \texttt{veil.sres} is a designated-verifier Schnorr signature scheme which adapts an EdDSA-style
 Schnorr signature scheme by multiplying the proof scalar $s$ by the receiver's public key $Q_R$ to produce a
