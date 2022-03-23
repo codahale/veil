@@ -24,6 +24,8 @@ pub fn encrypt(
     q_rs: &[Point],
     padding: u64,
 ) -> io::Result<u64> {
+    let mut written = 0;
+
     // Initialize a duplex and absorb the sender's public key.
     let mut mres = Duplex::new("veil.mres");
     mres.absorb(&q_s.to_canonical_encoding());
@@ -35,25 +37,28 @@ pub fn encrypt(
     });
     let q_e = &d_e * &G;
 
-    // Encode the DEK and the message offset in a header.
-    let msg_offset = ((q_rs.len() as u64) * ENC_HEADER_LEN as u64) + padding;
+    // Mask the ephemeral public key, absorb it, and write it.
+    let q_e_m = mask_point(&mut rng, &q_e);
+    mres.absorb(&q_e_m);
+    writer.write_all(&q_e_m)?;
+    written += q_e_m.len() as u64;
+
+    // Encode the DEK, recipient count, and padding count in a header.
     let mut header = Vec::with_capacity(HEADER_LEN);
     header.extend(&dek);
-    header.extend(&msg_offset.to_le_bytes());
-
-    // Absorb all encrypted headers and padding as they're written.
-    let mut mres = mres.absorb_stream(writer);
-
-    // Write a masked copy of the ephemeral public key.
-    mres.write_all(&mask_point(&mut rng, &q_e))?;
+    header.extend((q_rs.len() as u64).to_le_bytes());
+    header.extend(padding.to_le_bytes());
 
     // For each recipient, encrypt a copy of the header with veil.sres.
     for q_r in q_rs {
         let ciphertext = sres::encrypt(&mut rng, d_s, q_s, &d_e, &q_e, q_r, &header);
-        mres.write_all(&ciphertext)?;
+        mres.absorb(&ciphertext);
+        writer.write_all(&ciphertext)?;
+        written += ciphertext.len() as u64;
     }
 
     // Add random padding to the end of the headers.
+    let mut mres = mres.absorb_stream(writer);
     io::copy(&mut RngRead(&mut rng).take(padding), &mut mres)?;
 
     // Unwrap the absorb writer, having absorbed the masked ephemeral public key, encrypted headers,
@@ -76,7 +81,7 @@ pub fn encrypt(
     writer.write_all(&i)?;
     writer.write_all(&s)?;
 
-    Ok(header_len + ciphertext_len + i.len() as u64 + s.len() as u64)
+    Ok(written + header_len + ciphertext_len + i.len() as u64 + s.len() as u64)
 }
 
 fn encrypt_message(
@@ -125,20 +130,14 @@ pub fn decrypt(
     let mut mres = Duplex::new("veil.mres");
     mres.absorb(&q_s.to_canonical_encoding());
 
-    // Absorb all encrypted headers and padding as they're read.
-    let mut mres = mres.absorb_stream(io::sink());
-
     // Read, unmask, and decode the ephemeral public key.
-    let mut q_e = [0u8; 32];
+    let mut q_e = [0u8; POINT_LEN];
     reader.read_exact(&mut q_e)?;
-    mres.write_all(&q_e)?;
+    mres.absorb(&q_e);
     let q_e = unmask_point(q_e).ok_or(DecryptError::InvalidCiphertext)?;
 
-    // Find a header, decrypt it, and write the entirety of the headers and padding to the verifier.
-    let dek = decrypt_header(reader, &mut mres, d_r, q_r, &q_e, q_s)?;
-
-    // Unwrap the duplex state.
-    let (mut mres, _, _) = mres.into_inner()?;
+    // Find a header, decrypt it, and write the entirety of the headers and padding to the duplex.
+    let (mut mres, dek) = decrypt_header(mres, reader, d_r, q_r, &q_e, q_s)?;
 
     // Use the DEK to key the duplex.
     mres.rekey(&dek);
@@ -194,18 +193,22 @@ fn decrypt_message(
 }
 
 fn decrypt_header(
+    mut mres: Duplex,
     reader: &mut impl Read,
-    mres: &mut impl Write,
     d_r: &Scalar,
     q_r: &Point,
     q_e: &Point,
     q_s: &Point,
-) -> Result<Vec<u8>, DecryptError> {
+) -> Result<(Duplex, Vec<u8>), DecryptError> {
     let mut buf = Vec::with_capacity(ENC_HEADER_LEN);
-    let mut hdr_offset = 0u64;
+    let mut i = 0u64;
+    let mut hdr_count = u64::MAX;
+
+    let mut padding: Option<u64> = None;
+    let mut dek: Option<Vec<u8>> = None;
 
     // Iterate through blocks, looking for an encrypted header that can be decrypted.
-    loop {
+    while i < hdr_count {
         // Read a potential encrypted header.
         let n = reader.take(ENC_HEADER_LEN as u64).read_to_end(&mut buf)?;
         let header = &buf[..n];
@@ -215,41 +218,59 @@ fn decrypt_header(
             return Err(DecryptError::InvalidCiphertext);
         }
 
-        // Absorb the block with the duplex.
-        mres.write_all(header)?;
-        hdr_offset += ENC_HEADER_LEN as u64;
+        // Absorb the encrypted header with the duplex.
+        mres.absorb(header);
+        i += 1;
 
-        // Try to decrypt the encrypted header.
-        if let Some((dek, msg_offset)) =
-            sres::decrypt(d_r, q_r, q_e, q_s, header).and_then(decode_header)
-        {
-            // Read the remainder of the headers and padding and absorb them with the duplex.
-            let mut remainder = reader.take(msg_offset - hdr_offset);
-            io::copy(&mut remainder, mres)?;
-
-            // Return the DEK.
-            return Ok(dek);
+        // If a header hasn't been decrypted yet, try to decrypt this one.
+        if dek.is_none() {
+            if let Some((hdr_dek, hdr_hdr_count, hdr_padding)) =
+                sres::decrypt(d_r, q_r, q_e, q_s, header).and_then(decode_header)
+            {
+                // If the header was successfully decrypted, keep the DEK and padding and update the
+                // loop variable to not be effectively infinite.
+                dek = Some(hdr_dek);
+                hdr_count = hdr_hdr_count;
+                padding = Some(hdr_padding);
+            }
         }
 
         buf.clear();
     }
+
+    if let Some((dek, padding)) = dek.zip(padding) {
+        // Read the remainder of the padding and absorb it with the duplex.
+        let mut mres = mres.absorb_stream(io::sink());
+        let mut remainder = reader.take(padding);
+        io::copy(&mut remainder, &mut mres)?;
+
+        // Unwrap the writer.
+        let (mres, _, _) = mres.into_inner()?;
+
+        // Return the duplex and DEK.
+        Ok((mres, dek))
+    } else {
+        Err(DecryptError::InvalidCiphertext)
+    }
 }
 
 #[inline]
-fn decode_header(header: Vec<u8>) -> Option<(Vec<u8>, u64)> {
+fn decode_header(header: Vec<u8>) -> Option<(Vec<u8>, u64, u64)> {
     // Check header for proper length.
     if header.len() != HEADER_LEN {
         return None;
     }
 
     // Split header into components.
-    let (dek, msg_offset) = header.split_at(POINT_LEN);
+    let (dek, hdr_count) = header.split_at(DEK_LEN);
+    let (hdr_count, padding) = hdr_count.split_at(mem::size_of::<u64>());
 
     // Decode components.
     let dek = dek.to_vec();
-    let msg_offset = u64::from_le_bytes(msg_offset.try_into().expect("invalid u64 len"));
+    let hdr_count = u64::from_le_bytes(hdr_count.try_into().expect("invalid u64 len"));
+    let padding = u64::from_le_bytes(padding.try_into().expect("invalid u64 len"));
 
-    Some((dek, msg_offset))
+    Some((dek, hdr_count, padding))
 }
 
 // Encode the given point and randomly mask the two bits which are always zero. This does not
@@ -287,7 +308,7 @@ where
 }
 
 const DEK_LEN: usize = 32;
-const HEADER_LEN: usize = DEK_LEN + mem::size_of::<u64>();
+const HEADER_LEN: usize = DEK_LEN + mem::size_of::<u64>() + mem::size_of::<u64>();
 const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
 const BLOCK_LEN: usize = 32 * 1024;
 const ENC_BLOCK_LEN: usize = BLOCK_LEN + TAG_LEN;
@@ -319,7 +340,8 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
+        let q_rs = &[q_s, q_r, q_s, q_s, q_s];
+        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, &d_s, &q_s, q_rs, 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());

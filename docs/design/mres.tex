@@ -9,10 +9,10 @@ Encrypting a message is described in full in Alg.~\ref{alg:veil.mres-encrypt}.
 \begin{algorithm}[ht]
     \caption{
         Encrypting a message with sender's key pair $(d_S, Q_S)$, receiver public keys $Q_{R^0}..Q_{R^n}$, padding
-        length $N_{pad}$, and plaintext $P$.
+        length $N_P$, and plaintext $P$.
     }
     \begin{algorithmic}
-        \Function{EncryptMessage}{$(d_S, Q_S), Q_{R^0}..Q_{R^n}, N_{pad}, P$}
+        \Function{EncryptMessage}{$(d_S, Q_S), Q_{R^0}..Q_{R^n}, N_P, P$}
             \State \Call{Cyclist}{\texttt{veil.mres}, $\epsilon$, $\epsilon$}\Comment{Initialize duplex with constant key.}
             \State \Call{Absorb}{$Q_S$}\label{alg:veil.mres-encrypt-bind-sender}\Comment{Absorb the sender's public key.}
             \State
@@ -26,32 +26,35 @@ Encrypting a message is described in full in Alg.~\ref{alg:veil.mres-encrypt}.
             \State \textbf{yield} $(k, d_E, K)$
             \End
             \State
-            \State $Q_E = [d_E]G$\Comment{Calculate and mask the ephemeral public key.}
+            \State $Q_E = [d_E]G$\Comment{Mask and absorb the ephemeral public key.}
             \State $C \rgets $\Call{Mask}{$Q_E$}
+            \State \Call{Absorb}{$C$}
             \State
-            \State $H = K||(N_{hdr}+N_{pad})$\Comment{Encode the DEK and message offset in a header.}
+            \State $H = K||N_Q||N_P$\Comment{Encode the DEK and params in a header.}
             \ForAll{$Q_{R^i} \in \{Q_{R^0}..Q_{R^n}\}$}
                 \Comment{Encrypt the header for each receiver.}
-                \State $C \gets C||$\Call{EncryptHeader}{$(d_S, Q_S), (d_E, Q_E), Q_{R^i}, H$}
+                \State $H \gets $\Call{EncryptHeader}{$(d_S, Q_S), (d_E, Q_E), Q_{R^i}, H$}
+                \State \Call{Absorb}{$H$}
+                \State $C \gets C||H$
             \EndFor
             \State
-            \State $y \rgets \allbits{N_{pad}}$\Comment{Append random padding.}
+            \State $y \rgets \allbits{N_P}$\Comment{Absorb and append random padding.}
+            \State \Call{AbsorbMore}{$y, 16$}
             \State $C \gets C||y$
-            \State \Call{AbsorbMore}{$C, 16$}\Comment{Absorb key, headers, and padding.}
             \State
             \State \Call{Cyclist}{$K$, $\epsilon$, $\epsilon$}\Comment{Re-key the duplex with the DEK.}
             \ForAll{32-KiB blocks $p \in P$}
-                \State $C \gets C||$\Call{Encrypt}{$p$}
-                \State $C \gets C||$\Call{Squeeze}{$16$}\Comment{Authenticate each block with a tag.}
+                \State $C \gets C||$\Call{Encrypt}{$p$}\Comment{Encrypt and tag each block.}
+                \State $C \gets C||$\Call{Squeeze}{$16$}
                 \State \Call{Ratchet}{}
             \EndFor
             \State
-            \State $I \gets [k]G$\Comment{Calculate the commitment point.}
-            \State $C \gets C||$\Call{Encrypt}{$I$}\Comment{Encrypt the commitment point.}
+            \State $I \gets [k]G$\Comment{Calculate and encrypt the commitment point.}
+            \State $C \gets C||$\Call{Encrypt}{$I$}
             \State
             \State $r \gets$ \Call{SqueezeKey}{$64$} $\modl$\label{alg:veil.mres-encrypt-challenge}\Comment{Squeeze a challenge scalar.}
-            \State $s \gets {d_S}r + k$\Comment{Calculate the proof scalar.}
-            \State $C \gets C||$\Call{Encrypt}{$s$}\Comment{Encrypt the proof scalar.}
+            \State $s \gets {d_S}r + k$\Comment{Calculate and encrypt the proof scalar.}
+            \State $C \gets C||$\Call{Encrypt}{$s$}
             \State \textbf{return} $C$
         \EndFunction
     \end{algorithmic}
@@ -70,19 +73,19 @@ Decrypting a signature is described in full in Alg.~\ref{alg:veil.mres-decrypt}.
         \Function{DecryptMessage}{$(d_R, Q_R), Q_S, C$}
             \State \Call{Cyclist}{\texttt{veil.mres}, $\epsilon$, $\epsilon$}\Comment{Initialize duplex with constant key.}
             \State \Call{Absorb}{$Q_S$}\label{alg:veil.mres-decrypt-bind-sender}\Comment{Absorb the sender's public key.}
-            \State $Q_E \gets $\Call{Unmask}{$C_{0..31}$}\Comment{Unmask and decode the ephemeral public key.}
+            \State \Call{Absorb}{$C[0..31]$}
+            \State $Q_E \gets $\Call{Unmask}{$C[0..31]$}\Comment{Unmask and decode the ephemeral public key.}
             \State
             \ForAll{possible encrypted headers $h \in C$}
+                \State \Call{Absorb}{$h$}
                 \State $x \gets $ \Call{DecryptHeader}{$(d_R, Q_R), Q_S, Q_E, h$}
                 \If{$x \not= \bot$}
-                    \Comment{Break if a header is successfully decrypted.}
-                    \State $K || (N_{hdr}+N_{pad}) \gets x$
-                    \State \textbf{break}
+                    \State $K || N_Q || N_P \gets x$
                 \EndIf
             \EndFor
             \State
-            \State \Call{AbsorbMore}{$C_{0..{32+N_{hdr}+N_{pad}}}, 16$}\Comment{Absorb key, headers, and padding.}
-            \State $C \gets C_{{32+N_{hdr}+N_{pad}}..}$\Comment{Skip to the message beginning.}
+            \State \Call{AbsorbMore}{$C_[32+N_Q..32+N_Q+N_P], 16$}\Comment{Absorb padding.}
+            \State $C \gets C_{[32+N_Q+N_P]..}$\Comment{Skip to the message beginning.}
             \State
             \State \Call{Cyclist}{$K$, $\epsilon$, $\epsilon$}\Comment{Re-key the duplex with the DEK.}
             \State
