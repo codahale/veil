@@ -106,8 +106,7 @@ impl PrivateKey {
             &mut rng,
             reader,
             &mut BufWriter::new(writer),
-            &self.d,
-            &self.pk.q,
+            (&self.d, &self.pk.q),
             &q_rs,
             padding.unwrap_or_default(),
         )
@@ -128,7 +127,7 @@ impl PrivateKey {
         writer: &mut impl Write,
         sender: &PublicKey,
     ) -> Result<u64, DecryptError> {
-        mres::decrypt(reader, &mut BufWriter::new(writer), &self.d, &self.pk.q, &sender.q)
+        mres::decrypt(reader, &mut BufWriter::new(writer), (&self.d, &self.pk.q), &sender.q)
     }
 
     /// Reads the contents of the reader and returns a digital signature.

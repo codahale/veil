@@ -19,8 +19,7 @@ pub fn encrypt(
     mut rng: impl Rng + CryptoRng,
     reader: &mut impl Read,
     writer: &mut impl Write,
-    d_s: &Scalar,
-    q_s: &Point,
+    (d_s, q_s): (&Scalar, &Point),
     q_rs: &[Point],
     padding: u64,
 ) -> io::Result<u64> {
@@ -123,8 +122,7 @@ fn encrypt_message(
 pub fn decrypt(
     reader: &mut impl Read,
     writer: &mut impl Write,
-    d_r: &Scalar,
-    q_r: &Point,
+    (d_r, q_r): (&Scalar, &Point),
     q_s: &Point,
 ) -> Result<u64, DecryptError> {
     // Initialize a duplex and absorb the sender's public key.
@@ -346,13 +344,13 @@ mod tests {
         let mut dst = Cursor::new(Vec::new());
 
         let q_rs = &[q_s, q_r, q_s, q_s, q_s];
-        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, &d_s, &q_s, q_rs, 123)?;
+        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), q_rs, 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        let ptx_len = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
+        let ptx_len = decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s)?;
         assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
         assert_eq!(message.to_vec(), dst.into_inner(), "incorrect plaintext");
 
@@ -367,7 +365,7 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
+        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let q_s = Point::random(&mut rng);
@@ -375,7 +373,7 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert_failed!(decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s))
+        assert_failed!(decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s))
     }
 
     #[test]
@@ -386,7 +384,7 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
+        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let q_r = Point::random(&mut rng);
@@ -394,7 +392,7 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert_failed!(decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s))
+        assert_failed!(decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s))
     }
 
     #[test]
@@ -405,7 +403,7 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
+        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let d_r = Scalar::random(&mut rng);
@@ -413,7 +411,7 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert_failed!(decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s))
+        assert_failed!(decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s))
     }
 
     #[test]
@@ -424,13 +422,13 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
+        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        let ptx_len = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
+        let ptx_len = decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s)?;
         assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
         assert_eq!(message.to_vec(), dst.into_inner(), "incorrect plaintext");
 
@@ -445,13 +443,13 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 0)?;
+        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 0)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        let ptx_len = decrypt(&mut src, &mut dst, &d_r, &q_r, &q_s)?;
+        let ptx_len = decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s)?;
         assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
         assert_eq!(message.to_vec(), dst.into_inner(), "incorrect plaintext");
 
@@ -466,7 +464,7 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        encrypt(&mut rng, &mut src, &mut dst, &d_s, &q_s, &[q_s, q_r], 123)?;
+        encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)?;
 
         let ciphertext = dst.into_inner();
 
@@ -476,7 +474,7 @@ mod tests {
                 ciphertext[i] ^= 1 << j;
                 let mut src = Cursor::new(ciphertext);
 
-                match decrypt(&mut src, &mut io::sink(), &d_r, &q_r, &q_s) {
+                match decrypt(&mut src, &mut io::sink(), (&d_r, &q_r), &q_s) {
                     Err(DecryptError::InvalidCiphertext) => {}
                     Ok(_) => panic!("bit flip at byte {i}, bit {j} produced a valid message"),
                     Err(e) => panic!("unknown error: {}", e),
