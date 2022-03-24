@@ -14,8 +14,8 @@ integrity, and authentication via a single object.
 Duplexes offer a way to replace complex, ad-hoc constructions combining encryption algorithms, cipher modes,
 AEADs, MACs, and hash algorithms using a single primitive~\cite{daemen2020, bertoni2011duplex}.
 
-Duplexes have security properties which reduce to the properties of the cryptographic, which themselves reduce to the
-strength of the underlying permutation~\cite{bertoni2008}.
+Duplexes have security properties which reduce to the properties of the cryptographic sponge, which themselves reduce to
+the strength of the underlying permutation~\cite{bertoni2008}.
 Xoodyak is based on the Xoodoo permutation, an adaptation of the
 Keccak-\emph{p} permutation (upon which SHA-3 is built) for lower-resource environments.
 While Xoodyak is not standardized, it is currently a finalist in the NIST Lightweight Cryptography

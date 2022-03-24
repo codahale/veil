@@ -5,7 +5,7 @@ Veil uses a few common construction techniques in its design which bear specific
 \subsection{Integrated Constructions}\label{subsec:cons-integrated-constructions}
 
 Xoodyak is a cryptographic duplex, thus each operation is cryptographically dependent on the previous operations.
-Veil makes use of this by integrating different types of constructions to produce a unified construction.
+Veil makes use of this by integrating different types of constructions to produce a single, unified construction.
 Instead of having to pass forward specific values (e.g.\ hashes of values or derived keys) to ensure cryptographic
 dependency, Xoodyak allows for constructions which simply absorb all values, thus ensuring transcript integrity of
 complex protocols.
@@ -19,9 +19,9 @@ In contrast, the same construction using Xoodyak would be the following three op
 \begin{algorithm}[ht]
     \caption{HPKE in Xoodyak.}
     \begin{algorithmic}[1]
-        \State \Call{Cyclist}{$[d_E]Q_R$, $\epsilon$, $\epsilon$} \label{alg:hpke:key}
-        \State $C \gets $ \Call{Encrypt}{$P$} \label{alg:hpke:encrypt}
-        \State $T \gets $ \Call{Squeeze}{$16$} \label{alg:hpke:tag}
+        \State \Call{Cyclist}{$[d_E]Q_R$, $\epsilon$, $\epsilon$}\label{alg:hpke:key}
+        \State $C \gets $ \Call{Encrypt}{$P$}\label{alg:hpke:encrypt}
+        \State $T \gets $ \Call{Squeeze}{$16$}\label{alg:hpke:tag}
     \end{algorithmic}
     \label{alg:hpke}
 \end{algorithm}
@@ -67,8 +67,8 @@ For example, the following operations would be performed on the cloned duplex (\
         \State $v \rgets \allbits{512}$\Comment{Generate a random value.}
         \State \Call{Absorb}{$v$}\Comment{Absorb the random value.}
         \State $x \gets$ \Call{SqueezeKey}{$64$} $\modl$\Comment{Squeeze a hedged ephemeral scalar.}
-        \State \textbf{yield} $x$
-        \End
+        \State \textbf{yield} $x$\Comment{Return $x$ to the outer context.}
+        \End \Comment{Destroy the cloned duplex's state.}
     \end{algorithmic}
     \label{alg:hedged-ephemeral}
 \end{algorithm}

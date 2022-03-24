@@ -2,8 +2,8 @@
 
 \texttt{veil.sres} implements a single-receiver, deniable signcryption scheme which Veil uses to encrypt message
 headers.
-It chains a static Diffie-Hellman KEM/DEM, an ephemeral Diffie-Hellman KEM/DEM, and a designated-verifier Schnorr
-signature scheme to provide multi-user insider security.
+It integrates an ephemeral Diffie-Hellman KEM, a Xoodyak AEAD, and a designated-verifier Schnorr signature
+scheme to provide multi-user insider security.
 
 \subsection{Encrypting A Header}\label{subsec:veil.sres-encrypt}
 
@@ -95,9 +95,9 @@ Decrypting a header is described in full in Alg.~\ref{alg:veil.sres-decrypt}.
 and a designated-verifier Schnorr signature scheme.
 
 The initial portion of \texttt{veil.sres} is equivalent to ECIES (see Construction 12.23 of~\cite[p. 435]{katz2020}),
-(with the tag $T$ as authenticated data, the commitment point $I$ as an addition to the ciphertext, and the challenge
-scalar $r$ serving as the authentication tag for the data encapsulation mechanism) and is IND-CCA2 secure (see Corollary
-12.14 of~\cite[p. 436]{katz2020}).
+(with $D$ as authenticated data, the commitment point $I$ as an addition to the ciphertext, and the challenge scalar $r$
+serving as the authentication tag for the data encapsulation mechanism) and is IND-CCA2 secure (see Corollary 12.14
+of~\cite[p. 436]{katz2020}).
 
 The latter portion of \texttt{veil.sres} is a designated-verifier Schnorr signature scheme which adapts an EdDSA-style
 Schnorr signature scheme by multiplying the proof scalar $s$ by the receiver's public key $Q_R$ to produce a
