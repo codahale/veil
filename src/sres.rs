@@ -9,15 +9,15 @@ use crate::schnorr;
 /// The number of bytes added to plaintext by [encrypt].
 pub const OVERHEAD: usize = POINT_LEN + POINT_LEN;
 
-/// Given the sender's key pair, the ephemeral key pair, the recipient's public key, and a
+/// Given the sender's key pair, the ephemeral key pair, the recipient's public key, a nonce, and a
 /// plaintext, encrypts the given plaintext and returns the ciphertext.
 pub fn encrypt(
     rng: impl Rng + CryptoRng,
     (d_s, q_s): (&Scalar, &Point),
     (d_e, q_e): (&Scalar, &Point),
     q_r: &Point,
+    nonce: &[u8],
     plaintext: &[u8],
-    ad: &[u8],
 ) -> Vec<u8> {
     // Allocate an output buffer.
     let mut out = Vec::with_capacity(plaintext.len() + OVERHEAD);
@@ -34,8 +34,8 @@ pub fn encrypt(
     // Absorb the ephemeral public public key.
     sres.absorb(&q_e.to_canonical_encoding());
 
-    // Absorb the authenticated data.
-    sres.absorb(ad);
+    // Absorb the nonce.
+    sres.absorb(nonce);
 
     // Re-key the duplex with the ephemeral Diffie-Hellman shared secret.
     sres.rekey(&(d_e * q_r).to_canonical_encoding());
@@ -59,15 +59,15 @@ pub fn encrypt(
     out
 }
 
-/// Given the recipient's key pair, the ephemeral public key, the sender's public key, and a
-/// ciphertext, decrypts the given ciphertext and returns the plaintext iff the ciphertext was
+/// Given the recipient's key pair, the ephemeral public key, the sender's public key, a nonce, and
+/// a ciphertext, decrypts the given ciphertext and returns the plaintext iff the ciphertext was
 /// encrypted for the recipient by the sender.
 pub fn decrypt(
     (d_r, q_r): (&Scalar, &Point),
     q_e: &Point,
     q_s: &Point,
+    nonce: &[u8],
     ciphertext: &[u8],
-    ad: &[u8],
 ) -> Option<Vec<u8>> {
     // Check for too-small ciphertexts.
     if ciphertext.len() < OVERHEAD {
@@ -90,8 +90,8 @@ pub fn decrypt(
     // Absorb the ephemeral public public key.
     sres.absorb(&q_e.to_canonical_encoding());
 
-    // Absorb the authenticated data.
-    sres.absorb(ad);
+    // Absorb the nonce.
+    sres.absorb(nonce);
 
     // Re-key the duplex with the ephemeral Diffie-Hellman shared secret.
     sres.rekey(&(d_r * q_e).to_canonical_encoding());
@@ -114,7 +114,7 @@ pub fn decrypt(
     let x_p = d_r * (i + (r * q_s));
 
     // If the re-calculated proof point matches the decrypted proof point, return the authenticated
-    // ephemeral public key and plaintext.
+    // plaintext.
     if x == x_p {
         Some(plaintext)
     } else {
@@ -136,9 +136,9 @@ mod tests {
         let (mut rng, d_s, q_s, d_e, q_e, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
         let tag = b"this is a tag";
-        let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, plaintext, tag);
+        let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, tag, plaintext);
 
-        let recovered = decrypt((&d_r, &q_r), &q_e, &q_s, &ciphertext, tag);
+        let recovered = decrypt((&d_r, &q_r), &q_e, &q_s, tag, &ciphertext);
         assert_eq!(Some(plaintext.to_vec()), recovered, "invalid plaintext");
     }
 
@@ -147,11 +147,11 @@ mod tests {
         let (mut rng, d_s, q_s, d_e, q_e, _, q_r) = setup();
         let plaintext = b"ok this is fun";
         let tag = b"this is a tag";
-        let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, plaintext, tag);
+        let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, tag, plaintext);
 
         let d_r = Scalar::random(&mut rng);
 
-        let plaintext = decrypt((&d_r, &q_r), &q_e, &q_s, &ciphertext, tag);
+        let plaintext = decrypt((&d_r, &q_r), &q_e, &q_s, tag, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -160,11 +160,11 @@ mod tests {
         let (mut rng, d_s, q_s, d_e, q_e, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
         let tag = b"this is a tag";
-        let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, plaintext, tag);
+        let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, tag, plaintext);
 
         let q_r = Point::random(&mut rng);
 
-        let plaintext = decrypt((&d_r, &q_r), &q_e, &q_s, &ciphertext, tag);
+        let plaintext = decrypt((&d_r, &q_r), &q_e, &q_s, tag, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -173,11 +173,11 @@ mod tests {
         let (mut rng, d_s, q_s, d_e, q_e, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
         let tag = b"this is a tag";
-        let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, plaintext, tag);
+        let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, tag, plaintext);
 
         let q_e = Point::random(&mut rng);
 
-        let plaintext = decrypt((&d_r, &q_r), &q_e, &q_s, &ciphertext, tag);
+        let plaintext = decrypt((&d_r, &q_r), &q_e, &q_s, tag, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -186,11 +186,11 @@ mod tests {
         let (mut rng, d_s, q_s, d_e, q_e, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
         let tag = b"this is a tag";
-        let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, plaintext, tag);
+        let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, tag, plaintext);
 
         let q_s = Point::random(&mut rng);
 
-        let plaintext = decrypt((&d_r, &q_r), &q_e, &q_s, &ciphertext, tag);
+        let plaintext = decrypt((&d_r, &q_r), &q_e, &q_s, tag, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -199,11 +199,11 @@ mod tests {
         let (mut rng, d_s, q_s, d_e, q_e, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
         let tag = b"this is a tag";
-        let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, plaintext, tag);
+        let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, tag, plaintext);
 
         let tag = b"this is not a tag";
 
-        let plaintext = decrypt((&d_r, &q_r), &q_e, &q_s, &ciphertext, tag);
+        let plaintext = decrypt((&d_r, &q_r), &q_e, &q_s, tag, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -212,14 +212,14 @@ mod tests {
         let (mut rng, d_s, q_s, d_e, q_e, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
         let tag = b"this is a tag";
-        let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, plaintext, tag);
+        let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, tag, plaintext);
 
         for i in 0..ciphertext.len() {
             for j in 0u8..8 {
                 let mut ciphertext = ciphertext.clone();
                 ciphertext[i] ^= 1 << j;
                 assert!(
-                    decrypt((&d_r, &q_r), &q_e, &q_s, &ciphertext, tag).is_none(),
+                    decrypt((&d_r, &q_r), &q_e, &q_s, tag, &ciphertext).is_none(),
                     "bit flip at byte {}, bit {} produced a valid message",
                     i,
                     j

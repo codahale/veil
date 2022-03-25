@@ -57,9 +57,16 @@ pub fn encrypt(
 
     // For each recipient, encrypt a copy of the header with veil.sres.
     for q_r in q_rs {
-        let ad = mres.squeeze(TAG_LEN);
-        let ciphertext = sres::encrypt(&mut rng, (d_s, q_s), (&d_e, &q_e), q_r, &header, &ad);
+        // Squeeze a nonce for each header.
+        let nonce = mres.squeeze(TAG_LEN);
+
+        // Encrypt the header for the given recipient.
+        let ciphertext = sres::encrypt(&mut rng, (d_s, q_s), (&d_e, &q_e), q_r, &nonce, &header);
+
+        // Absorb the encrypted header.
         mres.absorb(&ciphertext);
+
+        // Write the encrypted header.
         writer.write_all(&ciphertext)?;
         written += ciphertext.len() as u64;
     }
@@ -224,14 +231,14 @@ fn decrypt_header(
             return Err(DecryptError::InvalidCiphertext);
         }
 
-        // Squeeze authenticated data regardless of whether we need to in order to keep the duplex
-        // state consistent.
-        let ad = mres.squeeze(TAG_LEN);
+        // Squeeze a nonce regardless of whether we need to in order to keep the duplex state
+        // consistent.
+        let nonce = mres.squeeze(TAG_LEN);
 
         // If a header hasn't been decrypted yet, try to decrypt this one.
         if dek.is_none() {
             if let Some((d, c, p)) =
-                sres::decrypt((d_r, q_r), q_e, q_s, header, &ad).and_then(decode_header)
+                sres::decrypt((d_r, q_r), q_e, q_s, &nonce, header).and_then(decode_header)
             {
                 // If the header was successfully decrypted, keep the DEK and padding and update the
                 // loop variable to not be effectively infinite.

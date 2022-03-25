@@ -129,7 +129,8 @@ The initial portion of \texttt{veil.mres} is a multi-recipient hybrid encryption
 symmetric data encryption key (DEK) encrypted in headers with the receivers' public
 keys~\cite{kurosawa2002, bellare2003, bellare2007, rfc4880}.
 The headers are encrypted with the \texttt{veil.sres} construction (see~\ref{sec:veil.sres}), which provides full
-insider security (i.e.\ IND-CCA2 and sUF-CMA in the multi-user insider setting).
+insider security (i.e.\ IND-CCA2 and sUF-CMA in the multi-user insider setting), using a per-header \textsc{Squeeze}
+value as a nonce.
 The message itself is divided into a sequence of 32KiB blocks, each encrypted with a sequence of Xoodyak
 \textsc{Encrypt}/\textsc{Squeeze}/\textsc{Ratchet} operations, which is IND-CCA2 secure.
 
@@ -162,7 +163,7 @@ $\Adversary$ is unable to forge valid signatures for existing ciphertexts, limit
 \texttt{veil.mres} ciphertexts consist of ephemeral keys, encrypted headers, random padding, encrypted message blocks,
 and encrypted signature points.
 Each component of the ciphertext is dependent on the previous inputs (including the headers, which use
-\textsc{Squeeze}-derived authenticated data to link the \texttt{veil.sres} ciphertexts to the \texttt{veil.mres} state).
+\textsc{Squeeze}-derived nonce to link the \texttt{veil.sres} ciphertexts to the \texttt{veil.mres} state).
 A passive attack on any of those would only be possible if Xoodyak is not IND-CPA secure.
 
 \subsubsection{Insider Confidentiality}

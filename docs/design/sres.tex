@@ -2,7 +2,7 @@
 
 \texttt{veil.sres} implements a single-receiver, deniable signcryption scheme which Veil uses to encrypt message
 headers.
-It integrates an ephemeral Diffie-Hellman KEM, a Xoodyak AEAD, and a designated-verifier Schnorr signature
+It integrates an ephemeral Diffie-Hellman KEM, a Xoodyak DEM, and a designated-verifier Schnorr signature
 scheme to provide multi-user insider security.
 
 \subsection{Encrypting A Header}\label{subsec:veil.sres-encrypt}
@@ -12,19 +12,19 @@ Encrypting a header is described in full in Alg.~\ref{alg:veil.sres-encrypt}.
 \begin{algorithm}[!htp]
     \caption{
         Encrypting a header with sender's key pair $(d_S, Q_S)$, ephemeral key pair $(d_E, Q_E)$, receiver's public key
-        $Q_R$, plaintext $P$, and authenticated data $D$.
+        $Q_R$, nonce $N$, and plaintext $P$.
     }
     \begin{algorithmic}[1]
-        \Function{EncryptHeader}{$(d_S, Q_S), (d_E, Q_E), Q_R, P, D$}
+        \Function{EncryptHeader}{$(d_S, Q_S), (d_E, Q_E), Q_R, N, P$}
             \State \Call{Cyclist}{\texttt{veil.sres}, $\epsilon$, $\epsilon$}\Comment{Initialize duplex with constant key.}
 
             \State \Call{Absorb}{$Q_S$}\label{alg:veil.sres-encrypt-bind-sender}\Comment{Absorb the sender's public key.}
             \State \Call{Absorb}{$Q_R$}\Comment{Absorb the receiver's public key.}
             \State \Call{Absorb}{$Q_E$}\Comment{Absorb the ephemeral public key.}
-            \State \Call{Absorb}{$D$}\Comment{Absorb the authenticated data.}
+            \State \Call{Absorb}{$N$}\Comment{Absorb the nonce.}
             \State
 
-            \State \Call{Cyclist}{$d_S[Q_E]$, $\epsilon$, $\epsilon$}\Comment{Re-key duplex with ephemeral shared secret.}
+            \State \Call{Cyclist}{$d_S[Q_E]$, $\epsilon$, $\epsilon$}\Comment{Re-key duplex with the shared secret.}
             \State $C \gets$ \Call{Encrypt}{$P$}\Comment{Encrypt the plaintext.}
 
             \State
@@ -60,17 +60,17 @@ Decrypting a header is described in full in Alg.~\ref{alg:veil.sres-decrypt}.
 \begin{algorithm}[!htp]
     \caption{
         Decrypting a header with receiver's key pair $(d_R, Q_R)$, sender's public key $Q_S$, ephemeral public key
-        $Q_E$, ciphertext $C||S_0||S_1$, and authenticated data $D$.
+        $Q_E$, nonce $N$, and ciphertext $C||S_0||S_1$.
     }
     \begin{algorithmic}[1]
-        \Function{DecryptHeader}{$(d_R, Q_R), Q_S, Q_E, C||S_0||S_1, D$}
+        \Function{DecryptHeader}{$(d_R, Q_R), Q_S, Q_E, N, C||S_0||S_1$}
             \State \Call{Cyclist}{\texttt{veil.sres}, $\epsilon$, $\epsilon$} \Comment{Initialize duplex with constant key.}
             \State \Call{Absorb}{$Q_S$}\label{alg:veil.sres-decrypt-bind-sender}\Comment{Absorb the sender's public key.}
             \State \Call{Absorb}{$Q_R$}\Comment{Absorb the receiver's public key.}
             \State \Call{Absorb}{$Q_E$}\Comment{Absorb the ephemeral public key.}
-            \State \Call{Absorb}{$D$}\Comment{Absorb the authenticated data.}
+            \State \Call{Absorb}{$N$}\Comment{Absorb the nonce.}
             \State
-            \State \Call{Cyclist}{$d_R[Q_E]$, $\epsilon$, $\epsilon$}\Comment{Re-key duplex with ephemeral shared secret.}
+            \State \Call{Cyclist}{$d_R[Q_E]$, $\epsilon$, $\epsilon$}\Comment{Re-key duplex with the shared secret.}
             \State $P' \gets$ \Call{Decrypt}{$C$}\Comment{Decrypt the plaintext.}
             \State
             \State $I \gets$ \Call{Decrypt}{$S_0$}\Comment{Decrypt the commitment point.}
@@ -95,8 +95,8 @@ Decrypting a header is described in full in Alg.~\ref{alg:veil.sres-decrypt}.
 and a designated-verifier Schnorr signature scheme.
 
 The initial portion of \texttt{veil.sres} is equivalent to ECIES (see Construction 12.23 of~\cite[p. 435]{katz2020}),
-(with $D$ as authenticated data, the commitment point $I$ as an addition to the ciphertext, and the challenge scalar $r$
-serving as the authentication tag for the data encapsulation mechanism) and is IND-CCA2 secure (see Corollary 12.14
+(with the commitment point $I$ as an addition to the ciphertext, and the challenge scalar $r$ serving as the
+authentication tag for the data encapsulation mechanism) and is IND-CCA2 secure (see Corollary 12.14
 of~\cite[p. 436]{katz2020}).
 
 The latter portion of \texttt{veil.sres} is a designated-verifier Schnorr signature scheme which adapts an EdDSA-style
@@ -204,7 +204,7 @@ a distinguishing attack is infeasible if Xoodyak is IND-CPA secure.
 \subsection{Re-use Of Ephemeral Keys}\label{subsec:veil.sres-re-using-ephemeral-keys}
 
 The re-use of an ephemeral key pair $(d_E, Q_E)$ across multiple ciphertexts does not impair the confidentiality of the
-scheme~\cite{bellare2003}.
+scheme provided $(N, Q_R)$ pairs are not re-used~\cite{bellare2003}.
 An adversary who compromises a retained ephemeral private key would be able to decrypt all messages the sender encrypted
 using that ephemeral key, thus the forward sender security is bounded by the sender's retention of the ephemeral private
 key.
