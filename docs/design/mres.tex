@@ -26,9 +26,8 @@ Encrypting a message is described in full in Alg.~\ref{alg:veil.mres-encrypt}.
             \State \textbf{yield} $(k, d_E, K)$
             \End
             \State
-            \State $Q_E = [d_E]G$\Comment{Mask and absorb the ephemeral public key.}
-            \State $C \rgets $\Call{Mask}{$Q_E$}
-            \State \Call{Absorb}{$C$}
+            \State $Q_E = [d_E]G$\Comment{Calculate the ephemeral public key.}
+            \State $C \gets $\Call{Encrypt}{$Q_E$}\Comment{Encrypt the ephemeral public key.}
             \State
             \State $H = K||N_Q||N_P$\Comment{Encode the DEK and params in a header.}
             \ForAll{$Q_{R^i} \in \{Q_{R^0}..Q_{R^n}\}$}
@@ -74,8 +73,7 @@ Decrypting a signature is described in full in Alg.~\ref{alg:veil.mres-decrypt}.
         \Function{DecryptMessage}{$(d_R, Q_R), Q_S, C$}
             \State \Call{Cyclist}{\texttt{veil.mres}, $\epsilon$, $\epsilon$}\Comment{Initialize duplex with constant key.}
             \State \Call{Absorb}{$Q_S$}\label{alg:veil.mres-decrypt-bind-sender}\Comment{Absorb the sender's public key.}
-            \State \Call{Absorb}{$C[0..31]$}
-            \State $Q_E \gets $\Call{Unmask}{$C[0..31]$}\Comment{Unmask and decode the ephemeral public key.}
+            \State $Q_E \gets $\Call{Decrypt}{$C[0..32]$}\Comment{Decrypt the ephemeral public key.}
             \State
             \ForAll{possible encrypted headers $h \in C$}
                 \State $D \gets$\Call{Squeeze}{$16$}
@@ -86,8 +84,8 @@ Decrypting a signature is described in full in Alg.~\ref{alg:veil.mres-decrypt}.
                 \State \Call{Absorb}{$h$}
             \EndFor
             \State
-            \State \Call{AbsorbMore}{$C_[32+N_Q..32+N_Q+N_P], 16$}\Comment{Absorb padding.}
-            \State $C \gets C_{[32+N_Q+N_P]..}$\Comment{Skip to the message beginning.}
+            \State \Call{AbsorbMore}{$C[32+N_Q..32+N_Q+N_P], 16$}\Comment{Absorb padding.}
+            \State $C \gets C[{32+N_Q+N_P}..]$\Comment{Skip to the message beginning.}
             \State
             \State \Call{Cyclist}{$K$, $\epsilon$, $\epsilon$}\Comment{Re-key the duplex with the DEK.}
             \State
@@ -222,16 +220,19 @@ does as well.
 
 \subsection{Indistinguishability From Random Noise}\label{subsec:veil.mres-indistinguishability}
 
-\texttt{veil.mres} ciphertexts are, unfortunately, not fully indistinguishable from random noise.
-The \textsc{Mask} function randomly flips the most and least significant bits of the encoded point, which removes the
-most trivial distinguishing attack for the ephemeral public key but does not fully resolve the issue.
+\texttt{veil.mres} ciphertexts are indistinguishable from random noise provided the adversary does not know the sender's
+public key.
+If the adversary knows the sender's public key, they can use it to decrypt the ephemeral public key and distinguish
+valid messages with high probability.
+Otherwise, all components of an \texttt{veil.mres} ciphertext are Xoodyak ciphertexts;
+a successful distinguishing attack on them would require Xoodyak to not be IND-CPA secure.
 
 \subsubsection{Future Work}
 
 This aspect of the \texttt{veil.mres} would benefit greatly from the development of a bijective Elligator2-style map
 for Ristretto points.
-Adapting the \textsc{Mask} function to produce an ephemeral key pair with a suitable uniform representative would not
-affect its security properties and would eliminate the available distinguishing attack.
+Swapping the \textsc{Decrypt} operation to produce an ephemeral key pair with a suitable uniform representative would
+not affect its security properties and would eliminate the available distinguishing attack.
 
 \subsection{Partial Decryption}\label{subsec:veil.mres-partial-decryption}
 

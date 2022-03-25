@@ -36,11 +36,9 @@ pub fn encrypt(
     });
     let q_e = &d_e * &G;
 
-    // Mask the ephemeral public key, absorb it, and write it.
-    let q_e_m = mask_point(&mut rng, &q_e);
-    mres.absorb(&q_e_m);
-    writer.write_all(&q_e_m)?;
-    written += q_e_m.len() as u64;
+    // Encrypt the ephemeral public key and write it.
+    writer.write_all(&mres.encrypt(&q_e.to_canonical_encoding()))?;
+    written += POINT_LEN as u64;
 
     // Encode the DEK, recipient count, and padding count in a header.
     let mut header = Vec::with_capacity(HEADER_LEN);
@@ -129,11 +127,11 @@ pub fn decrypt(
     let mut mres = Duplex::new("veil.mres");
     mres.absorb(&q_s.to_canonical_encoding());
 
-    // Read, unmask, and decode the ephemeral public key.
+    // Read, decrypt, and decode the ephemeral public key.
     let mut q_e = [0u8; POINT_LEN];
     reader.read_exact(&mut q_e)?;
-    mres.absorb(&q_e);
-    let q_e = unmask_point(q_e).ok_or(DecryptError::InvalidCiphertext)?;
+    let q_e = mres.decrypt(&q_e);
+    let q_e = Point::from_canonical_encoding(&q_e).ok_or(DecryptError::InvalidCiphertext)?;
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the duplex.
     let (mut mres, dek) = decrypt_header(mres, reader, d_r, q_r, &q_e, q_s)?;
@@ -274,26 +272,6 @@ fn decode_header(header: Vec<u8>) -> Option<(Vec<u8>, u64, u64)> {
     let padding = u64::from_le_bytes(padding.try_into().expect("invalid u64 len"));
 
     Some((dek, hdr_count, padding))
-}
-
-// Encode the given point and randomly mask the two bits which are always zero. This does not
-// produce a bitstring which is uniformly distributed, but rather one which is biased to 25% of the
-// space. In the absence of a bijective Elligator2-style mapping for Ristretto, this is the best
-// we can do.
-#[inline]
-fn mask_point(mut rng: impl Rng + CryptoRng, q: &Point) -> [u8; 32] {
-    let mask: u8 = rng.gen();
-    let mut b = q.to_canonical_encoding();
-    b[0] |= mask & !0xfe;
-    b[31] |= mask & !0x7f;
-    b
-}
-
-#[inline]
-fn unmask_point(mut b: [u8; 32]) -> Option<Point> {
-    b[0] &= 0xfe;
-    b[31] &= 0x7f;
-    Point::from_canonical_encoding(&b)
 }
 
 struct RngRead<R>(R)
@@ -483,15 +461,6 @@ mod tests {
         }
 
         Ok(())
-    }
-
-    #[test]
-    fn point_masking() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        for _ in 0..1000 {
-            let q = Point::random(&mut rng);
-            assert_eq!(Some(q), unmask_point(mask_point(&mut rng, &q)));
-        }
     }
 
     fn setup() -> (ChaChaRng, Scalar, Point, Scalar, Point) {
