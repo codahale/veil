@@ -134,9 +134,9 @@ dependencies = [
 
 [[package]]
 name = "clio"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f99cf2749fe5e47ae9ba6eb07b1acf8b050c6921eac19393db3cb20a2d510dd"
+checksum = "e0918fb18554bd51c2e082d68453ec425d1a72bf3331c7fd1b1501efa1057e0c"
 dependencies = [
  "libc",
 ]
