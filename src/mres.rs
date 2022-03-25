@@ -5,6 +5,7 @@ use std::io::{self, Read, Write};
 use std::mem;
 use std::result::Result;
 
+use curve25519_dalek::ristretto::RistrettoPoint;
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Duplex, TAG_LEN};
@@ -30,14 +31,22 @@ pub fn encrypt(
     mres.absorb(&q_s.to_canonical_encoding());
 
     // Derive a random ephemeral key pair, commitment scalar, and data encryption key from the
-    // duplex's current state, the sender's private key, and a random nonce.
-    let (d_e, k, dek) = mres.hedge(&mut rng, d_s, |clone| {
-        (clone.squeeze_scalar(), clone.squeeze_scalar(), clone.squeeze(DEK_LEN))
-    });
-    let q_e = &d_e * &G;
+    // duplex's current state, the sender's private key, and a random nonce. Loop until we produce
+    // an ephemeral private key which has a public key with an Elligator2 representative.
+    let mut generate_keys = || loop {
+        let (d_e, k, dek) = mres.hedge(&mut rng, d_s, |clone| {
+            (clone.squeeze_scalar(), clone.squeeze_scalar(), clone.squeeze(DEK_LEN))
+        });
+        let q_e = &d_e * &G;
+        if let Some(q_e_r) = q_e.to_elligator2() {
+            return (d_e, q_e, q_e_r, k, dek);
+        }
+    };
+    let (d_e, q_e, q_e_r, k, dek) = generate_keys();
 
-    // Encrypt the ephemeral public key and write it.
-    writer.write_all(&mres.encrypt(&q_e.to_canonical_encoding()))?;
+    // Absorb and write the representative of the ephemeral public key.
+    mres.absorb(&q_e_r);
+    writer.write_all(&q_e_r)?;
     written += POINT_LEN as u64;
 
     // Encode the DEK, recipient count, and padding count in a header.
@@ -127,11 +136,11 @@ pub fn decrypt(
     let mut mres = Duplex::new("veil.mres");
     mres.absorb(&q_s.to_canonical_encoding());
 
-    // Read, decrypt, and decode the ephemeral public key.
-    let mut q_e = [0u8; POINT_LEN];
-    reader.read_exact(&mut q_e)?;
-    let q_e = mres.decrypt(&q_e);
-    let q_e = Point::from_canonical_encoding(&q_e).ok_or(DecryptError::InvalidCiphertext)?;
+    // Read, absorb, and decode the ephemeral public key.
+    let mut q_e_r = [0u8; POINT_LEN];
+    reader.read_exact(&mut q_e_r)?;
+    mres.absorb(&q_e_r);
+    let q_e = RistrettoPoint::from_elligator2(&q_e_r).ok_or(DecryptError::InvalidCiphertext)?;
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the duplex.
     let (mut mres, dek) = decrypt_header(mres, reader, d_r, q_r, &q_e, q_s)?;

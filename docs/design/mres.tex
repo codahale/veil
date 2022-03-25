@@ -27,7 +27,8 @@ Encrypting a message is described in full in Alg.~\ref{alg:veil.mres-encrypt}.
             \End
             \State
             \State $Q_E = [d_E]G$\Comment{Calculate the ephemeral public key.}
-            \State $C \gets $\Call{Encrypt}{$Q_E$}\Comment{Encrypt the ephemeral public key.}
+            \State $C \gets $\Call{PointToUniform}{$Q_E$}\Comment{Encode the key with Elligator2.}
+            \State \Call{Absorb}{$C$}\Comment{Absorb the encoded public key.}
             \State
             \State $H = K||N_Q||N_P$\Comment{Encode the DEK and params in a header.}
             \ForAll{$Q_{R^i} \in \{Q_{R^0}..Q_{R^n}\}$}
@@ -73,7 +74,9 @@ Decrypting a signature is described in full in Alg.~\ref{alg:veil.mres-decrypt}.
         \Function{DecryptMessage}{$(d_R, Q_R), Q_S, C$}
             \State \Call{Cyclist}{\texttt{veil.mres}, $\epsilon$, $\epsilon$}\Comment{Initialize duplex with constant key.}
             \State \Call{Absorb}{$Q_S$}\label{alg:veil.mres-decrypt-bind-sender}\Comment{Absorb the sender's public key.}
-            \State $Q_E \gets $\Call{Decrypt}{$C[0..32]$}\Comment{Decrypt the ephemeral public key.}
+            \State
+            \State \Call{Absorb}{$C[0..32]$}\Comment{Absorb the encoded ephemeral public key.}
+            \State $Q_E \gets $\Call{UniformToPoint}{$C[0..32]$}\Comment{Decode the ephemeral public key.}
             \State
             \ForAll{possible encrypted headers $h \in C$}
                 \State $D \gets$\Call{Squeeze}{$16$}
@@ -220,19 +223,17 @@ does as well.
 
 \subsection{Indistinguishability From Random Noise}\label{subsec:veil.mres-indistinguishability}
 
-\texttt{veil.mres} ciphertexts are indistinguishable from random noise provided the adversary does not know the sender's
-public key.
-If the adversary knows the sender's public key, they can use it to decrypt the ephemeral public key and distinguish
-valid messages with high probability.
-Otherwise, all components of an \texttt{veil.mres} ciphertext are Xoodyak ciphertexts;
+\texttt{veil.mres} ciphertexts are indistinguishable from random noise.
+The ephemeral public key is encoded using Elligator2, which maps points on an elliptic curve to uniform bitstrings.
+All other components of an \texttt{veil.mres} ciphertext are Xoodyak ciphertexts;
 a successful distinguishing attack on them would require Xoodyak to not be IND-CPA secure.
 
-\subsubsection{Future Work}
+\subsubsection{Elligator2 And Ristretto}
 
-This aspect of the \texttt{veil.mres} would benefit greatly from the development of a bijective Elligator2-style map
-for Ristretto points.
-Swapping the \textsc{Decrypt} operation to produce an ephemeral key pair with a suitable uniform representative would
-not affect its security properties and would eliminate the available distinguishing attack.
+To encode a Ristretto point $Q$, Veil iterates over the point's $\mathcal E[4]$ coset of Edwards points, converting each
+to Montomgery points and mapping them via Elligator2 to bitstrings.
+The first bitstring which can be decoded as the original Ristretto point $Q$ is returned, if any exist.
+This is likely a suboptimal approach.
 
 \subsection{Partial Decryption}\label{subsec:veil.mres-partial-decryption}
 
