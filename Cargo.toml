@@ -18,7 +18,7 @@ rand = { version = "0.8.5", features = ["min_const_gen"] }
 subtle = "2.4.1"
 thiserror = "1.0.30"
 unicode-normalization = "0.1.19"
-xoodyak = "0.7.3"
+xoodyak = { git = "https://github.com/jedisct1/rust-xoodyak", branch = "master" }
 zeroize = { version = "1.5.4", features = ["derive"] }
 
 # cli-only deps

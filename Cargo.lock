@@ -1068,8 +1068,7 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 [[package]]
 name = "xoodyak"
 version = "0.7.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94b52dbbb9ca4862dcd5e33383af1610db2f28d081e0803e3a3b2bbdfab5eeed"
+source = "git+https://github.com/jedisct1/rust-xoodyak?branch=master#6585ffd87709af8759aba4fd3db2556f9972a83a"
 dependencies = [
  "rawbytes",
  "zeroize",
