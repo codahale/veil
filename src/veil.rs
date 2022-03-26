@@ -30,7 +30,12 @@ impl PrivateKey {
     /// Creates a randomly generated private key.
     #[must_use]
     pub fn random(mut rng: impl Rng + CryptoRng) -> PrivateKey {
-        PrivateKey::from_scalar(Scalar::random(&mut rng))
+        loop {
+            let k = PrivateKey::from_scalar(Scalar::random(&mut rng));
+            if k.pk.q.to_elligator2().is_some() {
+                return k;
+            }
+        }
     }
 
     /// Returns the corresponding public key.
