@@ -97,7 +97,7 @@ impl Duplex {
     where
         W: Write,
     {
-        AbsorbWriter { duplex: self, writer, buffer: Vec::with_capacity(16 * 1024), n: 0 }
+        AbsorbWriter::new(self, writer)
     }
 
     /// Encrypt and seal the given plaintext, adding [TAG_LEN] bytes to the end.
@@ -152,6 +152,12 @@ pub struct AbsorbWriter<W: Write> {
 }
 
 const ABSORB_RATE: usize = 32 * 1024;
+
+impl<W: Write> AbsorbWriter<W> {
+    fn new(duplex: Duplex, writer: W) -> AbsorbWriter<W> {
+        AbsorbWriter { duplex, writer, buffer: Vec::with_capacity(ABSORB_RATE), n: 0 }
+    }
+}
 
 impl<W: Write> Write for AbsorbWriter<W> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
