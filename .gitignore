@@ -1,5 +1,4 @@
 /target
-.vscode
 
 # LaTeX temporary files
 *.aux
@@ -15,6 +14,3 @@
 *.synctex.gz
 *.toc
 *.loa
-
-# Intermediate formats for docs
-*.eps
