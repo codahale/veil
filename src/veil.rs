@@ -4,6 +4,7 @@ use std::fmt::{Debug, Formatter};
 use std::io::{BufWriter, Read, Write};
 use std::str::FromStr;
 use std::{fmt, io, iter};
+use curve25519_dalek::traits::IsIdentity;
 
 use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
@@ -188,10 +189,13 @@ impl AsciiEncoded for PublicKey {
     type Err = ParsePublicKeyError;
 
     fn from_bytes(b: &[u8]) -> Result<Self, <Self as AsciiEncoded>::Err> {
-        Ok(PublicKey {
-            q: Point::from_elligator2(b.try_into().or(Err(ParsePublicKeyError::InvalidPublicKey))?)
-                .ok_or(ParsePublicKeyError::InvalidPublicKey)?,
-        })
+        let b = b.try_into().or(Err(ParsePublicKeyError::InvalidPublicKey))?;
+        let q = Point::from_elligator2(&b).ok_or(ParsePublicKeyError::InvalidPublicKey)?;
+        if q.is_identity() {
+            return Err(ParsePublicKeyError::InvalidPublicKey);
+        }
+
+        Ok(PublicKey { q })
     }
 
     fn to_bytes(&self) -> Vec<u8> {
