@@ -2,6 +2,17 @@
 
 Veil uses a few common construction techniques in its design which bear specific mention.
 
+\subsection{Keyed Duplexes}\label{subsec:cons-keyed-duplexes}
+
+Veil uses Xoodyak exclusively in the keyed mode, and every construction begins with a \textsc{Cyclist} operation using
+a constant key (e.g.\ \texttt{veil.mres}) as a domain separation string.
+This allows constructions to use \textsc{Encrypt} operations without specific key material, which is useful in e.g.\
+a digital signature scheme (see~\ref{sec:veil.schnorr}) to produce uniform bitstrings.
+Constructions which do involve key material (see~\ref{sec:veil.sres},~\ref{sec:veil.mres},~\ref{sec:veil.pbenc}), the
+\textsc{Absorb} operation is used.
+This is structurally equivalent to calling the \textsc{Cyclist} operation without a key ID, nonce, or counter, albeit
+with a different internal domain separator.
+
 \subsection{Integrated Constructions}\label{subsec:cons-integrated-constructions}
 
 Xoodyak is a cryptographic duplex, thus each operation is cryptographically dependent on the previous operations.
