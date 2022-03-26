@@ -4,8 +4,8 @@ use std::fmt::{Debug, Formatter};
 use std::io::{BufWriter, Read, Write};
 use std::str::FromStr;
 use std::{fmt, io, iter};
-use curve25519_dalek::traits::IsIdentity;
 
+use curve25519_dalek::traits::IsIdentity;
 use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
 use zeroize::{Zeroize, ZeroizeOnDrop};
