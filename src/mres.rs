@@ -31,19 +31,8 @@ pub fn encrypt(
     let mut mres = Duplex::new("veil.mres");
     mres.absorb(&q_s.to_canonical_encoding());
 
-    // Derive a random ephemeral key pair, commitment scalar, and data encryption key from the
-    // duplex's current state, the sender's private key, and a random nonce. Loop until we produce
-    // an ephemeral private key which has a public key with an Elligator2 representative.
-    let mut generate_keys = || loop {
-        let (d_e, k, dek) = mres.hedge(&mut rng, d_s, |clone| {
-            (clone.squeeze_scalar(), clone.squeeze_scalar(), clone.squeeze(DEK_LEN))
-        });
-        let q_e = &d_e * &G;
-        if let Some(q_e_r) = q_e.to_elligator2() {
-            return (d_e, q_e, q_e_r, k, dek);
-        }
-    };
-    let (d_e, q_e, q_e_r, k, dek) = generate_keys();
+    // Generate ephemeral key pair, Elligator2 representative, ephemeral scalar, and DEK.
+    let (d_e, q_e, q_e_r, k, dek) = generate_keys(&mut mres, &mut rng, d_s);
 
     // Absorb and write the representative of the ephemeral public key.
     mres.absorb(&q_e_r);
@@ -84,6 +73,25 @@ pub fn encrypt(
     writer.write_all(&s)?;
 
     Ok(written + padding + i.len() as u64 + s.len() as u64)
+}
+
+// Derive a random ephemeral key pair, commitment scalar, and data encryption key from the duplex's
+// current state, the sender's private key, and a random nonce. Loop until we produce an ephemeral
+// private key which has a public key with an Elligator2 representative.
+fn generate_keys(
+    mres: &mut Duplex,
+    mut rng: impl CryptoRng + Rng,
+    d_s: &Scalar,
+) -> (Scalar, Point, [u8; 32], Scalar, Vec<u8>) {
+    loop {
+        let (d_e, k, dek) = mres.hedge(&mut rng, d_s, |clone| {
+            (clone.squeeze_scalar(), clone.squeeze_scalar(), clone.squeeze(DEK_LEN))
+        });
+        let q_e = &d_e * &G;
+        if let Some(q_e_r) = q_e.to_elligator2() {
+            return (d_e, q_e, q_e_r, k, dek);
+        }
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
