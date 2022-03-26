@@ -42,7 +42,7 @@ via \textsc{Squeeze} operations are dependent on the entire process history of t
 ciphertext.
 The DEM components of Alg.~\ref{alg:hpke} (i.e.\ \textsc{Encrypt}/\textsc{Squeeze}) are superficially similar to an
 Encrypt-then-MAC ($\EtM$) construction, but where an adversary in possession of the MAC key can forge authenticators
-given an $\EtM$ ciphertext, the duplex-based approach makes that impossible.
+given an $\EtM$ ciphertext, the duplex-based approach makes that infeasible.
 The output of the \textsc{Squeeze} operation is dependent not just on the keying material (i.e.\ the \textsc{Cyclist}
 operation) but also on the plaintext $P$.
 An adversary attempting to forge an authenticator given only key material and ciphertext will be unable to reconstruct
