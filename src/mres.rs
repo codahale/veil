@@ -79,8 +79,8 @@ pub fn encrypt(
     // and padding.
     let (mut mres, mut writer, header_len) = mres.into_inner()?;
 
-    // Use the DEK to key the duplex.
-    mres.rekey(&dek);
+    // Absorb the DEK.
+    mres.absorb(&dek);
 
     // Encrypt the plaintext in blocks and write them.
     let ciphertext_len = encrypt_message(&mut mres, reader, &mut writer)?;
@@ -152,8 +152,8 @@ pub fn decrypt(
     // Find a header, decrypt it, and write the entirety of the headers and padding to the duplex.
     let (mut mres, dek) = decrypt_header(mres, reader, d_r, q_r, &q_e, q_s)?;
 
-    // Use the DEK to key the duplex.
-    mres.rekey(&dek);
+    // Absorb the DEK.
+    mres.absorb(&dek);
 
     // Decrypt the message and verify the signature.
     decrypt_message(&mut mres, &q_e, reader, writer)
