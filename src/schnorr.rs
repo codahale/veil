@@ -62,8 +62,8 @@ pub fn sign(
     let mut schnorr = schnorr.absorb_stream(io::sink());
     io::copy(&mut message, &mut schnorr)?;
 
-    // Unwrap the duplex and writer.
-    let (mut schnorr, _, _) = schnorr.into_inner()?;
+    // Unwrap the duplex.
+    let (mut schnorr, _) = schnorr.into_inner()?;
 
     // Derive a commitment scalar from the duplex's current state, the signer's private key,
     // and a random nonce.
@@ -99,8 +99,8 @@ pub fn verify(
     let mut schnorr = schnorr.absorb_stream(io::sink());
     io::copy(&mut message, &mut schnorr)?;
 
-    // Unwrap the duplex and writer.
-    let (mut schnorr, _, _) = schnorr.into_inner()?;
+    // Unwrap the duplex.
+    let (mut schnorr, _) = schnorr.into_inner()?;
 
     // Verify the signature.
     verify_duplex(&mut schnorr, q, &sig.0)

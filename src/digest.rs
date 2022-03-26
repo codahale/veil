@@ -54,7 +54,7 @@ impl Digest {
         io::copy(reader, &mut digest)?;
 
         // Unwrap the duplex and squeeze N bytes as a digest.
-        let (mut digest, _, _) = digest.into_inner()?;
+        let (mut digest, _) = digest.into_inner()?;
         Ok(Digest(digest.squeeze(DIGEST_LEN).try_into().expect("invalid digest len")))
     }
 }

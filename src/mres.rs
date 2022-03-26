@@ -65,7 +65,7 @@ pub fn encrypt(
     // Add random padding to the end of the headers.
     let mut mres = mres.absorb_stream(writer);
     io::copy(&mut RngRead(&mut rng).take(padding), &mut mres)?;
-    let (mut mres, mut writer, _) = mres.into_inner()?;
+    let (mut mres, mut writer) = mres.into_inner()?;
 
     // Absorb the DEK.
     mres.absorb(&dek);
@@ -288,7 +288,7 @@ fn decrypt_header(
         io::copy(&mut remainder, &mut mres)?;
 
         // Unwrap the writer.
-        let (mres, _, _) = mres.into_inner()?;
+        let (mres, _) = mres.into_inner()?;
 
         // Return the duplex and DEK.
         Ok((mres, dek))

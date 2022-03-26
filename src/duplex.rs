@@ -148,20 +148,18 @@ pub struct AbsorbWriter<W: Write> {
     duplex: Duplex,
     writer: W,
     buffer: Vec<u8>,
-    n: u64,
 }
 
 const ABSORB_RATE: usize = 32 * 1024;
 
 impl<W: Write> AbsorbWriter<W> {
     fn new(duplex: Duplex, writer: W) -> AbsorbWriter<W> {
-        AbsorbWriter { duplex, writer, buffer: Vec::with_capacity(ABSORB_RATE), n: 0 }
+        AbsorbWriter { duplex, writer, buffer: Vec::with_capacity(ABSORB_RATE) }
     }
 }
 
 impl<W: Write> Write for AbsorbWriter<W> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.n += buf.len() as u64;
         self.buffer.extend(buf);
         let max = self.buffer.len() - (self.buffer.len() % ABSORB_RATE);
         if max >= ABSORB_RATE {
@@ -181,11 +179,10 @@ impl<W: Write> Write for AbsorbWriter<W> {
 }
 
 impl<W: Write> AbsorbWriter<W> {
-    /// Unwrap the writer into the inner duplex and writer. Also returns the number of bytes
-    /// written.
-    pub fn into_inner(mut self) -> io::Result<(Duplex, W, u64)> {
+    /// Unwrap the writer into the inner duplex and writer.
+    pub fn into_inner(mut self) -> io::Result<(Duplex, W)> {
         self.flush()?;
-        Ok((self.duplex, self.writer, self.n))
+        Ok((self.duplex, self.writer))
     }
 }
 
@@ -229,26 +226,24 @@ mod tests {
         let mut w = duplex.absorb_stream(Cursor::new(Vec::new()));
         w.write_all(b"this is a message that").expect("write failure");
         w.write_all(b" is written in multiple pieces").expect("write failure");
-        let (mut one, m1, n1) = w.into_inner().expect("unwrap failure");
+        let (mut one, m1) = w.into_inner().expect("unwrap failure");
 
         assert_eq!(
             b"this is a message that is written in multiple pieces",
             m1.into_inner().as_slice()
         );
-        assert_eq!(52, n1);
 
         let duplex = Duplex::new("ok");
         let mut w = duplex.absorb_stream(Cursor::new(Vec::new()));
         w.write_all(b"this is a message that").expect("write failure");
         w.write_all(b" is written in multiple").expect("write failure");
         w.write_all(b" pieces").expect("write failure");
-        let (mut two, m2, n2) = w.into_inner().expect("unwrap failure");
+        let (mut two, m2) = w.into_inner().expect("unwrap failure");
 
         assert_eq!(
             b"this is a message that is written in multiple pieces",
             m2.into_inner().as_slice()
         );
-        assert_eq!(52, n2);
 
         assert_eq!(one.squeeze(4), two.squeeze(4));
     }
