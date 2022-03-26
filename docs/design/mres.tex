@@ -132,7 +132,7 @@ EdDSA-style Schnorr signature scheme.
 The initial portion of \texttt{veil.mres} is a multi-recipient hybrid encryption scheme, with per-receiver copies of a
 symmetric data encryption key (DEK) encrypted in headers with the receivers' public
 keys~\cite{kurosawa2002, bellare2003, bellare2007, rfc4880}.
-The headers are encrypted with the \texttt{veil.sres} construction (see~\ref{sec:veil.sres}), which provides full
+The headers are encrypted with the \texttt{veil.sres} construction (see Sec.~\ref{sec:veil.sres}), which provides full
 insider security (i.e.\ IND-CCA2 and sUF-CMA in the multi-user insider setting), using a per-header \textsc{Squeeze}
 value as a nonce.
 The message itself is divided into a sequence of 32KiB blocks, each encrypted with a sequence of Xoodyak
@@ -140,22 +140,22 @@ The message itself is divided into a sequence of 32KiB blocks, each encrypted wi
 
 The latter portion of \texttt{veil.mres} is an EdDSA-style Schnorr signature scheme.
 The EdDSA-style Schnorr signature is sUF-CMA secure when implemented in a prime order group and a cryptographic hash
-function~\cite{brendel2021, chalkias2020, pointcheval2000, neven2009} (see also~\ref{sec:veil.schnorr}).
+function~\cite{brendel2021, chalkias2020, pointcheval2000, neven2009} (see also Sec.~\ref{sec:veil.schnorr}).
 
 \subsection{Multi-User Confidentiality}\label{subsec:veil.mres-conf}
 
 One of the two main goals of the \texttt{veil.mres} is confidentiality in the multi-user setting
-(see~\ref{subsec:sec-conf}), or the inability of an adversary $\Adversary$ to learn information about plaintexts.
+(see Sec.~\ref{subsec:sec-conf}), or the inability of an adversary $\Adversary$ to learn information about plaintexts.
 As \texttt{veil.mres} is a multi-recipient scheme, we adopt Bellare et al.'s adaptation of the multi-user
 setting, in which $\Adversary$ may compromise a subset of receivers~\cite{bellare2007}.
 
 \subsubsection{Outsider Confidentiality}
 
 First, we evaluate the confidentiality of \texttt{veil.mres} in the multi-user outsider setting
-(see~\ref{subsubsec:sec-conf-outsider}), in which the adversary $\Adversary$ knows the public keys of all users but none
-of their private keys~\cite[p. 44]{baek2010}.
+(see Sec.~\ref{subsubsec:sec-conf-outsider}), in which the adversary $\Adversary$ knows the public keys of all users but
+none of their private keys~\cite[p. 44]{baek2010}.
 
-As with \texttt{veil.sres} (see~\ref{subsec:veil.sres-conf}), \texttt{veil.mres} superficially resembles an
+As with \texttt{veil.sres} (see Sec.~\ref{subsec:veil.sres-conf}), \texttt{veil.mres} superficially resembles an
 Encrypt-Then-Sign ($\EtS$) scheme, which are vulnerable to an attack where by $\Adversary$ strips the signature from the
 challenge ciphertext and either signs it themselves or tricks the sender into signing it, thereby creating a new
 ciphertext they can then trick the receiver into decrypting for them.
@@ -173,18 +173,18 @@ A passive attack on any of those would only be possible if Xoodyak is not IND-CP
 \subsubsection{Insider Confidentiality}
 
 Next, we evaluate the confidentiality of \texttt{veil.mres} in the multi-user insider setting
-(see~\ref{subsubsec:sec-conf-insider}), in which the adversary $\Adversary$ knows the sender's private key in addition
-to the public keys of all users~\cite[p. 45--46]{baek2010}.
+(see Sec.~\ref{subsubsec:sec-conf-insider}), in which the adversary $\Adversary$ knows the sender's private key in
+addition to the public keys of all users~\cite[p. 45--46]{baek2010}.
 
 $\Adversary$ cannot decrypt the message by themselves, as they do not know either $d_E$ or any $d_R$ and cannot decrypt
 any of the \texttt{veil.sres}-encrypted headers.
 
-As with \texttt{veil.sres} (see~\ref{subsec:veil.sres-conf}),
+As with \texttt{veil.sres} (see Sec.~\ref{subsec:veil.sres-conf}),
 $\Adversary$ cannot trick the receiver into decrypting an equivalent message by replacing the signature, despite
 $\Adversary$'s ability to use $d_S$ to create new headers.
 In order to generate a valid signature on a ciphertext $c'$ (e.g.\ $c'=c||1$), $\Adversary$ would have to squeeze a
 valid challenge scalar $r'$ from the duplex state (see Alg.~\ref{alg:veil.mres-encrypt},
-line~\ref{alg:veil.mres-encrypt-challenge}).
+Line~\ref{alg:veil.mres-encrypt-challenge}).
 Unlike the signature hash function in the generic $\EtS$ composition, however, the duplex state is cryptographically
 dependent on a value $\Adversary$ does not know, specifically the data encryption key $K$ (via the \textsc{Absorb}
 operation) and the plaintext blocks $p_{0..n}$ (via the \textsc{Encrypt} operation).
@@ -194,13 +194,13 @@ Therefore, \texttt{veil.mres} provides confidentiality in the multi-user insider
 \subsection{Multi-User Authenticity}\label{subsec:veil.mres-auth}
 
 The second of the two main goals of the \texttt{veil.mres} is authenticity in the multi-user setting
-(see~\ref{subsec:sec-auth}), or the inability of an adversary $\Adversary$ to forge valid ciphertexts.
+(see Sec.~\ref{subsec:sec-auth}), or the inability of an adversary $\Adversary$ to forge valid ciphertexts.
 
 \subsubsection{Outsider Authenticity}
 
 First, we evaluate the authenticity of \texttt{veil.mres} in the multi-user outsider setting
-(see~\ref{subsubsec:sec-auth-outsider}), in which the adversary $\Adversary$ knows the public keys of all users but none
-of their private keys~\cite[p. 47]{baek2010}.
+(see Sec.~\ref{subsubsec:sec-auth-outsider}), in which the adversary $\Adversary$ knows the public keys of all users but
+none of their private keys~\cite[p. 47]{baek2010}.
 
 Because the Schnorr signature scheme is sUF-CMA secure, it is infeasible for $\Adversary$ to forge a signature for a new
 message or modify an existing signature for an existing message.
@@ -209,7 +209,7 @@ Therefore, \texttt{veil.mres} provides authenticity in the multi-user outsider s
 \subsubsection{Insider Authenticity}
 
 Next, we evaluate the authenticity of \texttt{veil.mres} in the multi-user insider setting
-(see~\ref{subsubsec:sec-auth-insider}), in which the adversary $\Adversary$ knows some receivers' private keys in
+(see Sec.~\ref{subsubsec:sec-auth-insider}), in which the adversary $\Adversary$ knows some receivers' private keys in
 addition to the public keys of both users~\cite[p. 48]{baek2010}.
 
 Again, the Schnorr signature scheme is sUF-CMA secure and the signature is created using the ephemeral private key,
@@ -223,8 +223,8 @@ The only portion of \texttt{veil.mres} ciphertexts which are creating using the 
 a particular message to their identity) are the \texttt{veil.sres}-encrypted headers.
 All other components are creating using the data encryption key or ephemeral private key, neither of which are bound
 to identity.
-\texttt{veil.sres} provides limited deniability (see~\ref{subsec:veil.sres-deniability}), therefore \texttt{veil.mres}
-does as well.
+\texttt{veil.sres} provides limited deniability (see Sec.~\ref{subsec:veil.sres-deniability}), therefore
+\texttt{veil.mres} does as well.
 
 \subsection{Indistinguishability From Random Noise}\label{subsec:veil.mres-indistinguishability}
 
