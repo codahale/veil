@@ -10,14 +10,14 @@ Creating a message digest is described in full in Alg.~\ref{alg:veil.digest}.
     \caption{Creating a message digest with metadata strings $V$ and message $M$.}
     \begin{algorithmic}
         \Function{Digest}{$V,M$}
-            \State \Call{Cyclist}{\texttt{veil.digest}, $\epsilon$, $\epsilon$} \Comment{Initialize duplex with constant key.}
+            \State \Call{Cyclist}{\texttt{veil.digest}, $\epsilon$, $\epsilon$}\Comment{Initialize duplex with constant key.}
             \ForAll{$V_i \in V$}
-                \State \Call{Absorb}{$V_i$} \Comment{Absorb metadata strings in order.}
+                \State \Call{Absorb}{$V_i$}\Comment{Absorb metadata strings in order.}
             \EndFor
             \ForAll{$M_i \in M$}
-                \State \Call{Absorb}{$M_i$} \Comment{Absorb message in 32KiB blocks.}
+                \State \Call{Absorb}{$M_i$}\Comment{Absorb message in 32KiB blocks.}
             \EndFor
-            \State $D \gets$ \Call{Squeeze}{$64$} \Comment{Squeeze a 64-byte digest.}
+            \State $D \gets $\Call{Squeeze}{$64$}\Comment{Squeeze a 64-byte digest.}
             \State \textbf{return} $D$
         \EndFunction
     \end{algorithmic}
@@ -33,7 +33,7 @@ codes (see Alg.~\ref{alg:veil.digest-mac}).
     \caption{Creating a message authentication code with key $K$, metadata strings $V$, and message $M$.}
     \begin{algorithmic}
         \Function{Mac}{$K,V,M$}
-            \State $T \gets$ \Call{Digest}{$K || V$, $M$} \Comment{Include the key as metadata.}
+            \State $T \gets $\Call{Digest}{$K || V$, $M$}\Comment{Include the key as metadata.}
             \State \textbf{return} $T$
         \EndFunction
     \end{algorithmic}
