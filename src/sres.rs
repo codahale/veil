@@ -6,6 +6,9 @@ use crate::duplex::Duplex;
 use crate::ristretto::{CanonicallyEncoded, Point, Scalar, POINT_LEN};
 use crate::schnorr;
 
+/// The recommended size of the nonce passed to [encrypt].
+pub const NONCE_LEN: usize = 16;
+
 /// The number of bytes added to plaintext by [encrypt].
 pub const OVERHEAD: usize = POINT_LEN + POINT_LEN;
 

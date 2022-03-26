@@ -12,6 +12,7 @@ use crate::duplex::{Duplex, TAG_LEN};
 use crate::ristretto::{CanonicallyEncoded, G, POINT_LEN};
 use crate::ristretto::{Point, Scalar};
 use crate::schnorr::SIGNATURE_LEN;
+use crate::sres::NONCE_LEN;
 use crate::{schnorr, sres, DecryptError};
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
@@ -107,7 +108,7 @@ fn encrypt_headers(
     // For each recipient, encrypt a copy of the header with veil.sres.
     for q_r in q_rs {
         // Squeeze a nonce for each header.
-        let nonce = mres.squeeze(TAG_LEN);
+        let nonce = mres.squeeze(NONCE_LEN);
 
         // Encrypt the header for the given recipient.
         let ciphertext = sres::encrypt(&mut rng, (d_s, q_s), (d_e, q_e), q_r, &nonce, &header);
@@ -258,7 +259,7 @@ fn decrypt_header(
 
         // Squeeze a nonce regardless of whether we need to in order to keep the duplex state
         // consistent.
-        let nonce = mres.squeeze(TAG_LEN);
+        let nonce = mres.squeeze(NONCE_LEN);
 
         // If a header hasn't been decrypted yet, try to decrypt this one.
         if dek.is_none() {
