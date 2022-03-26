@@ -49,41 +49,28 @@ pub fn encrypt(
     writer.write_all(&q_e_r)?;
     written += POINT_LEN as u64;
 
-    // Encode the DEK, recipient count, and padding count in a header.
-    let mut header = Vec::with_capacity(HEADER_LEN);
-    header.extend(&dek);
-    header.extend((q_rs.len() as u64).to_le_bytes());
-    header.extend(padding.to_le_bytes());
-
-    // For each recipient, encrypt a copy of the header with veil.sres.
-    for q_r in q_rs {
-        // Squeeze a nonce for each header.
-        let nonce = mres.squeeze(TAG_LEN);
-
-        // Encrypt the header for the given recipient.
-        let ciphertext = sres::encrypt(&mut rng, (d_s, q_s), (&d_e, &q_e), q_r, &nonce, &header);
-
-        // Absorb the encrypted header.
-        mres.absorb(&ciphertext);
-
-        // Write the encrypted header.
-        writer.write_all(&ciphertext)?;
-        written += ciphertext.len() as u64;
-    }
+    // Encrypt a header for each recipient.
+    written += encrypt_headers(
+        &mut mres,
+        &mut rng,
+        (d_s, q_s),
+        (&d_e, &q_e),
+        q_rs,
+        &dek,
+        padding,
+        writer,
+    )?;
 
     // Add random padding to the end of the headers.
     let mut mres = mres.absorb_stream(writer);
     io::copy(&mut RngRead(&mut rng).take(padding), &mut mres)?;
-
-    // Unwrap the absorb writer, having absorbed the masked ephemeral public key, encrypted headers,
-    // and padding.
-    let (mut mres, mut writer, header_len) = mres.into_inner()?;
+    let (mut mres, mut writer, _) = mres.into_inner()?;
 
     // Absorb the DEK.
     mres.absorb(&dek);
 
     // Encrypt the plaintext in blocks and write them.
-    let ciphertext_len = encrypt_message(&mut mres, reader, &mut writer)?;
+    written += encrypt_message(&mut mres, reader, &mut writer)?;
 
     // Sign the duplex's final state with the ephemeral private key.
     let (i, s) = schnorr::sign_duplex(&mut mres, &d_e, k);
@@ -95,7 +82,45 @@ pub fn encrypt(
     writer.write_all(&i)?;
     writer.write_all(&s)?;
 
-    Ok(written + header_len + ciphertext_len + i.len() as u64 + s.len() as u64)
+    Ok(written + padding + i.len() as u64 + s.len() as u64)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn encrypt_headers(
+    mres: &mut Duplex,
+    mut rng: impl Rng + CryptoRng,
+    (d_s, q_s): (&Scalar, &Point),
+    (d_e, q_e): (&Scalar, &Point),
+    q_rs: &[Point],
+    dek: &[u8],
+    padding: u64,
+    writer: &mut impl Write,
+) -> io::Result<u64> {
+    let mut written = 0u64;
+
+    // Encode the DEK, recipient count, and padding count in a header.
+    let mut header = Vec::with_capacity(HEADER_LEN);
+    header.extend(dek);
+    header.extend((q_rs.len() as u64).to_le_bytes());
+    header.extend(padding.to_le_bytes());
+
+    // For each recipient, encrypt a copy of the header with veil.sres.
+    for q_r in q_rs {
+        // Squeeze a nonce for each header.
+        let nonce = mres.squeeze(TAG_LEN);
+
+        // Encrypt the header for the given recipient.
+        let ciphertext = sres::encrypt(&mut rng, (d_s, q_s), (d_e, q_e), q_r, &nonce, &header);
+
+        // Absorb the encrypted header.
+        mres.absorb(&ciphertext);
+
+        // Write the encrypted header.
+        writer.write_all(&ciphertext)?;
+        written += ciphertext.len() as u64;
+    }
+
+    Ok(written)
 }
 
 fn encrypt_message(
