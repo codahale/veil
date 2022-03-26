@@ -24,8 +24,6 @@ pub fn encrypt(
     q_rs: &[Point],
     padding: u64,
 ) -> io::Result<u64> {
-    let mut written = 0;
-
     // Initialize a duplex and absorb the sender's public key.
     let mut mres = Duplex::new("veil.mres");
     mres.absorb(&q_s.to_canonical_encoding());
@@ -36,7 +34,7 @@ pub fn encrypt(
     // Absorb and write the representative of the ephemeral public key.
     mres.absorb(&q_e_r);
     writer.write_all(&q_e_r)?;
-    written += POINT_LEN as u64;
+    let mut written = POINT_LEN as u64;
 
     // Encrypt a header for each recipient.
     written += encrypt_headers(
