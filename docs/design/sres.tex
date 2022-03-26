@@ -24,7 +24,7 @@ Encrypting a header is described in full in Alg.~\ref{alg:veil.sres-encrypt}.
             \State \Call{Absorb}{$N$}\Comment{Absorb the nonce.}
             \State
 
-            \State \Call{Cyclist}{$d_S[Q_E]$, $\epsilon$, $\epsilon$}\Comment{Re-key duplex with the shared secret.}
+            \State \Call{Absorb}{$d_S[Q_E]$, $\epsilon$, $\epsilon$}\Comment{Absorb the ECDH shared secret.}
             \State $C \gets$ \Call{Encrypt}{$P$}\Comment{Encrypt the plaintext.}
 
             \State
@@ -70,7 +70,7 @@ Decrypting a header is described in full in Alg.~\ref{alg:veil.sres-decrypt}.
             \State \Call{Absorb}{$Q_E$}\Comment{Absorb the ephemeral public key.}
             \State \Call{Absorb}{$N$}\Comment{Absorb the nonce.}
             \State
-            \State \Call{Cyclist}{$d_R[Q_E]$, $\epsilon$, $\epsilon$}\Comment{Re-key duplex with the shared secret.}
+            \State \Call{Absorb}{$d_R[Q_E]$}\Comment{Absorb the ECDH shared secret.}
             \State $P' \gets$ \Call{Decrypt}{$C$}\Comment{Decrypt the plaintext.}
             \State
             \State $I \gets$ \Call{Decrypt}{$S_0$}\Comment{Decrypt the commitment point.}
@@ -157,8 +157,8 @@ In order to generate a valid signature on a ciphertext $c'$ (e.g.\ $c'=c||1$), $
 valid challenge scalar $r'$ from the duplex state (see Alg.~\ref{alg:veil.sres-encrypt},
 line~\ref{alg:veil.sres-encrypt-challenge}).
 Unlike the signature hash function in the generic $\EtS$ composition, however, the duplex state is cryptographically
-dependent on values $\Adversary$ does not know, specifically the ephemeral Diffie-Hellman shared secret $[d_E]Q_S$
-(via the \textsc{Cyclist} operation) and the plaintext $P$ (via the \textsc{Encrypt} operation).
+dependent on values $\Adversary$ does not know, specifically the ECDH shared secret $[d_E]Q_S$ (via the \textsc{Absorb}
+operation) and the plaintext $P$ (via the \textsc{Encrypt} operation).
 
 Therefore, \texttt{veil.sres} provides confidentiality in the multi-user insider setting.
 

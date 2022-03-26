@@ -37,8 +37,8 @@ pub fn encrypt(
     // Absorb the nonce.
     sres.absorb(nonce);
 
-    // Re-key the duplex with the ephemeral Diffie-Hellman shared secret.
-    sres.rekey(&(d_e * q_r).to_canonical_encoding());
+    // Absorb the ECDH shared secret.
+    sres.absorb(&(d_e * q_r).to_canonical_encoding());
 
     // Encrypt the plaintext.
     out.extend(sres.encrypt(plaintext));
@@ -93,8 +93,8 @@ pub fn decrypt(
     // Absorb the nonce.
     sres.absorb(nonce);
 
-    // Re-key the duplex with the ephemeral Diffie-Hellman shared secret.
-    sres.rekey(&(d_r * q_e).to_canonical_encoding());
+    // Absorb the ECDH shared secret.
+    sres.absorb(&(d_r * q_e).to_canonical_encoding());
 
     // Decrypt the plaintext.
     let plaintext = sres.decrypt(ciphertext);
