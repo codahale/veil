@@ -16,7 +16,7 @@ Signing a message is described in full in Alg.~\ref{alg:veil.schnorr-sign}.
             \State \Call{Absorb}{$Q$}\Comment{Absorb the signer's public key.}
             \State
             \ForAll{$M_i \in M$}
-                \State \Call{AbsorbMore}{$M_i$, $16$}\Comment{Absorb message in 16-byte blocks.}
+                \State \Call{Absorb}{$M_i$, $16$}\Comment{Absorb message in 32KiB blocks.}
             \EndFor
             \State
             \Clone \Comment{Clone the duplex's state.}
@@ -54,7 +54,7 @@ Verifying a signature is described in full in Alg.~\ref{alg:veil.schnorr-verify}
             \State \Call{Absorb}{$Q$}\Comment{Absorb the signer's public key.}
             \State
             \ForAll{$M_i \in M$}
-                \State \Call{AbsorbMore}{$M_i$, $16$}\Comment{Absorb message in 16-byte blocks.}
+                \State \Call{Absorb}{$M_i$, $16$}\Comment{Absorb message in 32KiB blocks.}
             \EndFor
             \State
             \State $I \gets $ \Call{Decrypt}{$S_0$}\Comment{Decrypt the commitment point.}

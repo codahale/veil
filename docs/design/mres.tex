@@ -40,7 +40,9 @@ Encrypting a message is described in full in Alg.~\ref{alg:veil.mres-encrypt}.
             \EndFor
             \State
             \State $y \rgets \allbits{N_P}$\Comment{Absorb and append random padding.}
-            \State \Call{AbsorbMore}{$y, 16$}
+            \ForAll{$y_i \in y$}
+                \State \Call{Absorb}{$y_i$}\Comment{Absorb padding in 32KiB blocks.}
+            \EndFor
             \State $C \gets C||y$
             \State
             \State \Call{Cyclist}{$K$, $\epsilon$, $\epsilon$}\Comment{Re-key the duplex with the DEK.}
@@ -87,7 +89,9 @@ Decrypting a signature is described in full in Alg.~\ref{alg:veil.mres-decrypt}.
                 \State \Call{Absorb}{$h$}
             \EndFor
             \State
-            \State \Call{AbsorbMore}{$C[32+N_Q..32+N_Q+N_P], 16$}\Comment{Absorb padding.}
+            \ForAll{$y_i \in C[32+N_Q..32+N_Q+N_P]$}
+                \State \Call{Absorb}{$y_i$}\Comment{Absorb padding in 32KiB blocks.}
+            \EndFor
             \State $C \gets C[{32+N_Q+N_P}..]$\Comment{Skip to the message beginning.}
             \State
             \State \Call{Cyclist}{$K$, $\epsilon$, $\epsilon$}\Comment{Re-key the duplex with the DEK.}

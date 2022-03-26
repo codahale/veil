@@ -156,7 +156,7 @@ pub struct AbsorbWriter<W: Write> {
     n: u64,
 }
 
-const ABSORB_RATE: usize = 16;
+const ABSORB_RATE: usize = 32*1024;
 
 impl<W: Write> Write for AbsorbWriter<W> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
@@ -164,13 +164,17 @@ impl<W: Write> Write for AbsorbWriter<W> {
         self.buffer.extend(buf);
         let max = self.buffer.len() - (self.buffer.len() % ABSORB_RATE);
         if max >= ABSORB_RATE {
-            self.duplex.state.absorb_more(self.buffer.drain(..max).as_slice(), ABSORB_RATE);
+            for chunk in self.buffer.drain(..max).as_slice().chunks(ABSORB_RATE) {
+                self.duplex.state.absorb(chunk);
+            }
         }
         self.writer.write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        self.duplex.state.absorb_more(&self.buffer, 16);
+        if !self.buffer.is_empty() {
+            self.duplex.state.absorb(&self.buffer);
+        }
         self.writer.flush()
     }
 }
