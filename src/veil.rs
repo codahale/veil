@@ -189,12 +189,13 @@ impl AsciiEncoded for PublicKey {
 
     fn from_bytes(b: &[u8]) -> Result<Self, <Self as AsciiEncoded>::Err> {
         Ok(PublicKey {
-            q: Point::from_canonical_encoding(b).ok_or(ParsePublicKeyError::InvalidPublicKey)?,
+            q: Point::from_elligator2(b.try_into().or(Err(ParsePublicKeyError::InvalidPublicKey))?)
+                .ok_or(ParsePublicKeyError::InvalidPublicKey)?,
         })
     }
 
     fn to_bytes(&self) -> Vec<u8> {
-        self.q.to_canonical_encoding().to_vec()
+        self.q.to_elligator2().expect("invalid public key").to_vec()
     }
 }
 
@@ -225,12 +226,12 @@ mod tests {
     fn public_key_encoding() {
         let base = PublicKey { q: G.basepoint() };
         assert_eq!(
-            "GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3",
+            "68scSLCHseFJ6R6JDbjD5NxwdfMWry6njUjq9uwAMKna",
             base.to_string(),
             "invalid encoded public key"
         );
 
-        let decoded = "GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3".parse::<PublicKey>();
+        let decoded = "68scSLCHseFJ6R6JDbjD5NxwdfMWry6njUjq9uwAMKna".parse::<PublicKey>();
         assert_eq!(Ok(base), decoded, "error parsing public key");
 
         assert_eq!(
