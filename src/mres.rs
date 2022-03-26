@@ -5,7 +5,6 @@ use std::io::{self, Read, Write};
 use std::mem;
 use std::result::Result;
 
-use curve25519_dalek::ristretto::RistrettoPoint;
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Duplex, TAG_LEN};
@@ -181,7 +180,7 @@ pub fn decrypt(
     let mut q_e_r = [0u8; POINT_LEN];
     reader.read_exact(&mut q_e_r)?;
     mres.absorb(&q_e_r);
-    let q_e = RistrettoPoint::from_elligator2(&q_e_r).ok_or(DecryptError::InvalidCiphertext)?;
+    let q_e = Point::from_elligator2(&q_e_r).ok_or(DecryptError::InvalidCiphertext)?;
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the duplex.
     let (mut mres, dek) = decrypt_header(mres, reader, d_r, q_r, &q_e, q_s)?;
