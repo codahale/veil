@@ -74,11 +74,6 @@ impl Duplex {
         f(&mut clone)
     }
 
-    /// Re-key the duplex with the given key.
-    pub fn rekey(&mut self, key: &[u8]) {
-        self.state.absorb_key_and_nonce(key, None, None, None).expect("unable to re-key duplex")
-    }
-
     /// Ratchets the duplex's state for forward secrecy.
     pub fn ratchet(&mut self) {
         self.state.ratchet();
@@ -156,7 +151,7 @@ pub struct AbsorbWriter<W: Write> {
     n: u64,
 }
 
-const ABSORB_RATE: usize = 32*1024;
+const ABSORB_RATE: usize = 32 * 1024;
 
 impl<W: Write> Write for AbsorbWriter<W> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
@@ -199,13 +194,13 @@ mod tests {
         let plaintext = b"this is an example plaintext";
 
         let mut duplex = Duplex::new("test");
-        duplex.rekey(b"this is a new key");
+        duplex.absorb(b"this is a new key");
         duplex.absorb(b"this is some more data");
         duplex.ratchet();
         let ciphertext = duplex.encrypt(plaintext);
 
         let mut duplex = Duplex::new("test");
-        duplex.rekey(b"this is a new key");
+        duplex.absorb(b"this is a new key");
         duplex.absorb(b"this is some more data");
         duplex.ratchet();
         assert_eq!(plaintext.to_vec(), duplex.decrypt(&ciphertext));
