@@ -49,7 +49,7 @@ Initializing a duplex from a passphrase is described in full in Alg.~\ref{alg:ve
                 \EndFor
             \EndFor
             \State
-            \State \Call{Cyclist}{$B[N_S-1], \epsilon, \epsilon$}\Comment{Extract output from buffer.}
+            \State \Call{Absorb}{$B[N_S-1]$}\Comment{Extract output from buffer.}
         \EndProcedure
     \end{algorithmic}
     \label{alg:veil.pbenc-init}

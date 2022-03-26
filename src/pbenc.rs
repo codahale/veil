@@ -136,7 +136,7 @@ fn init(passphrase: &str, salt: &[u8], time: u8, space: u8) -> Duplex {
     }
 
     // Step 3: Extract key from buffer.
-    pbenc.rekey(&buf[buf.len() - 1]);
+    pbenc.absorb(&buf[buf.len() - 1]);
 
     pbenc
 }
