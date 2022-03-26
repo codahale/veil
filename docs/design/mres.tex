@@ -20,8 +20,8 @@ Encrypting a message is described in full in Alg.~\ref{alg:veil.mres-encrypt}.
             \State \Call{Absorb}{$d_S$}\Comment{Absorb the sender's private key.}
             \State $v \rgets \allbits{512}$\Comment{Generate a random value.}
             \State \Call{Absorb}{$v$}\Comment{Absorb the random value.}
-            \State $k \gets$ \Call{SqueezeKey}{$64$} $\modl$\Comment{Squeeze a commitment scalar.}
-            \State $d_E \gets$ \Call{SqueezeKey}{$64$} $\modl$\Comment{Squeeze an ephemeral private key.}
+            \State $k \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a commitment scalar.}
+            \State $d_E \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze an ephemeral private key.}
             \State $K \gets$ \Call{Squeeze}{$32$}\Comment{Squeeze a data encryption key.}
             \State \textbf{yield} $(k, d_E, K)$
             \End
@@ -53,7 +53,7 @@ Encrypting a message is described in full in Alg.~\ref{alg:veil.mres-encrypt}.
             \State $I \gets [k]G$\Comment{Calculate and encrypt the commitment point.}
             \State $C \gets C||$\Call{Encrypt}{$I$}
             \State
-            \State $r \gets$ \Call{SqueezeKey}{$64$} $\modl$\label{alg:veil.mres-encrypt-challenge}\Comment{Squeeze a challenge scalar.}
+            \State $r \gets$ \Call{Squeeze}{$64$} $\modl$\label{alg:veil.mres-encrypt-challenge}\Comment{Squeeze a challenge scalar.}
             \State $s \gets {d_S}r + k$\Comment{Calculate and encrypt the proof scalar.}
             \State $C \gets C||$\Call{Encrypt}{$s$}
             \State \textbf{return} $C$
@@ -104,7 +104,7 @@ Decrypting a signature is described in full in Alg.~\ref{alg:veil.mres-decrypt}.
             \State
             \State $S_0||S_1 \gets C$
             \State $I \gets $ \Call{Decrypt}{$S_0$}\Comment{Decrypt the commitment point.}
-            \State $r \gets$ \Call{SqueezeKey}{$64$} $\modl$\Comment{Squeeze a challenge scalar.}
+            \State $r \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a challenge scalar.}
             \State
             \State $s \gets $ \Call{Decrypt}{$S_1$}\Comment{Decrypt the proof scalar.}
             \State $I' \gets [s]G - [r]Q_E$\Comment{Calculate the counterfactual commitment point.}

@@ -66,7 +66,7 @@ For example, the following operations would be performed on the cloned duplex (\
         \State \Call{Absorb}{$d$}\Comment{Absorb a private key.}
         \State $v \rgets \allbits{512}$\Comment{Generate a random value.}
         \State \Call{Absorb}{$v$}\Comment{Absorb the random value.}
-        \State $x \gets$ \Call{SqueezeKey}{$64$} $\modl$\Comment{Squeeze a hedged ephemeral scalar.}
+        \State $x \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a hedged ephemeral scalar.}
         \State \textbf{yield} $x$\Comment{Return $x$ to the outer context.}
         \End \Comment{Destroy the cloned duplex's state.}
     \end{algorithmic}

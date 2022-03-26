@@ -46,11 +46,11 @@ impl Duplex {
     /// Squeeze 64 bytes from the duplex and map them to a [Scalar].
     #[must_use]
     pub fn squeeze_scalar(&mut self) -> Scalar {
-        // Squeeze a derived key.
+        // Squeeze a 512-bit integer.
         let mut b = [0u8; 64];
-        self.state.squeeze_key(&mut b);
+        self.state.squeeze(&mut b);
 
-        // Map the derived key to a scalar.
+        // Map the integer to a scalar mod l.
         Scalar::from_bytes_mod_order_wide(&b)
     }
 
