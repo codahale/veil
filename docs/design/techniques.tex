@@ -11,8 +11,8 @@ dependency, Xoodyak allows for constructions which simply absorb all values, thu
 complex protocols.
 
 For example, a traditional hybrid encryption scheme like HPKE~\cite{rfc9180} will describe a key encapsulation mechanism
-(KEM) like ephemeral Diffie-Hellman and a data encapsulation mechanism (DEM) like AES-GCM and link the two together via
-a key derivation function (KDF) like HKDF by deriving a key and nonce for the DEM from the KEM output.
+(KEM) like X25519 and a data encapsulation mechanism (DEM) like AES-GCM and link the two together via a key derivation
+function (KDF) like HKDF by deriving a key and nonce for the DEM from the KEM output.
 
 In contrast, the same construction using Xoodyak would be the following three operations, in order (\ref{alg:hpke}):
 

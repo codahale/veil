@@ -2,8 +2,8 @@
 
 \texttt{veil.sres} implements a single-receiver, deniable signcryption scheme which Veil uses to encrypt message
 headers.
-It integrates an ephemeral Diffie-Hellman KEM, a Xoodyak DEM, and a designated-verifier Schnorr signature
-scheme to provide multi-user insider security.
+It integrates an ephemeral ECDH KEM, a Xoodyak DEM, and a designated-verifier Schnorr signature scheme to provide
+multi-user insider security.
 
 \subsection{Encrypting A Header}\label{subsec:veil.sres-encrypt}
 
@@ -149,7 +149,7 @@ Next, we evaluate the confidentiality of \texttt{veil.sres} in the multi-user in
 to the public keys of both users~\cite[p. 45--46]{baek2010}.
 
 $\Adversary$ cannot decrypt the message by themselves, as they do not know either $d_E$ or $d_R$ and cannot calculate
-the ephemeral Diffie-Hellman shared secret $[d_E]Q_R=[d_R]Q_E=[d_E{d_R}G]$.
+the ECDH shared secret $[d_E]Q_R=[d_R]Q_E=[d_E{d_R}G]$.
 
 $\Adversary$ also cannot trick the receiver into decrypting an equivalent message by replacing the signature, despite
 $\Adversary$'s ability to use $d_S$ to create new signatures.
