@@ -14,7 +14,7 @@ fn bench_encrypt(c: &mut Criterion) {
     let pk_b = PrivateKey::random(&mut rng);
 
     let mut encrypt = c.benchmark_group("encrypt");
-    for n in [0, KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
+    for n in [0, KB, 8 * KB, 32 * KB, 64 * KB, 128 * KB] {
         encrypt.throughput(Throughput::Elements(n));
         encrypt.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &n| {
             b.iter(|| {
@@ -40,7 +40,7 @@ fn bench_decrypt(c: &mut Criterion) {
     let pk_b = PrivateKey::random(&mut rng);
 
     let mut decrypt = c.benchmark_group("decrypt");
-    for n in [0, KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
+    for n in [0, KB, 8 * KB, 32 * KB, 64 * KB, 128 * KB] {
         let mut ciphertext = Cursor::new(Vec::new());
         pk_a.encrypt(
             &mut rng,
@@ -74,7 +74,7 @@ fn bench_sign(c: &mut Criterion) {
     let pk_a = PrivateKey::random(&mut rng);
 
     let mut sign = c.benchmark_group("sign");
-    for n in [0, KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
+    for n in [0, KB, 8 * KB, 32 * KB, 64 * KB, 128 * KB] {
         sign.throughput(Throughput::Elements(n));
         sign.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &n| {
             b.iter(|| pk_a.sign(&mut rng, &mut io::repeat(0).take(n)).unwrap());
@@ -89,7 +89,7 @@ fn bench_verify(c: &mut Criterion) {
     let pk_a = PrivateKey::random(&mut rng);
 
     let mut verify = c.benchmark_group("verify");
-    for n in [0, KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
+    for n in [0, KB, 8 * KB, 32 * KB, 64 * KB, 128 * KB] {
         let sig = pk_a.sign(&mut rng, &mut io::repeat(0).take(n)).unwrap();
         verify.throughput(Throughput::Elements(n));
         verify.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &n| {
@@ -131,7 +131,7 @@ fn bench_pbenc(c: &mut Criterion) {
 
 fn bench_digest(c: &mut Criterion) {
     let mut digest = c.benchmark_group("digest");
-    for n in [0, KB, 2 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB] {
+    for n in [0, KB, 8 * KB, 32 * KB, 64 * KB, 128 * KB] {
         digest.throughput(Throughput::Elements(n));
         digest.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &n| {
             b.iter(|| Digest::new(&[] as &[&str], &mut io::repeat(0).take(n)).unwrap());
