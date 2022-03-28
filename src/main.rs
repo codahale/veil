@@ -132,7 +132,7 @@ struct EncryptArgs {
 
     /// Add random bytes of padding.
     #[clap(long)]
-    padding: Option<u64>,
+    padding: Option<usize>,
 
     /// The path to read the passphrase from.
     #[clap(long, value_hint = ValueHint::FilePath)]

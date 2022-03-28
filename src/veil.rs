@@ -96,7 +96,7 @@ impl PrivateKey {
         writer: &mut impl Write,
         recipients: &[PublicKey],
         fakes: Option<usize>,
-        padding: Option<u64>,
+        padding: Option<usize>,
     ) -> io::Result<u64> {
         // Add fakes.
         let mut q_rs = recipients

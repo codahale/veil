@@ -22,7 +22,7 @@ pub fn encrypt(
     writer: &mut impl Write,
     (d_s, q_s): (&Scalar, &Point),
     q_rs: &[Point],
-    padding: u64,
+    padding: usize,
 ) -> io::Result<u64> {
     // Initialize a duplex and absorb the sender's public key.
     let mut mres = Duplex::new("veil.mres");
@@ -44,20 +44,21 @@ pub fn encrypt(
         (&d_e, &q_e),
         q_rs,
         &dek,
-        padding,
+        padding as u64,
         writer,
     )?;
 
     // Add random padding to the end of the headers.
-    let mut mres = mres.absorb_stream(writer);
-    io::copy(&mut RngRead(&mut rng).take(padding), &mut mres)?;
-    let (mut mres, mut writer) = mres.into_inner()?;
+    let mut padding_block = vec![0u8; padding];
+    rng.fill_bytes(&mut padding_block);
+    mres.absorb(&padding_block);
+    writer.write_all(&padding_block)?;
 
     // Absorb the DEK.
     mres.absorb(&dek);
 
     // Encrypt the plaintext in blocks and write them.
-    written += encrypt_message(&mut mres, reader, &mut writer)?;
+    written += encrypt_message(&mut mres, reader, writer)?;
 
     // Sign the duplex's final state with the ephemeral private key.
     let (i, s) = schnorr::sign_duplex(&mut mres, &d_e, k);
@@ -69,7 +70,7 @@ pub fn encrypt(
     writer.write_all(&i)?;
     writer.write_all(&s)?;
 
-    Ok(written + padding + i.len() as u64 + s.len() as u64)
+    Ok(written + padding as u64 + i.len() as u64 + s.len() as u64)
 }
 
 // Derive a random ephemeral key pair, commitment scalar, and data encryption key from the duplex's
@@ -288,12 +289,9 @@ fn decrypt_header(
 
     if let Some((dek, padding)) = dek.zip(padding) {
         // Read the remainder of the padding and absorb it with the duplex.
-        let mut mres = mres.absorb_stream(io::sink());
-        let mut remainder = reader.take(padding);
-        io::copy(&mut remainder, &mut mres)?;
-
-        // Unwrap the writer.
-        let (mres, _) = mres.into_inner()?;
+        let mut padding_block = vec![0u8; padding as usize];
+        reader.read_exact(&mut padding_block)?;
+        mres.absorb(&padding_block);
 
         // Return the duplex and DEK.
         Ok((mres, dek))
