@@ -34,6 +34,8 @@ impl Duplex {
 
     /// Absorb the entire contents of the given reader in 32KiB-sized blocks.
     pub fn absorb_blocks(&mut self, mut reader: impl Read) -> io::Result<()> {
+        const BLOCK_LEN: usize = 32 * 1024;
+
         let mut buf = Vec::with_capacity(BLOCK_LEN);
 
         loop {
@@ -152,8 +154,6 @@ impl Duplex {
         }
     }
 }
-
-const BLOCK_LEN: usize = 32 * 1024;
 
 #[cfg(test)]
 mod tests {
