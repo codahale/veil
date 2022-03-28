@@ -74,11 +74,6 @@ impl Duplex {
         f(&mut clone)
     }
 
-    /// Ratchets the duplex's state for forward secrecy.
-    pub fn ratchet(&mut self) {
-        self.state.ratchet();
-    }
-
     /// Encrypt the given plaintext. **Provides no guarantees for authenticity.**
     #[must_use]
     pub fn encrypt(&mut self, plaintext: &[u8]) -> Vec<u8> {
@@ -173,13 +168,11 @@ mod tests {
         let mut duplex = Duplex::new("test");
         duplex.absorb(b"this is a new key");
         duplex.absorb(b"this is some more data");
-        duplex.ratchet();
         let ciphertext = duplex.encrypt(plaintext);
 
         let mut duplex = Duplex::new("test");
         duplex.absorb(b"this is a new key");
         duplex.absorb(b"this is some more data");
-        duplex.ratchet();
         assert_eq!(plaintext.to_vec(), duplex.decrypt(&ciphertext));
     }
 

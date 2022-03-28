@@ -147,10 +147,6 @@ fn encrypt_message(
         writer.write_all(&mres.seal(block))?;
         written += (n + TAG_LEN) as u64;
 
-        // Ratchet the duplex state to prevent rollback. This protects previous blocks from being
-        // reversed in the event of the duplex's state being compromised.
-        mres.ratchet();
-
         // If the block was undersized, we're at the end of the reader.
         if n < BLOCK_LEN {
             break;
@@ -222,9 +218,6 @@ fn decrypt_message(
         let plaintext = mres.unseal(block).ok_or(DecryptError::InvalidCiphertext)?;
         writer.write_all(&plaintext)?;
         written += plaintext.len() as u64;
-
-        // Ratchet the duplex state.
-        mres.ratchet();
 
         // Clear the part of the buffer we used.
         buf.drain(0..n);

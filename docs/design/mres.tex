@@ -48,7 +48,6 @@ Encrypting a message is described in full in Alg.~\ref{alg:veil.mres-encrypt}.
             \ForAll{32-KiB blocks $p \in P$}
                 \State $C \gets C||$\Call{Encrypt}{$p$}\Comment{Encrypt and tag each block.}
                 \State $C \gets C||$\Call{Squeeze}{$16$}
-                \State \Call{Ratchet}{}
             \EndFor
             \State
             \State $I \gets [k]G$\Comment{Calculate and encrypt the commitment point.}
@@ -100,7 +99,6 @@ Decrypting a signature is described in full in Alg.~\ref{alg:veil.mres-decrypt}.
                     \Comment{Check each block's tag.}
                     \State \textbf{return} $\bot$
                 \EndIf
-                \State \Call{Ratchet}{}
             \EndFor
             \State
             \State $S_0||S_1 \gets C$
@@ -133,7 +131,7 @@ The headers are encrypted with the \texttt{veil.sres} construction (see Sec.~\re
 insider security (i.e.\ IND-CCA2 and sUF-CMA in the multi-user insider setting), using a per-header \textsc{Squeeze}
 value as a nonce.
 The message itself is divided into a sequence of 32KiB blocks, each encrypted with a sequence of Xoodyak
-\textsc{Encrypt}/\textsc{Squeeze}/\textsc{Ratchet} operations, which is IND-CCA2 secure.
+\textsc{Encrypt}/\textsc{Squeeze} operations, which is IND-CCA2 secure.
 
 The latter portion of \texttt{veil.mres} is an EdDSA-style Schnorr signature scheme.
 The EdDSA-style Schnorr signature is sUF-CMA secure when implemented in a prime order group and a cryptographic hash
