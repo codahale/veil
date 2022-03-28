@@ -59,11 +59,11 @@ pub fn sign(
     schnorr.absorb(&q.to_canonical_encoding());
 
     // Absorb the message in blocks.
-    let mut schnorr = schnorr.absorb_stream(io::sink());
+    let mut schnorr = schnorr.absorb_stream();
     io::copy(&mut message, &mut schnorr)?;
 
     // Unwrap the duplex.
-    let (mut schnorr, _) = schnorr.into_inner()?;
+    let mut schnorr = schnorr.into_inner()?;
 
     // Derive a commitment scalar from the duplex's current state, the signer's private key,
     // and a random nonce.
@@ -96,11 +96,11 @@ pub fn verify(
     schnorr.absorb(&q.to_canonical_encoding());
 
     // Absorb the message in blocks.
-    let mut schnorr = schnorr.absorb_stream(io::sink());
+    let mut schnorr = schnorr.absorb_stream();
     io::copy(&mut message, &mut schnorr)?;
 
     // Unwrap the duplex.
-    let (mut schnorr, _) = schnorr.into_inner()?;
+    let mut schnorr = schnorr.into_inner()?;
 
     // Verify the signature.
     verify_duplex(&mut schnorr, q, &sig.0)

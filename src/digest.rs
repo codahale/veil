@@ -50,11 +50,11 @@ impl Digest {
         }
 
         // Absorb the reader contents.
-        let mut digest = digest.absorb_stream(io::sink());
+        let mut digest = digest.absorb_stream();
         io::copy(reader, &mut digest)?;
 
         // Unwrap the duplex and squeeze N bytes as a digest.
-        let (mut digest, _) = digest.into_inner()?;
+        let mut digest = digest.into_inner()?;
         Ok(Digest(digest.squeeze(DIGEST_LEN).try_into().expect("invalid digest len")))
     }
 }

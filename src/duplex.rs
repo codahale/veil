@@ -93,11 +93,8 @@ impl Duplex {
 
     /// Move the duplex and the given writer into an [AbsorbWriter].
     #[must_use]
-    pub fn absorb_stream<W>(self, writer: W) -> AbsorbWriter<W>
-    where
-        W: Write,
-    {
-        AbsorbWriter::new(self, writer)
+    pub fn absorb_stream(self) -> AbsorbWriter {
+        AbsorbWriter::new(self)
     }
 
     /// Encrypt and seal the given plaintext, adding [TAG_LEN] bytes to the end.
@@ -143,22 +140,21 @@ impl Duplex {
     }
 }
 
-/// A [Write] adapter which tees writes into a duplex.
-pub struct AbsorbWriter<W: Write> {
+/// A [Write] adapter which streams writes into a duplex.
+pub struct AbsorbWriter {
     duplex: Duplex,
-    writer: W,
     buffer: Vec<u8>,
 }
 
 const ABSORB_RATE: usize = 32 * 1024;
 
-impl<W: Write> AbsorbWriter<W> {
-    fn new(duplex: Duplex, writer: W) -> AbsorbWriter<W> {
-        AbsorbWriter { duplex, writer, buffer: Vec::with_capacity(ABSORB_RATE) }
+impl AbsorbWriter {
+    fn new(duplex: Duplex) -> AbsorbWriter {
+        AbsorbWriter { duplex, buffer: Vec::with_capacity(ABSORB_RATE) }
     }
 }
 
-impl<W: Write> Write for AbsorbWriter<W> {
+impl Write for AbsorbWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.buffer.extend(buf);
         let max = self.buffer.len() - (self.buffer.len() % ABSORB_RATE);
@@ -167,29 +163,27 @@ impl<W: Write> Write for AbsorbWriter<W> {
                 self.duplex.state.absorb(chunk);
             }
         }
-        self.writer.write(buf)
+        Ok(buf.len())
     }
 
     fn flush(&mut self) -> io::Result<()> {
         if !self.buffer.is_empty() {
             self.duplex.state.absorb(&self.buffer);
         }
-        self.writer.flush()
+        Ok(())
     }
 }
 
-impl<W: Write> AbsorbWriter<W> {
-    /// Unwrap the writer into the inner duplex and writer.
-    pub fn into_inner(mut self) -> io::Result<(Duplex, W)> {
+impl AbsorbWriter {
+    /// Unwrap the writer into the inner duplex.
+    pub fn into_inner(mut self) -> io::Result<Duplex> {
         self.flush()?;
-        Ok((self.duplex, self.writer))
+        Ok(self.duplex)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
-
     use super::*;
 
     #[test]
@@ -223,27 +217,17 @@ mod tests {
     #[test]
     fn absorb_writer() {
         let duplex = Duplex::new("ok");
-        let mut w = duplex.absorb_stream(Cursor::new(Vec::new()));
+        let mut w = duplex.absorb_stream();
         w.write_all(b"this is a message that").expect("write failure");
         w.write_all(b" is written in multiple pieces").expect("write failure");
-        let (mut one, m1) = w.into_inner().expect("unwrap failure");
-
-        assert_eq!(
-            b"this is a message that is written in multiple pieces",
-            m1.into_inner().as_slice()
-        );
+        let mut one = w.into_inner().expect("unwrap failure");
 
         let duplex = Duplex::new("ok");
-        let mut w = duplex.absorb_stream(Cursor::new(Vec::new()));
+        let mut w = duplex.absorb_stream();
         w.write_all(b"this is a message that").expect("write failure");
         w.write_all(b" is written in multiple").expect("write failure");
         w.write_all(b" pieces").expect("write failure");
-        let (mut two, m2) = w.into_inner().expect("unwrap failure");
-
-        assert_eq!(
-            b"this is a message that is written in multiple pieces",
-            m2.into_inner().as_slice()
-        );
+        let mut two = w.into_inner().expect("unwrap failure");
 
         assert_eq!(one.squeeze(4), two.squeeze(4));
     }
