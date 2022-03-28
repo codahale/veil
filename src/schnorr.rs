@@ -4,7 +4,7 @@ use std::convert::TryInto;
 use std::fmt::Formatter;
 use std::io::{Read, Result};
 use std::str::FromStr;
-use std::{fmt, io, result};
+use std::{fmt, result};
 
 use rand::{CryptoRng, Rng};
 
@@ -50,7 +50,7 @@ impl fmt::Display for Signature {
 pub fn sign(
     rng: impl Rng + CryptoRng,
     (d, q): (&Scalar, &Point),
-    mut message: impl Read,
+    message: impl Read,
 ) -> Result<Signature> {
     // Initialize a duplex.
     let mut schnorr = Duplex::new("veil.schnorr");
@@ -58,12 +58,8 @@ pub fn sign(
     // Absorb the signer's public key.
     schnorr.absorb(&q.to_canonical_encoding());
 
-    // Absorb the message in blocks.
-    let mut schnorr = schnorr.absorb_stream();
-    io::copy(&mut message, &mut schnorr)?;
-
-    // Unwrap the duplex.
-    let mut schnorr = schnorr.into_inner()?;
+    // Absorb the message in 32KiB blocks.
+    schnorr.absorb_blocks(message)?;
 
     // Derive a commitment scalar from the duplex's current state, the signer's private key,
     // and a random nonce.
@@ -84,23 +80,15 @@ pub fn sign(
 }
 
 /// Verify a Schnorr signature of the given message using the given public key.
-pub fn verify(
-    q: &Point,
-    mut message: impl Read,
-    sig: &Signature,
-) -> result::Result<(), VerifyError> {
+pub fn verify(q: &Point, message: impl Read, sig: &Signature) -> result::Result<(), VerifyError> {
     // Initialize a duplex.
     let mut schnorr = Duplex::new("veil.schnorr");
 
     // Absorb the signer's public key.
     schnorr.absorb(&q.to_canonical_encoding());
 
-    // Absorb the message in blocks.
-    let mut schnorr = schnorr.absorb_stream();
-    io::copy(&mut message, &mut schnorr)?;
-
-    // Unwrap the duplex.
-    let mut schnorr = schnorr.into_inner()?;
+    // Absorb the message in 32KiB blocks.
+    schnorr.absorb_blocks(message)?;
 
     // Verify the signature.
     verify_duplex(&mut schnorr, q, &sig.0)

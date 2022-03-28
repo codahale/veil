@@ -40,7 +40,7 @@ impl fmt::Display for Digest {
 
 impl Digest {
     /// Create a digest from a set of metadata strings and a reader.
-    pub fn new(metadata: &[impl AsRef<[u8]>], reader: &mut impl Read) -> io::Result<Digest> {
+    pub fn new(metadata: &[impl AsRef<[u8]>], reader: impl Read) -> io::Result<Digest> {
         // Initialize the duplex.
         let mut digest = Duplex::new("veil.digest");
 
@@ -49,12 +49,10 @@ impl Digest {
             digest.absorb(v.as_ref());
         }
 
-        // Absorb the reader contents.
-        let mut digest = digest.absorb_stream();
-        io::copy(reader, &mut digest)?;
+        // Absorb the reader contents in 32KiB blocks.
+        digest.absorb_blocks(reader)?;
 
-        // Unwrap the duplex and squeeze N bytes as a digest.
-        let mut digest = digest.into_inner()?;
+        // Squeeze N bytes as a digest.
         Ok(Digest(digest.squeeze(DIGEST_LEN).try_into().expect("invalid digest len")))
     }
 }

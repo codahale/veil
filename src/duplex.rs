@@ -1,7 +1,7 @@
 //! Implements a cryptographic duplex using Xoodyak.
 
 use std::io;
-use std::io::Write;
+use std::io::Read;
 
 use rand::{CryptoRng, Rng};
 use subtle::ConstantTimeEq;
@@ -91,10 +91,28 @@ impl Duplex {
         self.state.decrypt_to_vec(ciphertext).expect("unable to decrypt")
     }
 
-    /// Move the duplex and the given writer into an [AbsorbWriter].
-    #[must_use]
-    pub fn absorb_stream(self) -> AbsorbWriter {
-        AbsorbWriter::new(self)
+    /// Absorb the entire contents of the given reader in 32KiB-sized blocks.
+    pub fn absorb_blocks(&mut self, mut reader: impl Read) -> io::Result<()> {
+        let mut buf = Vec::with_capacity(BLOCK_LEN);
+
+        loop {
+            // Read a block of data.
+            let n = (&mut reader).take(BLOCK_LEN as u64).read_to_end(&mut buf)?;
+            let block = &buf[..n];
+
+            // Absorb the block.
+            self.absorb(block);
+
+            // If the block was undersized, we're at the end of the reader.
+            if n < BLOCK_LEN {
+                break;
+            }
+
+            // Reset the buffer.
+            buf.clear();
+        }
+
+        Ok(())
     }
 
     /// Encrypt and seal the given plaintext, adding [TAG_LEN] bytes to the end.
@@ -140,50 +158,12 @@ impl Duplex {
     }
 }
 
-/// A [Write] adapter which streams writes into a duplex.
-pub struct AbsorbWriter {
-    duplex: Duplex,
-    buffer: Vec<u8>,
-}
-
-const ABSORB_RATE: usize = 32 * 1024;
-
-impl AbsorbWriter {
-    fn new(duplex: Duplex) -> AbsorbWriter {
-        AbsorbWriter { duplex, buffer: Vec::with_capacity(ABSORB_RATE) }
-    }
-}
-
-impl Write for AbsorbWriter {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.buffer.extend(buf);
-        let max = self.buffer.len() - (self.buffer.len() % ABSORB_RATE);
-        if max >= ABSORB_RATE {
-            for chunk in self.buffer.drain(..max).as_slice().chunks(ABSORB_RATE) {
-                self.duplex.state.absorb(chunk);
-            }
-        }
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        if !self.buffer.is_empty() {
-            self.duplex.state.absorb(&self.buffer);
-        }
-        Ok(())
-    }
-}
-
-impl AbsorbWriter {
-    /// Unwrap the writer into the inner duplex.
-    pub fn into_inner(mut self) -> io::Result<Duplex> {
-        self.flush()?;
-        Ok(self.duplex)
-    }
-}
+const BLOCK_LEN: usize = 32 * 1024;
 
 #[cfg(test)]
 mod tests {
+    use std::io::Cursor;
+
     use super::*;
 
     #[test]
@@ -215,19 +195,12 @@ mod tests {
     }
 
     #[test]
-    fn absorb_writer() {
-        let duplex = Duplex::new("ok");
-        let mut w = duplex.absorb_stream();
-        w.write_all(b"this is a message that").expect("write failure");
-        w.write_all(b" is written in multiple pieces").expect("write failure");
-        let mut one = w.into_inner().expect("unwrap failure");
+    fn absorb_blocks() {
+        let mut one = Duplex::new("ok");
+        one.absorb_blocks(Cursor::new(b"this is a message")).expect("error absorbing");
 
-        let duplex = Duplex::new("ok");
-        let mut w = duplex.absorb_stream();
-        w.write_all(b"this is a message that").expect("write failure");
-        w.write_all(b" is written in multiple").expect("write failure");
-        w.write_all(b" pieces").expect("write failure");
-        let mut two = w.into_inner().expect("unwrap failure");
+        let mut two = Duplex::new("ok");
+        two.absorb_blocks(Cursor::new(b"this is a message")).expect("error absorbing");
 
         assert_eq!(one.squeeze(4), two.squeeze(4));
     }
