@@ -32,6 +32,30 @@ impl Duplex {
         self.state.absorb(data);
     }
 
+    /// Absorb the entire contents of the given reader in 32KiB-sized blocks.
+    pub fn absorb_blocks(&mut self, mut reader: impl Read) -> io::Result<()> {
+        let mut buf = Vec::with_capacity(BLOCK_LEN);
+
+        loop {
+            // Read a block of data.
+            let n = (&mut reader).take(BLOCK_LEN as u64).read_to_end(&mut buf)?;
+            let block = &buf[..n];
+
+            // Absorb the block.
+            self.absorb(block);
+
+            // If the block was undersized, we're at the end of the reader.
+            if n < BLOCK_LEN {
+                break;
+            }
+
+            // Reset the buffer.
+            buf.clear();
+        }
+
+        Ok(())
+    }
+
     /// Squeeze `n` bytes from the duplex.
     #[must_use]
     pub fn squeeze(&mut self, n: usize) -> Vec<u8> {
@@ -84,30 +108,6 @@ impl Duplex {
     #[must_use]
     pub fn decrypt(&mut self, ciphertext: &[u8]) -> Vec<u8> {
         self.state.decrypt_to_vec(ciphertext).expect("unable to decrypt")
-    }
-
-    /// Absorb the entire contents of the given reader in 32KiB-sized blocks.
-    pub fn absorb_blocks(&mut self, mut reader: impl Read) -> io::Result<()> {
-        let mut buf = Vec::with_capacity(BLOCK_LEN);
-
-        loop {
-            // Read a block of data.
-            let n = (&mut reader).take(BLOCK_LEN as u64).read_to_end(&mut buf)?;
-            let block = &buf[..n];
-
-            // Absorb the block.
-            self.absorb(block);
-
-            // If the block was undersized, we're at the end of the reader.
-            if n < BLOCK_LEN {
-                break;
-            }
-
-            // Reset the buffer.
-            buf.clear();
-        }
-
-        Ok(())
     }
 
     /// Encrypt and seal the given plaintext, adding [TAG_LEN] bytes to the end.
