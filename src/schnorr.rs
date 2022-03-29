@@ -233,7 +233,7 @@ mod tests {
         assert_eq!(Ok(sig), decoded, "error parsing signature");
 
         assert_eq!(
-            Err(ParseSignatureError::BadEncoding(bs58::decode::Error::InvalidCharacter {
+            Err(ParseSignatureError::InvalidEncoding(bs58::decode::Error::InvalidCharacter {
                 character: ' ',
                 index: 4
             })),
