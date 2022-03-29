@@ -8,7 +8,7 @@ use unicode_normalization::UnicodeNormalization;
 use crate::duplex::{Duplex, TAG_LEN};
 
 /// The number of bytes encryption adds to a plaintext.
-pub const OVERHEAD: usize = 1 + 1 + SALT_LEN + TAG_LEN;
+pub const OVERHEAD: usize = mem::size_of::<u8>() + mem::size_of::<u8>() + SALT_LEN + TAG_LEN;
 
 /// Encrypt the given plaintext using the given passphrase.
 #[must_use]
