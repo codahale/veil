@@ -180,7 +180,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_message() -> result::Result<(), VerifyError> {
+    fn modified_message() -> result::Result<(), VerifyError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let d = Scalar::random(&mut rng);
@@ -193,7 +193,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_key() -> result::Result<(), VerifyError> {
+    fn wrong_public_key() -> result::Result<(), VerifyError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let d = Scalar::random(&mut rng);
@@ -207,7 +207,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_sig() -> result::Result<(), VerifyError> {
+    fn modified_sig() -> result::Result<(), VerifyError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let d = Scalar::random(&mut rng);
