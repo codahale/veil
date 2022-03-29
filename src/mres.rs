@@ -398,7 +398,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_sender_public_key() -> Result<(), DecryptError> {
+    fn wrong_sender_public_key() -> Result<(), DecryptError> {
         let (mut rng, d_s, q_s, d_r, q_r) = setup();
 
         let message = b"this is a thingy";
@@ -417,7 +417,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_receiver_public_key() -> Result<(), DecryptError> {
+    fn wrong_receiver_public_key() -> Result<(), DecryptError> {
         let (mut rng, d_s, q_s, d_r, q_r) = setup();
 
         let message = b"this is a thingy";
@@ -436,7 +436,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_receiver_private_key() -> Result<(), DecryptError> {
+    fn wrong_receiver_private_key() -> Result<(), DecryptError> {
         let (mut rng, d_s, q_s, _, q_r) = setup();
 
         let message = b"this is a thingy";
