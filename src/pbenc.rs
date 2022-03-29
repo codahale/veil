@@ -170,7 +170,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_passphrase() {
+    fn wrong_passphrase() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let passphrase = "this is a secret";
@@ -182,7 +182,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_time() {
+    fn modified_time() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let passphrase = "this is a secret";
@@ -195,7 +195,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_space() {
+    fn modified_space() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let passphrase = "this is a secret";
@@ -208,7 +208,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_salt() {
+    fn modified_salt() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let passphrase = "this is a secret";
@@ -221,7 +221,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_ciphertext() {
+    fn modified_ciphertext() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let passphrase = "this is a secret";
@@ -234,7 +234,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_tag() {
+    fn modified_tag() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let passphrase = "this is a secret";
