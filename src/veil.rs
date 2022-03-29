@@ -239,7 +239,7 @@ mod tests {
         assert_eq!(Ok(base), decoded, "error parsing public key");
 
         assert_eq!(
-            Err(ParsePublicKeyError::BadEncoding(bs58::decode::Error::InvalidCharacter {
+            Err(ParsePublicKeyError::InvalidEncoding(bs58::decode::Error::InvalidCharacter {
                 character: ' ',
                 index: 4
             })),

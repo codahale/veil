@@ -56,7 +56,7 @@ pub enum ParsePublicKeyError {
 
     /// Parsing failed because the public key was not valid base58.
     #[error("invalid base58 encoding")]
-    BadEncoding(#[from] bs58::decode::Error),
+    InvalidEncoding(#[from] bs58::decode::Error),
 }
 
 /// An error returned when parsing a digest was unsuccessful.
