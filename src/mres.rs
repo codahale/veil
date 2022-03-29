@@ -73,9 +73,12 @@ pub fn encrypt(
     Ok(written + padding as u64 + i.len() as u64 + s.len() as u64)
 }
 
-// Derive a random ephemeral key pair, commitment scalar, and data encryption key from the duplex's
-// current state, the sender's private key, and a random nonce. Loop until we produce an ephemeral
-// private key which has a public key with an Elligator2 representative.
+/// The length of the data encryption key.
+const DEK_LEN: usize = 32;
+
+/// Derive a random ephemeral key pair, commitment scalar, and data encryption key from the duplex's
+/// current state, the sender's private key, and a random nonce. Loop until we produce an ephemeral
+/// private key which has a public key with an Elligator2 representative.
 fn generate_keys(
     mres: &mut Duplex,
     mut rng: impl CryptoRng + Rng,
@@ -92,6 +95,18 @@ fn generate_keys(
     }
 }
 
+const HEADER_LEN: usize = DEK_LEN + mem::size_of::<u64>() + mem::size_of::<u64>();
+
+/// Encode the DEK, header count, and padding size in a header.
+#[inline]
+fn encode_header(dek: &[u8], hdr_count: u64, padding: u64) -> Vec<u8> {
+    let mut header = Vec::with_capacity(HEADER_LEN);
+    header.extend(dek);
+    header.extend(hdr_count.to_le_bytes());
+    header.extend(padding.to_le_bytes());
+    header
+}
+
 #[allow(clippy::too_many_arguments)]
 fn encrypt_headers(
     mres: &mut Duplex,
@@ -105,11 +120,7 @@ fn encrypt_headers(
 ) -> io::Result<u64> {
     let mut written = 0u64;
 
-    // Encode the DEK, recipient count, and padding count in a header.
-    let mut header = Vec::with_capacity(HEADER_LEN);
-    header.extend(dek);
-    header.extend((q_rs.len() as u64).to_le_bytes());
-    header.extend(padding.to_le_bytes());
+    let header = encode_header(dek, q_rs.len() as u64, padding);
 
     // For each recipient, encrypt a copy of the header with veil.sres.
     for q_r in q_rs {
@@ -130,6 +141,11 @@ fn encrypt_headers(
     Ok(written)
 }
 
+/// The length of plaintext blocks which are encrypted.
+const BLOCK_LEN: usize = 32 * 1024;
+
+/// Given a duplex keyed with the DEK, read the entire contents of `reader` in blocks and write the
+/// encrypted blocks and authentication tags to `writer`.
 fn encrypt_message(
     mres: &mut Duplex,
     reader: &mut impl Read,
@@ -156,6 +172,7 @@ fn encrypt_message(
         buf.clear();
     }
 
+    // Return the number of ciphertext bytes written.
     Ok(written)
 }
 
@@ -183,16 +200,26 @@ pub fn decrypt(
     // Absorb the DEK.
     mres.absorb(&dek);
 
-    // Decrypt the message and verify the signature.
-    decrypt_message(&mut mres, &q_e, reader, writer)
+    // Decrypt the message.
+    let (written, sig) = decrypt_message(&mut mres, reader, writer)?;
+
+    // Verify the signature.
+    schnorr::verify_duplex(&mut mres, &q_e, &sig).map_err(|_| DecryptError::InvalidCiphertext)?;
+
+    // Return the number of plaintext bytes written.
+    Ok(written)
 }
 
+/// The length of an encrypted block and authentication tag.
+const ENC_BLOCK_LEN: usize = BLOCK_LEN + TAG_LEN;
+
+/// Given a duplex keyed with the DEK, read the entire contents of `reader` in blocks and write the
+/// decrypted blocks `writer`.
 fn decrypt_message(
     mres: &mut Duplex,
-    q_e: &Point,
     reader: &mut impl Read,
     writer: &mut impl Write,
-) -> Result<u64, DecryptError> {
+) -> Result<(u64, Vec<u8>), DecryptError> {
     let mut buf = Vec::with_capacity(ENC_BLOCK_LEN + SIGNATURE_LEN);
     let mut written = 0;
 
@@ -223,13 +250,15 @@ fn decrypt_message(
         buf.drain(0..n);
     }
 
-    // Verify the signature.
-    schnorr::verify_duplex(mres, q_e, &buf).map_err(|_| DecryptError::InvalidCiphertext)?;
-
-    // Return the number of bytes.
-    Ok(written)
+    // Return the number of bytes and the signature.
+    Ok((written, buf))
 }
 
+/// The length of an encrypted header.
+const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
+
+/// Iterate through the contents of `reader` looking for a header which was encrypted by the given
+/// sender for the given receiver.
 fn decrypt_header(
     mut mres: Duplex,
     reader: &mut impl Read,
@@ -293,6 +322,7 @@ fn decrypt_header(
     }
 }
 
+/// Decode a header into a DEK, header count, and padding size.
 #[inline]
 fn decode_header(header: Vec<u8>) -> Option<(Vec<u8>, u64, u64)> {
     // Check header for proper length.
@@ -325,12 +355,6 @@ where
         Ok(buf.len())
     }
 }
-
-const DEK_LEN: usize = 32;
-const HEADER_LEN: usize = DEK_LEN + mem::size_of::<u64>() + mem::size_of::<u64>();
-const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
-const BLOCK_LEN: usize = 32 * 1024;
-const ENC_BLOCK_LEN: usize = BLOCK_LEN + TAG_LEN;
 
 #[cfg(test)]
 mod tests {
