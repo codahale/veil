@@ -1,6 +1,6 @@
 \section{Encrypted Messages}\label{sec:veil.mres}
 
-\texttt{veil.mres} implements a multi-recipient signcryption scheme.
+\texttt{veil.mres} implements a multi-receiver signcryption scheme.
 
 \subsection{Encrypting A Message}\label{subsec:veil.mres-encrypt}
 
@@ -121,10 +121,10 @@ Decrypting a signature is described in full in Alg.~\ref{alg:veil.mres-decrypt}.
 
 \subsection{Constructive Analysis Of \texttt{veil.mres}}\label{subsec:veil.mres-analysis}
 
-\texttt{veil.mres} is an integration of two well-known constructions: a multi-recipient hybrid encryption scheme and an
+\texttt{veil.mres} is an integration of two well-known constructions: a multi-receiver hybrid encryption scheme and an
 EdDSA-style Schnorr signature scheme.
 
-The initial portion of \texttt{veil.mres} is a multi-recipient hybrid encryption scheme, with per-receiver copies of a
+The initial portion of \texttt{veil.mres} is a multi-receiver hybrid encryption scheme, with per-receiver copies of a
 symmetric data encryption key (DEK) encrypted in headers with the receivers' public
 keys~\cite{kurosawa2002, bellare2003, bellare2007, rfc4880}.
 The headers are encrypted with the \texttt{veil.sres} construction (see Sec.~\ref{sec:veil.sres}), which provides full
@@ -141,7 +141,7 @@ function~\cite{brendel2021, chalkias2020, pointcheval2000, neven2009} (see also 
 
 One of the two main goals of the \texttt{veil.mres} is confidentiality in the multi-user setting
 (see Sec.~\ref{subsec:sec-conf}), or the inability of an adversary $\Adversary$ to learn information about plaintexts.
-As \texttt{veil.mres} is a multi-recipient scheme, we adopt Bellare et al.'s adaptation of the multi-user
+As \texttt{veil.mres} is a multi-receiver scheme, we adopt Bellare et al.'s adaptation of the multi-user
 setting, in which $\Adversary$ may compromise a subset of receivers~\cite{bellare2007}.
 
 \subsubsection{Outsider Confidentiality}

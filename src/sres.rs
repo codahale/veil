@@ -12,7 +12,7 @@ pub const NONCE_LEN: usize = 16;
 /// The number of bytes added to plaintext by [encrypt].
 pub const OVERHEAD: usize = POINT_LEN + POINT_LEN;
 
-/// Given the sender's key pair, the ephemeral key pair, the recipient's public key, a nonce, and a
+/// Given the sender's key pair, the ephemeral key pair, the receiver's public key, a nonce, and a
 /// plaintext, encrypts the given plaintext and returns the ciphertext.
 pub fn encrypt(
     rng: impl Rng + CryptoRng,
@@ -62,9 +62,9 @@ pub fn encrypt(
     out
 }
 
-/// Given the recipient's key pair, the ephemeral public key, the sender's public key, a nonce, and
+/// Given the receiver's key pair, the ephemeral public key, the sender's public key, a nonce, and
 /// a ciphertext, decrypts the given ciphertext and returns the plaintext iff the ciphertext was
-/// encrypted for the recipient by the sender.
+/// encrypted for the receiver by the sender.
 pub fn decrypt(
     (d_r, q_r): (&Scalar, &Point),
     q_e: &Point,
@@ -146,7 +146,7 @@ mod tests {
     }
 
     #[test]
-    fn wrong_recipient_private_key() {
+    fn wrong_receiver_private_key() {
         let (mut rng, d_s, q_s, d_e, q_e, _, q_r) = setup();
         let plaintext = b"ok this is fun";
         let tag = b"this is a tag";
@@ -159,7 +159,7 @@ mod tests {
     }
 
     #[test]
-    fn wrong_recipient_public_key() {
+    fn wrong_receiver_public_key() {
         let (mut rng, d_s, q_s, d_e, q_e, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
         let tag = b"this is a tag";

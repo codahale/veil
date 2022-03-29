@@ -8,7 +8,7 @@ pub enum DecryptError {
     /// Decryption was unsuccessful due to a message/private key/public key mismatch.
     ///
     /// The ciphertext may have been altered, the message may not have been encrypted by the given
-    /// sender, or the message may not have been encrypted for the given recipient.
+    /// sender, or the message may not have been encrypted for the given receiver.
     #[error("invalid ciphertext")]
     InvalidCiphertext,
 

@@ -80,7 +80,7 @@ impl PrivateKey {
 
     /// Encrypts the contents of the reader and write the ciphertext to the writer.
     ///
-    /// Optionally add a number of fake recipients to disguise the number of true recipients and/or
+    /// Optionally add a number of fake receivers to disguise the number of true receivers and/or
     /// random padding to disguise the message length.
     ///
     /// Returns the number of bytes of ciphertext written to `writer`.
@@ -94,18 +94,18 @@ impl PrivateKey {
         mut rng: impl Rng + CryptoRng,
         reader: &mut impl Read,
         writer: &mut impl Write,
-        recipients: &[PublicKey],
+        receivers: &[PublicKey],
         fakes: Option<usize>,
         padding: Option<usize>,
     ) -> io::Result<u64> {
         // Add fakes.
-        let mut q_rs = recipients
+        let mut q_rs = receivers
             .iter()
             .map(|pk| pk.q)
             .chain(iter::repeat_with(|| Point::random(&mut rng)).take(fakes.unwrap_or_default()))
             .collect::<Vec<Point>>();
 
-        // Shuffle the recipients list.
+        // Shuffle the receivers list.
         q_rs.shuffle(&mut rng);
 
         // Finally, encrypt.
@@ -315,7 +315,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_recipient() -> Result<(), DecryptError> {
+    fn bad_receiver() -> Result<(), DecryptError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let priv_a = PrivateKey::random(&mut rng);
         let priv_b = PrivateKey::random(&mut rng);

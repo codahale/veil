@@ -1,4 +1,4 @@
-//! A multi-recipient, hybrid cryptosystem.
+//! A multi-receiver, hybrid cryptosystem.
 
 use std::convert::TryInto;
 use std::io::{self, Read, Write};
@@ -36,7 +36,7 @@ pub fn encrypt(
     writer.write_all(&q_e_r)?;
     let mut written = POINT_LEN as u64;
 
-    // Encrypt a header for each recipient.
+    // Encrypt a header for each receiver.
     written += encrypt_headers(
         &mut mres,
         &mut rng,
@@ -122,12 +122,12 @@ fn encrypt_headers(
 
     let header = encode_header(dek, q_rs.len() as u64, padding);
 
-    // For each recipient, encrypt a copy of the header with veil.sres.
+    // For each receiver, encrypt a copy of the header with veil.sres.
     for q_r in q_rs {
         // Squeeze a nonce for each header.
         let nonce = mres.squeeze(NONCE_LEN);
 
-        // Encrypt the header for the given recipient.
+        // Encrypt the header for the given receiver.
         let ciphertext = sres::encrypt(&mut rng, (d_s, q_s), (d_e, q_e), q_r, &nonce, &header);
 
         // Absorb the encrypted header.
@@ -417,7 +417,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_recipient_public_key() -> Result<(), DecryptError> {
+    fn bad_receiver_public_key() -> Result<(), DecryptError> {
         let (mut rng, d_s, q_s, d_r, q_r) = setup();
 
         let message = b"this is a thingy";
@@ -436,7 +436,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_recipient_private_key() -> Result<(), DecryptError> {
+    fn bad_receiver_private_key() -> Result<(), DecryptError> {
         let (mut rng, d_s, q_s, _, q_r) = setup();
 
         let message = b"this is a thingy";

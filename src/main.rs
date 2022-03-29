@@ -107,7 +107,7 @@ impl Runnable for PublicKeyArgs {
     }
 }
 
-/// Encrypt a message for a set of recipients.
+/// Encrypt a message for a set of receivers.
 #[derive(Debug, Parser)]
 struct EncryptArgs {
     /// The path of the encrypted private key.
@@ -122,11 +122,11 @@ struct EncryptArgs {
     #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
     ciphertext: Output,
 
-    /// The recipient's public key.
+    /// The receivers' public keys.
     #[clap(required = true)]
-    recipients: Vec<PublicKey>,
+    receivers: Vec<PublicKey>,
 
-    /// Add fake recipients.
+    /// Add fake receivers.
     #[clap(long)]
     fakes: Option<usize>,
 
@@ -146,7 +146,7 @@ impl Runnable for EncryptArgs {
             rand::thread_rng(),
             &mut self.plaintext.lock(),
             &mut self.ciphertext.lock(),
-            &self.recipients,
+            &self.receivers,
             self.fakes,
             self.padding,
         )?;

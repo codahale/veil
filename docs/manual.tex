@@ -18,7 +18,7 @@
     \maketitle
     \begin{abstract}
         Veil is a public-key cryptosystem that provides confidentiality, authenticity, and integrity services for
-        messages of arbitrary sizes and multiple recipients.
+        messages of arbitrary sizes and multiple receivers.
         Veil is implemented as a command line tool \texttt{veil}.
         This document describes its feature set and usage.
     \end{abstract}
@@ -84,7 +84,7 @@
 
     \section{Encrypting A Message}\label{sec:encrypting-a-message}
 
-    To encrypt a message, you need your private key, the recipients' public keys, and the message:
+    To encrypt a message, you need your private key, the receivers' public keys, and the message:
 
     \begin{verbatim}
     veil encrypt ./my-private-key \
@@ -96,7 +96,7 @@
 
     This will create a file \texttt{message.txt.veil} which the owners of the two public keys can decrypt if they have
     your public key.
-    It adds 18 fake recipients, so neither recipient really knows how many people you sent the message to.
+    It adds 18 fake receivers, so neither receiver really knows how many people you sent the message to.
     It also adds 1234 bytes of random padding, so someone monitoring your communications won't know how long the message
     really is.
 
