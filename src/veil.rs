@@ -289,7 +289,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_sender_key() -> Result<(), DecryptError> {
+    fn wrong_sender_key() -> Result<(), DecryptError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let priv_a = PrivateKey::random(&mut rng);
         let priv_b = PrivateKey::random(&mut rng);
@@ -315,7 +315,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_receiver() -> Result<(), DecryptError> {
+    fn wrong_receiver() -> Result<(), DecryptError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let priv_a = PrivateKey::random(&mut rng);
         let priv_b = PrivateKey::random(&mut rng);
@@ -341,7 +341,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_ciphertext() -> Result<(), DecryptError> {
+    fn modified_ciphertext() -> Result<(), DecryptError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let priv_a = PrivateKey::random(&mut rng);
         let priv_b = PrivateKey::random(&mut rng);
