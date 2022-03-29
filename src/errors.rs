@@ -68,5 +68,5 @@ pub enum ParseDigestError {
 
     /// Parsing failed because the digest was not valid base58.
     #[error("invalid base58 encoding")]
-    BadEncoding(#[from] bs58::decode::Error),
+    InvalidEncoding(#[from] bs58::decode::Error),
 }
