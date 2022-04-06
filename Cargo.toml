@@ -25,7 +25,7 @@ zeroize = { version = "1.5.4", features = ["derive"] }
 anyhow = { version = "1.0.56", optional = true }
 clap = { version = "3.1.8", features = ["derive"], optional = true }
 clap_complete = { version = "3.1.1", optional = true }
-clio = { version = "0.2.1", optional = true }
+clio = { version = "0.2.2", optional = true }
 mimalloc = { version = "0.1.28", optional = true }
 rpassword = { version = "6.0.1", optional = true }
 
