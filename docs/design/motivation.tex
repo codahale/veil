@@ -42,7 +42,7 @@ oracle~\cite[p. 41]{an2010}:
     It can ask [the encryption oracle] to signcrypt a message $m$ for $R'$ and get
     $C=(\text{Encrypt}(pk_{R'},m||\sigma),ID_S,ID_{R'})$, where $\sigma \stackrel{R}{\gets} \text{Sign}(pk_S,m)$.
     Then, it can recover $m||\sigma$ using $sk_{R'}$ and forge the signcryption ciphertext
-    $C' = (Encrypt(pkR,m||\sigma),ID_S,ID_R)$.
+    $C' = (\text{Encrypt}(pkR,m||\sigma),ID_S,ID_R)$.
 \end{displayquote}
 
 ~This may seem like an academic distinction, but this attack is trivial to mount.
