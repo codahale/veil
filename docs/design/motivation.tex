@@ -40,9 +40,9 @@ oracle~\cite[p. 41]{an2010}:
 \begin{displayquote}
     In the $\StE$ scheme, the adversary $\Adversary$ can easily break the sUF-CMA security in the outsider model.
     It can ask [the encryption oracle] to signcrypt a message $m$ for $R'$ and get
-    $C=(\text{Encrypt}(pk_{R'},m||\sigma),ID_S,ID_{R'})$, where $\sigma \stackrel{R}{\gets} \text{Sign}(pk_S,m)$.
+    $C=(\textsc{Encrypt}(pk_{R'},m||\sigma),ID_S,ID_{R'})$, where $\sigma \stackrel{R}{\gets} \textsc{Sign}(pk_S,m)$.
     Then, it can recover $m||\sigma$ using $sk_{R'}$ and forge the signcryption ciphertext
-    $C' = (\text{Encrypt}(pkR,m||\sigma),ID_S,ID_R)$.
+    $C' = (\textsc{Encrypt}(pkR,m||\sigma),ID_S,ID_R)$.
 \end{displayquote}
 
 ~This may seem like an academic distinction, but this attack is trivial to mount.
