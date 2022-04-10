@@ -1,8 +1,13 @@
 \documentclass{article}
 
+\usepackage[utf8]{inputenc}
 \usepackage{amsmath}
 \usepackage{amssymb}
+\usepackage[english]{babel}
+\usepackage{polyglossia}
 \usepackage{csquotes}
+\usepackage{xpatch}
+\usepackage[style=trad-abbrv]{biblatex}
 \usepackage[
     breaklinks=true,
     bookmarks=true,
@@ -12,14 +17,13 @@
     linkcolor=blue,
     pdfborder={0 0 0}
 ]{hyperref}
-\usepackage{polyglossia}
 \usepackage{url}
 \usepackage{algpseudocode}
 \usepackage{algorithm}
 \usepackage{algorithmicx}
 
 \setdefaultlanguage{english}
-\bibliographystyle{acm}
+\addbibresource[]{design.bib}
 
 \title{The Veil Cryptosystem}
 \author{Coda Hale}
@@ -74,5 +78,6 @@
 
 
     \section{References}\label{sec:references}
-    \bibliography{design}
+
+    \printbibliography
 \end{document}

@@ -3,6 +3,7 @@
 # LaTeX temporary files
 *.aux
 *.bbl
+*.bcf
 *.blg
 *.dvi
 *.fdb_latexmk
