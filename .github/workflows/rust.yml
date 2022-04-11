@@ -11,11 +11,32 @@ jobs:
       matrix:
         rust:
           - stable
+          - beta
     steps:
       - uses: actions/checkout@v3
         name: "checkout"
-      - uses: RustCrypto/actions/cargo-cache@master
-        name: "setup cache"
+      - uses: actions-rs/toolchain@v1.0.7
+        name: "install rust"
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+      - uses: actions-rs/cargo@v1.0.3
+        name: 'build'
+        with:
+          command: build
+          args: --all-targets ${{ matrix.features }}
+      - uses: actions-rs/cargo@v1.0.3
+        name: 'test'
+        with:
+          command: test
+          args: ${{ matrix.features }}
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        name: "checkout"
       - uses: actions-rs/toolchain@v1.0.7
         name: "install rust"
         with:
@@ -40,13 +61,3 @@ jobs:
         with:
           command: clippy
           args: --all-features --tests --benches -- -D warnings
-      - uses: actions-rs/cargo@v1.0.3
-        name: 'build'
-        with:
-          command: build
-          args: --all-targets ${{ matrix.features }}
-      - uses: actions-rs/cargo@v1.0.3
-        name: 'test'
-        with:
-          command: test
-          args: ${{ matrix.features }}
