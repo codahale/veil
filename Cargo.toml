@@ -22,7 +22,7 @@ xoodyak = { git = "https://github.com/jedisct1/rust-xoodyak", branch = "master" 
 zeroize = { version = "1.5.4", features = ["derive"] }
 
 # cli-only deps
-anyhow = { version = "1.0.56", optional = true }
+anyhow = { version = "1.0.57", optional = true }
 clap = { version = "3.1.11", features = ["derive"], optional = true }
 clap_complete = { version = "3.1.2", optional = true }
 clio = { version = "0.2.2", optional = true }
