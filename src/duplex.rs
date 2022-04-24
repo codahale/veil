@@ -72,12 +72,17 @@ impl Duplex {
     /// Squeeze 64 bytes from the duplex and map them to a [Scalar].
     #[must_use]
     pub fn squeeze_scalar(&mut self) -> Scalar {
-        // Squeeze a 512-bit integer.
-        let mut b = [0u8; 64];
-        self.state.squeeze(&mut b);
+        loop {
+            // Squeeze a 512-bit integer.
+            let mut b = [0u8; 64];
+            self.state.squeeze(&mut b);
 
-        // Map the integer to a scalar mod l.
-        Scalar::from_bytes_mod_order_wide(&b)
+            // Map the integer to a scalar mod l and return if ≠ 0.
+            let d = Scalar::from_bytes_mod_order_wide(&b);
+            if d != Scalar::zero() {
+                return d;
+            }
+        }
     }
 
     /// Clone the duplex and use it to absorb the given secret and 64 random bytes. Pass the clone
