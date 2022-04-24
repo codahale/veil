@@ -6,15 +6,16 @@ use std::io::{Read, Result};
 use std::str::FromStr;
 use std::{fmt, result};
 
+use curve25519_dalek::ristretto::RistrettoPoint;
+use curve25519_dalek::scalar::Scalar;
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::Duplex;
 use crate::ristretto::{CanonicallyEncoded, G};
-use crate::ristretto::{Point, Scalar};
 use crate::{AsciiEncoded, ParseSignatureError, VerifyError};
 
 /// The length of a signature, in bytes.
-pub const SIGNATURE_LEN: usize = Point::ENCODED_LEN + Scalar::ENCODED_LEN;
+pub const SIGNATURE_LEN: usize = RistrettoPoint::ENCODED_LEN + Scalar::ENCODED_LEN;
 
 /// A Schnorr signature.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -49,7 +50,7 @@ impl fmt::Display for Signature {
 /// Create a Schnorr signature of the given message using the given key pair.
 pub fn sign(
     rng: impl Rng + CryptoRng,
-    (d, q): (&Scalar, &Point),
+    (d, q): (&Scalar, &RistrettoPoint),
     message: impl Read,
 ) -> Result<Signature> {
     // Initialize a duplex.
@@ -80,7 +81,11 @@ pub fn sign(
 }
 
 /// Verify a Schnorr signature of the given message using the given public key.
-pub fn verify(q: &Point, message: impl Read, sig: &Signature) -> result::Result<(), VerifyError> {
+pub fn verify(
+    q: &RistrettoPoint,
+    message: impl Read,
+    sig: &Signature,
+) -> result::Result<(), VerifyError> {
     // Initialize a duplex.
     let mut schnorr = Duplex::new("veil.schnorr");
 
@@ -114,15 +119,15 @@ pub fn sign_duplex(duplex: &mut Duplex, d: &Scalar, k: Scalar) -> (Vec<u8>, Scal
 /// Verify a Schnorr signature of the given duplex's state using the given public key.
 pub fn verify_duplex(
     duplex: &mut Duplex,
-    q: &Point,
+    q: &RistrettoPoint,
     sig: &[u8],
 ) -> result::Result<(), VerifyError> {
     // Split the signature into parts.
-    let (i, s) = sig.split_at(Point::ENCODED_LEN);
+    let (i, s) = sig.split_at(RistrettoPoint::ENCODED_LEN);
 
     // Decrypt and decode the commitment point. Return an error if it's the identity point.
     let i = duplex.decrypt(i);
-    let i = Point::from_canonical_encoding(&i);
+    let i = RistrettoPoint::from_canonical_encoding(&i);
     let i = i.ok_or(VerifyError::InvalidSignature)?;
 
     // Re-derive the challenge scalar.
@@ -136,7 +141,7 @@ pub fn verify_duplex(
     // Return true iff I and s are well-formed and I == [s]G - [r]Q. Use the variable-time
     // implementation here because the verifier has no secret data.
     //    I == [r](-Q) + [s]G == [s]G - [r]Q
-    if i == Point::vartime_double_scalar_mul_basepoint(&r, &-q, &s /*G*/) {
+    if i == RistrettoPoint::vartime_double_scalar_mul_basepoint(&r, &-q, &s /*G*/) {
         Ok(())
     } else {
         Err(VerifyError::InvalidSignature)
@@ -201,7 +206,7 @@ mod tests {
         let message = b"this is a message";
         let sig = sign(&mut rng, (&d, &q), Cursor::new(message))?;
 
-        let q = Point::random(&mut rng);
+        let q = RistrettoPoint::random(&mut rng);
 
         assert_failed!(verify(&q, Cursor::new(message), &sig))
     }
@@ -235,7 +240,7 @@ mod tests {
         assert_eq!(
             Err(ParseSignatureError::InvalidEncoding(bs58::decode::Error::InvalidCharacter {
                 character: ' ',
-                index: 4
+                index: 4,
             })),
             "woot woot".parse::<Signature>(),
             "parsed invalid signature"

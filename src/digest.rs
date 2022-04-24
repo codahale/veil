@@ -122,7 +122,7 @@ mod tests {
         assert_eq!(
             Err(ParseDigestError::InvalidEncoding(bs58::decode::Error::InvalidCharacter {
                 character: ' ',
-                index: 4
+                index: 4,
             })),
             "woot woot".parse::<Digest>(),
             "parsed invalid signature"

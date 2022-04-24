@@ -1,14 +1,9 @@
 //! Utility functions for Ristretto operations.
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
-use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoBasepointTable};
+use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoBasepointTable, RistrettoPoint};
+use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::IsIdentity;
-
-/// A scalar on the Ristretto255 curve.
-pub type Scalar = curve25519_dalek::scalar::Scalar;
-
-/// A point on the Ristretto255 curve.
-pub type Point = curve25519_dalek::ristretto::RistrettoPoint;
 
 /// The generator for the Ristretto group. Use the table version, which contains precomputed
 /// multiples, for performance.
@@ -41,7 +36,7 @@ impl CanonicallyEncoded<32> for Scalar {
     }
 }
 
-impl CanonicallyEncoded<32> for Point {
+impl CanonicallyEncoded<32> for RistrettoPoint {
     fn from_canonical_encoding(b: &[u8]) -> Option<Self> {
         CompressedRistretto::from_slice(b).decompress().filter(|q| !q.is_identity())
     }
@@ -55,9 +50,10 @@ impl CanonicallyEncoded<32> for Point {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rand::SeedableRng;
     use rand_chacha::ChaChaRng;
+
+    use super::*;
 
     #[test]
     fn scalar_round_trip() {
@@ -74,9 +70,9 @@ mod tests {
     fn point_round_trip() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let q = Point::random(&mut rng);
+        let q = RistrettoPoint::random(&mut rng);
         let b = q.to_canonical_encoding();
-        let q_p = Point::from_canonical_encoding(&b);
+        let q_p = RistrettoPoint::from_canonical_encoding(&b);
 
         assert_eq!(Some(q), q_p);
     }
@@ -88,6 +84,6 @@ mod tests {
 
     #[test]
     fn identity_points() {
-        assert_eq!(None, Point::from_canonical_encoding(&[0u8; 32]));
+        assert_eq!(None, RistrettoPoint::from_canonical_encoding(&[0u8; 32]));
     }
 }

@@ -3,11 +3,10 @@
 use std::io;
 use std::io::Read;
 
+use curve25519_dalek::scalar::Scalar;
 use rand::{CryptoRng, Rng};
 use subtle::ConstantTimeEq;
 use xoodyak::{XoodyakCommon, XoodyakKeyed};
-
-use crate::ristretto::Scalar;
 
 /// The length of an authentication tag in bytes.
 pub const TAG_LEN: usize = 16;

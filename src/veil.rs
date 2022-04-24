@@ -5,12 +5,14 @@ use std::io::{BufWriter, Read, Write};
 use std::str::FromStr;
 use std::{fmt, io, iter};
 
+use curve25519_dalek::ristretto::RistrettoPoint;
+use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::IsIdentity;
 use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::ristretto::{CanonicallyEncoded, Point, Scalar, G};
+use crate::ristretto::{CanonicallyEncoded, G};
 use crate::{
     mres, pbenc, schnorr, AsciiEncoded, DecryptError, ParsePublicKeyError, Signature, VerifyError,
 };
@@ -102,8 +104,11 @@ impl PrivateKey {
         let mut q_rs = receivers
             .iter()
             .map(|pk| pk.q)
-            .chain(iter::repeat_with(|| Point::random(&mut rng)).take(fakes.unwrap_or_default()))
-            .collect::<Vec<Point>>();
+            .chain(
+                iter::repeat_with(|| RistrettoPoint::random(&mut rng))
+                    .take(fakes.unwrap_or_default()),
+            )
+            .collect::<Vec<RistrettoPoint>>();
 
         // Shuffle the receivers list.
         q_rs.shuffle(&mut rng);
@@ -168,7 +173,7 @@ impl Debug for PrivateKey {
 /// A public key, used to verify messages.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Zeroize)]
 pub struct PublicKey {
-    q: Point,
+    q: RistrettoPoint,
 }
 
 impl PublicKey {
@@ -190,7 +195,7 @@ impl AsciiEncoded for PublicKey {
 
     fn from_bytes(b: &[u8]) -> Result<Self, <Self as AsciiEncoded>::Err> {
         let b = b.try_into().or(Err(ParsePublicKeyError::InvalidPublicKey))?;
-        let q = Point::from_elligator2(&b).ok_or(ParsePublicKeyError::InvalidPublicKey)?;
+        let q = RistrettoPoint::from_elligator2(&b).ok_or(ParsePublicKeyError::InvalidPublicKey)?;
         if q.is_identity() {
             return Err(ParsePublicKeyError::InvalidPublicKey);
         }
@@ -241,7 +246,7 @@ mod tests {
         assert_eq!(
             Err(ParsePublicKeyError::InvalidEncoding(bs58::decode::Error::InvalidCharacter {
                 character: ' ',
-                index: 4
+                index: 4,
             })),
             "woot woot".parse::<PublicKey>(),
             "decoded invalid public key"

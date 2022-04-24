@@ -1,24 +1,26 @@
 //! An insider-secure hybrid signcryption implementation.
 
+use curve25519_dalek::ristretto::RistrettoPoint;
+use curve25519_dalek::scalar::Scalar;
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::Duplex;
-use crate::ristretto::{CanonicallyEncoded, Point, Scalar};
+use crate::ristretto::CanonicallyEncoded;
 use crate::schnorr;
 
 /// The recommended size of the nonce passed to [encrypt].
 pub const NONCE_LEN: usize = 16;
 
 /// The number of bytes added to plaintext by [encrypt].
-pub const OVERHEAD: usize = Point::ENCODED_LEN + Point::ENCODED_LEN;
+pub const OVERHEAD: usize = RistrettoPoint::ENCODED_LEN + RistrettoPoint::ENCODED_LEN;
 
 /// Given the sender's key pair, the ephemeral key pair, the receiver's public key, a nonce, and a
 /// plaintext, encrypts the given plaintext and returns the ciphertext.
 pub fn encrypt(
     rng: impl Rng + CryptoRng,
-    (d_s, q_s): (&Scalar, &Point),
-    (d_e, q_e): (&Scalar, &Point),
-    q_r: &Point,
+    (d_s, q_s): (&Scalar, &RistrettoPoint),
+    (d_e, q_e): (&Scalar, &RistrettoPoint),
+    q_r: &RistrettoPoint,
     nonce: &[u8],
     plaintext: &[u8],
 ) -> Vec<u8> {
@@ -66,9 +68,9 @@ pub fn encrypt(
 /// a ciphertext, decrypts the given ciphertext and returns the plaintext iff the ciphertext was
 /// encrypted for the receiver by the sender.
 pub fn decrypt(
-    (d_r, q_r): (&Scalar, &Point),
-    q_e: &Point,
-    q_s: &Point,
+    (d_r, q_r): (&Scalar, &RistrettoPoint),
+    q_e: &RistrettoPoint,
+    q_s: &RistrettoPoint,
     nonce: &[u8],
     ciphertext: &[u8],
 ) -> Option<Vec<u8>> {
@@ -79,7 +81,7 @@ pub fn decrypt(
 
     // Split the ciphertext into its components.
     let (ciphertext, i) = ciphertext.split_at(ciphertext.len() - OVERHEAD);
-    let (i, x) = i.split_at(Point::ENCODED_LEN);
+    let (i, x) = i.split_at(RistrettoPoint::ENCODED_LEN);
 
     // Initialize a duplex.
     let mut sres = Duplex::new("veil.sres");
@@ -104,14 +106,14 @@ pub fn decrypt(
 
     // Decrypt the decode the commitment point.
     let i = sres.decrypt(i);
-    let i = Point::from_canonical_encoding(&i)?;
+    let i = RistrettoPoint::from_canonical_encoding(&i)?;
 
     // Squeeze a challenge scalar from the public keys, plaintext, and commitment point.
     let r = sres.squeeze_scalar();
 
     // Decrypt the decode the proof point.
     let x = sres.decrypt(x);
-    let x = Point::from_canonical_encoding(&x)?;
+    let x = RistrettoPoint::from_canonical_encoding(&x)?;
 
     // Re-calculate the proof point.
     let x_p = d_r * (i + (r * q_s));
@@ -130,7 +132,7 @@ mod tests {
     use rand::SeedableRng;
     use rand_chacha::ChaChaRng;
 
-    use crate::ristretto::{Point, G};
+    use crate::ristretto::G;
 
     use super::*;
 
@@ -165,7 +167,7 @@ mod tests {
         let tag = b"this is a tag";
         let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, tag, plaintext);
 
-        let q_r = Point::random(&mut rng);
+        let q_r = RistrettoPoint::random(&mut rng);
 
         let plaintext = decrypt((&d_r, &q_r), &q_e, &q_s, tag, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -178,7 +180,7 @@ mod tests {
         let tag = b"this is a tag";
         let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, tag, plaintext);
 
-        let q_e = Point::random(&mut rng);
+        let q_e = RistrettoPoint::random(&mut rng);
 
         let plaintext = decrypt((&d_r, &q_r), &q_e, &q_s, tag, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -191,7 +193,7 @@ mod tests {
         let tag = b"this is a tag";
         let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, tag, plaintext);
 
-        let q_s = Point::random(&mut rng);
+        let q_s = RistrettoPoint::random(&mut rng);
 
         let plaintext = decrypt((&d_r, &q_r), &q_e, &q_s, tag, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -231,7 +233,8 @@ mod tests {
         }
     }
 
-    fn setup() -> (ChaChaRng, Scalar, Point, Scalar, Point, Scalar, Point) {
+    fn setup() -> (ChaChaRng, Scalar, RistrettoPoint, Scalar, RistrettoPoint, Scalar, RistrettoPoint)
+    {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let d_s = Scalar::random(&mut rng);
