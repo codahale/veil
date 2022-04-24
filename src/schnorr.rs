@@ -9,12 +9,12 @@ use std::{fmt, result};
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::Duplex;
-use crate::ristretto::{CanonicallyEncoded, G, POINT_LEN, SCALAR_LEN};
+use crate::ristretto::{CanonicallyEncoded, G};
 use crate::ristretto::{Point, Scalar};
 use crate::{AsciiEncoded, ParseSignatureError, VerifyError};
 
 /// The length of a signature, in bytes.
-pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
+pub const SIGNATURE_LEN: usize = Point::ENCODED_LEN + Scalar::ENCODED_LEN;
 
 /// A Schnorr signature.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -118,7 +118,7 @@ pub fn verify_duplex(
     sig: &[u8],
 ) -> result::Result<(), VerifyError> {
     // Split the signature into parts.
-    let (i, s) = sig.split_at(POINT_LEN);
+    let (i, s) = sig.split_at(Point::ENCODED_LEN);
 
     // Decrypt and decode the commitment point. Return an error if it's the identity point.
     let i = duplex.decrypt(i);

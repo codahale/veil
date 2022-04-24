@@ -10,7 +10,7 @@ use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::ristretto::{CanonicallyEncoded, Point, Scalar, G, SCALAR_LEN};
+use crate::ristretto::{CanonicallyEncoded, Point, Scalar, G};
 use crate::{
     mres, pbenc, schnorr, AsciiEncoded, DecryptError, ParsePublicKeyError, Signature, VerifyError,
 };
@@ -68,7 +68,7 @@ impl PrivateKey {
     /// [DecryptError::InvalidCiphertext] error will be returned. If an error occurred while
     /// reading, a [DecryptError::IoError] error will be returned.
     pub fn load(mut reader: impl Read, passphrase: &str) -> Result<PrivateKey, DecryptError> {
-        let mut b = Vec::with_capacity(SCALAR_LEN);
+        let mut b = Vec::with_capacity(Scalar::ENCODED_LEN);
         reader.read_to_end(&mut b)?;
 
         // Decrypt the ciphertext and use the plaintext as the private key.

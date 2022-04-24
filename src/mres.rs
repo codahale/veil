@@ -8,7 +8,7 @@ use std::result::Result;
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Duplex, TAG_LEN};
-use crate::ristretto::{CanonicallyEncoded, G, POINT_LEN};
+use crate::ristretto::{CanonicallyEncoded, G};
 use crate::ristretto::{Point, Scalar};
 use crate::schnorr::SIGNATURE_LEN;
 use crate::sres::NONCE_LEN;
@@ -34,7 +34,7 @@ pub fn encrypt(
     // Absorb and write the representative of the ephemeral public key.
     mres.absorb(&q_e_r);
     writer.write_all(&q_e_r)?;
-    let mut written = POINT_LEN as u64;
+    let mut written = Point::ENCODED_LEN as u64;
 
     // Encrypt a header for each receiver.
     written += encrypt_headers(
@@ -189,7 +189,7 @@ pub fn decrypt(
     mres.absorb(&q_s.to_canonical_encoding());
 
     // Read, absorb, and decode the ephemeral public key.
-    let mut q_e_r = [0u8; POINT_LEN];
+    let mut q_e_r = [0u8; Point::ENCODED_LEN];
     reader.read_exact(&mut q_e_r)?;
     mres.absorb(&q_e_r);
     let q_e = Point::from_elligator2(&q_e_r).ok_or(DecryptError::InvalidCiphertext)?;

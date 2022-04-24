@@ -14,14 +14,11 @@ pub type Point = curve25519_dalek::ristretto::RistrettoPoint;
 /// multiples, for performance.
 pub const G: RistrettoBasepointTable = RISTRETTO_BASEPOINT_TABLE;
 
-/// The length of a compressed ristretto255 point in bytes.
-pub const POINT_LEN: usize = 32;
-
-/// The length of a ristretto255 scalar in bytes.
-pub const SCALAR_LEN: usize = 32;
-
 /// An extension trait to centralize canonical encoding of scalars and points.
 pub trait CanonicallyEncoded<const N: usize>: Sized {
+    /// The length of the encoded values in bytes.
+    const ENCODED_LEN: usize = N;
+
     /// Parses the given slice and decodes it iff the encoding is canonical.
     #[must_use]
     fn from_canonical_encoding(b: &[u8]) -> Option<Self>;
@@ -31,12 +28,12 @@ pub trait CanonicallyEncoded<const N: usize>: Sized {
     fn to_canonical_encoding(&self) -> [u8; N];
 }
 
-impl CanonicallyEncoded<SCALAR_LEN> for Scalar {
+impl CanonicallyEncoded<32> for Scalar {
     fn from_canonical_encoding(b: &[u8]) -> Option<Self> {
         Scalar::from_canonical_bytes(b.try_into().ok()?).filter(|d| d != &Scalar::zero())
     }
 
-    fn to_canonical_encoding(&self) -> [u8; SCALAR_LEN] {
+    fn to_canonical_encoding(&self) -> [u8; 32] {
         debug_assert!(self.is_canonical());
         debug_assert!(self != &Scalar::zero());
 
@@ -44,12 +41,12 @@ impl CanonicallyEncoded<SCALAR_LEN> for Scalar {
     }
 }
 
-impl CanonicallyEncoded<POINT_LEN> for Point {
+impl CanonicallyEncoded<32> for Point {
     fn from_canonical_encoding(b: &[u8]) -> Option<Self> {
         CompressedRistretto::from_slice(b).decompress().filter(|q| !q.is_identity())
     }
 
-    fn to_canonical_encoding(&self) -> [u8; POINT_LEN] {
+    fn to_canonical_encoding(&self) -> [u8; 32] {
         debug_assert!(!self.is_identity());
 
         self.compress().to_bytes()

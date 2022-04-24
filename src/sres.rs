@@ -3,14 +3,14 @@
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::Duplex;
-use crate::ristretto::{CanonicallyEncoded, Point, Scalar, POINT_LEN};
+use crate::ristretto::{CanonicallyEncoded, Point, Scalar};
 use crate::schnorr;
 
 /// The recommended size of the nonce passed to [encrypt].
 pub const NONCE_LEN: usize = 16;
 
 /// The number of bytes added to plaintext by [encrypt].
-pub const OVERHEAD: usize = POINT_LEN + POINT_LEN;
+pub const OVERHEAD: usize = Point::ENCODED_LEN + Point::ENCODED_LEN;
 
 /// Given the sender's key pair, the ephemeral key pair, the receiver's public key, a nonce, and a
 /// plaintext, encrypts the given plaintext and returns the ciphertext.
@@ -79,7 +79,7 @@ pub fn decrypt(
 
     // Split the ciphertext into its components.
     let (ciphertext, i) = ciphertext.split_at(ciphertext.len() - OVERHEAD);
-    let (i, x) = i.split_at(POINT_LEN);
+    let (i, x) = i.split_at(Point::ENCODED_LEN);
 
     // Initialize a duplex.
     let mut sres = Duplex::new("veil.sres");
