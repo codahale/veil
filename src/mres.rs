@@ -10,10 +10,9 @@ use curve25519_dalek::scalar::Scalar;
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Duplex, TAG_LEN};
-use crate::ristretto::{CanonicallyEncoded, G};
 use crate::schnorr::SIGNATURE_LEN;
 use crate::sres::NONCE_LEN;
-use crate::{schnorr, sres, DecryptError};
+use crate::{schnorr, sres, DecryptError, G, POINT_LEN};
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
@@ -27,7 +26,7 @@ pub fn encrypt(
 ) -> io::Result<u64> {
     // Initialize a duplex and absorb the sender's public key.
     let mut mres = Duplex::new("veil.mres");
-    mres.absorb(&q_s.to_canonical_encoding());
+    mres.absorb(q_s.compress().as_bytes());
 
     // Generate ephemeral key pair, Elligator2 representative, ephemeral scalar, and DEK.
     let (d_e, q_e, q_e_r, k, dek) = generate_keys(&mut mres, &mut rng, d_s);
@@ -35,7 +34,7 @@ pub fn encrypt(
     // Absorb and write the representative of the ephemeral public key.
     mres.absorb(&q_e_r);
     writer.write_all(&q_e_r)?;
-    let mut written = RistrettoPoint::ENCODED_LEN as u64;
+    let mut written = POINT_LEN as u64;
 
     // Encrypt a header for each receiver.
     written += encrypt_headers(
@@ -65,7 +64,7 @@ pub fn encrypt(
     let (i, s) = schnorr::sign_duplex(&mut mres, &d_e, k);
 
     // Encrypt the proof scalar.
-    let s = mres.encrypt(&s.to_canonical_encoding());
+    let s = mres.encrypt(s.as_bytes());
 
     // Write the signature components.
     writer.write_all(&i)?;
@@ -187,10 +186,10 @@ pub fn decrypt(
 ) -> Result<u64, DecryptError> {
     // Initialize a duplex and absorb the sender's public key.
     let mut mres = Duplex::new("veil.mres");
-    mres.absorb(&q_s.to_canonical_encoding());
+    mres.absorb(q_s.compress().as_bytes());
 
     // Read, absorb, and decode the ephemeral public key.
-    let mut q_e_r = [0u8; RistrettoPoint::ENCODED_LEN];
+    let mut q_e_r = [0u8; POINT_LEN];
     reader.read_exact(&mut q_e_r)?;
     mres.absorb(&q_e_r);
     let q_e = RistrettoPoint::from_elligator2(&q_e_r).ok_or(DecryptError::InvalidCiphertext)?;
@@ -518,7 +517,7 @@ mod tests {
                 match decrypt(&mut src, &mut io::sink(), (&d_r, &q_r), &q_s) {
                     Err(DecryptError::InvalidCiphertext) => {}
                     Ok(_) => panic!("bit flip at byte {i}, bit {j} produced a valid message"),
-                    Err(e) => panic!("unknown error: {}", e),
+                    Err(e) => panic!("unknown error: {:?}", e),
                 };
             }
         }

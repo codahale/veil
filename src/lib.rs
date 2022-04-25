@@ -67,11 +67,13 @@
     clippy::needless_borrow
 )]
 
-pub use crate::schnorr::Signature;
+use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
+use curve25519_dalek::ristretto::RistrettoBasepointTable;
 
 pub use self::ascii::*;
 pub use self::digest::*;
 pub use self::errors::*;
+pub use self::schnorr::Signature;
 pub use self::veil::*;
 
 mod ascii;
@@ -80,7 +82,16 @@ mod duplex;
 mod errors;
 mod mres;
 mod pbenc;
-mod ristretto;
 mod schnorr;
 mod sres;
 mod veil;
+
+/// The generator for the Ristretto group. Use the table version, which contains precomputed
+/// multiples, for performance.
+pub(crate) const G: RistrettoBasepointTable = RISTRETTO_BASEPOINT_TABLE;
+
+/// The length of an encoded point in bytes.
+pub(crate) const POINT_LEN: usize = 32;
+
+/// The length of an encoded scalar in bytes.
+pub(crate) const SCALAR_LEN: usize = 32;

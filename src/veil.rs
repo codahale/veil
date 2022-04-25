@@ -12,9 +12,9 @@ use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::ristretto::{CanonicallyEncoded, G};
 use crate::{
     mres, pbenc, schnorr, AsciiEncoded, DecryptError, ParsePublicKeyError, Signature, VerifyError,
+    G, POINT_LEN,
 };
 
 /// A private key, used to encrypt, decrypt, and sign messages.
@@ -57,7 +57,7 @@ impl PrivateKey {
         time: u8,
         space: u8,
     ) -> io::Result<usize> {
-        let b = pbenc::encrypt(rng, passphrase, time, space, &self.d.to_canonical_encoding());
+        let b = pbenc::encrypt(rng, passphrase, time, space, self.d.as_bytes());
         writer.write_all(&b)?;
         Ok(b.len())
     }
@@ -70,12 +70,14 @@ impl PrivateKey {
     /// [DecryptError::InvalidCiphertext] error will be returned. If an error occurred while
     /// reading, a [DecryptError::IoError] error will be returned.
     pub fn load(mut reader: impl Read, passphrase: &str) -> Result<PrivateKey, DecryptError> {
-        let mut b = Vec::with_capacity(Scalar::ENCODED_LEN);
+        let mut b = Vec::with_capacity(POINT_LEN);
         reader.read_to_end(&mut b)?;
 
         // Decrypt the ciphertext and use the plaintext as the private key.
         pbenc::decrypt(passphrase, &b)
-            .and_then(|b| Scalar::from_canonical_encoding(&b))
+            .and_then(|b| b.try_into().ok())
+            .and_then(Scalar::from_canonical_bytes)
+            .filter(|d| d != &Scalar::zero())
             .map(PrivateKey::from_scalar)
             .ok_or(DecryptError::InvalidCiphertext)
     }

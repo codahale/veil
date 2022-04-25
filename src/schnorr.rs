@@ -6,16 +6,16 @@ use std::io::{Read, Result};
 use std::str::FromStr;
 use std::{fmt, result};
 
-use curve25519_dalek::ristretto::RistrettoPoint;
+use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
+use curve25519_dalek::traits::IsIdentity;
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::Duplex;
-use crate::ristretto::{CanonicallyEncoded, G};
-use crate::{AsciiEncoded, ParseSignatureError, VerifyError};
+use crate::{AsciiEncoded, ParseSignatureError, VerifyError, G, POINT_LEN, SCALAR_LEN};
 
 /// The length of a signature, in bytes.
-pub const SIGNATURE_LEN: usize = RistrettoPoint::ENCODED_LEN + Scalar::ENCODED_LEN;
+pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
 
 /// A Schnorr signature.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -57,7 +57,7 @@ pub fn sign(
     let mut schnorr = Duplex::new("veil.schnorr");
 
     // Absorb the signer's public key.
-    schnorr.absorb(&q.to_canonical_encoding());
+    schnorr.absorb(q.compress().as_bytes());
 
     // Absorb the message in 32KiB blocks.
     schnorr.absorb_blocks(message)?;
@@ -74,7 +74,7 @@ pub fn sign(
 
     // Encrypt the proof scalar.
     out.extend(i);
-    out.extend(schnorr.encrypt(&s.to_canonical_encoding()));
+    out.extend(schnorr.encrypt(s.as_bytes()));
 
     // Return the encrypted commitment point and proof scalar.
     Ok(Signature(out.try_into().expect("invalid sig len")))
@@ -90,7 +90,7 @@ pub fn verify(
     let mut schnorr = Duplex::new("veil.schnorr");
 
     // Absorb the signer's public key.
-    schnorr.absorb(&q.to_canonical_encoding());
+    schnorr.absorb(q.compress().as_bytes());
 
     // Absorb the message in 32KiB blocks.
     schnorr.absorb_blocks(message)?;
@@ -104,7 +104,7 @@ pub fn verify(
 pub fn sign_duplex(duplex: &mut Duplex, d: &Scalar, k: Scalar) -> (Vec<u8>, Scalar) {
     // Calculate and encrypt the commitment point.
     let i = &k * &G;
-    let i = duplex.encrypt(&i.to_canonical_encoding());
+    let i = duplex.encrypt(i.compress().as_bytes());
 
     // Squeeze a challenge scalar.
     let r = duplex.squeeze_scalar();
@@ -123,20 +123,26 @@ pub fn verify_duplex(
     sig: &[u8],
 ) -> result::Result<(), VerifyError> {
     // Split the signature into parts.
-    let (i, s) = sig.split_at(RistrettoPoint::ENCODED_LEN);
+    let (i, s) = sig.split_at(POINT_LEN);
 
     // Decrypt and decode the commitment point. Return an error if it's the identity point.
     let i = duplex.decrypt(i);
-    let i = RistrettoPoint::from_canonical_encoding(&i);
-    let i = i.ok_or(VerifyError::InvalidSignature)?;
+    let i = CompressedRistretto::from_slice(&i)
+        .decompress()
+        .filter(|i| !i.is_identity())
+        .ok_or(VerifyError::InvalidSignature)?;
 
     // Re-derive the challenge scalar.
     let r = duplex.squeeze_scalar();
 
     // Decrypt and decode the proof scalar. Return an error if it's zero.
     let s = duplex.decrypt(s);
-    let s = Scalar::from_canonical_encoding(&s);
-    let s = s.ok_or(VerifyError::InvalidSignature)?;
+    let s = s
+        .try_into()
+        .ok()
+        .and_then(Scalar::from_canonical_bytes)
+        .filter(|s| s != &Scalar::zero())
+        .ok_or(VerifyError::InvalidSignature)?;
 
     // Return true iff I and s are well-formed and I == [s]G - [r]Q. Use the variable-time
     // implementation here because the verifier has no secret data.

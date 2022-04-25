@@ -1,18 +1,19 @@
 //! An insider-secure hybrid signcryption implementation.
 
-use curve25519_dalek::ristretto::RistrettoPoint;
+use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
+use curve25519_dalek::traits::IsIdentity;
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::Duplex;
-use crate::ristretto::CanonicallyEncoded;
 use crate::schnorr;
+use crate::POINT_LEN;
 
 /// The recommended size of the nonce passed to [encrypt].
 pub const NONCE_LEN: usize = 16;
 
 /// The number of bytes added to plaintext by [encrypt].
-pub const OVERHEAD: usize = RistrettoPoint::ENCODED_LEN + RistrettoPoint::ENCODED_LEN;
+pub const OVERHEAD: usize = POINT_LEN + POINT_LEN;
 
 /// Given the sender's key pair, the ephemeral key pair, the receiver's public key, a nonce, and a
 /// plaintext, encrypts the given plaintext and returns the ciphertext.
@@ -31,19 +32,19 @@ pub fn encrypt(
     let mut sres = Duplex::new("veil.sres");
 
     // Absorb the sender's public key.
-    sres.absorb(&q_s.to_canonical_encoding());
+    sres.absorb(q_s.compress().as_bytes());
 
     // Absorb the receiver's public key.
-    sres.absorb(&q_r.to_canonical_encoding());
+    sres.absorb(q_r.compress().as_bytes());
 
     // Absorb the ephemeral public public key.
-    sres.absorb(&q_e.to_canonical_encoding());
+    sres.absorb(q_e.compress().as_bytes());
 
     // Absorb the nonce.
     sres.absorb(nonce);
 
     // Absorb the ECDH shared secret.
-    sres.absorb(&(d_e * q_r).to_canonical_encoding());
+    sres.absorb((d_e * q_r).compress().as_bytes());
 
     // Encrypt the plaintext.
     out.extend(sres.encrypt(plaintext));
@@ -58,7 +59,7 @@ pub fn encrypt(
 
     // Calculate the proof point and encrypt it.
     let x = s * q_r;
-    out.extend(sres.encrypt(&x.to_canonical_encoding()));
+    out.extend(sres.encrypt(x.compress().as_bytes()));
 
     // Return the ciphertext, encrypted commitment point, and encrypted proof point.
     out
@@ -81,39 +82,39 @@ pub fn decrypt(
 
     // Split the ciphertext into its components.
     let (ciphertext, i) = ciphertext.split_at(ciphertext.len() - OVERHEAD);
-    let (i, x) = i.split_at(RistrettoPoint::ENCODED_LEN);
+    let (i, x) = i.split_at(POINT_LEN);
 
     // Initialize a duplex.
     let mut sres = Duplex::new("veil.sres");
 
     // Absorb the sender's public key.
-    sres.absorb(&q_s.to_canonical_encoding());
+    sres.absorb(q_s.compress().as_bytes());
 
     // Absorb the receiver's public key.
-    sres.absorb(&q_r.to_canonical_encoding());
+    sres.absorb(q_r.compress().as_bytes());
 
     // Absorb the ephemeral public public key.
-    sres.absorb(&q_e.to_canonical_encoding());
+    sres.absorb(q_e.compress().as_bytes());
 
     // Absorb the nonce.
     sres.absorb(nonce);
 
     // Absorb the ECDH shared secret.
-    sres.absorb(&(d_r * q_e).to_canonical_encoding());
+    sres.absorb((d_r * q_e).compress().as_bytes());
 
     // Decrypt the plaintext.
     let plaintext = sres.decrypt(ciphertext);
 
-    // Decrypt the decode the commitment point.
+    // Decrypt the decode the commitment point. Return None if it's the identity point.
     let i = sres.decrypt(i);
-    let i = RistrettoPoint::from_canonical_encoding(&i)?;
+    let i = CompressedRistretto::from_slice(&i).decompress().filter(|i| !i.is_identity())?;
 
     // Squeeze a challenge scalar from the public keys, plaintext, and commitment point.
     let r = sres.squeeze_scalar();
 
-    // Decrypt the decode the proof point.
+    // Decrypt the decode the proof point. Return None if it's the identity point.
     let x = sres.decrypt(x);
-    let x = RistrettoPoint::from_canonical_encoding(&x)?;
+    let x = CompressedRistretto::from_slice(&x).decompress().filter(|x| !x.is_identity())?;
 
     // Re-calculate the proof point.
     let x_p = d_r * (i + (r * q_s));
@@ -132,7 +133,7 @@ mod tests {
     use rand::SeedableRng;
     use rand_chacha::ChaChaRng;
 
-    use crate::ristretto::G;
+    use crate::G;
 
     use super::*;
 
