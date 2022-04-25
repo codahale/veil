@@ -104,14 +104,14 @@ pub fn decrypt(
     // Decrypt the plaintext.
     let plaintext = sres.decrypt(ciphertext);
 
-    // Decrypt the decode the commitment point. Return None if it's the identity point.
+    // Decrypt the decode the commitment point.
     let i = sres.decrypt(i);
     let i = CompressedRistretto::from_slice(&i).decompress()?;
 
     // Squeeze a challenge scalar from the public keys, plaintext, and commitment point.
     let r = sres.squeeze_scalar();
 
-    // Decrypt the decode the proof point. Return None if it's the identity point.
+    // Decrypt the decode the proof point.
     let x = sres.decrypt(x);
     let x = CompressedRistretto::from_slice(&x).decompress()?;
 
