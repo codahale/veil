@@ -2,7 +2,6 @@
 
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
-use curve25519_dalek::traits::IsIdentity;
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::Duplex;
@@ -107,14 +106,14 @@ pub fn decrypt(
 
     // Decrypt the decode the commitment point. Return None if it's the identity point.
     let i = sres.decrypt(i);
-    let i = CompressedRistretto::from_slice(&i).decompress().filter(|i| !i.is_identity())?;
+    let i = CompressedRistretto::from_slice(&i).decompress()?;
 
     // Squeeze a challenge scalar from the public keys, plaintext, and commitment point.
     let r = sres.squeeze_scalar();
 
     // Decrypt the decode the proof point. Return None if it's the identity point.
     let x = sres.decrypt(x);
-    let x = CompressedRistretto::from_slice(&x).decompress().filter(|x| !x.is_identity())?;
+    let x = CompressedRistretto::from_slice(&x).decompress()?;
 
     // Re-calculate the proof point.
     let x_p = d_r * (i + (r * q_s));
