@@ -8,7 +8,6 @@ use std::{fmt, result};
 
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
-use curve25519_dalek::traits::IsIdentity;
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::Duplex;
@@ -125,23 +124,20 @@ pub fn verify_duplex(
     // Split the signature into parts.
     let (i, s) = sig.split_at(POINT_LEN);
 
-    // Decrypt and decode the commitment point. Return an error if it's the identity point.
+    // Decrypt and decode the commitment point.
     let i = duplex.decrypt(i);
-    let i = CompressedRistretto::from_slice(&i)
-        .decompress()
-        .filter(|i| !i.is_identity())
-        .ok_or(VerifyError::InvalidSignature)?;
+    let i =
+        CompressedRistretto::from_slice(&i).decompress().ok_or(VerifyError::InvalidSignature)?;
 
     // Re-derive the challenge scalar.
     let r = duplex.squeeze_scalar();
 
-    // Decrypt and decode the proof scalar. Return an error if it's zero.
+    // Decrypt and decode the proof scalar.
     let s = duplex.decrypt(s);
     let s = s
         .try_into()
         .ok()
         .and_then(Scalar::from_canonical_bytes)
-        .filter(|s| s != &Scalar::zero())
         .ok_or(VerifyError::InvalidSignature)?;
 
     // Return true iff I and s are well-formed and I == [s]G - [r]Q. Use the variable-time
