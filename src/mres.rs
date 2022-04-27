@@ -10,7 +10,7 @@ use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::IsIdentity;
 use rand::{CryptoRng, Rng};
 
-use crate::duplex::{Duplex, TAG_LEN};
+use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex, TAG_LEN};
 use crate::schnorr::SIGNATURE_LEN;
 use crate::sres::NONCE_LEN;
 use crate::{schnorr, sres, DecryptError, G, POINT_LEN};
@@ -25,8 +25,8 @@ pub fn encrypt(
     q_rs: &[RistrettoPoint],
     padding: usize,
 ) -> io::Result<u64> {
-    // Initialize a duplex and absorb the sender's public key.
-    let mut mres = Duplex::new("veil.mres");
+    // Initialize an unkeyed duplex and absorb the sender's public key.
+    let mut mres = UnkeyedDuplex::new("veil.mres");
     mres.absorb(q_s.compress().as_bytes());
 
     // Generate ephemeral key pair, Elligator2 representative, ephemeral scalar, and DEK.
@@ -58,6 +58,9 @@ pub fn encrypt(
     // Absorb the DEK.
     mres.absorb(&dek);
 
+    // Convert the unkeyed duplex to a keyed duplex.
+    let mut mres = mres.into_keyed();
+
     // Encrypt the plaintext in blocks and write them.
     written += encrypt_message(&mut mres, reader, writer)?;
 
@@ -81,7 +84,7 @@ const DEK_LEN: usize = 32;
 /// current state, the sender's private key, and a random nonce. Loop until we produce an ephemeral
 /// private key which has a public key with an Elligator2 representative.
 fn generate_keys(
-    mres: &mut Duplex,
+    mres: &mut UnkeyedDuplex,
     mut rng: impl CryptoRng + Rng,
     d_s: &Scalar,
 ) -> (Scalar, RistrettoPoint, [u8; 32], Scalar, Vec<u8>) {
@@ -110,7 +113,7 @@ fn encode_header(dek: &[u8], hdr_count: u64, padding: u64) -> Vec<u8> {
 
 #[allow(clippy::too_many_arguments)]
 fn encrypt_headers(
-    mres: &mut Duplex,
+    mres: &mut UnkeyedDuplex,
     mut rng: impl Rng + CryptoRng,
     (d_s, q_s): (&Scalar, &RistrettoPoint),
     (d_e, q_e): (&Scalar, &RistrettoPoint),
@@ -148,7 +151,7 @@ const BLOCK_LEN: usize = 32 * 1024;
 /// Given a duplex keyed with the DEK, read the entire contents of `reader` in blocks and write the
 /// encrypted blocks and authentication tags to `writer`.
 fn encrypt_message(
-    mres: &mut Duplex,
+    mres: &mut KeyedDuplex,
     reader: &mut impl Read,
     writer: &mut impl Write,
 ) -> io::Result<u64> {
@@ -185,8 +188,8 @@ pub fn decrypt(
     (d_r, q_r): (&Scalar, &RistrettoPoint),
     q_s: &RistrettoPoint,
 ) -> Result<u64, DecryptError> {
-    // Initialize a duplex and absorb the sender's public key.
-    let mut mres = Duplex::new("veil.mres");
+    // Initialize an unkeyed duplex and absorb the sender's public key.
+    let mut mres = UnkeyedDuplex::new("veil.mres");
     mres.absorb(q_s.compress().as_bytes());
 
     // Read, absorb, and decode the ephemeral public key.
@@ -202,6 +205,9 @@ pub fn decrypt(
 
     // Absorb the DEK.
     mres.absorb(&dek);
+
+    // Convert the duplex to a keyed duplex.
+    let mut mres = mres.into_keyed();
 
     // Decrypt the message.
     let (written, sig) = decrypt_message(&mut mres, reader, writer)?;
@@ -219,7 +225,7 @@ const ENC_BLOCK_LEN: usize = BLOCK_LEN + TAG_LEN;
 /// Given a duplex keyed with the DEK, read the entire contents of `reader` in blocks and write the
 /// decrypted blocks `writer`.
 fn decrypt_message(
-    mres: &mut Duplex,
+    mres: &mut KeyedDuplex,
     reader: &mut impl Read,
     writer: &mut impl Write,
 ) -> Result<(u64, Vec<u8>), DecryptError> {
@@ -263,13 +269,13 @@ const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
 /// Iterate through the contents of `reader` looking for a header which was encrypted by the given
 /// sender for the given receiver.
 fn decrypt_header(
-    mut mres: Duplex,
+    mut mres: UnkeyedDuplex,
     reader: &mut impl Read,
     d_r: &Scalar,
     q_r: &RistrettoPoint,
     q_e: &RistrettoPoint,
     q_s: &RistrettoPoint,
-) -> Result<(Duplex, Vec<u8>), DecryptError> {
+) -> Result<(UnkeyedDuplex, Vec<u8>), DecryptError> {
     let mut buf = Vec::with_capacity(ENC_HEADER_LEN);
     let mut i = 0u64;
     let mut hdr_count = u64::MAX;

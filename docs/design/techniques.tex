@@ -2,16 +2,28 @@
 
 Veil uses a few common construction techniques in its design which bear specific mention.
 
-\subsection{Keyed Duplexes}\label{subsec:cons-keyed-duplexes}
+\subsection{Unkeyed And Keyed Duplexes}\label{subsec:cons-keyed-duplexes}
 
-Veil uses Xoodyak exclusively in the keyed mode, and every construction begins with a \textsc{Cyclist} operation using
-a constant key (e.g.\ \texttt{veil.mres}) as a domain separation string.
-This allows constructions to use \textsc{Encrypt} operations without specific key material, which is useful in e.g.\
-a digital signature scheme (see~\ref{sec:veil.schnorr}) to produce uniform bitstrings.
-Constructions which do involve key material (see~\ref{sec:veil.sres},~\ref{sec:veil.mres},~\ref{sec:veil.pbenc}), the
-\textsc{Absorb} operation is used.
-This is structurally equivalent to calling the \textsc{Cyclist} operation without a key ID, nonce, or counter, albeit
-with a different internal domain separator.
+Veil uses Xoodyak, which offers both unkeyed (``hash'') and keyed modes.
+All Veil constructions begin in the unkeyed mode by absorbing a constant domain separation string (e.g.\
+\texttt{veil.mres}).
+To convert from an unkeyed duplex to a keyed duplex, a 256-bit key is derived from the unkeyed duplex's state and used
+to initialize a keyed duplex:
+
+\begin{algorithm}[ht]
+    \caption{Converting an unkeyed Xoodyak duplex to a keyed duplex.}
+    \begin{algorithmic}
+        \State \Call{Absorb}{\texttt{example.domain}}\Comment{Initialize an unkeyed duplex.}
+        \State \Call{Absorb}{$X$}\Comment{Absorb some input data.}
+        \State $K \gets $ \Call{SqueezeKey}{$32$}\Comment{Squeeze a 256-bit key.}
+        \State \Call{Cyclist}{$K$, $\epsilon$, $\epsilon$}\Comment{Initialize a keyed duplex.}
+        \State $C \gets $ \Call{Encrypt}{$P$}\Comment{Use the keyed duplex.}
+    \end{algorithmic}
+    \label{alg:duplex-convert}
+\end{algorithm}
+
+The unkeyed duplex is used as a kind of key derivation function, with the lower absorb rate of Xoodyak's unkeyed mode
+providing better avalanching properties.
 
 \subsection{Integrated Constructions}\label{subsec:cons-integrated-constructions}
 

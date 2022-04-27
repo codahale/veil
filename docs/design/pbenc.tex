@@ -20,7 +20,7 @@ Initializing a duplex from a passphrase is described in full in Alg.~\ref{alg:ve
             \State \textbf{return} \Call{Squeeze}{$N_B$}
         \EndFunction
         \Procedure{InitFromPassphrase}{$P, S, N_T, N_S$}
-            \State \Call{Cyclist}{\texttt{veil.mres}, $\epsilon$, $\epsilon$}\Comment{Initialize duplex with constant key.}
+            \State \Call{Absorb}{\texttt{veil.mres}}\Comment{Initialize an unkeyed duplex.}
             \State $P_N \gets$\Call{NormalizeNFKC}{$P$}\Comment{Normalize the passphrase.}
             \State \Call{Absorb}{$P_N$}\Comment{Absorb all parameters.}
             \State \Call{Absorb}{$S$}
@@ -50,6 +50,7 @@ Initializing a duplex from a passphrase is described in full in Alg.~\ref{alg:ve
             \EndFor
             \State
             \State \Call{Absorb}{$B[N_S-1]$}\Comment{Extract output from buffer.}
+            \State \Call{Cyclist}{\textsc{SqueezeKey}($32$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
         \EndProcedure
     \end{algorithmic}
     \label{alg:veil.pbenc-init}

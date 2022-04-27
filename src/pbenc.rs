@@ -5,7 +5,7 @@ use std::mem;
 use rand::{CryptoRng, Rng};
 use unicode_normalization::UnicodeNormalization;
 
-use crate::duplex::{Duplex, TAG_LEN};
+use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex, TAG_LEN};
 
 /// The number of bytes encryption adds to a plaintext.
 pub const OVERHEAD: usize = mem::size_of::<u8>() + mem::size_of::<u8>() + SALT_LEN + TAG_LEN;
@@ -76,12 +76,12 @@ macro_rules! hash_counter {
     };
 }
 
-fn init(passphrase: &str, salt: &[u8], time: u8, space: u8) -> Duplex {
+fn init(passphrase: &str, salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
     // Normalize the passphrase into NFKC form.
     let passphrase = normalize(passphrase);
 
-    // Initialize the duplex.
-    let mut pbenc = Duplex::new("veil.pbenc");
+    // Initialize an unkeyed duplex.
+    let mut pbenc = UnkeyedDuplex::new("veil.pbenc");
 
     // Absorb the passphrase.
     pbenc.absorb(&passphrase);
@@ -138,7 +138,8 @@ fn init(passphrase: &str, salt: &[u8], time: u8, space: u8) -> Duplex {
     // Step 3: Extract key from buffer.
     pbenc.absorb(&buf[buf.len() - 1]);
 
-    pbenc
+    // Convert the unkeyed duplex to a keyed duplex.
+    pbenc.into_keyed()
 }
 
 #[inline]

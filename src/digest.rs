@@ -5,7 +5,7 @@ use std::{fmt, io};
 
 use subtle::{Choice, ConstantTimeEq};
 
-use crate::duplex::Duplex;
+use crate::duplex::{Absorb, Squeeze, UnkeyedDuplex};
 use crate::{AsciiEncoded, ParseDigestError};
 
 /// The digest of a set of metadata and a message.
@@ -41,8 +41,8 @@ impl fmt::Display for Digest {
 impl Digest {
     /// Create a digest from a set of metadata strings and a reader.
     pub fn new(metadata: &[impl AsRef<[u8]>], reader: impl Read) -> io::Result<Digest> {
-        // Initialize the duplex.
-        let mut digest = Duplex::new("veil.digest");
+        // Initialize an unkeyed duplex.
+        let mut digest = UnkeyedDuplex::new("veil.digest");
 
         // Absorb the metadata values in order.
         for v in metadata {

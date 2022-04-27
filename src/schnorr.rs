@@ -10,7 +10,7 @@ use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use rand::{CryptoRng, Rng};
 
-use crate::duplex::Duplex;
+use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex};
 use crate::{AsciiEncoded, ParseSignatureError, VerifyError, G, POINT_LEN, SCALAR_LEN};
 
 /// The length of a signature, in bytes.
@@ -52,8 +52,8 @@ pub fn sign(
     (d, q): (&Scalar, &RistrettoPoint),
     message: impl Read,
 ) -> Result<Signature> {
-    // Initialize a duplex.
-    let mut schnorr = Duplex::new("veil.schnorr");
+    // Initialize an unkeyed duplex.
+    let mut schnorr = UnkeyedDuplex::new("veil.schnorr");
 
     // Absorb the signer's public key.
     schnorr.absorb(q.compress().as_bytes());
@@ -63,7 +63,10 @@ pub fn sign(
 
     // Derive a commitment scalar from the duplex's current state, the signer's private key,
     // and a random nonce.
-    let k = schnorr.hedge(rng, d, Duplex::squeeze_scalar);
+    let k = schnorr.hedge(rng, d, Squeeze::squeeze_scalar);
+
+    // Convert the unkeyed duplex to a keyed duplex.
+    let mut schnorr = schnorr.into_keyed();
 
     // Calculate the encrypted commitment point and proof scalar.
     let (i, s) = sign_duplex(&mut schnorr, d, k);
@@ -85,8 +88,8 @@ pub fn verify(
     message: impl Read,
     sig: &Signature,
 ) -> result::Result<(), VerifyError> {
-    // Initialize a duplex.
-    let mut schnorr = Duplex::new("veil.schnorr");
+    // Initialize an unkeyed duplex.
+    let mut schnorr = UnkeyedDuplex::new("veil.schnorr");
 
     // Absorb the signer's public key.
     schnorr.absorb(q.compress().as_bytes());
@@ -94,13 +97,16 @@ pub fn verify(
     // Absorb the message in 32KiB blocks.
     schnorr.absorb_blocks(message)?;
 
+    // Convert the unkeyed duplex to a keyed duplex.
+    let mut schnorr = schnorr.into_keyed();
+
     // Verify the signature.
     verify_duplex(&mut schnorr, q, &sig.0)
 }
 
 /// Create a Schnorr signature of the given duplex's state using the given private key. Returns
 /// the encrypted commitment point and the proof scalar.
-pub fn sign_duplex(duplex: &mut Duplex, d: &Scalar, k: Scalar) -> (Vec<u8>, Scalar) {
+pub fn sign_duplex(duplex: &mut KeyedDuplex, d: &Scalar, k: Scalar) -> (Vec<u8>, Scalar) {
     // Calculate and encrypt the commitment point.
     let i = &k * &G;
     let i = duplex.encrypt(i.compress().as_bytes());
@@ -117,7 +123,7 @@ pub fn sign_duplex(duplex: &mut Duplex, d: &Scalar, k: Scalar) -> (Vec<u8>, Scal
 
 /// Verify a Schnorr signature of the given duplex's state using the given public key.
 pub fn verify_duplex(
-    duplex: &mut Duplex,
+    duplex: &mut KeyedDuplex,
     q: &RistrettoPoint,
     sig: &[u8],
 ) -> result::Result<(), VerifyError> {

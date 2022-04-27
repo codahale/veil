@@ -4,7 +4,7 @@ use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use rand::{CryptoRng, Rng};
 
-use crate::duplex::Duplex;
+use crate::duplex::{Absorb, Squeeze, UnkeyedDuplex};
 use crate::schnorr;
 use crate::POINT_LEN;
 
@@ -27,8 +27,8 @@ pub fn encrypt(
     // Allocate an output buffer.
     let mut out = Vec::with_capacity(plaintext.len() + OVERHEAD);
 
-    // Initialize a duplex.
-    let mut sres = Duplex::new("veil.sres");
+    // Initialize an unkeyed duplex.
+    let mut sres = UnkeyedDuplex::new("veil.sres");
 
     // Absorb the sender's public key.
     sres.absorb(q_s.compress().as_bytes());
@@ -45,12 +45,15 @@ pub fn encrypt(
     // Absorb the ECDH shared secret.
     sres.absorb((d_e * q_r).compress().as_bytes());
 
+    // Convert the unkeyed duplex to a keyed duplex.
+    let mut sres = sres.into_keyed();
+
     // Encrypt the plaintext.
     out.extend(sres.encrypt(plaintext));
 
     // Derive a commitment scalar from the duplex's current state, the sender's private key,
     // and a random nonce.
-    let k = sres.hedge(rng, d_s, Duplex::squeeze_scalar);
+    let k = sres.hedge(rng, d_s, Squeeze::squeeze_scalar);
 
     // Create a Schnorr signature using the duplex.
     let (i, s) = schnorr::sign_duplex(&mut sres, d_s, k);
@@ -83,8 +86,8 @@ pub fn decrypt(
     let (ciphertext, i) = ciphertext.split_at(ciphertext.len() - OVERHEAD);
     let (i, x) = i.split_at(POINT_LEN);
 
-    // Initialize a duplex.
-    let mut sres = Duplex::new("veil.sres");
+    // Initialize an unkeyed duplex.
+    let mut sres = UnkeyedDuplex::new("veil.sres");
 
     // Absorb the sender's public key.
     sres.absorb(q_s.compress().as_bytes());
@@ -100,6 +103,9 @@ pub fn decrypt(
 
     // Absorb the ECDH shared secret.
     sres.absorb((d_r * q_e).compress().as_bytes());
+
+    // Convert the unkeyed duplex to a keyed duplex.
+    let mut sres = sres.into_keyed();
 
     // Decrypt the plaintext.
     let plaintext = sres.decrypt(ciphertext);

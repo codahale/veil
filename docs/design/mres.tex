@@ -13,7 +13,7 @@ Encrypting a message is described in full in Alg.~\ref{alg:veil.mres-encrypt}.
     }
     \begin{algorithmic}
         \Function{EncryptMessage}{$(d_S, Q_S), Q_{R^0}..Q_{R^n}, N_P, P$}
-            \State \Call{Cyclist}{\texttt{veil.mres}, $\epsilon$, $\epsilon$}\Comment{Initialize duplex with constant key.}
+            \State \Call{Absorb}{\texttt{veil.mres}}\Comment{Initialize an unkeyed duplex.}
             \State \Call{Absorb}{$Q_S$}\label{alg:veil.mres-encrypt-bind-sender}\Comment{Absorb the sender's public key.}
             \State
             \Clone \Comment{Clone the duplex's state.}
@@ -44,6 +44,7 @@ Encrypting a message is described in full in Alg.~\ref{alg:veil.mres-encrypt}.
             \State $C \gets C||y$\Comment{Append padding to ciphertext.}
             \State
             \State \Call{Absorb}{$K$}\Comment{Absorb the DEK.}
+            \State \Call{Cyclist}{\textsc{SqueezeKey}($32$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
             \State
             \ForAll{32-KiB blocks $p \in P$}
                 \State $C \gets C||$\Call{Encrypt}{$p$}\Comment{Encrypt and tag each block.}
@@ -72,7 +73,7 @@ Decrypting a signature is described in full in Alg.~\ref{alg:veil.mres-decrypt}.
     }
     \begin{algorithmic}
         \Function{DecryptMessage}{$(d_R, Q_R), Q_S, C$}
-            \State \Call{Cyclist}{\texttt{veil.mres}, $\epsilon$, $\epsilon$}\Comment{Initialize duplex with constant key.}
+            \State \Call{Absorb}{\texttt{veil.mres}}\Comment{Initialize an unkeyed duplex.}
             \State \Call{Absorb}{$Q_S$}\label{alg:veil.mres-decrypt-bind-sender}\Comment{Absorb the sender's public key.}
             \State
             \State \Call{Absorb}{$C[0..32]$}\Comment{Absorb the encoded ephemeral public key.}
@@ -91,6 +92,7 @@ Decrypting a signature is described in full in Alg.~\ref{alg:veil.mres-decrypt}.
             \State $C \gets C[{32+N_Q+N_P}..]$\Comment{Skip to the message beginning.}
             \State
             \State \Call{Absorb}{$K$}\Comment{Absorb the DEK.}
+            \State \Call{Cyclist}{\textsc{SqueezeKey}($32$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
             \State
             \State $P' = \epsilon$\Comment{Initialize a buffer for the plaintext.}
             \ForAll{32KiB+16 blocks $c||t \in C$}

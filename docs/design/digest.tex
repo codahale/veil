@@ -10,7 +10,7 @@ Creating a message digest is described in full in Alg.~\ref{alg:veil.digest}.
     \caption{Creating a message digest with metadata strings $V$ and message $M$.}
     \begin{algorithmic}
         \Function{Digest}{$V,M$}
-            \State \Call{Cyclist}{\texttt{veil.digest}, $\epsilon$, $\epsilon$}\Comment{Initialize duplex with constant key.}
+            \State \Call{Absorb}{\texttt{veil.digest}}\Comment{Initialize an unkeyed duplex.}
             \ForAll{$V_i \in V$}
                 \State \Call{Absorb}{$V_i$}\Comment{Absorb metadata strings in order.}
             \EndFor
