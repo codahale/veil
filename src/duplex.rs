@@ -5,7 +5,7 @@ use std::io::Read;
 
 use curve25519_dalek::scalar::Scalar;
 use rand::{CryptoRng, Rng};
-use subtle::ConstantTimeEq;
+use subtle::{ConstantTimeEq, CtOption};
 use xoodyak::{XoodyakCommon, XoodyakHash, XoodyakKeyed};
 
 /// The length of an authentication tag in bytes.
@@ -96,12 +96,7 @@ impl KeyedDuplex {
 
         // Compare the given tag with the counterfactual tag in constant time.
         let tag_p = self.squeeze(TAG_LEN);
-        if tag.ct_eq(&tag_p).into() {
-            // Return the plaintext, now authenticated.
-            Some(plaintext)
-        } else {
-            None
-        }
+        CtOption::new(plaintext, tag.ct_eq(&tag_p)).into()
     }
 }
 
