@@ -11,9 +11,6 @@ use xoodyak::{XoodyakCommon, XoodyakHash, XoodyakKeyed};
 /// The length of an authentication tag in bytes.
 pub const TAG_LEN: usize = 16;
 
-/// The length of a key extracted from an unkeyed duplex in bytes.
-const KEY_LEN: usize = 32;
-
 /// An unkeyed cryptographic duplex.
 #[derive(Clone)]
 pub struct UnkeyedDuplex {
@@ -35,6 +32,8 @@ impl UnkeyedDuplex {
 
     /// Extract a key from this duplex's state and use it to create a keyed duplex.
     pub fn into_keyed(mut self) -> KeyedDuplex {
+        const KEY_LEN: usize = 32;
+
         let mut key = [0u8; KEY_LEN];
         self.state.squeeze_key(&mut key);
 
