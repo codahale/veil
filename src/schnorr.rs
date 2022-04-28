@@ -56,7 +56,7 @@ pub fn sign(
     let mut schnorr = UnkeyedDuplex::new("veil.schnorr");
 
     // Absorb the signer's public key.
-    schnorr.absorb(q.compress().as_bytes());
+    schnorr.absorb_point(q);
 
     // Absorb the message in 32KiB blocks.
     schnorr.absorb_blocks(message)?;
@@ -88,7 +88,7 @@ pub fn verify(
     let mut schnorr = UnkeyedDuplex::new("veil.schnorr");
 
     // Absorb the signer's public key.
-    schnorr.absorb(q.compress().as_bytes());
+    schnorr.absorb_point(q);
 
     // Absorb the message in 32KiB blocks.
     schnorr.absorb_blocks(message)?;

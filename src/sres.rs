@@ -30,19 +30,19 @@ pub fn encrypt(
     let mut sres = UnkeyedDuplex::new("veil.sres");
 
     // Absorb the sender's public key.
-    sres.absorb(q_s.compress().as_bytes());
+    sres.absorb_point(q_s);
 
     // Absorb the receiver's public key.
-    sres.absorb(q_r.compress().as_bytes());
+    sres.absorb_point(q_r);
 
     // Absorb the ephemeral public public key.
-    sres.absorb(q_e.compress().as_bytes());
+    sres.absorb_point(q_e);
 
     // Absorb the nonce.
     sres.absorb(nonce);
 
     // Absorb the ECDH shared secret.
-    sres.absorb((d_e * q_r).compress().as_bytes());
+    sres.absorb_point(&(d_e * q_r));
 
     // Convert the unkeyed duplex to a keyed duplex.
     let mut sres = sres.into_keyed();
@@ -85,19 +85,19 @@ pub fn decrypt(
     let mut sres = UnkeyedDuplex::new("veil.sres");
 
     // Absorb the sender's public key.
-    sres.absorb(q_s.compress().as_bytes());
+    sres.absorb_point(q_s);
 
     // Absorb the receiver's public key.
-    sres.absorb(q_r.compress().as_bytes());
+    sres.absorb_point(q_r);
 
     // Absorb the ephemeral public public key.
-    sres.absorb(q_e.compress().as_bytes());
+    sres.absorb_point(q_e);
 
     // Absorb the nonce.
     sres.absorb(nonce);
 
     // Absorb the ECDH shared secret.
-    sres.absorb((d_r * q_e).compress().as_bytes());
+    sres.absorb_point(&(d_r * q_e));
 
     // Convert the unkeyed duplex to a keyed duplex.
     let mut sres = sres.into_keyed();

@@ -26,7 +26,7 @@ pub fn encrypt(
 ) -> io::Result<u64> {
     // Initialize an unkeyed duplex and absorb the sender's public key.
     let mut mres = UnkeyedDuplex::new("veil.mres");
-    mres.absorb(q_s.compress().as_bytes());
+    mres.absorb_point(q_s);
 
     // Generate ephemeral key pair, Elligator2 representative, and DEK.
     let (d_e, q_e, q_e_r, dek) = generate_keys(&mut mres, &mut rng, d_s);
@@ -189,7 +189,7 @@ pub fn decrypt(
 ) -> Result<u64, DecryptError> {
     // Initialize an unkeyed duplex and absorb the sender's public key.
     let mut mres = UnkeyedDuplex::new("veil.mres");
-    mres.absorb(q_s.compress().as_bytes());
+    mres.absorb_point(q_s);
 
     // Read, absorb, and decode the ephemeral public key.
     let mut q_e_r = [0u8; POINT_LEN];

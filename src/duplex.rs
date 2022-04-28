@@ -1,5 +1,6 @@
 //! Implements a cryptographic duplex using Xoodyak.
 
+use curve25519_dalek::ristretto::RistrettoPoint;
 use std::io;
 use std::io::Read;
 
@@ -146,6 +147,11 @@ impl Squeeze for KeyedDuplex {
 pub trait Absorb: Clone {
     /// Absorb the given slice of data.
     fn absorb(&mut self, data: &[u8]);
+
+    /// Absorb a Ristretto point.
+    fn absorb_point(&mut self, q: &RistrettoPoint) {
+        self.absorb(q.compress().as_bytes());
+    }
 
     /// Absorb the entire contents of the given reader in 32KiB-sized blocks.
     fn absorb_blocks(&mut self, mut reader: impl Read) -> io::Result<()> {
