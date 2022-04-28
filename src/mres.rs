@@ -3,7 +3,6 @@
 use std::convert::TryInto;
 use std::io::{self, Read, Write};
 use std::mem;
-use std::result::Result;
 
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
