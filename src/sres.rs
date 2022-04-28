@@ -5,8 +5,7 @@ use curve25519_dalek::scalar::Scalar;
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, Squeeze, UnkeyedDuplex};
-use crate::schnorr;
-use crate::POINT_LEN;
+use crate::{schnorr, POINT_LEN};
 
 /// The recommended size of the nonce passed to [encrypt].
 pub const NONCE_LEN: usize = 16;
