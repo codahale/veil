@@ -61,15 +61,11 @@ pub fn sign(
     // Absorb the message in 32KiB blocks.
     schnorr.absorb_blocks(message)?;
 
-    // Derive a commitment scalar from the duplex's current state, the signer's private key,
-    // and a random nonce.
-    let k = schnorr.hedge(rng, d, Squeeze::squeeze_scalar);
-
     // Convert the unkeyed duplex to a keyed duplex.
     let mut schnorr = schnorr.into_keyed();
 
     // Calculate the encrypted commitment point and proof scalar.
-    let (i, s) = sign_duplex(&mut schnorr, d, k);
+    let (i, s) = sign_duplex(&mut schnorr, rng, d);
 
     // Allocate an output buffer.
     let mut out = Vec::with_capacity(SIGNATURE_LEN);
@@ -106,7 +102,15 @@ pub fn verify(
 
 /// Create a Schnorr signature of the given duplex's state using the given private key. Returns
 /// the encrypted commitment point and the proof scalar.
-pub fn sign_duplex(duplex: &mut KeyedDuplex, d: &Scalar, k: Scalar) -> (Vec<u8>, Scalar) {
+pub fn sign_duplex(
+    duplex: &mut KeyedDuplex,
+    rng: impl CryptoRng + Rng,
+    d: &Scalar,
+) -> (Vec<u8>, Scalar) {
+    // Derive a commitment scalar from the duplex's current state, the signer's private key,
+    // and a random nonce.
+    let k = duplex.hedge(rng, d, Squeeze::squeeze_scalar);
+
     // Calculate and encrypt the commitment point.
     let i = &k * &G;
     let i = duplex.encrypt(i.compress().as_bytes());

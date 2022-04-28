@@ -51,12 +51,8 @@ pub fn encrypt(
     // Encrypt the plaintext.
     out.extend(sres.encrypt(plaintext));
 
-    // Derive a commitment scalar from the duplex's current state, the sender's private key,
-    // and a random nonce.
-    let k = sres.hedge(rng, d_s, Squeeze::squeeze_scalar);
-
     // Create a Schnorr signature using the duplex.
-    let (i, s) = schnorr::sign_duplex(&mut sres, d_s, k);
+    let (i, s) = schnorr::sign_duplex(&mut sres, rng, d_s);
     out.extend(i);
 
     // Calculate the proof point and encrypt it.

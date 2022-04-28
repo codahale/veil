@@ -29,8 +29,8 @@ pub fn encrypt(
     let mut mres = UnkeyedDuplex::new("veil.mres");
     mres.absorb(q_s.compress().as_bytes());
 
-    // Generate ephemeral key pair, Elligator2 representative, ephemeral scalar, and DEK.
-    let (d_e, q_e, q_e_r, k, dek) = generate_keys(&mut mres, &mut rng, d_s);
+    // Generate ephemeral key pair, Elligator2 representative, and DEK.
+    let (d_e, q_e, q_e_r, dek) = generate_keys(&mut mres, &mut rng, d_s);
 
     // Absorb and write the representative of the ephemeral public key.
     mres.absorb(&q_e_r);
@@ -65,7 +65,7 @@ pub fn encrypt(
     written += encrypt_message(&mut mres, reader, writer)?;
 
     // Sign the duplex's final state with the ephemeral private key.
-    let (i, s) = schnorr::sign_duplex(&mut mres, &d_e, k);
+    let (i, s) = schnorr::sign_duplex(&mut mres, &mut rng, &d_e);
 
     // Encrypt the proof scalar.
     let s = mres.encrypt(s.as_bytes());
@@ -80,21 +80,20 @@ pub fn encrypt(
 /// The length of the data encryption key.
 const DEK_LEN: usize = 32;
 
-/// Derive a random ephemeral key pair, commitment scalar, and data encryption key from the duplex's
-/// current state, the sender's private key, and a random nonce. Loop until we produce an ephemeral
-/// private key which has a public key with an Elligator2 representative.
+/// Derive a random ephemeral key pair and data encryption key from the duplex's current state,
+/// the sender's private key, and a random nonce. Loop until we produce an ephemeral private key
+/// which has a public key with an Elligator2 representative.
 fn generate_keys(
     mres: &mut UnkeyedDuplex,
     mut rng: impl CryptoRng + Rng,
     d_s: &Scalar,
-) -> (Scalar, RistrettoPoint, [u8; 32], Scalar, Vec<u8>) {
+) -> (Scalar, RistrettoPoint, [u8; 32], Vec<u8>) {
     loop {
-        let (d_e, k, dek) = mres.hedge(&mut rng, d_s, |clone| {
-            (clone.squeeze_scalar(), clone.squeeze_scalar(), clone.squeeze(DEK_LEN))
-        });
+        let (d_e, dek) =
+            mres.hedge(&mut rng, d_s, |clone| (clone.squeeze_scalar(), clone.squeeze(DEK_LEN)));
         let q_e = &d_e * &G;
         if let Some(q_e_r) = q_e.to_elligator2() {
-            return (d_e, q_e, q_e_r, k, dek);
+            return (d_e, q_e, q_e_r, dek);
         }
     }
 }
