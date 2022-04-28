@@ -38,8 +38,9 @@ impl UnkeyedDuplex {
         let mut key = [0u8; KEY_LEN];
         self.state.squeeze_key(&mut key);
 
-        let state = XoodyakKeyed::new(&key, None, None, None).expect("unable to construct duplex");
-        KeyedDuplex { state }
+        KeyedDuplex {
+            state: XoodyakKeyed::new(&key, None, None, None).expect("unable to construct duplex"),
+        }
     }
 }
 
