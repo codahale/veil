@@ -89,8 +89,9 @@ fn generate_keys(
     d_s: &Scalar,
 ) -> (Scalar, RistrettoPoint, [u8; 32], Vec<u8>) {
     loop {
-        let (d_e, dek) =
-            mres.hedge(&mut rng, d_s, |clone| (clone.squeeze_scalar(), clone.squeeze(DEK_LEN)));
+        let (d_e, dek) = mres.hedge(&mut rng, d_s.as_bytes(), |clone| {
+            (clone.squeeze_scalar(), clone.squeeze(DEK_LEN))
+        });
         let q_e = &d_e * &G;
         if let Some(q_e_r) = q_e.to_elligator2() {
             return (d_e, q_e, q_e_r, dek);

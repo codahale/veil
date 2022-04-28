@@ -176,15 +176,17 @@ pub trait Absorb: Clone {
     /// Clone the duplex and use it to absorb the given secret and 64 random bytes. Pass the clone
     /// to the given function and return the result of that function as a secret.
     #[must_use]
-    fn hedge<R, F>(&self, mut rng: impl Rng + CryptoRng, secret: &Scalar, f: F) -> R
-    where
-        F: Fn(&mut Self) -> R,
-    {
+    fn hedge<R>(
+        &self,
+        mut rng: impl Rng + CryptoRng,
+        secret: &[u8],
+        f: impl Fn(&mut Self) -> R,
+    ) -> R {
         // Clone the duplex's state.
         let mut clone = self.clone();
 
         // Absorb the given secret.
-        clone.absorb(secret.as_bytes());
+        clone.absorb(secret);
 
         // Absorb a random value.
         clone.absorb(&rng.gen::<[u8; 64]>());

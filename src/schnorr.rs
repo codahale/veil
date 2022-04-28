@@ -109,7 +109,7 @@ pub fn sign_duplex(
 ) -> (Vec<u8>, Scalar) {
     // Derive a commitment scalar from the duplex's current state, the signer's private key,
     // and a random nonce.
-    let k = duplex.hedge(rng, d, Squeeze::squeeze_scalar);
+    let k = duplex.hedge(rng, d.as_bytes(), Squeeze::squeeze_scalar);
 
     // Calculate and encrypt the commitment point.
     let i = &k * &G;
