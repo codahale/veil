@@ -1,13 +1,12 @@
-//! Implements a cryptographic duplex using Xoodyak.
+//! Implements a cryptographic duplex using Cyclist/Keccak.
 
-use curve25519_dalek::ristretto::RistrettoPoint;
 use std::io;
 use std::io::Read;
 
+use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
+use cyclist::k12::{K12Hash, K12Keyed};
 use rand::{CryptoRng, Rng};
-use subtle::{ConstantTimeEq, CtOption};
-use xoodyak::{XoodyakCommon, XoodyakHash, XoodyakKeyed};
 
 /// The length of an authentication tag in bytes.
 pub const TAG_LEN: usize = 16;
@@ -15,7 +14,7 @@ pub const TAG_LEN: usize = 16;
 /// An unkeyed cryptographic duplex.
 #[derive(Clone)]
 pub struct UnkeyedDuplex {
-    state: XoodyakHash,
+    state: K12Hash,
 }
 
 impl UnkeyedDuplex {
@@ -23,7 +22,7 @@ impl UnkeyedDuplex {
     #[must_use]
     pub fn new(domain: &str) -> UnkeyedDuplex {
         // Initialize an empty hash.
-        let mut state = XoodyakHash::new();
+        let mut state = K12Hash::default();
 
         // Absorb the domain separation string.
         state.absorb(domain.as_bytes());
@@ -33,71 +32,46 @@ impl UnkeyedDuplex {
 
     /// Extract a key from this duplex's state and use it to create a keyed duplex.
     pub fn into_keyed(mut self) -> KeyedDuplex {
-        const KEY_LEN: usize = 32;
+        const KEY_LEN: usize = 64;
 
         let mut key = [0u8; KEY_LEN];
-        self.state.squeeze_key(&mut key);
+        self.state.squeeze_key_mut(&mut key);
 
-        KeyedDuplex {
-            state: XoodyakKeyed::new(&key, None, None, None).expect("unable to construct duplex"),
-        }
+        KeyedDuplex { state: K12Keyed::new(&key, None, None, None) }
     }
 }
 
 /// A keyed cryptographic duplex.
 #[derive(Clone)]
 pub struct KeyedDuplex {
-    state: XoodyakKeyed,
+    state: K12Keyed,
 }
 
 impl KeyedDuplex {
     /// Encrypt the given plaintext. **Provides no guarantees for authenticity.**
     #[must_use]
     pub fn encrypt(&mut self, plaintext: &[u8]) -> Vec<u8> {
-        self.state.encrypt_to_vec(plaintext).expect("unable to encrypt")
+        self.state.encrypt(plaintext)
     }
 
     /// Decrypt the given plaintext. **Provides no guarantees for authenticity.**
     #[must_use]
     pub fn decrypt(&mut self, ciphertext: &[u8]) -> Vec<u8> {
-        self.state.decrypt_to_vec(ciphertext).expect("unable to decrypt")
+        self.state.decrypt(ciphertext)
     }
 
     /// Encrypt and seal the given plaintext, adding [TAG_LEN] bytes to the end.
     /// **Guarantees authenticity.**
     #[must_use]
     pub fn seal(&mut self, plaintext: &[u8]) -> Vec<u8> {
-        // Allocate output buffer.
-        let mut out = vec![0u8; plaintext.len() + TAG_LEN];
-
-        // Encrypt plaintext.
-        self.state.encrypt(&mut out, plaintext).expect("unable to encrypt");
-
-        // Generate authentication tag.
-        self.state.squeeze(&mut out[plaintext.len()..]);
-
-        // Return ciphertext and tag.
-        out
+        self.state.seal(plaintext)
     }
 
     /// Decrypt and unseal the given ciphertext. If the ciphertext is invalid, returns `None`.
     /// **Guarantees authenticity.**
     #[must_use]
     pub fn unseal(&mut self, ciphertext: &[u8]) -> Option<Vec<u8>> {
-        // Check for undersized ciphertexts.
-        if ciphertext.len() < TAG_LEN {
-            return None;
-        }
-
-        // Split into ciphertext and tag.
-        let (ciphertext, tag) = ciphertext.split_at(ciphertext.len() - TAG_LEN);
-
-        // Decrypt the plaintext.
-        let plaintext = self.decrypt(ciphertext);
-
-        // Compare the given tag with the counterfactual tag in constant time.
-        let tag_p = self.squeeze(TAG_LEN);
-        CtOption::new(plaintext, tag.ct_eq(&tag_p)).into()
+        self.state.open(ciphertext)
     }
 }
 
@@ -133,13 +107,13 @@ pub trait Squeeze {
 
 impl Squeeze for UnkeyedDuplex {
     fn squeeze_into(&mut self, out: &mut [u8]) {
-        self.state.squeeze(out)
+        self.state.squeeze_mut(out)
     }
 }
 
 impl Squeeze for KeyedDuplex {
     fn squeeze_into(&mut self, out: &mut [u8]) {
-        self.state.squeeze(out)
+        self.state.squeeze_mut(out)
     }
 }
 

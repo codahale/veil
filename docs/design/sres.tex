@@ -2,7 +2,7 @@
 
 \texttt{veil.sres} implements a single-receiver, deniable signcryption scheme which Veil uses to encrypt message
 headers.
-It integrates an ephemeral ECDH KEM, a Xoodyak DEM, and a designated-verifier Schnorr signature scheme to provide
+It integrates an ephemeral ECDH KEM, a Cyclist DEM, and a designated-verifier Schnorr signature scheme to provide
 multi-user insider security.
 
 \subsection{Encrypting A Header}\label{subsec:veil.sres-encrypt}
@@ -140,7 +140,7 @@ encryption (see Alg.~\ref{alg:veil.sres-encrypt}, Line~\ref{alg:veil.sres-encryp
 
 $\Adversary$ is unable to forge valid signatures for existing ciphertexts, limiting them to passive attacks.
 A passive attack on any of the three components of \texttt{veil.sres} ciphertexts--$C$, $S_0$, $S_1$--would only be
-possible if Xoodyak is not IND-CPA secure.
+possible if Cyclist is not IND-CPA secure.
 
 Therefore, \texttt{veil.sres} provides confidentiality in the multi-user outsider setting.
 
@@ -198,10 +198,10 @@ to a third party.
 
 \subsection{Indistinguishability From Random Noise}\label{subsec:veil.sres-indistinguishability}
 
-All of the components of a \texttt{veil.sres} ciphertext--$C$, $S_0$, and $S_1$--are Xoodyak ciphertexts.
+All of the components of a \texttt{veil.sres} ciphertext--$C$, $S_0$, and $S_1$--are Cyclist ciphertexts.
 An adversary in the outsider setting (i.e.\ knowing only public keys) is unable to calculate any of the key material
 used to produce the ciphertexts;
-a distinguishing attack is infeasible if Xoodyak is IND-CPA secure.
+a distinguishing attack is infeasible if Cyclist is IND-CPA secure.
 
 \subsection{Re-use Of Ephemeral Keys}\label{subsec:veil.sres-re-using-ephemeral-keys}
 

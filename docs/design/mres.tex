@@ -132,7 +132,7 @@ keys~\cite{kurosawa2002, bellare2003, bellare2007, rfc4880}.
 The headers are encrypted with the \texttt{veil.sres} construction (see Sec.~\ref{sec:veil.sres}), which provides full
 insider security (i.e.\ IND-CCA2 and sUF-CMA in the multi-user insider setting), using a per-header \textsc{Squeeze}
 value as a nonce.
-The message itself is divided into a sequence of 32KiB blocks, each encrypted with a sequence of Xoodyak
+The message itself is divided into a sequence of 32KiB blocks, each encrypted with a sequence of Cyclist
 \textsc{Encrypt}/\textsc{Squeeze} operations, which is IND-CCA2 secure.
 
 The latter portion of \texttt{veil.mres} is an EdDSA-style Schnorr signature scheme.
@@ -165,7 +165,7 @@ $\Adversary$ is unable to forge valid signatures for existing ciphertexts, limit
 and encrypted signature points.
 Each component of the ciphertext is dependent on the previous inputs (including the headers, which use
 \textsc{Squeeze}-derived nonce to link the \texttt{veil.sres} ciphertexts to the \texttt{veil.mres} state).
-A passive attack on any of those would only be possible if Xoodyak is not IND-CPA secure.
+A passive attack on any of those would only be possible if Cyclist is not IND-CPA secure.
 
 \subsubsection{Insider Confidentiality}
 
@@ -227,8 +227,8 @@ to identity.
 
 \texttt{veil.mres} ciphertexts are indistinguishable from random noise.
 The ephemeral public key is encoded using Elligator2, which maps points on an elliptic curve to uniform bitstrings.
-All other components of an \texttt{veil.mres} ciphertext are Xoodyak ciphertexts;
-a successful distinguishing attack on them would require Xoodyak to not be IND-CPA secure.
+All other components of an \texttt{veil.mres} ciphertext are Cyclist ciphertexts;
+a successful distinguishing attack on them would require Cyclist to not be IND-CPA secure.
 
 \subsubsection{Elligator2 And Ristretto}
 
@@ -240,8 +240,8 @@ This is likely a suboptimal approach.
 \subsection{Partial Decryption}\label{subsec:veil.mres-partial-decryption}
 
 The division of the plaintext stream into blocks takes its inspiration from the CHAIN construction~\cite{hoang2015}, but
-the use of Xoodyak allows for a significant reduction in complexity.
-Instead of using the nonce and associated data to create a feed-forward ciphertext dependency, the Xoodyak duplex
+the use of Cyclist allows for a significant reduction in complexity.
+Instead of using the nonce and associated data to create a feed-forward ciphertext dependency, the Cyclist duplex
 ensures all encryption operations are cryptographically dependent on the ciphertext of all previous encryption
 operations.
 Likewise, because the \texttt{veil.mres} ciphertext is terminated with a Schnorr signature (see

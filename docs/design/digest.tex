@@ -44,11 +44,11 @@ codes (see Alg.~\ref{alg:veil.digest-mac}).
 
 The duplex is indistinguishable from a random oracle given that the underlying permutation is indistinguishable from a
 random permutation~\cite[Sec. 8.5]{bertoni2011sponge}.
-If Xoodoo is strong, an attacker has negligible advantage in finding first or second preimages.
+If Keccak-\emph{p} is strong, an attacker has negligible advantage in finding first or second preimages.
 
 \subsection{sUF-CMA Security}\label{subsec:veil.digest-suf-cma}
 
 Similarly, the security of a duplex as a MAC reduces to the strength of the
 permutation~\cite[Sec. 8.6]{bertoni2011sponge}.
-An attack which forges a message for a given key and MAC would imply Xoodyak's \textsc{Squeeze} operation is not sUF-CMA
+An attack which forges a message for a given key and MAC would imply Cyclist's \textsc{Squeeze} operation is not sUF-CMA
 secure.

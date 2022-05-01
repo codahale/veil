@@ -276,6 +276,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "cyclist"
+version = "0.1.0"
+source = "git+https://github.com/codahale/cyclist?branch=main#a34a3d8b751c97349f47687343ba8e891f82ec95"
+dependencies = [
+ "keccak",
+ "rawbytes",
+ "subtle",
+]
+
+[[package]]
 name = "digest"
 version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -407,6 +417,12 @@ checksum = "671a26f820db17c2a2750743f1dd03bafd15b98c9f30c7c2628c024c05d73397"
 dependencies = [
  "wasm-bindgen",
 ]
+
+[[package]]
+name = "keccak"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67c21572b4949434e4fc1e1978b99c5f77064153c59d998bf13ecd96fb5ecba7"
 
 [[package]]
 name = "lazy_static"
@@ -939,6 +955,7 @@ dependencies = [
  "clio",
  "criterion",
  "curve25519-dalek",
+ "cyclist",
  "duct",
  "mimalloc",
  "rand",
@@ -948,7 +965,6 @@ dependencies = [
  "tempfile",
  "thiserror",
  "unicode-normalization",
- "xoodyak",
  "zeroize",
 ]
 
@@ -1069,15 +1085,6 @@ name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
-
-[[package]]
-name = "xoodyak"
-version = "0.7.3"
-source = "git+https://github.com/jedisct1/rust-xoodyak?branch=master#6585ffd87709af8759aba4fd3db2556f9972a83a"
-dependencies = [
- "rawbytes",
- "zeroize",
-]
 
 [[package]]
 name = "zeroize"

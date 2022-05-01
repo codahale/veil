@@ -101,10 +101,10 @@ hardness of the discrete logarithm problem:
     secure.
 \end{displayquote}
 
-Per~\cite[Sec. 5.10]{bertoni2011sponge}, Xoodyak is a suitable random oracle if Xoodoo is indistinguishable from a
-random permutation.
+Per~\cite[Sec. 5.10]{bertoni2011sponge}, Cyclist is a suitable random oracle if the underlying permutation is
+indistinguishable from a random permutation.
 Thus, \texttt{veil.schnorr} is UF-CMA if the discrete-logarithm problem is hard relative to Ristretto255 and
-Xoodoo is indistinguishable from a random permutation.
+Keccak-\emph{p} is indistinguishable from a random permutation.
 
 \subsection{sUF-CMA Security}\label{subsec:veil.schnorr-suf-cma}
 
@@ -146,9 +146,9 @@ A global passive adversary should not be able to discover the identity of a sign
 To eliminate this possibility, \texttt{veil.schnorr} encrypts both components of the signature with a duplex keyed with
 the signer's public key in addition to the message.
 An attack which recovers the plaintext of either signature component in the absence of the public key would imply that
-Xoodyak is not IND-CPA\@.
+Cyclist is not IND-CPA\@.
 
 \subsection{Indistinguishability From Random Noise}\label{subsec:veil.schnorr-indistinguishability}
 
-Given that both signature components are encrypted with Xoodyak, an attack which distinguishes between a
-\texttt{veil.schnorr} and random noise would also imply that Xoodyak is not IND-CPA\@.
+Given that both signature components are encrypted with Cyclist, an attack which distinguishes between a
+\texttt{veil.schnorr} and random noise would also imply that Cyclist is not IND-CPA\@.

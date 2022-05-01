@@ -4,14 +4,14 @@ Veil uses a few common construction techniques in its design which bear specific
 
 \subsection{Unkeyed And Keyed Duplexes}\label{subsec:cons-keyed-duplexes}
 
-Veil uses Xoodyak, which offers both unkeyed (``hash'') and keyed modes.
+Veil uses Cyclist, which offers both unkeyed (``hash'') and keyed modes.
 All Veil constructions begin in the unkeyed mode by absorbing a constant domain separation string (e.g.\
 \texttt{veil.mres}).
 To convert from an unkeyed duplex to a keyed duplex, a 256-bit key is derived from the unkeyed duplex's state and used
 to initialize a keyed duplex:
 
 \begin{algorithm}[ht]
-    \caption{Converting an unkeyed Xoodyak duplex to a keyed duplex.}
+    \caption{Converting an unkeyed Cyclist duplex to a keyed duplex.}
     \begin{algorithmic}
         \State \Call{Absorb}{\texttt{example.domain}}\Comment{Initialize an unkeyed duplex.}
         \State \Call{Absorb}{$X$}\Comment{Absorb some input data.}
@@ -22,25 +22,25 @@ to initialize a keyed duplex:
     \label{alg:duplex-convert}
 \end{algorithm}
 
-The unkeyed duplex is used as a kind of key derivation function, with the lower absorb rate of Xoodyak's unkeyed mode
+The unkeyed duplex is used as a kind of key derivation function, with the lower absorb rate of Cyclist's unkeyed mode
 providing better avalanching properties.
 
 \subsection{Integrated Constructions}\label{subsec:cons-integrated-constructions}
 
-Xoodyak is a cryptographic duplex, thus each operation is cryptographically dependent on the previous operations.
+Cyclist is a cryptographic duplex, thus each operation is cryptographically dependent on the previous operations.
 Veil makes use of this by integrating different types of constructions to produce a single, unified construction.
 Instead of having to pass forward specific values (e.g.\ hashes of values or derived keys) to ensure cryptographic
-dependency, Xoodyak allows for constructions which simply absorb all values, thus ensuring transcript integrity of
+dependency, Cyclist allows for constructions which simply absorb all values, thus ensuring transcript integrity of
 complex protocols.
 
 For example, a traditional hybrid encryption scheme like HPKE~\cite{rfc9180} will describe a key encapsulation mechanism
 (KEM) like X25519 and a data encapsulation mechanism (DEM) like AES-GCM and link the two together via a key derivation
 function (KDF) like HKDF by deriving a key and nonce for the DEM from the KEM output.
 
-In contrast, the same construction using Xoodyak would be the following three operations, in order (\ref{alg:hpke}):
+In contrast, the same construction using Cyclist would be the following three operations, in order (\ref{alg:hpke}):
 
 \begin{algorithm}[ht]
-    \caption{HPKE in Xoodyak.}
+    \caption{HPKE in Cyclist.}
     \begin{algorithmic}[1]
         \State \Call{Cyclist}{$[d_E]Q_R$, $\epsilon$, $\epsilon$}\label{alg:hpke:key}
         \State $C \gets $ \Call{Encrypt}{$P$}\label{alg:hpke:encrypt}
@@ -83,7 +83,7 @@ The clone duplex is used to produce the ephemeral value or values for the scheme
 For example, the following operations would be performed on the cloned duplex (\ref{alg:hedged-ephemeral}):
 
 \begin{algorithm}[ht]
-    \caption{Hedged ephemeral generation with Xoodyak.}
+    \caption{Hedged ephemeral generation with Cyclist.}
     \begin{algorithmic}[0]
         \Clone \Comment{Clone the duplex's state.}
         \State \Call{Absorb}{$d$}\Comment{Absorb a private key.}

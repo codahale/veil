@@ -103,7 +103,7 @@ Decrypting a private key is described in full in Alg.~\ref{alg:veil.pbenc-decryp
 \subsection{Constructive Analysis Of \texttt{veil.pbenc}}\label{subsec:veil.pbenc-analysis}
 
 \texttt{veil.pbenc} is an integration of a memory-hard key derivation function (adapted for the cryptographic duplex)
-and a standard Xoodyak authenticated encryption scheme.
+and a standard Cyclist authenticated encryption scheme.
 
 The \textsc{InitFromPassphrase} procedure of \texttt{veil.pbenc} implements balloon hashing, a memory-hard KDF intended
 for hashing low-entropy passphrases~\cite{boneh2016}.
@@ -112,5 +112,5 @@ Balloon hashing was selected for its resilience to timing attacks, its reliance 
 relatively well-developed security proofs.
 
 The \textsc{EncryptPrivateKey} and \textsc{DecryptPrivateKey} functions use \textsc{InitFromPassphrase} to initialize
-the duplex state, after which they implement a standard Xoodyak authenticated encryption scheme, which is IND-CCA2
+the duplex state, after which they implement a standard Cyclist authenticated encryption scheme, which is IND-CCA2
 secure.
