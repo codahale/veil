@@ -3,9 +3,9 @@
 In the interests of cryptographic minimalism, Veil uses just two distinct cryptographic primitives:
 
 \begin{itemize}
-    \item Cyclist/Keccak-\emph{f}[1600,12]~\cite{daemen2020,bertoni2018} for confidentiality, authentication, and
-    integrity.
-    \item Ristretto255~\cite{deValence2020} for key agreement and authenticity.
+    \item Cyclist/Keccak-\emph{f}[1600,12] for confidentiality, authentication, and
+    integrity~\cite{daemen2020,bertoni2018}.
+    \item Ristretto255 for key agreement and authenticity~\cite{deValence2020}.
 \end{itemize}
 
 \subsection{Cyclist/Keccak-\emph{f}[1600,12]}\label{subsec:cyclist}
@@ -17,15 +17,15 @@ AEADs, MACs, and hash algorithms using a single primitive~\cite{daemen2020, bert
 Duplexes have security properties which reduce to the properties of the cryptographic sponge, which themselves reduce to
 the strength of the underlying permutation~\cite{bertoni2008}.
 
+Veil uses the Cyclist construction parameterized with $f$=Keccak-\emph{f}[1600,12], $R_\text{hash}$=1088,
+$R_\text{kin}$=800, $R_\text{kout}$=1536, and $\ell_\text{ratchet}$=256.
 The Keccak-\emph{f}[1600,12] permutation is the basis of the KangarooTwelve hash algorithm~\cite{bertoni2018}.
 It has a 1600-bit width, like Keccak-\emph{f}[1600] (the basis of SHA-3), but with a reduced number of rounds for speed.
-It's used to instantiate Cyclist objects with an unkeyed hash rate of 1088 bits.
-In the keyed mode, the squeeze rate is 1536 bits, the absorb rate is 800 bits, and the ratchet rate is 256 bits.
 This targets a 256-bit security level and is roughly 40\% faster than ChaCha20Poly1305 in software.
 
 Veil's security assumes that Cyclist's \textsc{Encrypt} operation is IND-CPA secure, its
 \textsc{Squeeze} operation is sUF-CMA secure, and its
-\textsc{Encrypt}/\textsc{Squeeze}-based AEAD construction is IND-CCA2 secure.
+\textsc{Encrypt}/\textsc{Squeeze}-based authenticated encryption construction is IND-CCA2 secure.
 
 \subsection{Ristretto255}\label{subsec:ristretto255}
 
