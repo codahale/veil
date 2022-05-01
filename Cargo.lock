@@ -278,10 +278,9 @@ dependencies = [
 [[package]]
 name = "cyclist"
 version = "0.1.0"
-source = "git+https://github.com/codahale/cyclist?branch=main#a34a3d8b751c97349f47687343ba8e891f82ec95"
+source = "git+https://github.com/codahale/cyclist?branch=main#ae5e6c3cfadcd3477e5aa8d2e8952730b35e1b8f"
 dependencies = [
- "keccak",
- "rawbytes",
+ "byteorder",
  "subtle",
 ]
 
@@ -417,12 +416,6 @@ checksum = "671a26f820db17c2a2750743f1dd03bafd15b98c9f30c7c2628c024c05d73397"
 dependencies = [
  "wasm-bindgen",
 ]
-
-[[package]]
-name = "keccak"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67c21572b4949434e4fc1e1978b99c5f77064153c59d998bf13ecd96fb5ecba7"
 
 [[package]]
 name = "lazy_static"
@@ -630,12 +623,6 @@ checksum = "d34f1408f55294453790c48b2f1ebbb1c5b4b7563eb1f418bcfcfdbb06ebb4e7"
 dependencies = [
  "getrandom",
 ]
-
-[[package]]
-name = "rawbytes"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04d0088f16afb86d12c7f239d8de4637fa68ecc99a3db227e1ab58a294713e60"
 
 [[package]]
 name = "rayon"

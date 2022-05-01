@@ -5,7 +5,7 @@ use std::io::Read;
 
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
-use cyclist::k12::{K12Hash, K12Keyed};
+use cyclist::keccak::{K12Hash, K12Keyed};
 use rand::{CryptoRng, Rng};
 
 /// The length of an authentication tag in bytes.
