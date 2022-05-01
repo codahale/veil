@@ -50,7 +50,7 @@ Initializing a duplex from a passphrase is described in full in Alg.~\ref{alg:ve
             \EndFor
             \State
             \State \Call{Absorb}{$B[N_S-1]$}\Comment{Extract output from buffer.}
-            \State \Call{Cyclist}{\textsc{SqueezeKey}($32$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
+            \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
         \EndProcedure
     \end{algorithmic}
     \label{alg:veil.pbenc-init}

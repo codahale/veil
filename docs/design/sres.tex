@@ -25,7 +25,7 @@ Encrypting a header is described in full in Alg.~\ref{alg:veil.sres-encrypt}.
             \State
 
             \State \Call{Absorb}{$d_S[Q_E]$, $\epsilon$, $\epsilon$}\Comment{Absorb the ECDH shared secret.}
-            \State \Call{Cyclist}{\textsc{SqueezeKey}($32$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
+            \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
             \State $C \gets$ \Call{Encrypt}{$P$}\Comment{Encrypt the plaintext.}
 
             \State
@@ -72,7 +72,7 @@ Decrypting a header is described in full in Alg.~\ref{alg:veil.sres-decrypt}.
             \State \Call{Absorb}{$N$}\Comment{Absorb the nonce.}
             \State
             \State \Call{Absorb}{$d_R[Q_E]$}\Comment{Absorb the ECDH shared secret.}
-            \State \Call{Cyclist}{\textsc{SqueezeKey}($32$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
+            \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
             \State $P' \gets$ \Call{Decrypt}{$C$}\Comment{Decrypt the plaintext.}
             \State
             \State $I \gets$ \Call{Decrypt}{$S_0$}\Comment{Decrypt the commitment point.}

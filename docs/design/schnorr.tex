@@ -27,7 +27,7 @@ Signing a message is described in full in Alg.~\ref{alg:veil.schnorr-sign}.
             \State \textbf{yield} $k$\Comment{Yield a hedged commitment scalar.}
             \End
             \State
-            \State \Call{Cyclist}{\textsc{SqueezeKey}($32$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
+            \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
             \State
             \State $I \gets [k]G$\Comment{Calculate the commitment point.}
             \State $S_0 \gets $ \Call{Encrypt}{$I$}\Comment{Encrypt the commitment point.}
@@ -59,7 +59,7 @@ Verifying a signature is described in full in Alg.~\ref{alg:veil.schnorr-verify}
                 \State \Call{Absorb}{$M_i$, $16$}\Comment{Absorb message in 32KiB blocks.}
             \EndFor
             \State
-            \State \Call{Cyclist}{\textsc{SqueezeKey}($32$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
+            \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
             \State
             \State $I \gets $ \Call{Decrypt}{$S_0$}\Comment{Decrypt the commitment point.}
             \State $r \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a challenge scalar.}

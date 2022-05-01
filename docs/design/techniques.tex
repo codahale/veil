@@ -7,7 +7,7 @@ Veil uses a few common construction techniques in its design which bear specific
 Veil uses Cyclist, which offers both unkeyed (``hash'') and keyed modes.
 All Veil constructions begin in the unkeyed mode by absorbing a constant domain separation string (e.g.\
 \texttt{veil.mres}).
-To convert from an unkeyed duplex to a keyed duplex, a 256-bit key is derived from the unkeyed duplex's state and used
+To convert from an unkeyed duplex to a keyed duplex, a 512-bit key is derived from the unkeyed duplex's state and used
 to initialize a keyed duplex:
 
 \begin{algorithm}[ht]
@@ -15,7 +15,7 @@ to initialize a keyed duplex:
     \begin{algorithmic}
         \State \Call{Absorb}{\texttt{example.domain}}\Comment{Initialize an unkeyed duplex.}
         \State \Call{Absorb}{$X$}\Comment{Absorb some input data.}
-        \State $K \gets $ \Call{SqueezeKey}{$32$}\Comment{Squeeze a 256-bit key.}
+        \State $K \gets $ \Call{SqueezeKey}{$64$}\Comment{Squeeze a 512-bit key.}
         \State \Call{Cyclist}{$K$, $\epsilon$, $\epsilon$}\Comment{Initialize a keyed duplex.}
         \State $C \gets $ \Call{Encrypt}{$P$}\Comment{Use the keyed duplex.}
     \end{algorithmic}
