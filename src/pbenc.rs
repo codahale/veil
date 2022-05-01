@@ -72,7 +72,7 @@ macro_rules! hash_counter {
     };
     ($pbenc:ident, $ctr:ident, $left:expr, $right:expr, $out:expr) => {
         hash_counter!($pbenc, $ctr, $left, $right);
-        $pbenc.squeeze_into(&mut $out);
+        $pbenc.squeeze_mut(&mut $out);
     };
 }
 
@@ -126,7 +126,7 @@ fn init(passphrase: &str, salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
 
                 // Map the PRF output to a block index.
                 let mut idx = [0u8; mem::size_of::<u64>()];
-                pbenc.squeeze_into(&mut idx);
+                pbenc.squeeze_mut(&mut idx);
                 let idx = u64::from_le_bytes(idx) % space as u64;
 
                 // Hash the pseudo-randomly selected block.

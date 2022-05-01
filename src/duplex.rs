@@ -78,13 +78,13 @@ impl KeyedDuplex {
 /// Common duplex output operations.
 pub trait Squeeze {
     /// Fill the given output slice with bytes squeezed from the duplex.
-    fn squeeze_into(&mut self, out: &mut [u8]);
+    fn squeeze_mut(&mut self, out: &mut [u8]);
 
     /// Squeeze `n` bytes from the duplex.
     #[must_use]
     fn squeeze(&mut self, n: usize) -> Vec<u8> {
         let mut b = vec![0u8; n];
-        self.squeeze_into(&mut b);
+        self.squeeze_mut(&mut b);
         b
     }
 
@@ -94,7 +94,7 @@ pub trait Squeeze {
         loop {
             // Squeeze a 512-bit integer.
             let mut b = [0u8; 64];
-            self.squeeze_into(&mut b);
+            self.squeeze_mut(&mut b);
 
             // Map the integer to a scalar mod l and return if ≠ 0.
             let d = Scalar::from_bytes_mod_order_wide(&b);
@@ -106,13 +106,13 @@ pub trait Squeeze {
 }
 
 impl Squeeze for UnkeyedDuplex {
-    fn squeeze_into(&mut self, out: &mut [u8]) {
+    fn squeeze_mut(&mut self, out: &mut [u8]) {
         self.state.squeeze_mut(out)
     }
 }
 
 impl Squeeze for KeyedDuplex {
-    fn squeeze_into(&mut self, out: &mut [u8]) {
+    fn squeeze_mut(&mut self, out: &mut [u8]) {
         self.state.squeeze_mut(out)
     }
 }
