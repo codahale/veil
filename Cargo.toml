@@ -17,7 +17,7 @@ curve25519-dalek = { git = "https://github.com/codahale/curve25519-dalek", branc
 cyclist = { git = "https://github.com/codahale/cyclist", branch = "main" }
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 subtle = "2.4.1"
-thiserror = "1.0.30"
+thiserror = "1.0.31"
 unicode-normalization = "0.1.19"
 zeroize = { version = "1.5.4", features = ["derive"] }
 
