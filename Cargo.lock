@@ -278,7 +278,7 @@ dependencies = [
 [[package]]
 name = "cyclist"
 version = "0.1.0"
-source = "git+https://github.com/codahale/cyclist?branch=main#ae5e6c3cfadcd3477e5aa8d2e8952730b35e1b8f"
+source = "git+https://github.com/codahale/cyclist?branch=main#af70022729488a9748508b370adaadefb5dcabb0"
 dependencies = [
  "byteorder",
  "subtle",
