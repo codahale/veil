@@ -19,7 +19,7 @@ rand = { version = "0.8.5", features = ["min_const_gen"] }
 subtle = "2.4.1"
 thiserror = "1.0.31"
 unicode-normalization = "0.1.19"
-zeroize = { version = "1.5.4", features = ["derive"] }
+zeroize = { version = "1.5.5", features = ["derive"] }
 
 # cli-only deps
 anyhow = { version = "1.0.57", optional = true }
