@@ -18,8 +18,7 @@ Duplexes have security properties which reduce to the properties of the cryptogr
 the strength of the underlying permutation~\cite{bertoni2008}.
 
 Veil uses the Cyclist construction parameterized with $f$=Keccak-\emph{f}[1600,12], $R_\text{hash}$=1344,
-$R_\text{kin}$=1568, $R_\text{kout}$=1408, and $\ell_\text{ratchet}$=16 (as calculated per~\cite{bertoni2015keyak} with
-$c=192$).
+$R_\text{kin}$=1568, $R_\text{kout}$=1472, and $\ell_\text{ratchet}$=16 (following~\cite{bertoni2015keyak} with $c=128$).
 The Keccak-\emph{f}[1600,12] permutation is the basis of the KangarooTwelve hash algorithm~\cite{bertoni2018}.
 It has a 1600-bit width, like Keccak-\emph{f}[1600] (the basis of SHA-3), but with a reduced number of rounds for speed.
 This targets a 128-bit security level and is $~4x$ faster than SHA-256, $~5x$ faster than ChaCha20Poly1305, and $~7.5x$
