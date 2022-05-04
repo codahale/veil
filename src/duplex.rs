@@ -38,7 +38,7 @@ impl UnkeyedDuplex {
         let mut key = [0u8; KEY_LEN];
         self.state.squeeze_key_mut(&mut key);
 
-        KeyedDuplex { state: K12Keyed::new(&key, None, None, None) }
+        KeyedDuplex { state: K12Keyed::new(&key, None, None) }
     }
 }
 
