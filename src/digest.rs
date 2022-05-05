@@ -50,7 +50,7 @@ impl Digest {
         }
 
         // Absorb the reader contents in 32KiB blocks.
-        digest.absorb_blocks(reader)?;
+        digest.absorb_reader(reader)?;
 
         // Squeeze N bytes as a digest.
         Ok(Digest(digest.squeeze(DIGEST_LEN).try_into().expect("invalid digest len")))

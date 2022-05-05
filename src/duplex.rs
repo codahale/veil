@@ -120,30 +120,42 @@ impl Squeeze for KeyedDuplex {
 
 // Common duplex input operations.
 pub trait Absorb: Clone {
+    /// The number of bytes which can be absorbed before the state is permuted.
+    fn absorb_rate(&self) -> usize;
+
     /// Absorb the given slice of data.
     fn absorb(&mut self, data: &[u8]);
+
+    /// Extend a previous absorb operation with the given slice of data.
+    fn absorb_more(&mut self, data: &[u8]);
 
     /// Absorb a Ristretto point.
     fn absorb_point(&mut self, q: &RistrettoPoint) {
         self.absorb(q.compress().as_bytes());
     }
 
-    /// Absorb the entire contents of the given reader in 32KiB-sized blocks.
-    fn absorb_blocks(&mut self, mut reader: impl Read) -> io::Result<()> {
-        const BLOCK_LEN: usize = 32 * 1024;
+    /// Absorb the entire contents of the given reader as a single operation.
+    fn absorb_reader(&mut self, mut reader: impl Read) -> io::Result<()> {
+        let block_len = self.absorb_rate() * 32;
 
-        let mut buf = Vec::with_capacity(BLOCK_LEN);
+        let mut buf = Vec::with_capacity(block_len);
+        let mut first = true;
 
         loop {
             // Read a block of data.
-            let n = (&mut reader).take(BLOCK_LEN as u64).read_to_end(&mut buf)?;
+            let n = (&mut reader).take(block_len as u64).read_to_end(&mut buf)?;
             let block = &buf[..n];
 
             // Absorb the block.
-            self.absorb(block);
+            if first {
+                self.absorb(block);
+                first = false;
+            } else {
+                self.absorb_more(block);
+            }
 
             // If the block was undersized, we're at the end of the reader.
-            if n < BLOCK_LEN {
+            if n < block_len {
                 break;
             }
 
@@ -178,14 +190,30 @@ pub trait Absorb: Clone {
 }
 
 impl Absorb for UnkeyedDuplex {
+    fn absorb_rate(&self) -> usize {
+        self.state.absorb_rate()
+    }
+
     fn absorb(&mut self, data: &[u8]) {
         self.state.absorb(data)
+    }
+
+    fn absorb_more(&mut self, data: &[u8]) {
+        self.state.absorb_more(data)
     }
 }
 
 impl Absorb for KeyedDuplex {
+    fn absorb_rate(&self) -> usize {
+        self.state.absorb_rate()
+    }
+
     fn absorb(&mut self, data: &[u8]) {
         self.state.absorb(data)
+    }
+
+    fn absorb_more(&mut self, data: &[u8]) {
+        self.state.absorb_more(data)
     }
 }
 
@@ -228,10 +256,10 @@ mod tests {
     #[test]
     fn absorb_blocks() {
         let mut one = UnkeyedDuplex::new("ok");
-        one.absorb_blocks(Cursor::new(b"this is a message")).expect("error absorbing");
+        one.absorb_reader(Cursor::new(b"this is a message")).expect("error absorbing");
 
         let mut two = UnkeyedDuplex::new("ok");
-        two.absorb_blocks(Cursor::new(b"this is a message")).expect("error absorbing");
+        two.absorb_reader(Cursor::new(b"this is a message")).expect("error absorbing");
 
         assert_eq!(one.squeeze(4), two.squeeze(4));
     }

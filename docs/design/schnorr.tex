@@ -14,10 +14,7 @@ Signing a message is described in full in Alg.~\ref{alg:veil.schnorr-sign}.
         \Function{Sign}{$(d_S, Q_S), M$}
             \State \Call{Absorb}{\texttt{veil.schnorr}}\Comment{Initialize an unkeyed duplex.}
             \State \Call{Absorb}{$Q$}\Comment{Absorb the signer's public key.}
-            \State
-            \ForAll{$M_i \in M$}
-                \State \Call{Absorb}{$M_i$, $16$}\Comment{Absorb message in 32KiB blocks.}
-            \EndFor
+            \State \Call{Absorb}{$M$}\Comment{Absorb the message.}
             \State
             \Clone \Comment{Clone the duplex's state.}
             \State \Call{Absorb}{$d$}\Comment{Absorb the sender's private key.}
@@ -54,10 +51,7 @@ Verifying a signature is described in full in Alg.~\ref{alg:veil.schnorr-verify}
         \Function{Verify}{$Q, M, S=S_0||S_1$}
             \State \Call{Absorb}{\texttt{veil.schnorr}}\Comment{Initialize an unkeyed duplex.}
             \State \Call{Absorb}{$Q$}\Comment{Absorb the signer's public key.}
-            \State
-            \ForAll{$M_i \in M$}
-                \State \Call{Absorb}{$M_i$, $16$}\Comment{Absorb message in 32KiB blocks.}
-            \EndFor
+            \State \Call{Absorb}{$M$}\Comment{Absorb the message.}
             \State
             \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
             \State

@@ -59,7 +59,7 @@ pub fn sign(
     schnorr.absorb_point(q);
 
     // Absorb the message in 32KiB blocks.
-    schnorr.absorb_blocks(message)?;
+    schnorr.absorb_reader(message)?;
 
     // Convert the unkeyed duplex to a keyed duplex.
     let mut schnorr = schnorr.into_keyed();
@@ -91,7 +91,7 @@ pub fn verify(
     schnorr.absorb_point(q);
 
     // Absorb the message in 32KiB blocks.
-    schnorr.absorb_blocks(message)?;
+    schnorr.absorb_reader(message)?;
 
     // Convert the unkeyed duplex to a keyed duplex.
     let mut schnorr = schnorr.into_keyed();
