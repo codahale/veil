@@ -5,7 +5,7 @@ use std::io::Read;
 
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
-use cyclist::keccak::{K12Hash, K12Keyed};
+use cyclist::keccak::{Keccyak128Hash, Keccyak128Keyed};
 use cyclist::Cyclist;
 use rand::{CryptoRng, Rng};
 
@@ -15,7 +15,7 @@ pub const TAG_LEN: usize = 16;
 /// An unkeyed cryptographic duplex.
 #[derive(Clone)]
 pub struct UnkeyedDuplex {
-    state: K12Hash,
+    state: Keccyak128Hash,
 }
 
 impl UnkeyedDuplex {
@@ -23,7 +23,7 @@ impl UnkeyedDuplex {
     #[must_use]
     pub fn new(domain: &str) -> UnkeyedDuplex {
         // Initialize an empty hash.
-        let mut state = K12Hash::default();
+        let mut state = Keccyak128Hash::default();
 
         // Absorb the domain separation string.
         state.absorb(domain.as_bytes());
@@ -38,14 +38,14 @@ impl UnkeyedDuplex {
         let mut key = [0u8; KEY_LEN];
         self.state.squeeze_key_mut(&mut key);
 
-        KeyedDuplex { state: K12Keyed::new(&key, None, None) }
+        KeyedDuplex { state: Keccyak128Keyed::new(&key, None, None) }
     }
 }
 
 /// A keyed cryptographic duplex.
 #[derive(Clone)]
 pub struct KeyedDuplex {
-    state: K12Keyed,
+    state: Keccyak128Keyed,
 }
 
 impl KeyedDuplex {
