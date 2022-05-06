@@ -3,12 +3,14 @@
 In the interests of cryptographic minimalism, Veil uses just two distinct cryptographic primitives:
 
 \begin{itemize}
-    \item Cyclist/Keccak-\emph{f}[1600,12] for confidentiality, authentication, and
-    integrity~\cite{daemen2020,bertoni2018}.
+    \item Keccyak-128 for confidentiality, authentication, and integrity~\cite{daemen2020,bertoni2018}.
     \item Ristretto255 for key agreement and authenticity~\cite{deValence2020}.
 \end{itemize}
 
-\subsection{Cyclist/Keccak-\emph{f}[1600,12]}\label{subsec:cyclist}
+\subsection{Keccyak-128}\label{subsec:keccyak}
+
+Keccyak-128 is the adaptation of the Cyclist duplex construction from Xoodyak~\cite{daemen2020} to the
+Keccak-\emph{p}[1600,12] permutation instead of Xoodoo (thus ``Keccyak'').
 
 Cyclist is a permutation-based cryptographic duplex, a cryptographic primitive that provides symmetric-key
 confidentiality, integrity, and authentication via a single object~\cite{daemen2020}.
@@ -17,10 +19,8 @@ AEADs, MACs, and hash algorithms using a single primitive~\cite{daemen2020, bert
 Duplexes have security properties which reduce to the properties of the cryptographic sponge, which themselves reduce to
 the strength of the underlying permutation~\cite{bertoni2008}.
 
-Veil uses the Cyclist duplex mode from Xoodyak~\cite{daemen2020} with the Keccak-\emph{f}[1600,12] permutation instead
-of Xoodoo.
-The Keccak-\emph{f}[1600,12] permutation is the basis of the KangarooTwelve hash algorithm~\cite{bertoni2018} and allows
-for much higher throughput in software.
+The Keccak-\emph{p}[1600,12] permutation is the basis of the KangarooTwelve hash algorithm~\cite{bertoni2018} and allows
+for much higher throughput in software than the Xoodoo permutation at the expense of requiring a larger state.
 It has a 1600-bit width, like Keccak-\emph{f}[1600] (the basis of SHA-3), but with a reduced number of rounds for speed.
 Xoodyak's Cyclist parameters of $R_\text{hash}=b-256$, $R_\text{kin}=b-32$, $R_\text{kout}=b-192$, and
 $\ell_\text{ratchet}=16$ are adapted for the larger permutation width of $b=1600$.
