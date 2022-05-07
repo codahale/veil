@@ -5,7 +5,7 @@ use std::io::Read;
 
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
-use cyclist::keccak::{Keccyak128Hash, Keccyak128Keyed};
+use cyclist::keccyak::{Keccyak128Hash, Keccyak128Keyed};
 use cyclist::Cyclist;
 use rand::{CryptoRng, Rng};
 
