@@ -278,9 +278,10 @@ dependencies = [
 [[package]]
 name = "cyclist"
 version = "0.1.0"
-source = "git+https://github.com/codahale/cyclist?branch=main#877351fef2e6e25082794aaf7ea2ddb514a79f5f"
+source = "git+https://github.com/codahale/cyclist?branch=main#5656e0b850a507315786456df42d403b7e515352"
 dependencies = [
  "byteorder",
+ "keccak-p",
  "subtle",
  "zeroize",
 ]
@@ -417,6 +418,12 @@ checksum = "671a26f820db17c2a2750743f1dd03bafd15b98c9f30c7c2628c024c05d73397"
 dependencies = [
  "wasm-bindgen",
 ]
+
+[[package]]
+name = "keccak-p"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1d595980f95da31712a83ace6eba8fc47715c8f1e9671a5e5973be270ff83cc"
 
 [[package]]
 name = "lazy_static"
