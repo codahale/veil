@@ -1,18 +1,17 @@
 //! A multi-receiver, hybrid cryptosystem.
 
+use qdsa::hazmat::{Point, Scalar, G};
 use std::convert::TryInto;
 use std::io::{self, Read, Write};
 use std::mem;
 
-use curve25519_dalek::ristretto::RistrettoPoint;
-use curve25519_dalek::scalar::Scalar;
-use curve25519_dalek::traits::IsIdentity;
 use rand::{CryptoRng, Rng};
+use subtle::Choice;
 
 use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex, TAG_LEN};
 use crate::schnorr::SIGNATURE_LEN;
 use crate::sres::NONCE_LEN;
-use crate::{schnorr, sres, DecryptError, G, POINT_LEN};
+use crate::{schnorr, sres, DecryptError, POINT_LEN};
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
@@ -20,8 +19,8 @@ pub fn encrypt(
     mut rng: impl Rng + CryptoRng,
     reader: &mut impl Read,
     writer: &mut impl Write,
-    (d_s, q_s): (&Scalar, &RistrettoPoint),
-    q_rs: &[RistrettoPoint],
+    (d_s, q_s): (&Scalar, &Point),
+    q_rs: &[Point],
     padding: usize,
 ) -> io::Result<u64> {
     // Initialize an unkeyed duplex and absorb the sender's public key.
@@ -67,7 +66,7 @@ pub fn encrypt(
     let (i, s) = schnorr::sign_duplex(&mut mres, &mut rng, &d_e);
 
     // Encrypt the proof scalar.
-    let s = mres.encrypt(s.as_bytes());
+    let s = mres.encrypt(&s.as_bytes());
 
     // Write the signature components.
     writer.write_all(&i)?;
@@ -86,13 +85,13 @@ fn generate_keys(
     mres: &mut UnkeyedDuplex,
     mut rng: impl CryptoRng + Rng,
     d_s: &Scalar,
-) -> (Scalar, RistrettoPoint, [u8; 32], Vec<u8>) {
+) -> (Scalar, Point, [u8; 32], Vec<u8>) {
     loop {
-        let (d_e, dek) = mres.hedge(&mut rng, d_s.as_bytes(), |clone| {
+        let (d_e, dek) = mres.hedge(&mut rng, &d_s.as_bytes(), |clone| {
             (clone.squeeze_scalar(), clone.squeeze(DEK_LEN))
         });
-        let q_e = &d_e * &G;
-        if let Some(q_e_r) = q_e.to_elligator2() {
+        let q_e = &G * &d_e;
+        if let Some(q_e_r) = q_e.to_elligator(Choice::from(0)) {
             return (d_e, q_e, q_e_r, dek);
         }
     }
@@ -114,9 +113,9 @@ fn encode_header(dek: &[u8], hdr_count: u64, padding: u64) -> Vec<u8> {
 fn encrypt_headers(
     mres: &mut UnkeyedDuplex,
     mut rng: impl Rng + CryptoRng,
-    (d_s, q_s): (&Scalar, &RistrettoPoint),
-    (d_e, q_e): (&Scalar, &RistrettoPoint),
-    q_rs: &[RistrettoPoint],
+    (d_s, q_s): (&Scalar, &Point),
+    (d_e, q_e): (&Scalar, &Point),
+    q_rs: &[Point],
     dek: &[u8],
     padding: u64,
     writer: &mut impl Write,
@@ -184,8 +183,8 @@ fn encrypt_message(
 pub fn decrypt(
     reader: &mut impl Read,
     writer: &mut impl Write,
-    (d_r, q_r): (&Scalar, &RistrettoPoint),
-    q_s: &RistrettoPoint,
+    (d_r, q_r): (&Scalar, &Point),
+    q_s: &Point,
 ) -> Result<u64, DecryptError> {
     // Initialize an unkeyed duplex and absorb the sender's public key.
     let mut mres = UnkeyedDuplex::new("veil.mres");
@@ -195,9 +194,11 @@ pub fn decrypt(
     let mut q_e_r = [0u8; POINT_LEN];
     reader.read_exact(&mut q_e_r)?;
     mres.absorb(&q_e_r);
-    let q_e = RistrettoPoint::from_elligator2(&q_e_r)
-        .filter(|q_e| !q_e.is_identity())
-        .ok_or(DecryptError::InvalidCiphertext)?;
+
+    let q_e = Point::from_elligator(&q_e_r);
+    if q_e.is_zero().into() {
+        return Err(DecryptError::InvalidCiphertext);
+    }
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the duplex.
     let (mut mres, dek) = decrypt_header(mres, reader, d_r, q_r, &q_e, q_s)?;
@@ -271,9 +272,9 @@ fn decrypt_header(
     mut mres: UnkeyedDuplex,
     reader: &mut impl Read,
     d_r: &Scalar,
-    q_r: &RistrettoPoint,
-    q_e: &RistrettoPoint,
-    q_s: &RistrettoPoint,
+    q_r: &Point,
+    q_e: &Point,
+    q_s: &Point,
 ) -> Result<(UnkeyedDuplex, Vec<u8>), DecryptError> {
     let mut buf = Vec::with_capacity(ENC_HEADER_LEN);
     let mut i = 0u64;
@@ -416,7 +417,7 @@ mod tests {
         let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
-        let q_s = RistrettoPoint::random(&mut rng);
+        let q_s = Point::from_elligator(&rng.gen());
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
@@ -435,7 +436,7 @@ mod tests {
         let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
-        let q_r = RistrettoPoint::random(&mut rng);
+        let q_r = Point::from_elligator(&rng.gen());
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
@@ -454,7 +455,7 @@ mod tests {
         let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)?;
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
-        let d_r = Scalar::random(&mut rng);
+        let d_r = Scalar::from_bytes(&rng.gen());
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
@@ -533,14 +534,14 @@ mod tests {
         Ok(())
     }
 
-    fn setup() -> (ChaChaRng, Scalar, RistrettoPoint, Scalar, RistrettoPoint) {
+    fn setup() -> (ChaChaRng, Scalar, Point, Scalar, Point) {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let d_s = Scalar::random(&mut rng);
-        let q_s = &d_s * &G;
+        let d_s = Scalar::from_bytes(&rng.gen());
+        let q_s = &G * &d_s;
 
-        let d_r = Scalar::random(&mut rng);
-        let q_r = &d_r * &G;
+        let d_r = Scalar::from_bytes(&rng.gen());
+        let q_r = &G * &d_r;
 
         (rng, d_s, q_s, d_r, q_r)
     }

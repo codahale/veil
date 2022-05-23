@@ -1,20 +1,19 @@
 //! The Veil hybrid cryptosystem.
 
+use qdsa::hazmat::{Point, Scalar, G};
 use std::fmt::{Debug, Formatter};
 use std::io::{BufWriter, Read, Write};
 use std::str::FromStr;
 use std::{fmt, io, iter};
 
-use curve25519_dalek::ristretto::RistrettoPoint;
-use curve25519_dalek::scalar::Scalar;
-use curve25519_dalek::traits::IsIdentity;
 use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
+use subtle::Choice;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::{
     mres, pbenc, schnorr, AsciiEncoded, DecryptError, ParsePublicKeyError, Signature, VerifyError,
-    G, POINT_LEN,
+    POINT_LEN,
 };
 
 /// A private key, used to encrypt, decrypt, and sign messages.
@@ -26,7 +25,7 @@ pub struct PrivateKey {
 
 impl PrivateKey {
     fn from_scalar(d: Scalar) -> PrivateKey {
-        let q = &d * &G;
+        let q = &G * &d;
         PrivateKey { d, pk: PublicKey { q } }
     }
 
@@ -34,9 +33,10 @@ impl PrivateKey {
     #[must_use]
     pub fn random(mut rng: impl Rng + CryptoRng) -> PrivateKey {
         loop {
-            let k = PrivateKey::from_scalar(Scalar::random(&mut rng));
-            if k.pk.q.to_elligator2().is_some() {
-                return k;
+            let d = Scalar::clamp(&rng.gen());
+            let q = &G * &d;
+            if q.to_elligator(Choice::from(0)).is_some() {
+                return PrivateKey { d, pk: PublicKey { q } };
             }
         }
     }
@@ -57,7 +57,7 @@ impl PrivateKey {
         time: u8,
         space: u8,
     ) -> io::Result<usize> {
-        let b = pbenc::encrypt(rng, passphrase, time, space, self.d.as_bytes());
+        let b = pbenc::encrypt(rng, passphrase, time, space, &self.d.as_bytes());
         writer.write_all(&b)?;
         Ok(b.len())
     }
@@ -76,8 +76,8 @@ impl PrivateKey {
         // Decrypt the ciphertext and use the plaintext as the private key.
         pbenc::decrypt(passphrase, &b)
             .and_then(|b| b.try_into().ok())
-            .and_then(Scalar::from_canonical_bytes)
-            .filter(|d| d != &Scalar::zero())
+            .map(|b| Scalar::clamp(&b))
+            .filter(|d| d != &Scalar::ZERO)
             .map(PrivateKey::from_scalar)
             .ok_or(DecryptError::InvalidCiphertext)
     }
@@ -107,10 +107,10 @@ impl PrivateKey {
             .iter()
             .map(|pk| pk.q)
             .chain(
-                iter::repeat_with(|| RistrettoPoint::random(&mut rng))
+                iter::repeat_with(|| Point::from_elligator(&rng.gen()))
                     .take(fakes.unwrap_or_default()),
             )
-            .collect::<Vec<RistrettoPoint>>();
+            .collect::<Vec<Point>>();
 
         // Shuffle the receivers list.
         q_rs.shuffle(&mut rng);
@@ -173,9 +173,9 @@ impl Debug for PrivateKey {
 }
 
 /// A public key, used to verify messages.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Zeroize)]
+#[derive(Clone, Copy, Eq, PartialEq, Zeroize)]
 pub struct PublicKey {
-    q: RistrettoPoint,
+    q: Point,
 }
 
 impl PublicKey {
@@ -197,8 +197,8 @@ impl AsciiEncoded for PublicKey {
 
     fn from_bytes(b: &[u8]) -> Result<Self, <Self as AsciiEncoded>::Err> {
         let b = b.try_into().or(Err(ParsePublicKeyError::InvalidPublicKey))?;
-        let q = RistrettoPoint::from_elligator2(&b).ok_or(ParsePublicKeyError::InvalidPublicKey)?;
-        if q.is_identity() {
+        let q = Point::from_elligator(&b);
+        if q.is_zero().into() {
             return Err(ParsePublicKeyError::InvalidPublicKey);
         }
 
@@ -206,7 +206,13 @@ impl AsciiEncoded for PublicKey {
     }
 
     fn to_bytes(&self) -> Vec<u8> {
-        self.q.to_elligator2().expect("invalid public key").to_vec()
+        self.q.to_elligator(Choice::from(0)).expect("invalid public key").to_vec()
+    }
+}
+
+impl Debug for PublicKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self.to_ascii())
     }
 }
 
@@ -235,7 +241,7 @@ mod tests {
 
     #[test]
     fn public_key_encoding() {
-        let base = PublicKey { q: G.basepoint() };
+        let base = PublicKey { q: G };
         assert_eq!(
             "68scSLCHseFJ6R6JDbjD5NxwdfMWry6njUjq9uwAMKna",
             base.to_string(),

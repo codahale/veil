@@ -1,7 +1,6 @@
 //! An insider-secure hybrid signcryption implementation.
 
-use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
-use curve25519_dalek::scalar::Scalar;
+use qdsa::hazmat::{dv_verify_challenge, Point, Scalar};
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, Squeeze, UnkeyedDuplex};
@@ -17,9 +16,9 @@ pub const OVERHEAD: usize = POINT_LEN + POINT_LEN;
 /// plaintext, encrypts the given plaintext and returns the ciphertext.
 pub fn encrypt(
     rng: impl Rng + CryptoRng,
-    (d_s, q_s): (&Scalar, &RistrettoPoint),
-    (d_e, q_e): (&Scalar, &RistrettoPoint),
-    q_r: &RistrettoPoint,
+    (d_s, q_s): (&Scalar, &Point),
+    (d_e, q_e): (&Scalar, &Point),
+    q_r: &Point,
     nonce: &[u8],
     plaintext: &[u8],
 ) -> Vec<u8> {
@@ -42,7 +41,7 @@ pub fn encrypt(
     sres.absorb(nonce);
 
     // Absorb the ECDH shared secret.
-    sres.absorb_point(&(d_e * q_r));
+    sres.absorb_point(&(q_r * d_e));
 
     // Convert the unkeyed duplex to a keyed duplex.
     let mut sres = sres.into_keyed();
@@ -55,8 +54,8 @@ pub fn encrypt(
     out.extend(i);
 
     // Calculate the proof point and encrypt it.
-    let x = s * q_r;
-    out.extend(sres.encrypt(x.compress().as_bytes()));
+    let x = q_r * &s;
+    out.extend(sres.encrypt(&x.as_bytes()));
 
     // Return the ciphertext, encrypted commitment point, and encrypted proof point.
     out
@@ -66,9 +65,9 @@ pub fn encrypt(
 /// a ciphertext, decrypts the given ciphertext and returns the plaintext iff the ciphertext was
 /// encrypted for the receiver by the sender.
 pub fn decrypt(
-    (d_r, q_r): (&Scalar, &RistrettoPoint),
-    q_e: &RistrettoPoint,
-    q_s: &RistrettoPoint,
+    (d_r, q_r): (&Scalar, &Point),
+    q_e: &Point,
+    q_s: &Point,
     nonce: &[u8],
     ciphertext: &[u8],
 ) -> Option<Vec<u8>> {
@@ -97,7 +96,7 @@ pub fn decrypt(
     sres.absorb(nonce);
 
     // Absorb the ECDH shared secret.
-    sres.absorb_point(&(d_r * q_e));
+    sres.absorb_point(&(q_e * d_r));
 
     // Convert the unkeyed duplex to a keyed duplex.
     let mut sres = sres.into_keyed();
@@ -107,21 +106,19 @@ pub fn decrypt(
 
     // Decrypt the decode the commitment point.
     let i = sres.decrypt(i);
-    let i = CompressedRistretto::from_slice(&i).decompress()?;
+    let i = Point::from_bytes(&i.try_into().expect("invalid point len"));
 
     // Squeeze a challenge scalar from the public keys, plaintext, and commitment point.
-    let r = sres.squeeze_scalar();
+    let r_p = sres.squeeze_scalar();
 
-    // Decrypt the decode the proof point.
+    // Decrypt the decode the proof point, checking for canonical encoding. Nothing depends on the
+    // bit encoding of this value, so we ensure it is, at least, a canonically-encoded point (i.e.
+    // has a 0 high bit).
     let x = sres.decrypt(x);
-    let x = CompressedRistretto::from_slice(&x).decompress()?;
+    let x = Point::from_canonical_bytes(&x)?;
 
-    // Re-calculate the proof point.
-    let x_p = d_r * (i + (r * q_s));
-
-    // If the re-calculated proof point matches the decrypted proof point, return the authenticated
-    // plaintext.
-    if x == x_p {
+    // If the signature is valid, return the plaintext.
+    if dv_verify_challenge(q_s, d_r, &r_p, &i, &x) {
         Some(plaintext)
     } else {
         None
@@ -130,10 +127,9 @@ pub fn decrypt(
 
 #[cfg(test)]
 mod tests {
+    use qdsa::hazmat::G;
     use rand::SeedableRng;
     use rand_chacha::ChaChaRng;
-
-    use crate::G;
 
     use super::*;
 
@@ -155,7 +151,7 @@ mod tests {
         let tag = b"this is a tag";
         let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, tag, plaintext);
 
-        let d_r = Scalar::random(&mut rng);
+        let d_r = Scalar::clamp(&rng.gen());
 
         let plaintext = decrypt((&d_r, &q_r), &q_e, &q_s, tag, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -168,7 +164,7 @@ mod tests {
         let tag = b"this is a tag";
         let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, tag, plaintext);
 
-        let q_r = RistrettoPoint::random(&mut rng);
+        let q_r = Point::from_elligator(&rng.gen());
 
         let plaintext = decrypt((&d_r, &q_r), &q_e, &q_s, tag, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -181,7 +177,7 @@ mod tests {
         let tag = b"this is a tag";
         let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, tag, plaintext);
 
-        let q_e = RistrettoPoint::random(&mut rng);
+        let q_e = Point::from_elligator(&rng.gen());
 
         let plaintext = decrypt((&d_r, &q_r), &q_e, &q_s, tag, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -194,7 +190,7 @@ mod tests {
         let tag = b"this is a tag";
         let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, tag, plaintext);
 
-        let q_s = RistrettoPoint::random(&mut rng);
+        let q_s = Point::from_elligator(&rng.gen());
 
         let plaintext = decrypt((&d_r, &q_r), &q_e, &q_s, tag, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -234,18 +230,17 @@ mod tests {
         }
     }
 
-    fn setup() -> (ChaChaRng, Scalar, RistrettoPoint, Scalar, RistrettoPoint, Scalar, RistrettoPoint)
-    {
+    fn setup() -> (ChaChaRng, Scalar, Point, Scalar, Point, Scalar, Point) {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let d_s = Scalar::random(&mut rng);
-        let q_s = &d_s * &G;
+        let d_s = Scalar::clamp(&rng.gen());
+        let q_s = &G * &d_s;
 
-        let d_e = Scalar::random(&mut rng);
-        let q_e = &d_e * &G;
+        let d_e = Scalar::clamp(&rng.gen());
+        let q_e = &G * &d_e;
 
-        let d_r = Scalar::random(&mut rng);
-        let q_r = &d_r * &G;
+        let d_r = Scalar::clamp(&rng.gen());
+        let q_r = &G * &d_r;
 
         (rng, d_s, q_s, d_e, q_e, d_r, q_r)
     }
