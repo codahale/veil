@@ -128,7 +128,7 @@ pub trait Absorb: Clone {
     /// Extend a previous absorb operation with the given slice of data.
     fn absorb_more(&mut self, data: &[u8]);
 
-    /// Absorb a Ristretto point.
+    /// Absorb a point.
     fn absorb_point(&mut self, q: &Point) {
         self.absorb(&q.as_bytes());
     }
