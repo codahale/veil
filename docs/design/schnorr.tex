@@ -1,6 +1,7 @@
 \section{Digital Signatures}\label{sec:veil.schnorr}
 
-\texttt{veil.schnorr} implements a Schnorr digital signature scheme.
+\texttt{veil.schnorr} implements a qDSA-style~\cite{renes2017} Schnorr digital signature scheme on the Montgomery curve
+of Curve25519~\cite{bernstein2006}.
 
 \subsection{Signing A Message}\label{subsec:veil.schnorr-sign}
 
@@ -30,7 +31,7 @@ Signing a message is described in full in Alg.~\ref{alg:veil.schnorr-sign}.
             \State $S_0 \gets $ \Call{Encrypt}{$I$}\Comment{Encrypt the commitment point.}
             \State
             \State $r \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a challenge scalar.}
-            \State $s \gets dr + k$\Comment{Calculate the proof scalar.}
+            \State $s \gets |dr + k|$\Comment{Calculate the proof scalar.}
             \State $S_1 \gets $ \Call{Encrypt}{$s$}\Comment{Encrypt the proof scalar.}
             \State
             \State \textbf{return} $S=S_0 || S_1$
@@ -57,11 +58,12 @@ Verifying a signature is described in full in Alg.~\ref{alg:veil.schnorr-verify}
             \State
             \State $I \gets $ \Call{Decrypt}{$S_0$}\Comment{Decrypt the commitment point.}
             \State $r \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a challenge scalar.}
-            \State
             \State $s \gets $ \Call{Decrypt}{$S_1$}\Comment{Decrypt the proof scalar.}
-            \State $I' \gets [s]G - [r]Q$\Comment{Calculate the counterfactual commitment point.}
+            \If{$s < 0$}
+                \State \textbf{return} $\bot$
+            \EndIf
             \State
-            \State \textbf{return} $I' \checkeq I$\Comment{The signature is valid if both points are equal.}
+            \State \textbf{return} $\pm I \checkeq \pm ([s]G \pm [r]Q_S)$\Comment{Check equality up to sign.}
         \EndFunction
     \end{algorithmic}
     \label{alg:veil.schnorr-verify}
@@ -69,70 +71,26 @@ Verifying a signature is described in full in Alg.~\ref{alg:veil.schnorr-verify}
 
 \subsection{Constructive Analysis Of \texttt{veil.schnorr}}\label{subsec:veil.schnorr-analysis}
 
-The Schnorr signature scheme is the application of the Fiat-Shamir transform to the Schnorr identification scheme.
-
-Unlike Construction 13.12 of~\cite[p. 482]{katz2020}, \texttt{veil.schnorr} transmits the commitment point $I$ as part
-of the signature and the verifier calculates $I'$ vs transmitting the challenge scalar $r$ and calculating $r'$.
-In this way, \texttt{veil.schnorr} is closer to EdDSA~\cite{brendel2021} or the Schnorr variant proposed by Hamburg
-in~\cite{hamburg2017}.
+The Schnorr signature scheme is the application of the Fiat-Shamir transform to the Schnorr identification scheme using
+qDSA~\cite{renes2017}'s adaptation to Kummer varieties.
 
 \subsection{UF-CMA Security}\label{subsec:veil.schnorr-uf-cma}
 
-Per Theorem 13.10 of~\cite[p. 478]{katz2020}, this construction is UF-CMA secure if the Schnorr identification scheme
-is secure and the hash function is secure:
-
-\begin{displayquote}
-    Let $\Pi$ be an identification scheme, and let $\Pi'$ be the signature scheme that results by applying the
-    Fiat-Shamir transform to it.
-    If $\Pi$ is secure and $H$ is modeled as a random oracle, then $\Pi'$ is secure.
-\end{displayquote}
-
-Per Theorem 13.11 of~\cite[p. 481]{katz2020}, the security of the Schnorr identification scheme is conditioned on the
-hardness of the discrete logarithm problem:
-
-\begin{displayquote}
-    If the discrete-logarithm problem is hard relative to $\mathcal{G}$, then the Schnorr identification scheme is
-    secure.
-\end{displayquote}
-
-Per~\cite[Sec. 5.10]{bertoni2011sponge}, Cyclist is a suitable random oracle if the underlying permutation is
-indistinguishable from a random permutation.
-Thus, \texttt{veil.schnorr} is UF-CMA if the discrete-logarithm problem is hard relative to Ristretto255 and
-Keccak-\emph{p} is indistinguishable from a random permutation.
+Per Renes~\cite{renes2017}, this construction is UF-CMA secure.
 
 \subsection{sUF-CMA Security}\label{subsec:veil.schnorr-suf-cma}
-
-Some Schnorr/EdDSA implementations (e.g.\ Ed25519) suffer from malleability issues, allowing for multiple valid
-signatures for a given signer and message~\cite{brendel2021}.
-Chalkias et al.~\cite{chalkias2020} describe a strict verification function for Ed25519 which achieves sUF-CMA security
-in addition to strong binding:
-
-\begin{displayquote}
-    \begin{enumerate}
-        \item Reject the signature if $S \not\in \{0,\ldots,L-1\}$.
-        \item Reject the signature if the public key $A$ is one of 8 small order points.
-        \item Reject the signature if $A$ or $R$ are non-canonical.
-        \item Compute the hash $\text{SHA2}_{512}(R||A||M)$ and reduce it mod $L$ to get a scalar $h$.
-        \item Accept if $8(S \cdot B)-8R-8(h \cdot A)=0$.
-    \end{enumerate}
-\end{displayquote}
-
-Rejecting $S \geq L$ makes the scheme sUF-CMA secure, and rejecting small order $A$ values makes the scheme strongly
-binding.
-\texttt{veil.schnorr}'s use of Ristretto255's canonical point and scalar encoding routines obviate the need for these
-checks.
-Likewise, Ristretto255 is a prime order group, which obviates the need for cofactoring in verification.
 
 When implemented with a prime order group and canonical encoding routines, the Schnorr signature scheme is strongly
 unforgeable under chosen message attack (sUF-CMA) in the random oracle model~\cite{pointcheval2000} and even with
 practical cryptographic hash functions~\cite{neven2009}.
 
+The qDSA scheme as described, however, permits both $(I, s)$ and $(I, -s)$ as valid signatures of a single message.
+Veil restricts valid signatures to those in which $s > 0$, making it sUF-CMA secure.
+
 \subsection{Key Privacy}\label{subsec:veil.schnorr-key-privacy}
 
-The EdDSA variant (i.e.\ $S=(I,s)$) is used over the traditional Schnorr construction (i.e.\ $S=(r,s)$) to enable the
-variable-time computation of $I'=[s]G - [r]Q$, which provides a ~30\% performance improvement.
-That construction, however, allows for the recovery of the signing public key given a signature and a message: given the
-commitment point $I$, one can calculate $Q=-[r^{-1}](I - [s]G)$.
+EdDSA-type signatures (i.e.\ $S=(I,s)$) allow for the recovery of the signing public key given a signature and a
+message: given the commitment point $I$, one can calculate $Q=-[r^{-1}](I - [s]G)$.
 
 For Veil, this behavior is not desirable.
 A global passive adversary should not be able to discover the identity of a signer from a signed message.

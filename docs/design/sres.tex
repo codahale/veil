@@ -43,7 +43,7 @@ Encrypting a header is described in full in Alg.~\ref{alg:veil.sres-encrypt}.
             \State $r \gets$ \Call{Squeeze}{$64$} $\modl$
             \label{alg:veil.sres-encrypt-challenge}
             \Comment{Squeeze a challenge scalar.}
-            \State $s \gets d_S{r}+k$\Comment{Calculate the proof scalar.}
+            \State $s \gets |d_S{r}+k|$\Comment{Calculate the proof scalar.}
             \State
             \State $X \gets [s]Q_R$\Comment{Calculate the proof point.}
             \State $S_1 \gets$ \Call{Encrypt}{$X$}\Comment{Encrypt the proof point.}
@@ -77,11 +77,9 @@ Decrypting a header is described in full in Alg.~\ref{alg:veil.sres-decrypt}.
             \State
             \State $I \gets$ \Call{Decrypt}{$S_0$}\Comment{Decrypt the commitment point.}
             \State $r \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a challenge scalar.}
-            \State
             \State $X \gets$ \Call{Decrypt}{$S_1$}\Comment{Decrypt the proof point.}
-            \State $X' \gets [d_R](I + [r]Q_S)$\Comment{Re-calculate the proof point.}
             \State
-            \If{$X' \checkeq X$}\Comment{Ensure the ciphertext is authentic.}
+            \If{$\pm I \checkeq \pm ([d_R^{-1}]X \pm [r]Q_S) $}\Comment{Ensure the ciphertext is authentic.}
                 \State \textbf{return} $P'$
             \Else
                 \State \textbf{return} $\bot$
@@ -94,19 +92,18 @@ Decrypting a header is described in full in Alg.~\ref{alg:veil.sres-decrypt}.
 \subsection{Constructive Analysis Of \texttt{veil.sres}}\label{subsec:veil.sres-analysis}
 
 \texttt{veil.sres} is an integration of two well-known constructions: an ECIES-style hybrid public key encryption scheme
-and a designated-verifier Schnorr signature scheme.
+and a designated-verifier qDSA signature scheme.
 
 The initial portion of \texttt{veil.sres} is equivalent to ECIES (see Construction 12.23 of~\cite[p. 435]{katz2020}),
 (with the commitment point $I$ as an addition to the ciphertext, and the challenge scalar $r$ serving as the
 authentication tag for the data encapsulation mechanism) and is IND-CCA2 secure (see Corollary 12.14
 of~\cite[p. 436]{katz2020}).
 
-The latter portion of \texttt{veil.sres} is a designated-verifier Schnorr signature scheme which adapts an EdDSA-style
+The latter portion of \texttt{veil.sres} is a designated-verifier Schnorr signature scheme which adapts a qDSA-style
 Schnorr signature scheme by multiplying the proof scalar $s$ by the receiver's public key $Q_R$ to produce a
 designated-verifier point $X$~\cite{steinfeld2004}.
-The EdDSA-style Schnorr signature is sUF-CMA secure when implemented in a prime order
-group and a cryptographic hash function~\cite{brendel2021, chalkias2020, pointcheval2000, neven2009}
-(see also Sec.~\ref{sec:veil.schnorr}).
+The qDSA-style Schnorr signature is sUF-CMA secure when $s$ is restricted to positive values (see
+Sec.~\ref{sec:veil.schnorr}).
 
 \subsection{Multi-User Confidentiality}\label{subsec:veil.sres-conf}
 

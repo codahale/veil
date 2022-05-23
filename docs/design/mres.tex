@@ -230,13 +230,6 @@ The ephemeral public key is encoded using Elligator2, which maps points on an el
 All other components of an \texttt{veil.mres} ciphertext are Cyclist ciphertexts;
 a successful distinguishing attack on them would require Cyclist to not be IND-CPA secure.
 
-\subsubsection{Elligator2 And Ristretto}
-
-To encode a Ristretto point $Q$, Veil iterates over the point's $\mathcal E[4]$ coset of Edwards points, converting each
-to Montomgery points and mapping them via Elligator2 to bitstrings.
-The first bitstring which can be decoded as the original Ristretto point $Q$ is returned, if any exist.
-This is likely a suboptimal approach.
-
 \subsection{Partial Decryption}\label{subsec:veil.mres-partial-decryption}
 
 The division of the plaintext stream into blocks takes its inspiration from the CHAIN construction~\cite{hoang2015}, but

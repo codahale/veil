@@ -3,8 +3,9 @@
 In the interests of cryptographic minimalism, Veil uses just two distinct cryptographic primitives:
 
 \begin{itemize}
-    \item Keccyak-128 for confidentiality, authentication, and integrity~\cite{daemen2020,bertoni2018}.
-    \item Ristretto255 for key agreement and authenticity~\cite{deValence2020}.
+    \item Keccyak-128~\cite{daemen2020,bertoni2018} for confidentiality, authentication, and integrity.
+    \item Curve25519~\cite{bernstein2006}, with X25519~\cite{rfc7748} for key agreement and qDSA~\cite{renes2017} for
+          authenticity.
 \end{itemize}
 
 \subsection{Keccyak-128}\label{subsec:keccyak}
@@ -31,13 +32,13 @@ Veil's security assumes that Cyclist's \textsc{Encrypt} operation is IND-CPA sec
 \textsc{Squeeze} operation is sUF-CMA secure, and its
 \textsc{Encrypt}/\textsc{Squeeze}-based authenticated encryption construction is IND-CCA2 secure.
 
-\subsection{Ristretto255}\label{subsec:ristretto255}
+\subsection{Curve25519}\label{subsec:curve25519}
 
-Ristretto255 uses a safe curve, is a prime-order cyclic group, has non-malleable encodings, and has no
-co-factor concerns.
-This allows for the use of a wide variety of cryptographic constructions built on group operations.
-It targets a 128-bit security level, lends itself to constant-time implementations, and can run in constrained
-environments~\cite{deValence2018}.
+Curve25519 uses a safe curve, is highly performant, targets a 128-bit security level, lends itself to constant-time
+implementations, and can run in constrained environments~\cite{bernstein2006}.
+
+X25519~\cite{rfc7748} (i.e. Diffie-Hellman) and qDSA~\cite{renes2017} provide for key agreement and authenticity
+services using only the Montgomery curve.
 
 Veil's security assumes that the Gap Discrete Logarithm and Gap Diffie-Hellman problems are hard relative to
-Ristretto255.
+Curve25519.
