@@ -562,7 +562,7 @@ dependencies = [
 [[package]]
 name = "qdsa"
 version = "0.1.0"
-source = "git+https://github.com/codahale/qdsa?branch=main#8ed8c1b4973116dbb1673dd239ac5efa9ce75eec"
+source = "git+https://github.com/codahale/qdsa?branch=main#b39fb4907ad23d502e9f53efd3146d778a446ae3"
 dependencies = [
  "fiat-crypto",
  "subtle",
