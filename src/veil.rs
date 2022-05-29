@@ -1,11 +1,11 @@
 //! The Veil hybrid cryptosystem.
 
-use qdsa::hazmat::{Point, Scalar, G};
 use std::fmt::{Debug, Formatter};
 use std::io::{BufWriter, Read, Write};
 use std::str::FromStr;
 use std::{fmt, io, iter};
 
+use qdsa::hazmat::{Point, Scalar, G};
 use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -31,13 +31,9 @@ impl PrivateKey {
     /// Creates a randomly generated private key.
     #[must_use]
     pub fn random(mut rng: impl Rng + CryptoRng) -> PrivateKey {
-        loop {
-            let d = Scalar::clamp(&rng.gen());
-            let q = &G * &d;
-            if q.to_elligator(&mut rng).is_some() {
-                return PrivateKey { d, pk: PublicKey { q } };
-            }
-        }
+        let d = Scalar::clamp(&rng.gen());
+        let q = &G * &d;
+        PrivateKey { d, pk: PublicKey { q } }
     }
 
     /// Returns the corresponding public key.

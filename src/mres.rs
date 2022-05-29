@@ -90,7 +90,7 @@ fn generate_keys(
             (clone.squeeze_scalar(), clone.squeeze(DEK_LEN))
         });
         let q_e = &G * &d_e;
-        if let Some(q_e_r) = q_e.to_elligator(&mut rng) {
+        if let Some(q_e_r) = q_e.to_elligator(rng.gen()) {
             return (d_e, q_e, q_e_r, dek);
         }
     }
