@@ -6,7 +6,6 @@ use std::io::{self, Read, Write};
 use std::mem;
 
 use rand::{CryptoRng, Rng};
-use subtle::Choice;
 
 use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex, TAG_LEN};
 use crate::schnorr::SIGNATURE_LEN;
@@ -91,7 +90,7 @@ fn generate_keys(
             (clone.squeeze_scalar(), clone.squeeze(DEK_LEN))
         });
         let q_e = &G * &d_e;
-        if let Some(q_e_r) = q_e.to_elligator(Choice::from(0)) {
+        if let Some(q_e_r) = q_e.to_elligator(&mut rng) {
             return (d_e, q_e, q_e_r, dek);
         }
     }

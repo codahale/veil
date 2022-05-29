@@ -8,7 +8,6 @@ use std::{fmt, io, iter};
 
 use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
-use subtle::Choice;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::{
@@ -35,7 +34,7 @@ impl PrivateKey {
         loop {
             let d = Scalar::clamp(&rng.gen());
             let q = &G * &d;
-            if q.to_elligator(Choice::from(0)).is_some() {
+            if q.to_elligator(&mut rng).is_some() {
                 return PrivateKey { d, pk: PublicKey { q } };
             }
         }
@@ -197,7 +196,7 @@ impl AsciiEncoded for PublicKey {
 
     fn from_bytes(b: &[u8]) -> Result<Self, <Self as AsciiEncoded>::Err> {
         let b = b.try_into().or(Err(ParsePublicKeyError::InvalidPublicKey))?;
-        let q = Point::from_elligator(&b);
+        let q = Point::from_bytes(&b);
         if q.is_zero().into() {
             return Err(ParsePublicKeyError::InvalidPublicKey);
         }
@@ -206,7 +205,7 @@ impl AsciiEncoded for PublicKey {
     }
 
     fn to_bytes(&self) -> Vec<u8> {
-        self.q.to_elligator(Choice::from(0)).expect("invalid public key").to_vec()
+        self.q.as_bytes().to_vec()
     }
 }
 
@@ -243,12 +242,12 @@ mod tests {
     fn public_key_encoding() {
         let base = PublicKey { q: G };
         assert_eq!(
-            "68scSLCHseFJ6R6JDbjD5NxwdfMWry6njUjq9uwAMKna",
+            "c8fpTXm3XTRgE5maYQ24Li4L65wMYvAFomzXknxVEx7",
             base.to_string(),
             "invalid encoded public key"
         );
 
-        let decoded = "68scSLCHseFJ6R6JDbjD5NxwdfMWry6njUjq9uwAMKna".parse::<PublicKey>();
+        let decoded = "c8fpTXm3XTRgE5maYQ24Li4L65wMYvAFomzXknxVEx7".parse::<PublicKey>();
         assert_eq!(Ok(base), decoded, "error parsing public key");
 
         assert_eq!(
