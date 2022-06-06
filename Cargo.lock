@@ -561,9 +561,9 @@ dependencies = [
 
 [[package]]
 name = "qdsa"
-version = "0.1.3"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3828735b8412cc7a68041a282992d000aeeceb8d8b033a284ecd5fcfadf2c5d2"
+checksum = "35e6172147521048719e4bd30edca4c8e7830148d0663c0b33126dfe47ffb6c9"
 dependencies = [
  "fiat-crypto",
  "subtle",

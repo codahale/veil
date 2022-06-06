@@ -30,9 +30,9 @@ Signing a message is described in full in Alg.~\ref{alg:veil.schnorr-sign}.
             \State $I \gets [k]G$\Comment{Calculate the commitment point.}
             \State $S_0 \gets $ \Call{Encrypt}{$I$}\Comment{Encrypt the commitment point.}
             \State
-            \State $r \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a challenge scalar.}
-            \State $s \gets |dr + k|$\Comment{Calculate the proof scalar.}
-            \State $S_1 \gets $ \Call{Encrypt}{$s$}\Comment{Encrypt the proof scalar.}
+            \State $\bar{r} \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a challenge scalar with a zero LSB.}
+            \State $\bar{s} \gets |d\bar{r} + k|$\Comment{Calculate the proof scalar with a zero LSB.}
+            \State $S_1 \gets $ \Call{Encrypt}{$\bar{s}$}\Comment{Encrypt the proof scalar.}
             \State
             \State \textbf{return} $S=S_0 || S_1$
         \EndFunction
@@ -57,13 +57,13 @@ Verifying a signature is described in full in Alg.~\ref{alg:veil.schnorr-verify}
             \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
             \State
             \State $I \gets $ \Call{Decrypt}{$S_0$}\Comment{Decrypt the commitment point.}
-            \State $r \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a challenge scalar.}
+            \State $\bar{r} \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a challenge scalar with a zero LSB.}
             \State $s \gets $ \Call{Decrypt}{$S_1$}\Comment{Decrypt the proof scalar.}
-            \If{$s < 0$}
+            \If{$s \neq \bar{s}$}\Comment{The LSB of $s$ must be zero.}
                 \State \textbf{return} $\bot$
             \EndIf
             \State
-            \State \textbf{return} $\pm I \checkeq \pm ([s]G \pm [r]Q_S)$\Comment{Check equality up to sign.}
+            \State \textbf{return} $\pm I \checkeq \pm ([\bar{s}]G \pm [\bar{r}]Q_S)$\Comment{Check equality up to sign.}
         \EndFunction
     \end{algorithmic}
     \label{alg:veil.schnorr-verify}
@@ -85,7 +85,7 @@ unforgeable under chosen message attack (sUF-CMA) in the random oracle model~\ci
 practical cryptographic hash functions~\cite{neven2009}.
 
 The qDSA scheme as described, however, permits both $(I, s)$ and $(I, -s)$ as valid signatures of a single message.
-Veil restricts valid signatures to those in which $s > 0$, making it sUF-CMA secure.
+Veil restricts valid signatures to those in which $s$ has a least significant bit of zero, making it sUF-CMA secure.
 
 \subsection{Key Privacy}\label{subsec:veil.schnorr-key-privacy}
 
