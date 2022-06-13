@@ -1,6 +1,7 @@
 //! Schnorr-variant digital signatures.
 
-use qdsa::hazmat::{sign_challenge, verify_challenge, Point, Scalar, G};
+use qdsa::hazmat::{Point, Scalar, G};
+use qdsa::strict::hazmat::{sign_challenge, verify_challenge};
 use std::convert::TryInto;
 use std::fmt::Formatter;
 use std::io::{Read, Result};

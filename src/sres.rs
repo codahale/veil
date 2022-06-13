@@ -1,6 +1,7 @@
 //! An insider-secure hybrid signcryption implementation.
 
-use qdsa::hazmat::{dv_verify_challenge, Point, Scalar};
+use qdsa::dv::hazmat::verify_challenge;
+use qdsa::hazmat::{Point, Scalar};
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, Squeeze, UnkeyedDuplex};
@@ -118,7 +119,7 @@ pub fn decrypt(
     let x = Point::from_canonical_bytes(&x)?;
 
     // If the signature is valid, return the plaintext.
-    if dv_verify_challenge(q_s, d_r, &r_p, &i, &x) {
+    if verify_challenge(q_s, d_r, &r_p, &i, &x) {
         Some(plaintext)
     } else {
         None
