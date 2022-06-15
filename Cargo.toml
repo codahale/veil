@@ -23,7 +23,7 @@ zeroize = { version = "1.5.5", features = ["derive"] }
 
 # cli-only deps
 anyhow = { version = "1.0.57", optional = true }
-clap = { version = "3.2.2", features = ["derive"], optional = true }
+clap = { version = "3.2.4", features = ["derive"], optional = true }
 clap_complete = { version = "3.2.1", optional = true }
 clio = { version = "0.2.2", optional = true }
 mimalloc = { version = "0.1.29", optional = true }
