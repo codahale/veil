@@ -14,7 +14,7 @@ cli = ["anyhow", "clap", "clap_complete", "clio", "mimalloc", "rpassword"]
 [dependencies]
 bs58 = "0.4.0"
 cyclist = { version = "0.1.0", default-features = false, features = ["std", "keccyak"] }
-qdsa = "0.3.1"
+qdsa = "0.4.0"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 subtle = "2.4.1"
 thiserror = "1.0.31"
