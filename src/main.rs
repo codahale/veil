@@ -1,5 +1,3 @@
-#![allow(deprecated)]
-
 use std::fs;
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -58,7 +56,7 @@ enum Cmd {
 #[derive(Debug, Parser)]
 struct PrivateKeyArgs {
     /// The path to the encrypted private key file or '-' for stdout.
-    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
+    #[clap(value_parser, value_hint = ValueHint::FilePath)]
     output: Output,
 
     /// The time parameter for encryption, logarithmic scale.
@@ -92,7 +90,7 @@ struct PublicKeyArgs {
     private_key: PathBuf,
 
     /// The path to the public key file or '-' for stdout.
-    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath, default_value = "-")]
+    #[clap(value_parser, value_hint = ValueHint::FilePath, default_value = "-")]
     output: Output,
 
     /// The path to read the passphrase from.
@@ -117,11 +115,11 @@ struct EncryptArgs {
     private_key: PathBuf,
 
     /// The path to the input file or '-' for stdin.
-    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
+    #[clap(value_parser, value_hint = ValueHint::FilePath)]
     plaintext: Input,
 
     /// The path to the output file or '-' for stdout.
-    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
+    #[clap(value_parser, value_hint = ValueHint::FilePath)]
     ciphertext: Output,
 
     /// The receivers' public keys.
@@ -164,11 +162,11 @@ struct DecryptArgs {
     private_key: PathBuf,
 
     /// The path to the input file or '-' for stdin.
-    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
+    #[clap(value_parser, value_hint = ValueHint::FilePath)]
     ciphertext: Input,
 
     /// The path to the output file or '-' for stdout.
-    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
+    #[clap(value_parser, value_hint = ValueHint::FilePath)]
     plaintext: Output,
 
     /// The sender's public key.
@@ -200,11 +198,11 @@ struct SignArgs {
     private_key: PathBuf,
 
     /// The path to the message file or '-' for stdin.
-    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
+    #[clap(value_parser, value_hint = ValueHint::FilePath)]
     message: Input,
 
     /// The path to the signature file or '-' for stdout.
-    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath, default_value = "-")]
+    #[clap(value_parser, value_hint = ValueHint::FilePath, default_value = "-")]
     output: Output,
 
     /// The path to read the passphrase from.
@@ -229,7 +227,7 @@ struct VerifyArgs {
     public_key: PublicKey,
 
     /// The path to the message file or '-' for stdin.
-    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
+    #[clap(value_parser, value_hint = ValueHint::FilePath)]
     message: Input,
 
     /// The signature of the message.
@@ -256,11 +254,11 @@ struct DigestArgs {
     check: Option<Digest>,
 
     /// The path to the message file or '-' for stdin.
-    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath)]
+    #[clap(value_parser, value_hint = ValueHint::FilePath)]
     message: Input,
 
     /// The path to the digest file or '-' for stdout.
-    #[clap(parse(try_from_os_str = TryFrom::try_from), value_hint = ValueHint::FilePath, default_value = "-")]
+    #[clap(value_parser, value_hint = ValueHint::FilePath, default_value = "-")]
     output: Output,
 }
 

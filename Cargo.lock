@@ -147,6 +147,7 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c850d26e67812ca0adb581c77e4ad1fd0a27ea3a8f8205fddfe7d5f52b783788"
 dependencies = [
+ "clap 3.2.6",
  "libc",
 ]
 
