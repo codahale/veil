@@ -18,7 +18,7 @@ qdsa = "0.4.0"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 subtle = "2.4.1"
 thiserror = "1.0.31"
-unicode-normalization = "0.1.19"
+unicode-normalization = "0.1.20"
 zeroize = { version = "1.5.5", features = ["derive"] }
 
 # cli-only deps
