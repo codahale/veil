@@ -1,13 +1,15 @@
 //! Schnorr-variant digital signatures.
 
-use qdsa::hazmat::{Point, Scalar, G};
-use qdsa::strict::hazmat::{sign_challenge, verify_challenge};
 use std::convert::TryInto;
 use std::fmt::Formatter;
 use std::io::{Read, Result};
 use std::str::FromStr;
 use std::{fmt, result};
 
+use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
+use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
+use curve25519_dalek::scalar::Scalar;
+use curve25519_dalek::traits::IsIdentity;
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex};
@@ -49,7 +51,7 @@ impl fmt::Display for Signature {
 /// Create a Schnorr signature of the given message using the given key pair.
 pub fn sign(
     rng: impl Rng + CryptoRng,
-    (d, q): (&Scalar, &Point),
+    (d, q): (&Scalar, &RistrettoPoint),
     message: impl Read,
 ) -> Result<Signature> {
     // Initialize an unkeyed duplex.
@@ -72,14 +74,18 @@ pub fn sign(
 
     // Encrypt the proof scalar.
     out.extend(i);
-    out.extend(schnorr.encrypt(&s.as_bytes()));
+    out.extend(schnorr.encrypt(s.as_bytes()));
 
     // Return the encrypted commitment point and proof scalar.
     Ok(Signature(out.try_into().expect("invalid sig len")))
 }
 
 /// Verify a Schnorr signature of the given message using the given public key.
-pub fn verify(q: &Point, message: impl Read, sig: &Signature) -> result::Result<(), VerifyError> {
+pub fn verify(
+    q: &RistrettoPoint,
+    message: impl Read,
+    sig: &Signature,
+) -> result::Result<(), VerifyError> {
     // Initialize an unkeyed duplex.
     let mut schnorr = UnkeyedDuplex::new("veil.schnorr");
 
@@ -105,17 +111,17 @@ pub fn sign_duplex(
 ) -> (Vec<u8>, Scalar) {
     // Derive a commitment scalar from the duplex's current state, the signer's private key,
     // and a random nonce.
-    let k = duplex.hedge(rng, &d.as_bytes(), Squeeze::squeeze_scalar);
+    let k = duplex.hedge(rng, d.as_bytes(), Squeeze::squeeze_scalar);
 
     // Calculate and encrypt the commitment point.
-    let i = &G * &k;
-    let i = duplex.encrypt(&i.as_bytes());
+    let i = &RISTRETTO_BASEPOINT_TABLE * &k;
+    let i = duplex.encrypt(i.compress().as_bytes());
 
     // Squeeze a challenge scalar.
     let r = duplex.squeeze_scalar();
 
     // Calculate the proof scalar.
-    let s = sign_challenge(d, &k, &r);
+    let s = d * r + k;
 
     // Return the encrypted commitment point and the proof scalar.
     (i, s)
@@ -124,7 +130,7 @@ pub fn sign_duplex(
 /// Verify a Schnorr signature of the given duplex's state using the given public key.
 pub fn verify_duplex(
     duplex: &mut KeyedDuplex,
-    q: &Point,
+    q: &RistrettoPoint,
     sig: &[u8],
 ) -> result::Result<(), VerifyError> {
     // Split the signature into parts.
@@ -132,16 +138,27 @@ pub fn verify_duplex(
 
     // Decrypt and decode the commitment point.
     let i = duplex.decrypt(i);
-    let i = Point::from_bytes(&i.try_into().expect("invalid point len"));
+    let i = CompressedRistretto::from_slice(&i)
+        .decompress()
+        .filter(|q| !q.is_identity())
+        .ok_or(VerifyError::InvalidSignature)?;
 
     // Re-derive the challenge scalar.
     let r_p = duplex.squeeze_scalar();
 
     // Decrypt and decode the proof scalar.
     let s = duplex.decrypt(s);
-    let s = Scalar::from_bytes(&s.try_into().expect("invalid scalar len"));
+    let s = s
+        .try_into()
+        .ok()
+        .and_then(Scalar::from_canonical_bytes)
+        .filter(|s| s != &Scalar::zero())
+        .ok_or(VerifyError::InvalidSignature)?;
 
-    if verify_challenge(q, &r_p, &i, &s) {
+    // Return true iff I and s are well-formed and I == [s]G - [r']Q. Use the variable-time
+    // implementation here because the verifier has no secret data.
+    //    I == [r'](-Q) + [s]G == [s]G - [r']Q
+    if i == RistrettoPoint::vartime_double_scalar_mul_basepoint(&r_p, &-q, &s /*G*/) {
         Ok(())
     } else {
         Err(VerifyError::InvalidSignature)
@@ -161,8 +178,8 @@ mod tests {
     fn sign_and_verify() -> Result<()> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let d = Scalar::clamp(&rng.gen());
-        let q = &G * &d;
+        let d = Scalar::from_bytes_mod_order_wide(&rng.gen());
+        let q = &RISTRETTO_BASEPOINT_TABLE * &d;
         let message = b"this is a message";
         let sig = sign(&mut rng, (&d, &q), Cursor::new(message))?;
 
@@ -188,8 +205,8 @@ mod tests {
     fn modified_message() -> result::Result<(), VerifyError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let d = Scalar::clamp(&rng.gen());
-        let q = &G * &d;
+        let d = Scalar::from_bytes_mod_order_wide(&rng.gen());
+        let q = &RISTRETTO_BASEPOINT_TABLE * &d;
         let message = b"this is a message";
         let sig = sign(&mut rng, (&d, &q), Cursor::new(message))?;
 
@@ -201,12 +218,12 @@ mod tests {
     fn wrong_public_key() -> result::Result<(), VerifyError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let d = Scalar::clamp(&rng.gen());
-        let q = &G * &d;
+        let d = Scalar::from_bytes_mod_order_wide(&rng.gen());
+        let q = &RISTRETTO_BASEPOINT_TABLE * &d;
         let message = b"this is a message";
         let sig = sign(&mut rng, (&d, &q), Cursor::new(message))?;
 
-        let q = Point::from_elligator(&rng.gen());
+        let q = RistrettoPoint::from_uniform_bytes(&rng.gen());
 
         assert_failed!(verify(&q, Cursor::new(message), &sig))
     }
@@ -215,8 +232,8 @@ mod tests {
     fn modified_sig() -> result::Result<(), VerifyError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let d = Scalar::clamp(&rng.gen());
-        let q = &G * &d;
+        let d = Scalar::from_bytes_mod_order_wide(&rng.gen());
+        let q = &RISTRETTO_BASEPOINT_TABLE * &d;
         let message = b"this is a message";
         let mut sig = sign(&mut rng, (&d, &q), Cursor::new(message))?;
 

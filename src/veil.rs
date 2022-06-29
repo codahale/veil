@@ -1,11 +1,14 @@
 //! The Veil hybrid cryptosystem.
 
+use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
+use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
+use curve25519_dalek::scalar::Scalar;
+use curve25519_dalek::traits::IsIdentity;
 use std::fmt::{Debug, Formatter};
 use std::io::{BufWriter, Read, Write};
 use std::str::FromStr;
 use std::{fmt, io, iter};
 
-use qdsa::hazmat::{Point, Scalar, G};
 use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -24,15 +27,15 @@ pub struct PrivateKey {
 
 impl PrivateKey {
     fn from_scalar(d: Scalar) -> PrivateKey {
-        let q = &G * &d;
+        let q = &RISTRETTO_BASEPOINT_TABLE * &d;
         PrivateKey { d, pk: PublicKey { q } }
     }
 
     /// Creates a randomly generated private key.
     #[must_use]
     pub fn random(mut rng: impl Rng + CryptoRng) -> PrivateKey {
-        let d = Scalar::clamp(&rng.gen());
-        let q = &G * &d;
+        let d = Scalar::from_bytes_mod_order_wide(&rng.gen());
+        let q = &RISTRETTO_BASEPOINT_TABLE * &d;
         PrivateKey { d, pk: PublicKey { q } }
     }
 
@@ -52,7 +55,7 @@ impl PrivateKey {
         time: u8,
         space: u8,
     ) -> io::Result<usize> {
-        let b = pbenc::encrypt(rng, passphrase, time, space, &self.d.as_bytes());
+        let b = pbenc::encrypt(rng, passphrase, time, space, self.d.as_bytes());
         writer.write_all(&b)?;
         Ok(b.len())
     }
@@ -71,8 +74,8 @@ impl PrivateKey {
         // Decrypt the ciphertext and use the plaintext as the private key.
         pbenc::decrypt(passphrase, &b)
             .and_then(|b| b.try_into().ok())
-            .map(|b| Scalar::clamp(&b))
-            .filter(|d| d != &Scalar::ZERO)
+            .and_then(Scalar::from_canonical_bytes)
+            .filter(|d| d != &Scalar::zero())
             .map(PrivateKey::from_scalar)
             .ok_or(DecryptError::InvalidCiphertext)
     }
@@ -102,10 +105,10 @@ impl PrivateKey {
             .iter()
             .map(|pk| pk.q)
             .chain(
-                iter::repeat_with(|| Point::from_elligator(&rng.gen()))
+                iter::repeat_with(|| RistrettoPoint::from_uniform_bytes(&rng.gen()))
                     .take(fakes.unwrap_or_default()),
             )
-            .collect::<Vec<Point>>();
+            .collect::<Vec<RistrettoPoint>>();
 
         // Shuffle the receivers list.
         q_rs.shuffle(&mut rng);
@@ -170,7 +173,7 @@ impl Debug for PrivateKey {
 /// A public key, used to verify messages.
 #[derive(Clone, Copy, Eq, PartialEq, Zeroize)]
 pub struct PublicKey {
-    q: Point,
+    q: RistrettoPoint,
 }
 
 impl PublicKey {
@@ -191,17 +194,15 @@ impl AsciiEncoded for PublicKey {
     type Err = ParsePublicKeyError;
 
     fn from_bytes(b: &[u8]) -> Result<Self, <Self as AsciiEncoded>::Err> {
-        let b = b.try_into().or(Err(ParsePublicKeyError::InvalidPublicKey))?;
-        let q = Point::from_bytes(&b);
-        if q.is_zero().into() {
-            return Err(ParsePublicKeyError::InvalidPublicKey);
-        }
-
+        let q = CompressedRistretto::from_slice(b)
+            .decompress()
+            .filter(|q| !q.is_identity())
+            .ok_or(ParsePublicKeyError::InvalidPublicKey)?;
         Ok(PublicKey { q })
     }
 
     fn to_bytes(&self) -> Vec<u8> {
-        self.q.as_bytes().to_vec()
+        self.q.compress().to_bytes().to_vec()
     }
 }
 
@@ -236,14 +237,14 @@ mod tests {
 
     #[test]
     fn public_key_encoding() {
-        let base = PublicKey { q: G };
+        let base = PublicKey { q: RISTRETTO_BASEPOINT_TABLE.basepoint() };
         assert_eq!(
-            "c8fpTXm3XTRgE5maYQ24Li4L65wMYvAFomzXknxVEx7",
+            "GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3",
             base.to_string(),
             "invalid encoded public key"
         );
 
-        let decoded = "c8fpTXm3XTRgE5maYQ24Li4L65wMYvAFomzXknxVEx7".parse::<PublicKey>();
+        let decoded = "GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3".parse::<PublicKey>();
         assert_eq!(Ok(base), decoded, "error parsing public key");
 
         assert_eq!(
