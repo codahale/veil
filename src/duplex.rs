@@ -83,8 +83,8 @@ pub trait Squeeze {
 
     /// Squeeze `n` bytes from the duplex.
     #[must_use]
-    fn squeeze(&mut self, n: usize) -> Vec<u8> {
-        let mut b = vec![0u8; n];
+    fn squeeze<const N: usize>(&mut self) -> [u8; N] {
+        let mut b = [0u8; N];
         self.squeeze_mut(&mut b);
         b
     }
@@ -261,6 +261,6 @@ mod tests {
         let mut two = UnkeyedDuplex::new("ok");
         two.absorb_reader(Cursor::new(b"this is a message")).expect("error absorbing");
 
-        assert_eq!(one.squeeze(4), two.squeeze(4));
+        assert_eq!(one.squeeze::<4>(), two.squeeze::<4>());
     }
 }

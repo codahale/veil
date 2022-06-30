@@ -53,7 +53,7 @@ impl Digest {
         digest.absorb_reader(reader)?;
 
         // Squeeze N bytes as a digest.
-        Ok(Digest(digest.squeeze(DIGEST_LEN).try_into().expect("invalid digest len")))
+        Ok(Digest(digest.squeeze::<DIGEST_LEN>()))
     }
 }
 

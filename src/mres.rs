@@ -30,7 +30,7 @@ pub fn encrypt(
 
     // Generate ephemeral key pair, DEK, and nonce.
     let (d_e, dek, nonce) = mres.hedge(&mut rng, d_s.as_bytes(), |clone| {
-        (clone.squeeze_scalar(), clone.squeeze(DEK_LEN), clone.squeeze(NONCE_LEN))
+        (clone.squeeze_scalar(), clone.squeeze::<DEK_LEN>(), clone.squeeze::<NONCE_LEN>())
     });
     let q_e = &RISTRETTO_BASEPOINT_TABLE * &d_e;
 
@@ -112,7 +112,7 @@ fn encrypt_headers(
     // For each receiver, encrypt a copy of the header with veil.sres.
     for q_r in q_rs {
         // Squeeze a nonce for each header.
-        let nonce = mres.squeeze(NONCE_LEN);
+        let nonce = mres.squeeze::<NONCE_LEN>();
 
         // Encrypt the header for the given receiver.
         let ciphertext = sres::encrypt(&mut rng, (d_s, q_s), (d_e, q_e), q_r, &nonce, &header);
@@ -276,7 +276,7 @@ fn decrypt_header(
 
         // Squeeze a nonce regardless of whether we need to in order to keep the duplex state
         // consistent.
-        let nonce = mres.squeeze(NONCE_LEN);
+        let nonce = mres.squeeze::<NONCE_LEN>();
 
         // If a header hasn't been decrypted yet, try to decrypt this one.
         if dek.is_none() {
