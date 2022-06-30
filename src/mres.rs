@@ -28,13 +28,19 @@ pub fn encrypt(
     let mut mres = UnkeyedDuplex::new("veil.mres");
     mres.absorb_point(q_s);
 
-    // Generate ephemeral key pair and DEK.
-    let (d_e, dek) = mres
-        .hedge(&mut rng, d_s.as_bytes(), |clone| (clone.squeeze_scalar(), clone.squeeze(DEK_LEN)));
+    // Generate ephemeral key pair, DEK, and nonce.
+    let (d_e, dek, nonce) = mres.hedge(&mut rng, d_s.as_bytes(), |clone| {
+        (clone.squeeze_scalar(), clone.squeeze(DEK_LEN), clone.squeeze(NONCE_LEN))
+    });
     let q_e = &RISTRETTO_BASEPOINT_TABLE * &d_e;
 
+    // Absorb and write the random nonce.
+    mres.absorb(&nonce);
+    writer.write_all(&nonce)?;
+    let mut written = NONCE_LEN as u64;
+
     // Encrypt a header for each receiver.
-    let mut written = encrypt_headers(
+    written += encrypt_headers(
         &mut mres,
         &mut rng,
         (d_s, q_s),
@@ -168,6 +174,11 @@ pub fn decrypt(
     // Initialize an unkeyed duplex and absorb the sender's public key.
     let mut mres = UnkeyedDuplex::new("veil.mres");
     mres.absorb_point(q_s);
+
+    // Read and absorb the nonce.
+    let mut nonce = [0u8; NONCE_LEN];
+    reader.read_exact(&mut nonce)?;
+    mres.absorb(&nonce);
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the duplex.
     let (mut mres, q_e, dek) = decrypt_header(mres, reader, d_r, q_r, q_s)?;

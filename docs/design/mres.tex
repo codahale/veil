@@ -24,14 +24,18 @@ Encrypting a message is described in full in Alg.~\ref{alg:veil.mres-encrypt}.
             \State $d_E \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze an ephemeral private key.}
             \State $Q_E = [d_E]G$\Comment{Calculate the ephemeral public key.}
             \State $K \gets$ \Call{Squeeze}{$32$}\Comment{Squeeze a data encryption key.}
+            \State $N \gets$ \Call{Squeeze}{$16$}\Comment{Squeeze a nonce.}
             \State \textbf{yield} $(k, d_E, Q_E, K)$
             \End
+            \State
+            \State $C \gets N$\Comment{Write the nonce.}
+            \State \Call{Absorb}{$N$}\Comment{Absorb the nonce.}
             \State
             \State $H = K||N_Q||N_P$\Comment{Encode the DEK and params in a header.}
             \ForAll{$Q_{R^i} \in \{Q_{R^0}..Q_{R^n}\}$}
                 \Comment{Encrypt the header for each receiver.}
-                \State $D \gets$\Call{Squeeze}{$16$}
-                \State $H \gets $\Call{EncryptHeader}{$(d_S, Q_S), (d_E, Q_E), Q_{R^i}, H, D$}
+                \State $N \gets$\Call{Squeeze}{$16$}
+                \State $H \gets $\Call{EncryptHeader}{$(d_S, Q_S), (d_E, Q_E), Q_{R^i}, H, N$}
                 \State \Call{Absorb}{$H$}
                 \State $C \gets C||H$
             \EndFor
@@ -73,17 +77,20 @@ Decrypting a signature is described in full in Alg.~\ref{alg:veil.mres-decrypt}.
             \State \Call{Absorb}{\texttt{veil.mres}}\Comment{Initialize an unkeyed duplex.}
             \State \Call{Absorb}{$Q_S$}\label{alg:veil.mres-decrypt-bind-sender}\Comment{Absorb the sender's public key.}
             \State
+            \State \Call{Absorb}{$C[0..16]$}\Comment{Absorb the nonce.}
+            \State
             \ForAll{possible encrypted headers $h \in C$}
-                \State $D \gets$\Call{Squeeze}{$16$}
-                \State $x \gets $ \Call{DecryptHeader}{$(d_R, Q_R), Q_S, h, D$}
+                \State $N \gets$\Call{Squeeze}{$16$}
+                \State $x \gets $ \Call{DecryptHeader}{$(d_R, Q_R), Q_S, h, N$}
                 \If{$x \not= \bot$}
                     \State $Q_E, K || N_Q || N_P \gets x$
+                    \State \textbf{break}
                 \EndIf
                 \State \Call{Absorb}{$h$}
             \EndFor
             \State
-            \State \Call{Absorb}{$C[32+N_Q..32+N_Q+N_P]$}\Comment{Absorb padding.}
-            \State $C \gets C[{32+N_Q+N_P}..]$\Comment{Skip to the message beginning.}
+            \State \Call{Absorb}{$C[16+N_Q..16+N_Q+N_P]$}\Comment{Absorb padding.}
+            \State $C \gets C[{16+N_Q+N_P}..]$\Comment{Skip to the message beginning.}
             \State
             \State \Call{Absorb}{$K$}\Comment{Absorb the DEK.}
             \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
