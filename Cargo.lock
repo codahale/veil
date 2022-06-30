@@ -267,7 +267,7 @@ dependencies = [
 [[package]]
 name = "curve25519-dalek"
 version = "3.2.0"
-source = "git+https://github.com/codahale/curve25519-dalek?branch=updated-deps#4e96dc15afb384781b3d7b706b411668c63915ed"
+source = "git+https://github.com/codahale/curve25519-dalek?branch=updated-deps#b917615740318212c1dcb44883adedb22edaff3a"
 dependencies = [
  "byteorder",
  "digest",
@@ -1091,9 +1091,9 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "zeroize"
-version = "1.5.5"
+version = "1.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94693807d016b2f2d2e14420eb3bfcca689311ff775dcf113d74ea624b7cdf07"
+checksum = "20b578acffd8516a6c3f2a1bdefc1ec37e547bb4e0fb8b6b01a4cafc886b4442"
 dependencies = [
  "zeroize_derive",
 ]
