@@ -1,4 +1,4 @@
-use elliptic_curve::group::GroupEncoding;
+use elliptic_curve::sec1::{EncodedPoint, FromEncodedPoint};
 use elliptic_curve::Group;
 use p256::NistP256;
 
@@ -16,9 +16,8 @@ pub(crate) type Point = elliptic_curve::ProjectivePoint<NistP256>;
 
 /// Decodes the given byte slice as a point. Returns `None` if the point is invalid or infinity.
 pub(crate) fn decode_point(b: impl AsRef<[u8]>) -> Option<Point> {
-    let b: [u8; POINT_LEN] = b.as_ref().try_into().ok()?;
-    let q: Option<Point> = Point::from_bytes(&b.into()).into();
-    q.filter(|q| (!q.is_identity()).into())
+    let p = EncodedPoint::<NistP256>::from_bytes(b).ok()?;
+    Option::<Point>::from(Point::from_encoded_point(&p)).filter(|p| (!p.is_identity()).into())
 }
 
 /// Decodes the given byte slice as a scalar. Returns `None` if the scalar is invalid or zero.
