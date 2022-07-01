@@ -97,8 +97,8 @@ hardness of the discrete logarithm problem:
 
 Per~\cite[Sec. 5.10]{bertoni2011sponge}, Cyclist is a suitable random oracle if the underlying permutation is
 indistinguishable from a random permutation.
-Thus, \texttt{veil.schnorr} is UF-CMA if the discrete-logarithm problem is hard relative to Ristretto255 and
-Keccak-\emph{p} is indistinguishable from a random permutation.
+Thus, \texttt{veil.schnorr} is UF-CMA if the discrete-logarithm problem is hard relative to P-256 and Keccak-\emph{p} is
+indistinguishable from a random permutation.
 
 \subsection{sUF-CMA Security}\label{subsec:veil.schnorr-suf-cma}
 
@@ -119,9 +119,8 @@ in addition to strong binding:
 
 Rejecting $S \geq L$ makes the scheme sUF-CMA secure, and rejecting small order $A$ values makes the scheme strongly
 binding.
-\texttt{veil.schnorr}'s use of Ristretto255's canonical point and scalar encoding routines obviate the need for these
-checks.
-Likewise, Ristretto255 is a prime order group, which obviates the need for cofactoring in verification.
+\texttt{veil.schnorr}'s use of canonical point and scalar encoding routines obviate the need for these checks.
+Likewise, P-256 is a prime order group, which obviates the need for cofactoring in verification.
 
 When implemented with a prime order group and canonical encoding routines, the Schnorr signature scheme is strongly
 unforgeable under chosen message attack (sUF-CMA) in the random oracle model~\cite{pointcheval2000} and even with

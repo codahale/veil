@@ -1,12 +1,10 @@
 //! An insider-secure hybrid signcryption implementation.
 
-use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
-use curve25519_dalek::scalar::Scalar;
-use curve25519_dalek::traits::IsIdentity;
+use p256::{NonZeroScalar, ProjectivePoint};
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, Squeeze, UnkeyedDuplex};
-use crate::{schnorr, POINT_LEN};
+use crate::{decode_point, schnorr, GroupEncoding, POINT_LEN};
 
 /// The recommended size of the nonce passed to [encrypt].
 pub const NONCE_LEN: usize = 16;
@@ -18,9 +16,9 @@ pub const OVERHEAD: usize = POINT_LEN + POINT_LEN + POINT_LEN;
 /// plaintext, encrypts the given plaintext and returns the ciphertext.
 pub fn encrypt(
     rng: impl Rng + CryptoRng,
-    (d_s, q_s): (&Scalar, &RistrettoPoint),
-    (d_e, q_e): (&Scalar, &RistrettoPoint),
-    q_r: &RistrettoPoint,
+    (d_s, q_s): (&NonZeroScalar, &ProjectivePoint),
+    (d_e, q_e): (&NonZeroScalar, &ProjectivePoint),
+    q_r: &ProjectivePoint,
     nonce: &[u8],
     plaintext: &[u8],
 ) -> Vec<u8> {
@@ -46,7 +44,7 @@ pub fn encrypt(
     let mut sres = sres.into_keyed();
 
     // Encrypt a copy of the ephemeral public key.
-    out.extend(sres.encrypt(q_e.compress().as_bytes()));
+    out.extend(sres.encrypt(&q_e.to_bytes()));
 
     // Absorb the ephemeral ECDH shared secret.
     sres.absorb_point(&(q_r * d_e));
@@ -59,8 +57,8 @@ pub fn encrypt(
     out.extend(i);
 
     // Calculate the proof point and encrypt it.
-    let x = q_r * s;
-    out.extend(sres.encrypt(x.compress().as_bytes()));
+    let x = q_r * &s;
+    out.extend(sres.encrypt(&x.to_bytes()));
 
     // Return the ciphertext, encrypted commitment point, and encrypted proof point.
     out
@@ -70,11 +68,11 @@ pub fn encrypt(
 /// given ciphertext and returns the plaintext and the ephemeral public key iff the ciphertext was
 /// encrypted for the receiver by the sender.
 pub fn decrypt(
-    (d_r, q_r): (&Scalar, &RistrettoPoint),
-    q_s: &RistrettoPoint,
+    (d_r, q_r): (&NonZeroScalar, &ProjectivePoint),
+    q_s: &ProjectivePoint,
     nonce: &[u8],
     ciphertext: &[u8],
-) -> Option<(RistrettoPoint, Vec<u8>)> {
+) -> Option<(ProjectivePoint, Vec<u8>)> {
     // Check for too-small ciphertexts.
     if ciphertext.len() < OVERHEAD {
         return None;
@@ -104,18 +102,16 @@ pub fn decrypt(
     let mut sres = sres.into_keyed();
 
     // Decrypt and decode the ephemeral public key.
-    let q_e = sres.decrypt(q_e);
-    let q_e = CompressedRistretto::from_slice(&q_e).decompress().filter(|q| !q.is_identity())?;
+    let q_e = decode_point(&sres.decrypt(q_e))?;
 
     // Absorb the ephemeral ECDH shared secret.
-    sres.absorb_point(&(q_e * d_r));
+    sres.absorb_point(&(&q_e * d_r));
 
     // Decrypt the plaintext.
     let plaintext = sres.decrypt(ciphertext);
 
     // Decrypt the decode the commitment point.
-    let i = sres.decrypt(i);
-    let i = CompressedRistretto::from_slice(&i).decompress().filter(|q| !q.is_identity())?;
+    let i = decode_point(&sres.decrypt(i))?;
 
     // Squeeze a challenge scalar from the public keys, plaintext, and commitment point.
     let r_p = sres.squeeze_scalar();
@@ -123,11 +119,10 @@ pub fn decrypt(
     // Decrypt the decode the proof point, checking for canonical encoding. Nothing depends on the
     // bit encoding of this value, so we ensure it is, at least, a canonically-encoded point (i.e.
     // has a 0 high bit).
-    let x = sres.decrypt(x);
-    let x = CompressedRistretto::from_slice(&x).decompress().filter(|q| !q.is_identity())?;
+    let x = decode_point(&sres.decrypt(x))?;
 
     // Re-calculate the proof point.
-    let x_p = d_r * (i + (r_p * q_s));
+    let x_p = &(i + (q_s * &r_p)) * d_r;
 
     // If the re-calculated proof point matches the decrypted proof point, return the authenticated
     // ephemeral public key and plaintext.
@@ -140,9 +135,10 @@ pub fn decrypt(
 
 #[cfg(test)]
 mod tests {
-    use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
     use rand::SeedableRng;
     use rand_chacha::ChaChaRng;
+
+    use crate::Group;
 
     use super::*;
 
@@ -164,7 +160,7 @@ mod tests {
         let nonce = b"this is a nonce";
         let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext);
 
-        let d_r = Scalar::from_bytes_mod_order_wide(&rng.gen());
+        let d_r = NonZeroScalar::random(&mut rng);
 
         let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -177,7 +173,7 @@ mod tests {
         let nonce = b"this is a nonce";
         let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext);
 
-        let q_r = RistrettoPoint::from_uniform_bytes(&rng.gen());
+        let q_r = ProjectivePoint::random(&mut rng);
 
         let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -190,7 +186,7 @@ mod tests {
         let nonce = b"this is a nonce";
         let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext);
 
-        let q_s = RistrettoPoint::from_uniform_bytes(&rng.gen());
+        let q_s = ProjectivePoint::random(&mut rng);
 
         let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -230,18 +226,25 @@ mod tests {
         }
     }
 
-    fn setup() -> (ChaChaRng, Scalar, RistrettoPoint, Scalar, RistrettoPoint, Scalar, RistrettoPoint)
-    {
+    fn setup() -> (
+        ChaChaRng,
+        NonZeroScalar,
+        ProjectivePoint,
+        NonZeroScalar,
+        ProjectivePoint,
+        NonZeroScalar,
+        ProjectivePoint,
+    ) {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let d_s = Scalar::from_bytes_mod_order_wide(&rng.gen());
-        let q_s = &RISTRETTO_BASEPOINT_TABLE * &d_s;
+        let d_s = NonZeroScalar::random(&mut rng);
+        let q_s = &ProjectivePoint::GENERATOR * &d_s;
 
-        let d_e = Scalar::from_bytes_mod_order_wide(&rng.gen());
-        let q_e = &RISTRETTO_BASEPOINT_TABLE * &d_e;
+        let d_e = NonZeroScalar::random(&mut rng);
+        let q_e = &ProjectivePoint::GENERATOR * &d_e;
 
-        let d_r = Scalar::from_bytes_mod_order_wide(&rng.gen());
-        let q_r = &RISTRETTO_BASEPOINT_TABLE * &d_r;
+        let d_r = NonZeroScalar::random(&mut rng);
+        let q_r = &ProjectivePoint::GENERATOR * &d_r;
 
         (rng, d_s, q_s, d_e, q_e, d_r, q_r)
     }

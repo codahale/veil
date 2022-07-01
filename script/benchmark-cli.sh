@@ -24,8 +24,8 @@ case $1 in
 "encrypt")
   # benchmark encrypting a 100MiB file for 10 receivers
   hyperfine --warmup 10 -S /bin/sh \
-    -n control 'head -c 104857600 /dev/zero | ./target/release/veil-control encrypt --passphrase-file=README.md /tmp/private-key - /dev/null H291qG87hgrGkroZiPkFU64i1LBAk2t61LJvZfxqbV9M --fakes 9' \
-    -n experimental 'head -c 104857600 /dev/zero | ./target/release/veil-experiment encrypt --passphrase-file=README.md /tmp/private-key - /dev/null H291qG87hgrGkroZiPkFU64i1LBAk2t61LJvZfxqbV9M --fakes 9' \
+    -n control 'head -c 104857600 /dev/zero | ./target/release/veil-control encrypt --passphrase-file=README.md /tmp/private-key - /dev/null tqgqdv1BMUpfPXWxGaoFYLnwSpZhgR6jkMU9yRxowvZv --fakes 9' \
+    -n experimental 'head -c 104857600 /dev/zero | ./target/release/veil-experiment encrypt --passphrase-file=README.md /tmp/private-key - /dev/null tqgqdv1BMUpfPXWxGaoFYLnwSpZhgR6jkMU9yRxowvZv --fakes 9' \
     ;
   ;;
 "sign")

@@ -13,8 +13,8 @@ cli = ["anyhow", "clap", "clap_complete", "clio", "mimalloc", "rpassword"]
 
 [dependencies]
 bs58 = "0.4.0"
-curve25519-dalek = { git = "https://github.com/codahale/curve25519-dalek", branch = "updated-deps" }
 cyclist = { version = "0.1.0", default-features = false, features = ["std", "keccyak"] }
+p256 = { version = "0.11.1", default-features = false, features = ["std", "arithmetic"] }
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 subtle = "2.4.1"
 thiserror = "1.0.31"
@@ -47,3 +47,6 @@ required-features = ["cli"]
 [profile.release]
 codegen-units = 1
 lto = "fat"
+
+[profile.dev.package.p256]
+opt-level = 3

@@ -1,12 +1,14 @@
 //! Implements a cryptographic duplex using Cyclist/Keccak.
 
-use curve25519_dalek::ristretto::RistrettoPoint;
 use std::io;
 use std::io::Read;
 
-use curve25519_dalek::scalar::Scalar;
 use cyclist::keccyak::{Keccyak128Hash, Keccyak128Keyed};
 use cyclist::Cyclist;
+use p256::elliptic_curve::group::GroupEncoding;
+use p256::elliptic_curve::ops::Reduce;
+use p256::elliptic_curve::Field;
+use p256::{NonZeroScalar, ProjectivePoint, Scalar};
 use rand::{CryptoRng, Rng};
 
 /// The length of an authentication tag in bytes.
@@ -89,18 +91,18 @@ pub trait Squeeze {
         b
     }
 
-    /// Squeeze 64 bytes from the duplex and map them to a [Scalar].
+    /// Squeeze 64 bytes from the duplex and map them to a [`NonZeroScalar`].
     #[must_use]
-    fn squeeze_scalar(&mut self) -> Scalar {
+    fn squeeze_scalar(&mut self) -> NonZeroScalar {
         loop {
-            // Squeeze a 512-bit integer.
-            let mut b = [0u8; 64];
+            // Squeeze a 256-bit integer.
+            let mut b = [0u8; 32];
             self.squeeze_mut(&mut b);
 
             // Map the integer to a scalar mod l and return if ≠ 0.
-            let d = Scalar::from_bytes_mod_order_wide(&b);
-            if d != Scalar::zero() {
-                return d;
+            let d = Scalar::from_le_bytes_reduced(b.into());
+            if !d.is_zero_vartime() {
+                return NonZeroScalar::new(d).unwrap();
             }
         }
     }
@@ -130,8 +132,8 @@ pub trait Absorb: Clone {
     fn absorb_more(&mut self, data: &[u8]);
 
     /// Absorb a point.
-    fn absorb_point(&mut self, q: &RistrettoPoint) {
-        self.absorb(q.compress().as_bytes());
+    fn absorb_point(&mut self, q: &ProjectivePoint) {
+        self.absorb(&q.to_bytes());
     }
 
     /// Absorb the entire contents of the given reader as a single operation.

@@ -6,14 +6,17 @@ use std::io::{Read, Result};
 use std::str::FromStr;
 use std::{fmt, result};
 
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
-use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
-use curve25519_dalek::scalar::Scalar;
-use curve25519_dalek::traits::IsIdentity;
+use p256::elliptic_curve::group::GroupEncoding;
+use p256::elliptic_curve::ops::LinearCombination;
+use p256::elliptic_curve::Field;
+use p256::{NonZeroScalar, ProjectivePoint};
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex};
-use crate::{AsciiEncoded, ParseSignatureError, VerifyError, POINT_LEN, SCALAR_LEN};
+use crate::{
+    decode_point, decode_scalar, AsciiEncoded, ParseSignatureError, VerifyError, POINT_LEN,
+    SCALAR_LEN,
+};
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
@@ -51,7 +54,7 @@ impl fmt::Display for Signature {
 /// Create a Schnorr signature of the given message using the given key pair.
 pub fn sign(
     rng: impl Rng + CryptoRng,
-    (d, q): (&Scalar, &RistrettoPoint),
+    (d, q): (&NonZeroScalar, &ProjectivePoint),
     message: impl Read,
 ) -> Result<Signature> {
     // Initialize an unkeyed duplex.
@@ -74,7 +77,7 @@ pub fn sign(
 
     // Encrypt the proof scalar.
     out.extend(i);
-    out.extend(schnorr.encrypt(s.as_bytes()));
+    out.extend(schnorr.encrypt(&s.to_bytes()));
 
     // Return the encrypted commitment point and proof scalar.
     Ok(Signature(out.try_into().expect("invalid sig len")))
@@ -82,7 +85,7 @@ pub fn sign(
 
 /// Verify a Schnorr signature of the given message using the given public key.
 pub fn verify(
-    q: &RistrettoPoint,
+    q: &ProjectivePoint,
     message: impl Read,
     sig: &Signature,
 ) -> result::Result<(), VerifyError> {
@@ -107,34 +110,34 @@ pub fn verify(
 pub fn sign_duplex(
     duplex: &mut KeyedDuplex,
     mut rng: impl CryptoRng + Rng,
-    d: &Scalar,
-) -> (Vec<u8>, Scalar) {
+    d: &NonZeroScalar,
+) -> (Vec<u8>, NonZeroScalar) {
     loop {
         // Clone the duplex's state in case we need to re-generate the commitment scalar.
         let mut clone = duplex.clone();
 
         // Derive a commitment scalar from the duplex's current state, the signer's private key,
         // and a random nonce.
-        let k = clone.hedge(&mut rng, d.as_bytes(), Squeeze::squeeze_scalar);
+        let k = clone.hedge(&mut rng, &d.to_bytes(), Squeeze::squeeze_scalar);
 
         // Calculate and encrypt the commitment point.
-        let i = &RISTRETTO_BASEPOINT_TABLE * &k;
-        let i = clone.encrypt(i.compress().as_bytes());
+        let i = &ProjectivePoint::GENERATOR * &k;
+        let i = clone.encrypt(&i.to_bytes());
 
         // Squeeze a challenge scalar.
         let r = clone.squeeze_scalar();
 
         // Calculate the proof scalar.
-        let s = d * r + k;
+        let s = (*d * r).as_ref() + &k;
 
         // Ensure the proof scalar isn't zero. This would only happen if d * r == -k, which is
         // astronomically rare but not impossible.
-        if s != Scalar::zero() {
+        if !s.is_zero_vartime() {
             // If the proof scalar is non-zero, set the duplex's state to the current clone.
             *duplex = clone;
 
             // Return the encrypted commitment point and the proof scalar.
-            return (i, s);
+            return (i, NonZeroScalar::new(s).unwrap());
         }
     }
 }
@@ -142,7 +145,7 @@ pub fn sign_duplex(
 /// Verify a Schnorr signature of the given duplex's state using the given public key.
 pub fn verify_duplex(
     duplex: &mut KeyedDuplex,
-    q: &RistrettoPoint,
+    q: &ProjectivePoint,
     sig: &[u8],
 ) -> result::Result<(), VerifyError> {
     // Split the signature into parts.
@@ -150,27 +153,18 @@ pub fn verify_duplex(
 
     // Decrypt and decode the commitment point.
     let i = duplex.decrypt(i);
-    let i = CompressedRistretto::from_slice(&i)
-        .decompress()
-        .filter(|q| !q.is_identity())
-        .ok_or(VerifyError::InvalidSignature)?;
+    let i = decode_point(&i).ok_or(VerifyError::InvalidSignature)?;
 
     // Re-derive the challenge scalar.
     let r_p = duplex.squeeze_scalar();
 
     // Decrypt and decode the proof scalar.
     let s = duplex.decrypt(s);
-    let s = s
-        .try_into()
-        .ok()
-        .and_then(Scalar::from_canonical_bytes)
-        .filter(|s| s != &Scalar::zero())
-        .ok_or(VerifyError::InvalidSignature)?;
+    let s = decode_scalar(&s).ok_or(VerifyError::InvalidSignature)?;
 
-    // Return true iff I and s are well-formed and I == [s]G - [r']Q. Use the variable-time
-    // implementation here because the verifier has no secret data.
+    // Return true iff I and s are well-formed and I == [s]G - [r']Q.
     //    I == [r'](-Q) + [s]G == [s]G - [r']Q
-    if i == RistrettoPoint::vartime_double_scalar_mul_basepoint(&r_p, &-q, &s /*G*/) {
+    if i == ProjectivePoint::lincomb(&-q, &r_p, &ProjectivePoint::GENERATOR, &s) {
         Ok(())
     } else {
         Err(VerifyError::InvalidSignature)
@@ -184,14 +178,16 @@ mod tests {
     use rand::SeedableRng;
     use rand_chacha::ChaChaRng;
 
+    use crate::Group;
+
     use super::*;
 
     #[test]
     fn sign_and_verify() -> Result<()> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let d = Scalar::from_bytes_mod_order_wide(&rng.gen());
-        let q = &RISTRETTO_BASEPOINT_TABLE * &d;
+        let d = NonZeroScalar::random(&mut rng);
+        let q = &ProjectivePoint::GENERATOR * &d;
         let message = b"this is a message";
         let sig = sign(&mut rng, (&d, &q), Cursor::new(message))?;
 
@@ -217,8 +213,8 @@ mod tests {
     fn modified_message() -> result::Result<(), VerifyError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let d = Scalar::from_bytes_mod_order_wide(&rng.gen());
-        let q = &RISTRETTO_BASEPOINT_TABLE * &d;
+        let d = NonZeroScalar::random(&mut rng);
+        let q = &ProjectivePoint::GENERATOR * &d;
         let message = b"this is a message";
         let sig = sign(&mut rng, (&d, &q), Cursor::new(message))?;
 
@@ -230,12 +226,12 @@ mod tests {
     fn wrong_public_key() -> result::Result<(), VerifyError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let d = Scalar::from_bytes_mod_order_wide(&rng.gen());
-        let q = &RISTRETTO_BASEPOINT_TABLE * &d;
+        let d = NonZeroScalar::random(&mut rng);
+        let q = &ProjectivePoint::GENERATOR * &d;
         let message = b"this is a message";
         let sig = sign(&mut rng, (&d, &q), Cursor::new(message))?;
 
-        let q = RistrettoPoint::from_uniform_bytes(&rng.gen());
+        let q = ProjectivePoint::random(&mut rng);
 
         assert_failed!(verify(&q, Cursor::new(message), &sig))
     }
@@ -244,8 +240,8 @@ mod tests {
     fn modified_sig() -> result::Result<(), VerifyError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let d = Scalar::from_bytes_mod_order_wide(&rng.gen());
-        let q = &RISTRETTO_BASEPOINT_TABLE * &d;
+        let d = NonZeroScalar::random(&mut rng);
+        let q = &ProjectivePoint::GENERATOR * &d;
         let message = b"this is a message";
         let mut sig = sign(&mut rng, (&d, &q), Cursor::new(message))?;
 
@@ -258,12 +254,12 @@ mod tests {
     fn signature_encoding() {
         let sig = Signature([69u8; SIGNATURE_LEN]);
         assert_eq!(
-            "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC",
+            "77YbyELZPNMqGWewHAJS2kdWfwTiUqjaUurpM73jLrQw7DCndkszKMzC5QzmBPkTvxAgpAc8y9dp8FVJCKBrL4GQk",
             sig.to_string(),
             "invalid encoded signature"
         );
 
-        let decoded = "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC".parse::<Signature>();
+        let decoded = "77YbyELZPNMqGWewHAJS2kdWfwTiUqjaUurpM73jLrQw7DCndkszKMzC5QzmBPkTvxAgpAc8y9dp8FVJCKBrL4GQk".parse::<Signature>();
         assert_eq!(Ok(sig), decoded, "error parsing signature");
 
         assert_eq!(
