@@ -106,25 +106,37 @@ pub fn verify(
 /// the encrypted commitment point and the proof scalar.
 pub fn sign_duplex(
     duplex: &mut KeyedDuplex,
-    rng: impl CryptoRng + Rng,
+    mut rng: impl CryptoRng + Rng,
     d: &Scalar,
 ) -> (Vec<u8>, Scalar) {
-    // Derive a commitment scalar from the duplex's current state, the signer's private key,
-    // and a random nonce.
-    let k = duplex.hedge(rng, d.as_bytes(), Squeeze::squeeze_scalar);
+    loop {
+        // Clone the duplex's state in case we need to re-generate the commitment scalar.
+        let mut clone = duplex.clone();
 
-    // Calculate and encrypt the commitment point.
-    let i = &RISTRETTO_BASEPOINT_TABLE * &k;
-    let i = duplex.encrypt(i.compress().as_bytes());
+        // Derive a commitment scalar from the duplex's current state, the signer's private key,
+        // and a random nonce.
+        let k = clone.hedge(&mut rng, d.as_bytes(), Squeeze::squeeze_scalar);
 
-    // Squeeze a challenge scalar.
-    let r = duplex.squeeze_scalar();
+        // Calculate and encrypt the commitment point.
+        let i = &RISTRETTO_BASEPOINT_TABLE * &k;
+        let i = clone.encrypt(i.compress().as_bytes());
 
-    // Calculate the proof scalar.
-    let s = d * r + k;
+        // Squeeze a challenge scalar.
+        let r = clone.squeeze_scalar();
 
-    // Return the encrypted commitment point and the proof scalar.
-    (i, s)
+        // Calculate the proof scalar.
+        let s = d * r + k;
+
+        // Ensure the proof scalar isn't zero. This would only happen if d * r == -k, which is
+        // astronomically rare but not impossible.
+        if s != Scalar::zero() {
+            // If the proof scalar is non-zero, set the duplex's state to the current clone.
+            *duplex = clone;
+
+            // Return the encrypted commitment point and the proof scalar.
+            return (i, s);
+        }
+    }
 }
 
 /// Verify a Schnorr signature of the given duplex's state using the given public key.
