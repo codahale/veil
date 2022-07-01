@@ -67,10 +67,6 @@
     clippy::needless_borrow
 )]
 
-use p256::elliptic_curve::group::GroupEncoding;
-use p256::elliptic_curve::Group;
-use p256::{NonZeroScalar, ProjectivePoint};
-
 pub use self::ascii::*;
 pub use self::digest::*;
 pub use self::errors::*;
@@ -80,26 +76,10 @@ pub use self::veil::*;
 mod ascii;
 mod digest;
 mod duplex;
+mod ecc;
 mod errors;
 mod mres;
 mod pbenc;
 mod schnorr;
 mod sres;
 mod veil;
-
-/// The length of an encoded point in bytes.
-pub(crate) const POINT_LEN: usize = 33;
-
-/// The length of an encoded scalar in bytes.
-pub(crate) const SCALAR_LEN: usize = 32;
-
-pub(crate) fn decode_point(b: impl AsRef<[u8]>) -> Option<ProjectivePoint> {
-    let b: [u8; POINT_LEN] = b.as_ref().try_into().ok()?;
-    let q: Option<ProjectivePoint> = ProjectivePoint::from_bytes(&b.into()).into();
-    q.filter(|q| (!q.is_identity()).into())
-}
-
-pub(crate) fn decode_scalar(b: impl AsRef<[u8]>) -> Option<NonZeroScalar> {
-    let b: [u8; SCALAR_LEN] = b.as_ref().try_into().ok()?;
-    NonZeroScalar::from_repr(b.into()).into()
-}

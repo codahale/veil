@@ -5,33 +5,34 @@ use std::io::{BufWriter, Read, Write};
 use std::str::FromStr;
 use std::{fmt, io, iter};
 
-use p256::{NonZeroScalar, ProjectivePoint};
+use elliptic_curve::group::GroupEncoding;
+use elliptic_curve::Group;
 use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
+use crate::ecc::{decode_point, decode_scalar, Point, Scalar, POINT_LEN};
 use crate::{
-    decode_point, decode_scalar, mres, pbenc, schnorr, AsciiEncoded, DecryptError, Group,
-    GroupEncoding, ParsePublicKeyError, Signature, VerifyError, POINT_LEN,
+    mres, pbenc, schnorr, AsciiEncoded, DecryptError, ParsePublicKeyError, Signature, VerifyError,
 };
 
 /// A private key, used to encrypt, decrypt, and sign messages.
 #[derive(ZeroizeOnDrop)]
 pub struct PrivateKey {
-    d: NonZeroScalar,
+    d: Scalar,
     pk: PublicKey,
 }
 
 impl PrivateKey {
-    fn from_scalar(d: NonZeroScalar) -> PrivateKey {
-        let q = &ProjectivePoint::GENERATOR * &d;
+    fn from_scalar(d: Scalar) -> PrivateKey {
+        let q = &Point::GENERATOR * &d;
         PrivateKey { d, pk: PublicKey { q } }
     }
 
     /// Creates a randomly generated private key.
     #[must_use]
     pub fn random(mut rng: impl Rng + CryptoRng) -> PrivateKey {
-        PrivateKey::from_scalar(NonZeroScalar::random(&mut rng))
+        PrivateKey::from_scalar(Scalar::random(&mut rng))
     }
 
     /// Returns the corresponding public key.
@@ -97,11 +98,8 @@ impl PrivateKey {
         let mut q_rs = receivers
             .iter()
             .map(|pk| pk.q)
-            .chain(
-                iter::repeat_with(|| ProjectivePoint::random(&mut rng))
-                    .take(fakes.unwrap_or_default()),
-            )
-            .collect::<Vec<ProjectivePoint>>();
+            .chain(iter::repeat_with(|| Point::random(&mut rng)).take(fakes.unwrap_or_default()))
+            .collect::<Vec<Point>>();
 
         // Shuffle the receivers list.
         q_rs.shuffle(&mut rng);
@@ -166,7 +164,7 @@ impl Debug for PrivateKey {
 /// A public key, used to verify messages.
 #[derive(Clone, Copy, Eq, PartialEq, Zeroize)]
 pub struct PublicKey {
-    q: ProjectivePoint,
+    q: Point,
 }
 
 impl PublicKey {
@@ -227,7 +225,7 @@ mod tests {
 
     #[test]
     fn public_key_encoding() {
-        let base = PublicKey { q: ProjectivePoint::GENERATOR };
+        let base = PublicKey { q: Point::GENERATOR };
         assert_eq!(
             "21tzoXVq7aGx61bNRTPDVn9hJhszdDA4CPcp9LYZL8ffT",
             base.to_string(),

@@ -1101,6 +1101,7 @@ dependencies = [
  "criterion",
  "cyclist",
  "duct",
+ "elliptic-curve",
  "mimalloc",
  "p256",
  "rand",

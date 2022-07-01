@@ -6,17 +6,14 @@ use std::io::{Read, Result};
 use std::str::FromStr;
 use std::{fmt, result};
 
-use p256::elliptic_curve::group::GroupEncoding;
-use p256::elliptic_curve::ops::LinearCombination;
-use p256::elliptic_curve::Field;
-use p256::{NonZeroScalar, ProjectivePoint};
+use elliptic_curve::group::GroupEncoding;
+use elliptic_curve::ops::LinearCombination;
+use elliptic_curve::Field;
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex};
-use crate::{
-    decode_point, decode_scalar, AsciiEncoded, ParseSignatureError, VerifyError, POINT_LEN,
-    SCALAR_LEN,
-};
+use crate::ecc::{decode_point, decode_scalar, Point, Scalar, POINT_LEN, SCALAR_LEN};
+use crate::{AsciiEncoded, ParseSignatureError, VerifyError};
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
@@ -54,7 +51,7 @@ impl fmt::Display for Signature {
 /// Create a Schnorr signature of the given message using the given key pair.
 pub fn sign(
     rng: impl Rng + CryptoRng,
-    (d, q): (&NonZeroScalar, &ProjectivePoint),
+    (d, q): (&Scalar, &Point),
     message: impl Read,
 ) -> Result<Signature> {
     // Initialize an unkeyed duplex.
@@ -84,11 +81,7 @@ pub fn sign(
 }
 
 /// Verify a Schnorr signature of the given message using the given public key.
-pub fn verify(
-    q: &ProjectivePoint,
-    message: impl Read,
-    sig: &Signature,
-) -> result::Result<(), VerifyError> {
+pub fn verify(q: &Point, message: impl Read, sig: &Signature) -> result::Result<(), VerifyError> {
     // Initialize an unkeyed duplex.
     let mut schnorr = UnkeyedDuplex::new("veil.schnorr");
 
@@ -110,8 +103,8 @@ pub fn verify(
 pub fn sign_duplex(
     duplex: &mut KeyedDuplex,
     mut rng: impl CryptoRng + Rng,
-    d: &NonZeroScalar,
-) -> (Vec<u8>, NonZeroScalar) {
+    d: &Scalar,
+) -> (Vec<u8>, Scalar) {
     loop {
         // Clone the duplex's state in case we need to re-generate the commitment scalar.
         let mut clone = duplex.clone();
@@ -121,7 +114,7 @@ pub fn sign_duplex(
         let k = clone.hedge(&mut rng, &d.to_bytes(), Squeeze::squeeze_scalar);
 
         // Calculate and encrypt the commitment point.
-        let i = &ProjectivePoint::GENERATOR * &k;
+        let i = &Point::GENERATOR * &k;
         let i = clone.encrypt(&i.to_bytes());
 
         // Squeeze a challenge scalar.
@@ -137,7 +130,7 @@ pub fn sign_duplex(
             *duplex = clone;
 
             // Return the encrypted commitment point and the proof scalar.
-            return (i, NonZeroScalar::new(s).unwrap());
+            return (i, Scalar::new(s).unwrap());
         }
     }
 }
@@ -145,7 +138,7 @@ pub fn sign_duplex(
 /// Verify a Schnorr signature of the given duplex's state using the given public key.
 pub fn verify_duplex(
     duplex: &mut KeyedDuplex,
-    q: &ProjectivePoint,
+    q: &Point,
     sig: &[u8],
 ) -> result::Result<(), VerifyError> {
     // Split the signature into parts.
@@ -164,7 +157,7 @@ pub fn verify_duplex(
 
     // Return true iff I and s are well-formed and I == [s]G - [r']Q.
     //    I == [r'](-Q) + [s]G == [s]G - [r']Q
-    if i == ProjectivePoint::lincomb(&-q, &r_p, &ProjectivePoint::GENERATOR, &s) {
+    if i == Point::lincomb(&-q, &r_p, &Point::GENERATOR, &s) {
         Ok(())
     } else {
         Err(VerifyError::InvalidSignature)
@@ -175,10 +168,9 @@ pub fn verify_duplex(
 mod tests {
     use std::io::Cursor;
 
+    use elliptic_curve::Group;
     use rand::SeedableRng;
     use rand_chacha::ChaChaRng;
-
-    use crate::Group;
 
     use super::*;
 
@@ -186,8 +178,8 @@ mod tests {
     fn sign_and_verify() -> Result<()> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let d = NonZeroScalar::random(&mut rng);
-        let q = &ProjectivePoint::GENERATOR * &d;
+        let d = Scalar::random(&mut rng);
+        let q = &Point::GENERATOR * &d;
         let message = b"this is a message";
         let sig = sign(&mut rng, (&d, &q), Cursor::new(message))?;
 
@@ -213,8 +205,8 @@ mod tests {
     fn modified_message() -> result::Result<(), VerifyError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let d = NonZeroScalar::random(&mut rng);
-        let q = &ProjectivePoint::GENERATOR * &d;
+        let d = Scalar::random(&mut rng);
+        let q = &Point::GENERATOR * &d;
         let message = b"this is a message";
         let sig = sign(&mut rng, (&d, &q), Cursor::new(message))?;
 
@@ -226,12 +218,12 @@ mod tests {
     fn wrong_public_key() -> result::Result<(), VerifyError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let d = NonZeroScalar::random(&mut rng);
-        let q = &ProjectivePoint::GENERATOR * &d;
+        let d = Scalar::random(&mut rng);
+        let q = &Point::GENERATOR * &d;
         let message = b"this is a message";
         let sig = sign(&mut rng, (&d, &q), Cursor::new(message))?;
 
-        let q = ProjectivePoint::random(&mut rng);
+        let q = Point::random(&mut rng);
 
         assert_failed!(verify(&q, Cursor::new(message), &sig))
     }
@@ -240,8 +232,8 @@ mod tests {
     fn modified_sig() -> result::Result<(), VerifyError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let d = NonZeroScalar::random(&mut rng);
-        let q = &ProjectivePoint::GENERATOR * &d;
+        let d = Scalar::random(&mut rng);
+        let q = &Point::GENERATOR * &d;
         let message = b"this is a message";
         let mut sig = sign(&mut rng, (&d, &q), Cursor::new(message))?;
 

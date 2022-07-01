@@ -5,11 +5,10 @@ use std::io::Read;
 
 use cyclist::keccyak::{Keccyak128Hash, Keccyak128Keyed};
 use cyclist::Cyclist;
-use p256::elliptic_curve::group::GroupEncoding;
-use p256::elliptic_curve::ops::Reduce;
-use p256::elliptic_curve::Field;
-use p256::{NonZeroScalar, ProjectivePoint, Scalar};
+use elliptic_curve::group::GroupEncoding;
 use rand::{CryptoRng, Rng};
+
+use crate::ecc::{decode_scalar, Point, Scalar};
 
 /// The length of an authentication tag in bytes.
 pub const TAG_LEN: usize = 16;
@@ -91,18 +90,17 @@ pub trait Squeeze {
         b
     }
 
-    /// Squeeze 64 bytes from the duplex and map them to a [`NonZeroScalar`].
+    /// Squeeze 64 bytes from the duplex and map them to a [`Scalar`].
     #[must_use]
-    fn squeeze_scalar(&mut self) -> NonZeroScalar {
+    fn squeeze_scalar(&mut self) -> Scalar {
         loop {
             // Squeeze a 256-bit integer.
             let mut b = [0u8; 32];
             self.squeeze_mut(&mut b);
 
             // Map the integer to a scalar mod l and return if ≠ 0.
-            let d = Scalar::from_le_bytes_reduced(b.into());
-            if !d.is_zero_vartime() {
-                return NonZeroScalar::new(d).unwrap();
+            if let Some(d) = decode_scalar(&b) {
+                return d;
             }
         }
     }
@@ -132,7 +130,7 @@ pub trait Absorb: Clone {
     fn absorb_more(&mut self, data: &[u8]);
 
     /// Absorb a point.
-    fn absorb_point(&mut self, q: &ProjectivePoint) {
+    fn absorb_point(&mut self, q: &Point) {
         self.absorb(&q.to_bytes());
     }
 

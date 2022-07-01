@@ -1,10 +1,11 @@
 //! An insider-secure hybrid signcryption implementation.
 
-use p256::{NonZeroScalar, ProjectivePoint};
+use elliptic_curve::group::GroupEncoding;
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, Squeeze, UnkeyedDuplex};
-use crate::{decode_point, schnorr, GroupEncoding, POINT_LEN};
+use crate::ecc::{decode_point, Point, Scalar, POINT_LEN};
+use crate::schnorr;
 
 /// The recommended size of the nonce passed to [encrypt].
 pub const NONCE_LEN: usize = 16;
@@ -16,9 +17,9 @@ pub const OVERHEAD: usize = POINT_LEN + POINT_LEN + POINT_LEN;
 /// plaintext, encrypts the given plaintext and returns the ciphertext.
 pub fn encrypt(
     rng: impl Rng + CryptoRng,
-    (d_s, q_s): (&NonZeroScalar, &ProjectivePoint),
-    (d_e, q_e): (&NonZeroScalar, &ProjectivePoint),
-    q_r: &ProjectivePoint,
+    (d_s, q_s): (&Scalar, &Point),
+    (d_e, q_e): (&Scalar, &Point),
+    q_r: &Point,
     nonce: &[u8],
     plaintext: &[u8],
 ) -> Vec<u8> {
@@ -68,11 +69,11 @@ pub fn encrypt(
 /// given ciphertext and returns the plaintext and the ephemeral public key iff the ciphertext was
 /// encrypted for the receiver by the sender.
 pub fn decrypt(
-    (d_r, q_r): (&NonZeroScalar, &ProjectivePoint),
-    q_s: &ProjectivePoint,
+    (d_r, q_r): (&Scalar, &Point),
+    q_s: &Point,
     nonce: &[u8],
     ciphertext: &[u8],
-) -> Option<(ProjectivePoint, Vec<u8>)> {
+) -> Option<(Point, Vec<u8>)> {
     // Check for too-small ciphertexts.
     if ciphertext.len() < OVERHEAD {
         return None;
@@ -135,10 +136,9 @@ pub fn decrypt(
 
 #[cfg(test)]
 mod tests {
+    use elliptic_curve::Group;
     use rand::SeedableRng;
     use rand_chacha::ChaChaRng;
-
-    use crate::Group;
 
     use super::*;
 
@@ -160,7 +160,7 @@ mod tests {
         let nonce = b"this is a nonce";
         let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext);
 
-        let d_r = NonZeroScalar::random(&mut rng);
+        let d_r = Scalar::random(&mut rng);
 
         let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -173,7 +173,7 @@ mod tests {
         let nonce = b"this is a nonce";
         let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext);
 
-        let q_r = ProjectivePoint::random(&mut rng);
+        let q_r = Point::random(&mut rng);
 
         let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -186,7 +186,7 @@ mod tests {
         let nonce = b"this is a nonce";
         let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext);
 
-        let q_s = ProjectivePoint::random(&mut rng);
+        let q_s = Point::random(&mut rng);
 
         let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -226,25 +226,17 @@ mod tests {
         }
     }
 
-    fn setup() -> (
-        ChaChaRng,
-        NonZeroScalar,
-        ProjectivePoint,
-        NonZeroScalar,
-        ProjectivePoint,
-        NonZeroScalar,
-        ProjectivePoint,
-    ) {
+    fn setup() -> (ChaChaRng, Scalar, Point, Scalar, Point, Scalar, Point) {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let d_s = NonZeroScalar::random(&mut rng);
-        let q_s = &ProjectivePoint::GENERATOR * &d_s;
+        let d_s = Scalar::random(&mut rng);
+        let q_s = &Point::GENERATOR * &d_s;
 
-        let d_e = NonZeroScalar::random(&mut rng);
-        let q_e = &ProjectivePoint::GENERATOR * &d_e;
+        let d_e = Scalar::random(&mut rng);
+        let q_e = &Point::GENERATOR * &d_e;
 
-        let d_r = NonZeroScalar::random(&mut rng);
-        let q_r = &ProjectivePoint::GENERATOR * &d_r;
+        let d_r = Scalar::random(&mut rng);
+        let q_r = &Point::GENERATOR * &d_r;
 
         (rng, d_s, q_s, d_e, q_e, d_r, q_r)
     }
