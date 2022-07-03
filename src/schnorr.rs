@@ -145,15 +145,13 @@ pub fn verify_duplex(
     let (i, s) = sig.split_at(POINT_LEN);
 
     // Decrypt and decode the commitment point.
-    let i = duplex.decrypt(i);
-    let i = decode_point(&i).ok_or(VerifyError::InvalidSignature)?;
+    let i = decode_point(&duplex.decrypt(i)).ok_or(VerifyError::InvalidSignature)?;
 
     // Re-derive the challenge scalar.
     let r_p = duplex.squeeze_scalar();
 
     // Decrypt and decode the proof scalar.
-    let s = duplex.decrypt(s);
-    let s = decode_scalar(&s).ok_or(VerifyError::InvalidSignature)?;
+    let s = decode_scalar(&duplex.decrypt(s)).ok_or(VerifyError::InvalidSignature)?;
 
     // Return true iff I and s are well-formed and I == [s]G - [r']Q.
     //    I == [r'](-Q) + [s]G == [s]G - [r']Q
