@@ -12,7 +12,7 @@ use elliptic_curve::Field;
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex};
-use crate::ecc::{decode_point, decode_scalar, Point, Scalar, POINT_LEN, SCALAR_LEN};
+use crate::ecc::{FromCanonicalBytes, Point, Scalar, POINT_LEN, SCALAR_LEN};
 use crate::{AsciiEncoded, ParseSignatureError, VerifyError};
 
 /// The length of a signature, in bytes.
@@ -145,13 +145,13 @@ pub fn verify_duplex(
     let (i, s) = sig.split_at(POINT_LEN);
 
     // Decrypt and decode the commitment point.
-    let i = decode_point(&duplex.decrypt(i)).ok_or(VerifyError::InvalidSignature)?;
+    let i = Point::from_canonical_bytes(duplex.decrypt(i)).ok_or(VerifyError::InvalidSignature)?;
 
     // Re-derive the challenge scalar.
     let r_p = duplex.squeeze_scalar();
 
     // Decrypt and decode the proof scalar.
-    let s = decode_scalar(&duplex.decrypt(s)).ok_or(VerifyError::InvalidSignature)?;
+    let s = Scalar::from_canonical_bytes(duplex.decrypt(s)).ok_or(VerifyError::InvalidSignature)?;
 
     // Return true iff I and s are well-formed and I == [s]G - [r']Q.
     //    I == [r'](-Q) + [s]G == [s]G - [r']Q

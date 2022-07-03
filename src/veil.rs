@@ -11,7 +11,7 @@ use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::ecc::{decode_point, decode_scalar, Point, Scalar, POINT_LEN};
+use crate::ecc::{FromCanonicalBytes, Point, Scalar, POINT_LEN};
 use crate::{
     mres, pbenc, schnorr, AsciiEncoded, DecryptError, ParsePublicKeyError, Signature, VerifyError,
 };
@@ -69,7 +69,7 @@ impl PrivateKey {
 
         // Decrypt the ciphertext and use the plaintext as the private key.
         pbenc::decrypt(passphrase, &b)
-            .and_then(decode_scalar)
+            .and_then(Scalar::from_canonical_bytes)
             .map(PrivateKey::from_scalar)
             .ok_or(DecryptError::InvalidCiphertext)
     }
@@ -185,7 +185,7 @@ impl AsciiEncoded for PublicKey {
     type Err = ParsePublicKeyError;
 
     fn from_bytes(b: &[u8]) -> Result<Self, <Self as AsciiEncoded>::Err> {
-        let q = decode_point(b).ok_or(ParsePublicKeyError::InvalidPublicKey)?;
+        let q = Point::from_canonical_bytes(b).ok_or(ParsePublicKeyError::InvalidPublicKey)?;
         Ok(PublicKey { q })
     }
 

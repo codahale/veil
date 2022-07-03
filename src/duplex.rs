@@ -8,7 +8,7 @@ use cyclist::Cyclist;
 use elliptic_curve::group::GroupEncoding;
 use rand::{CryptoRng, Rng};
 
-use crate::ecc::{decode_scalar, Point, Scalar};
+use crate::ecc::{FromCanonicalBytes, Point, Scalar};
 
 /// The length of an authentication tag in bytes.
 pub const TAG_LEN: usize = 16;
@@ -93,13 +93,14 @@ pub trait Squeeze {
     /// Squeeze 64 bytes from the duplex and map them to a [`Scalar`].
     #[must_use]
     fn squeeze_scalar(&mut self) -> Scalar {
+        let mut b = [0u8; 32];
+
         loop {
             // Squeeze a 256-bit integer.
-            let mut b = [0u8; 32];
             self.squeeze_mut(&mut b);
 
             // Map the integer to a scalar mod l and return if ≠ 0.
-            if let Some(d) = decode_scalar(&b) {
+            if let Some(d) = Scalar::from_canonical_bytes(&b) {
                 return d;
             }
         }

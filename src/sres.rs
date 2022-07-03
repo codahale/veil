@@ -4,7 +4,7 @@ use elliptic_curve::group::GroupEncoding;
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, Squeeze, UnkeyedDuplex};
-use crate::ecc::{decode_point, Point, Scalar, POINT_LEN};
+use crate::ecc::{FromCanonicalBytes, Point, Scalar, POINT_LEN};
 use crate::schnorr;
 
 /// The recommended size of the nonce passed to [encrypt].
@@ -103,7 +103,7 @@ pub fn decrypt(
     let mut sres = sres.into_keyed();
 
     // Decrypt and decode the ephemeral public key.
-    let q_e = decode_point(&sres.decrypt(q_e))?;
+    let q_e = Point::from_canonical_bytes(sres.decrypt(q_e))?;
 
     // Absorb the ephemeral ECDH shared secret.
     sres.absorb_point(&(&q_e * d_r));
@@ -112,7 +112,7 @@ pub fn decrypt(
     let plaintext = sres.decrypt(ciphertext);
 
     // Decrypt the decode the commitment point.
-    let i = decode_point(&sres.decrypt(i))?;
+    let i = Point::from_canonical_bytes(sres.decrypt(i))?;
 
     // Squeeze a challenge scalar from the public keys, plaintext, and commitment point.
     let r_p = sres.squeeze_scalar();
@@ -120,7 +120,7 @@ pub fn decrypt(
     // Decrypt the decode the proof point, checking for canonical encoding. Nothing depends on the
     // bit encoding of this value, so we ensure it is, at least, a canonically-encoded point (i.e.
     // has a 0 high bit).
-    let x = decode_point(&sres.decrypt(x))?;
+    let x = Point::from_canonical_bytes(&sres.decrypt(x))?;
 
     // Re-calculate the proof point.
     let x_p = &(i + (q_s * &r_p)) * d_r;
