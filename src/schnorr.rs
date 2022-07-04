@@ -8,7 +8,6 @@ use std::{fmt, result};
 
 use elliptic_curve::group::GroupEncoding;
 use elliptic_curve::ops::LinearCombination;
-use elliptic_curve::Field;
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex};
@@ -125,12 +124,12 @@ pub fn sign_duplex(
 
         // Ensure the proof scalar isn't zero. This would only happen if d * r == -k, which is
         // astronomically rare but not impossible.
-        if !s.is_zero_vartime() {
+        if let Some(s) = Scalar::new(s).into() {
             // If the proof scalar is non-zero, set the duplex's state to the current clone.
             *duplex = clone;
 
             // Return the encrypted commitment point and the proof scalar.
-            return (i, Scalar::new(s).unwrap());
+            return (i, s);
         }
     }
 }
