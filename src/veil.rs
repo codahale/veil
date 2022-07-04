@@ -43,6 +43,10 @@ impl PrivateKey {
 
     /// Encrypts the private key with the given passphrase and `veil.pbenc` parameters and writes it
     /// to the given writer.
+    ///
+    /// # Errors
+    ///
+    /// Returns any error returned by operations on `writer`.
     pub fn store(
         &self,
         mut writer: impl Write,
@@ -61,8 +65,8 @@ impl PrivateKey {
     /// # Errors
     ///
     /// If the passphrase is incorrect and/or the ciphertext has been modified, a
-    /// [DecryptError::InvalidCiphertext] error will be returned. If an error occurred while
-    /// reading, a [DecryptError::IoError] error will be returned.
+    /// [`DecryptError::InvalidCiphertext`] error will be returned. If an error occurred while
+    /// reading, a [`DecryptError::IoError`] error will be returned.
     pub fn load(mut reader: impl Read, passphrase: &str) -> Result<PrivateKey, DecryptError> {
         let mut b = Vec::with_capacity(POINT_LEN);
         reader.read_to_end(&mut b)?;
@@ -83,8 +87,8 @@ impl PrivateKey {
     ///
     /// # Errors
     ///
-    /// If there is an error while reading from `reader` or writing to `writer`, an [io::Error] will
-    /// be returned.
+    /// If there is an error while reading from `reader` or writing to `writer`, an [`io::Error`]
+    /// will be returned.
     pub fn encrypt(
         &self,
         mut rng: impl Rng + CryptoRng,
@@ -122,8 +126,8 @@ impl PrivateKey {
     /// # Errors
     ///
     /// If the ciphertext has been modified, was not sent by the sender, or was not encrypted for
-    /// this private key, returns [DecryptError::InvalidCiphertext]. If there was an error reading
-    /// from `reader` or writing to `writer`, returns [DecryptError::IoError].
+    /// this private key, returns [`DecryptError::InvalidCiphertext`]. If there was an error reading
+    /// from `reader` or writing to `writer`, returns [`DecryptError::IoError`].
     pub fn decrypt(
         &self,
         reader: &mut impl Read,
@@ -137,7 +141,7 @@ impl PrivateKey {
     ///
     /// # Errors
     ///
-    /// If there is an error while reading from `message`, an [io::Error] will be returned.
+    /// If there is an error while reading from `message`, an [`io::Error`] will be returned.
     pub fn sign(
         &self,
         rng: impl Rng + CryptoRng,
@@ -174,8 +178,8 @@ impl PublicKey {
     /// # Errors
     ///
     /// If the message has been modified or was not signed by the owner of this public key, returns
-    /// [VerifyError::InvalidSignature]. If there was an error reading from `message` or writing to
-    /// `writer`, returns [VerifyError::IoError].
+    /// [`VerifyError::InvalidSignature`]. If there was an error reading from `message` or writing
+    /// to `writer`, returns [`VerifyError::IoError`].
     pub fn verify(&self, message: &mut impl Read, sig: &Signature) -> Result<(), VerifyError> {
         schnorr::verify(&self.q, message, sig)
     }

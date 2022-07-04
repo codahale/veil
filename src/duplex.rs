@@ -20,7 +20,7 @@ pub struct UnkeyedDuplex {
 }
 
 impl UnkeyedDuplex {
-    /// Create a new [UnkeyedDuplex] with the given domain separation string.
+    /// Create a new [`UnkeyedDuplex`] with the given domain separation string.
     #[must_use]
     pub fn new(domain: &str) -> UnkeyedDuplex {
         // Initialize an empty hash.
@@ -62,7 +62,7 @@ impl KeyedDuplex {
         self.state.decrypt(ciphertext)
     }
 
-    /// Encrypt and seal the given plaintext, adding [TAG_LEN] bytes to the end.
+    /// Encrypt and seal the given plaintext, adding [`TAG_LEN`] bytes to the end.
     /// **Guarantees authenticity.**
     #[must_use]
     pub fn seal(&mut self, plaintext: &[u8]) -> Vec<u8> {
@@ -109,13 +109,13 @@ pub trait Squeeze {
 
 impl Squeeze for UnkeyedDuplex {
     fn squeeze_mut(&mut self, out: &mut [u8]) {
-        self.state.squeeze_mut(out)
+        self.state.squeeze_mut(out);
     }
 }
 
 impl Squeeze for KeyedDuplex {
     fn squeeze_mut(&mut self, out: &mut [u8]) {
-        self.state.squeeze_mut(out)
+        self.state.squeeze_mut(out);
     }
 }
 
@@ -196,11 +196,11 @@ impl Absorb for UnkeyedDuplex {
     }
 
     fn absorb(&mut self, data: &[u8]) {
-        self.state.absorb(data)
+        self.state.absorb(data);
     }
 
     fn absorb_more(&mut self, data: &[u8]) {
-        self.state.absorb_more(data)
+        self.state.absorb_more(data);
     }
 }
 
@@ -210,11 +210,11 @@ impl Absorb for KeyedDuplex {
     }
 
     fn absorb(&mut self, data: &[u8]) {
-        self.state.absorb(data)
+        self.state.absorb(data);
     }
 
     fn absorb_more(&mut self, data: &[u8]) {
-        self.state.absorb_more(data)
+        self.state.absorb_more(data);
     }
 }
 

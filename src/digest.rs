@@ -40,6 +40,10 @@ impl fmt::Display for Digest {
 
 impl Digest {
     /// Create a digest from a set of metadata strings and a reader.
+    ///
+    /// # Errors
+    ///
+    /// Returns any error returned by operations on `reader`.
     pub fn new(metadata: &[impl AsRef<[u8]>], reader: impl Read) -> io::Result<Digest> {
         // Initialize an unkeyed duplex.
         let mut digest = UnkeyedDuplex::new("veil.digest");

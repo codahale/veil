@@ -7,12 +7,20 @@ pub trait AsciiEncoded: Sized + FromStr + Display {
     type Err: From<bs58::decode::Error>;
 
     /// Decode a value from bytes.
+    ///
+    /// # Errors
+    ///
+    /// If `b` is not a valid encoding, returns an error.
     fn from_bytes(b: &[u8]) -> Result<Self, <Self as AsciiEncoded>::Err>;
 
     /// Encode a value as bytes.
     fn to_bytes(&self) -> Vec<u8>;
 
     /// Decode a value from a base58 string.
+    ///
+    /// # Errors
+    ///
+    /// If `s` is valid Base58 or not a valid encoding, returns an error.
     fn from_ascii(s: &str) -> Result<Self, <Self as AsciiEncoded>::Err> {
         Self::from_bytes(&bs58::decode(s).into_vec()?)
     }
