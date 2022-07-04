@@ -6,9 +6,10 @@ use std::io::Read;
 use cyclist::keccyak::{Keccyak128Hash, Keccyak128Keyed};
 use cyclist::Cyclist;
 use elliptic_curve::group::GroupEncoding;
+use elliptic_curve::ops::Reduce;
 use rand::{CryptoRng, Rng};
 
-use crate::ecc::{FromCanonicalBytes, Point, Scalar};
+use crate::ecc::{Point, Scalar, SCALAR_LEN};
 
 /// The length of an authentication tag in bytes.
 pub const TAG_LEN: usize = 16;
@@ -90,20 +91,10 @@ pub trait Squeeze {
         b
     }
 
-    /// Squeeze 64 bytes from the duplex and map them to a [`Scalar`].
+    /// Squeeze 32 bytes from the duplex and map them to a [`Scalar`].
     #[must_use]
     fn squeeze_scalar(&mut self) -> Scalar {
-        let mut b = [0u8; 32];
-
-        loop {
-            // Squeeze a 256-bit integer.
-            self.squeeze_mut(&mut b);
-
-            // Map the integer to a scalar mod l and return if ≠ 0.
-            if let Some(d) = Scalar::from_canonical_bytes(&b) {
-                return d;
-            }
-        }
+        Scalar::from_be_bytes_reduced(self.squeeze::<{ SCALAR_LEN }>().into())
     }
 }
 

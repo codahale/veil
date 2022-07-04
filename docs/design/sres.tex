@@ -34,14 +34,14 @@ Encrypting a header is described in full in Alg.~\ref{alg:veil.sres-encrypt}.
             \State \Call{Absorb}{$d_S$}\Comment{Absorb the sender's private key.}
             \State $v \rgets \allbits{512}$\Comment{Generate a random value.}
             \State \Call{Absorb}{$v$}\Comment{Absorb the random value.}
-            \State $k \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a commitment scalar.}
+            \State $k \gets$ \Call{Squeeze}{$32$} $\modl$\Comment{Squeeze a commitment scalar.}
             \State \textbf{yield} $k$
             \End
             \State
             \State $I \gets [k]G$\Comment{Calculate the commitment point.}
             \State $S_0 \gets$ \Call{Encrypt}{$I$}\Comment{Encrypt the commitment point.}
             \State
-            \State $r \gets$ \Call{Squeeze}{$64$} $\modl$
+            \State $r \gets$ \Call{Squeeze}{$32$} $\modl$
             \label{alg:veil.sres-encrypt-challenge}
             \Comment{Squeeze a challenge scalar.}
             \State $s \gets d_S{r}+k$\Comment{Calculate the proof scalar.}
@@ -79,7 +79,7 @@ Decrypting a header is described in full in Alg.~\ref{alg:veil.sres-decrypt}.
             \State $P' \gets$ \Call{Decrypt}{$C_1$}\Comment{Decrypt the plaintext.}
             \State
             \State $I \gets$ \Call{Decrypt}{$S_0$}\Comment{Decrypt the commitment point.}
-            \State $r' \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a challenge scalar.}
+            \State $r' \gets$ \Call{Squeeze}{$32$} $\modl$\Comment{Squeeze a challenge scalar.}
             \State
             \State $X \gets$ \Call{Decrypt}{$S_1$}\Comment{Decrypt the proof point.}
             \State $X' \gets [d_R](I + [r']Q_S)$\Comment{Re-calculate the proof point.}
