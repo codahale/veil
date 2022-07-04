@@ -63,8 +63,7 @@
     unused_qualifications,
     missing_debug_implementations,
     clippy::cognitive_complexity,
-    clippy::missing_const_for_fn,
-    clippy::needless_borrow
+    clippy::missing_const_for_fn
 )]
 
 pub use self::ascii::*;
