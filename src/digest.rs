@@ -53,7 +53,7 @@ impl Digest {
             digest.absorb(v.as_ref());
         }
 
-        // Absorb the reader contents in 32KiB blocks.
+        // Absorb the reader contents.
         digest.absorb_reader(reader)?;
 
         // Squeeze N bytes as a digest.
