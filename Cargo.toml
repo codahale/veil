@@ -14,7 +14,7 @@ cli = ["anyhow", "clap", "clap_complete", "clio", "mimalloc", "rpassword"]
 [dependencies]
 bs58 = "0.4.0"
 cyclist = { version = "0.1.0", default-features = false, features = ["std", "keccyak"] }
-elliptic-curve = { version = "0.12.2", features = ["std"] }
+elliptic-curve = { version = "0.12.2", default-features = false, features = ["arithmetic"] }
 p256 = { version = "0.11.1", default-features = false, features = ["arithmetic"] }
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 subtle = "2.4.1"
