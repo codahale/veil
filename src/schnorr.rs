@@ -59,7 +59,7 @@ pub fn sign(
     // Absorb the signer's public key.
     schnorr.absorb_point(q);
 
-    // Absorb the message in 32KiB blocks.
+    // Absorb the message.
     schnorr.absorb_reader(message)?;
 
     // Convert the unkeyed duplex to a keyed duplex.
@@ -68,12 +68,13 @@ pub fn sign(
     // Calculate the encrypted commitment point and proof scalar.
     let (i, s) = sign_duplex(&mut schnorr, rng, d);
 
+    // Encrypt the proof scalar.
+    let s = schnorr.encrypt(&s.to_bytes());
+
     // Allocate an output buffer.
     let mut out = Vec::with_capacity(SIGNATURE_LEN);
-
-    // Encrypt the proof scalar.
     out.extend(i);
-    out.extend(schnorr.encrypt(&s.to_bytes()));
+    out.extend(s);
 
     // Return the encrypted commitment point and proof scalar.
     Ok(Signature(out.try_into().expect("invalid sig len")))
@@ -87,7 +88,7 @@ pub fn verify(q: &Point, message: impl Read, sig: &Signature) -> result::Result<
     // Absorb the signer's public key.
     schnorr.absorb_point(q);
 
-    // Absorb the message in 32KiB blocks.
+    // Absorb the message.
     schnorr.absorb_reader(message)?;
 
     // Convert the unkeyed duplex to a keyed duplex.
@@ -113,8 +114,7 @@ pub fn sign_duplex(
         let k = clone.hedge(&mut rng, &d.to_bytes(), Squeeze::squeeze_scalar);
 
         // Calculate and encrypt the commitment point.
-        let i = &Point::GENERATOR * &k;
-        let i = clone.encrypt(&i.to_bytes());
+        let i = clone.encrypt(&(&Point::GENERATOR * &k).to_bytes());
 
         // Squeeze a challenge scalar.
         let r = clone.squeeze_scalar();
