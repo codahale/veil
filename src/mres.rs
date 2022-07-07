@@ -184,7 +184,7 @@ pub fn decrypt(
     let q_e = representative_to_point(&q_e_r).ok_or(DecryptError::InvalidCiphertext)?;
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the duplex.
-    let (mut mres, dek) = decrypt_header(mres, reader, d_r, q_r, q_s)?;
+    let (mut mres, dek) = decrypt_header(mres, reader, d_r, q_r, &q_e, q_s)?;
 
     // Absorb the DEK.
     mres.absorb(&dek);
@@ -256,6 +256,7 @@ fn decrypt_header(
     reader: &mut impl Read,
     d_r: &Scalar,
     q_r: &Point,
+    q_e: &Point,
     q_s: &Point,
 ) -> Result<(UnkeyedDuplex, Vec<u8>), DecryptError> {
     let mut buf = Vec::with_capacity(ENC_HEADER_LEN);
@@ -283,7 +284,7 @@ fn decrypt_header(
         // If a header hasn't been decrypted yet, try to decrypt this one.
         if dek.is_none() {
             if let Some((d, c, p)) =
-                sres::decrypt((d_r, q_r), q_s, &nonce, header).and_then(decode_header)
+                sres::decrypt((d_r, q_r), q_e, q_s, &nonce, header).and_then(decode_header)
             {
                 // If the header was successfully decrypted, keep the DEK and padding and update the
                 // loop variable to not be effectively infinite.
@@ -315,7 +316,7 @@ fn decrypt_header(
 
 /// Decode a header into a DEK, header count, and padding size.
 #[inline]
-fn decode_header((_, header): (Point, Vec<u8>)) -> Option<(Vec<u8>, u64, u64)> {
+fn decode_header(header: Vec<u8>) -> Option<(Vec<u8>, u64, u64)> {
     // Check header for proper length.
     if header.len() != HEADER_LEN {
         return None;

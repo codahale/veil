@@ -11,7 +11,7 @@ use crate::schnorr;
 pub const NONCE_LEN: usize = 16;
 
 /// The number of bytes added to plaintext by [encrypt].
-pub const OVERHEAD: usize = POINT_LEN + POINT_LEN + POINT_LEN;
+pub const OVERHEAD: usize = POINT_LEN + POINT_LEN;
 
 /// Given the sender's key pair, the ephemeral key pair, the receiver's public key, a nonce, and a
 /// plaintext, encrypts the given plaintext and returns the ciphertext.
@@ -35,20 +35,17 @@ pub fn encrypt(
     // Absorb the receiver's public key.
     sres.absorb_point(q_r);
 
+    // Absorb the ephemeral public key.
+    sres.absorb_point(q_e);
+
     // Absorb the nonce.
     sres.absorb(nonce);
 
-    // Absorb the static ECDH shared secret.
-    sres.absorb_point(&(q_r * d_s));
+    // Absorb the ECDH shared secret.
+    sres.absorb_point(&(q_r * d_e));
 
     // Convert the unkeyed duplex to a keyed duplex.
     let mut sres = sres.into_keyed();
-
-    // Encrypt a copy of the ephemeral public key.
-    out.extend(sres.encrypt(&q_e.to_bytes()));
-
-    // Absorb the ephemeral ECDH shared secret.
-    sres.absorb_point(&(q_r * d_e));
 
     // Encrypt the plaintext.
     out.extend(sres.encrypt(plaintext));
@@ -65,23 +62,23 @@ pub fn encrypt(
     out
 }
 
-/// Given the receiver's key pair, the sender's public key, a nonce, and a ciphertext, decrypts the
-/// given ciphertext and returns the plaintext and the ephemeral public key iff the ciphertext was
+/// Given the receiver's key pair, the ephemeral public key, the sender's public key, a nonce, and
+/// a ciphertext, decrypts the given ciphertext and returns the plaintext iff the ciphertext was
 /// encrypted for the receiver by the sender.
 pub fn decrypt(
     (d_r, q_r): (&Scalar, &Point),
+    q_e: &Point,
     q_s: &Point,
     nonce: &[u8],
     ciphertext: &[u8],
-) -> Option<(Point, Vec<u8>)> {
+) -> Option<Vec<u8>> {
     // Check for too-small ciphertexts.
     if ciphertext.len() < OVERHEAD {
         return None;
     }
 
     // Split the ciphertext into its components.
-    let (q_e, ciphertext) = ciphertext.split_at(POINT_LEN);
-    let (ciphertext, i) = ciphertext.split_at(ciphertext.len() - POINT_LEN - POINT_LEN);
+    let (ciphertext, i) = ciphertext.split_at(ciphertext.len() - OVERHEAD);
     let (i, x) = i.split_at(POINT_LEN);
 
     // Initialize an unkeyed duplex.
@@ -93,20 +90,17 @@ pub fn decrypt(
     // Absorb the receiver's public key.
     sres.absorb_point(q_r);
 
+    // Absorb the ephemeral public public key.
+    sres.absorb_point(q_e);
+
     // Absorb the nonce.
     sres.absorb(nonce);
 
-    // Absorb the static ECDH shared secret.
-    sres.absorb_point(&(q_s * d_r));
+    // Absorb the ECDH shared secret.
+    sres.absorb_point(&(q_e * d_r));
 
     // Convert the unkeyed duplex to a keyed duplex.
     let mut sres = sres.into_keyed();
-
-    // Decrypt and decode the ephemeral public key.
-    let q_e = Point::from_canonical_bytes(sres.decrypt(q_e))?;
-
-    // Absorb the ephemeral ECDH shared secret.
-    sres.absorb_point(&(&q_e * d_r));
 
     // Decrypt the plaintext.
     let plaintext = sres.decrypt(ciphertext);
@@ -117,18 +111,16 @@ pub fn decrypt(
     // Squeeze a challenge scalar from the public keys, plaintext, and commitment point.
     let r_p = sres.squeeze_scalar();
 
-    // Decrypt the decode the proof point, checking for canonical encoding. Nothing depends on the
-    // bit encoding of this value, so we ensure it is, at least, a canonically-encoded point (i.e.
-    // has a 0 high bit).
+    // Decrypt the proof point.
     let x = Point::from_canonical_bytes(&sres.decrypt(x))?;
 
     // Re-calculate the proof point.
     let x_p = &(i + (q_s * &r_p)) * d_r;
 
     // If the re-calculated proof point matches the decrypted proof point, return the authenticated
-    // ephemeral public key and plaintext.
+    // plaintext.
     if x == x_p {
-        Some((q_e, plaintext))
+        Some(plaintext)
     } else {
         None
     }
@@ -149,8 +141,8 @@ mod tests {
         let nonce = b"this is a nonce";
         let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext);
 
-        let recovered = decrypt((&d_r, &q_r), &q_s, nonce, &ciphertext);
-        assert_eq!(Some((q_e, plaintext.to_vec())), recovered, "invalid plaintext");
+        let recovered = decrypt((&d_r, &q_r), &q_e, &q_s, nonce, &ciphertext);
+        assert_eq!(Some(plaintext.to_vec()), recovered, "invalid plaintext");
     }
 
     #[test]
@@ -162,7 +154,7 @@ mod tests {
 
         let d_r = Scalar::random(&mut rng);
 
-        let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &ciphertext);
+        let plaintext = decrypt((&d_r, &q_r), &q_e, &q_s, nonce, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -175,7 +167,7 @@ mod tests {
 
         let q_r = Point::random(&mut rng);
 
-        let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &ciphertext);
+        let plaintext = decrypt((&d_r, &q_r), &q_e, &q_s, nonce, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -188,7 +180,7 @@ mod tests {
 
         let q_s = Point::random(&mut rng);
 
-        let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &ciphertext);
+        let plaintext = decrypt((&d_r, &q_r), &q_e, &q_s, nonce, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -201,7 +193,7 @@ mod tests {
 
         let nonce = b"this is not a nonce";
 
-        let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &ciphertext);
+        let plaintext = decrypt((&d_r, &q_r), &q_e, &q_s, nonce, &ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -217,7 +209,7 @@ mod tests {
                 let mut ciphertext = ciphertext.clone();
                 ciphertext[i] ^= 1 << j;
                 assert!(
-                    decrypt((&d_r, &q_r), &q_s, nonce, &ciphertext).is_none(),
+                    decrypt((&d_r, &q_r), &q_e, &q_s, nonce, &ciphertext).is_none(),
                     "bit flip at byte {}, bit {} produced a valid message",
                     i,
                     j
