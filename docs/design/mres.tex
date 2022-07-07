@@ -28,8 +28,8 @@ Encrypting a message is described in full in Alg.~\ref{alg:veil.mres-encrypt}.
             \State \textbf{yield} $(k, d_E, Q_E, K)$
             \End
             \State
-            \State $C \gets N$\Comment{Write the nonce.}
-            \State \Call{Absorb}{$N$}\Comment{Absorb the nonce.}
+            \State $C \gets $\Call{PointToUniform}{$Q_E$}\Comment{Encode the key with Elligator Squared.}
+            \State \Call{Absorb}{$C$}\Comment{Absorb the encoded public key.}
             \State
             \State $H = K||N_Q||N_P$\Comment{Encode the DEK and params in a header.}
             \ForAll{$Q_{R^i} \in \{Q_{R^0}..Q_{R^n}\}$}
@@ -77,13 +77,14 @@ Decrypting a signature is described in full in Alg.~\ref{alg:veil.mres-decrypt}.
             \State \Call{Absorb}{\texttt{veil.mres}}\Comment{Initialize an unkeyed duplex.}
             \State \Call{Absorb}{$Q_S$}\label{alg:veil.mres-decrypt-bind-sender}\Comment{Absorb the sender's public key.}
             \State
-            \State \Call{Absorb}{$C[0..16]$}\Comment{Absorb the nonce.}
+            \State \Call{Absorb}{$C[0..64]$}\Comment{Absorb the encoded ephemeral public key.}
+            \State $Q_E \gets $\Call{UniformToPoint}{$C[0..64]$}\Comment{Decode the ephemeral public key.}
             \State
             \ForAll{possible encrypted headers $h \in C$}
                 \State $N \gets$\Call{Squeeze}{$16$}
-                \State $x \gets $ \Call{DecryptHeader}{$(d_R, Q_R), Q_S, h, N$}
+                \State $x \gets $ \Call{DecryptHeader}{$(d_R, Q_R), Q_S, Q_E, h, N$}
                 \If{$x \not= \bot$}
-                    \State $Q_E, K || N_Q || N_P \gets x$
+                    \State $K || N_Q || N_P \gets x$
                     \State \textbf{break}
                 \EndIf
                 \State \Call{Absorb}{$h$}
@@ -227,7 +228,9 @@ to identity.
 \subsection{Indistinguishability From Random Noise}\label{subsec:veil.mres-indistinguishability}
 
 \texttt{veil.mres} ciphertexts are indistinguishable from random noise.
-All components of an \texttt{veil.mres} ciphertext are Cyclist ciphertexts;
+The ephemeral public key is encoded using Elligator Squared, which maps points on an elliptic curve to uniform
+bitstrings~\cite{tibouchi2014}.
+All other components of an \texttt{veil.mres} ciphertext are Cyclist ciphertexts;
 a successful distinguishing attack on them would require Cyclist to not be IND-CPA secure.
 
 \subsection{Partial Decryption}\label{subsec:veil.mres-partial-decryption}
