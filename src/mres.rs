@@ -7,7 +7,9 @@ use std::mem;
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex, TAG_LEN};
-use crate::ecc::{Point, Scalar};
+use crate::ecc::{
+    point_to_representative, representative_to_point, Point, Scalar, REPRESENTATIVE_LEN,
+};
 use crate::schnorr::SIGNATURE_LEN;
 use crate::sres::NONCE_LEN;
 use crate::{schnorr, sres, DecryptError};
@@ -26,16 +28,18 @@ pub fn encrypt(
     let mut mres = UnkeyedDuplex::new("veil.mres");
     mres.absorb_point(q_s);
 
-    // Generate ephemeral key pair, DEK, and nonce.
-    let (d_e, dek, nonce) = mres.hedge(&mut rng, &d_s.to_bytes(), |clone| {
-        (clone.squeeze_scalar(), clone.squeeze::<DEK_LEN>(), clone.squeeze::<NONCE_LEN>())
+    // Generate ephemeral key pair and DEK and encode the ephemeral public key with Elligator
+    // Squared.
+    let (d_e, dek) = mres.hedge(&mut rng, &d_s.to_bytes(), |clone| {
+        (clone.squeeze_scalar(), clone.squeeze::<DEK_LEN>())
     });
     let q_e = &Point::GENERATOR * &d_e;
+    let q_e_r = point_to_representative(&q_e, &mut rng);
 
-    // Absorb and write the random nonce.
-    mres.absorb(&nonce);
-    writer.write_all(&nonce)?;
-    let mut written = NONCE_LEN as u64;
+    // Absorb and write the representative.
+    mres.absorb(&q_e_r);
+    writer.write_all(&q_e_r)?;
+    let mut written = q_e_r.len() as u64;
 
     // Encrypt a header for each receiver.
     written += encrypt_headers(
@@ -173,13 +177,14 @@ pub fn decrypt(
     let mut mres = UnkeyedDuplex::new("veil.mres");
     mres.absorb_point(q_s);
 
-    // Read and absorb the nonce.
-    let mut nonce = [0u8; NONCE_LEN];
-    reader.read_exact(&mut nonce)?;
-    mres.absorb(&nonce);
+    // Read, absorb, and decode the Elligator Squared representative.
+    let mut q_e_r = [0u8; REPRESENTATIVE_LEN];
+    reader.read_exact(&mut q_e_r)?;
+    mres.absorb(&q_e_r);
+    let q_e = representative_to_point(&q_e_r).ok_or(DecryptError::InvalidCiphertext)?;
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the duplex.
-    let (mut mres, q_e, dek) = decrypt_header(mres, reader, d_r, q_r, q_s)?;
+    let (mut mres, dek) = decrypt_header(mres, reader, d_r, q_r, q_s)?;
 
     // Absorb the DEK.
     mres.absorb(&dek);
@@ -252,14 +257,13 @@ fn decrypt_header(
     d_r: &Scalar,
     q_r: &Point,
     q_s: &Point,
-) -> Result<(UnkeyedDuplex, Point, Vec<u8>), DecryptError> {
+) -> Result<(UnkeyedDuplex, Vec<u8>), DecryptError> {
     let mut buf = Vec::with_capacity(ENC_HEADER_LEN);
     let mut i = 0u64;
     let mut hdr_count = u64::MAX;
 
     let mut padding: Option<u64> = None;
     let mut dek: Option<Vec<u8>> = None;
-    let mut q_e: Option<Point> = None;
 
     // Iterate through blocks, looking for an encrypted header that can be decrypted.
     while i < hdr_count {
@@ -278,13 +282,12 @@ fn decrypt_header(
 
         // If a header hasn't been decrypted yet, try to decrypt this one.
         if dek.is_none() {
-            if let Some((d, q, c, p)) =
+            if let Some((d, c, p)) =
                 sres::decrypt((d_r, q_r), q_s, &nonce, header).and_then(decode_header)
             {
                 // If the header was successfully decrypted, keep the DEK and padding and update the
                 // loop variable to not be effectively infinite.
                 dek = Some(d);
-                q_e = Some(q);
                 hdr_count = c;
                 padding = Some(p);
             }
@@ -297,14 +300,14 @@ fn decrypt_header(
         buf.clear();
     }
 
-    if let Some(((dek, q_e), padding)) = dek.zip(q_e).zip(padding) {
+    if let Some((dek, padding)) = dek.zip(padding) {
         // Read the remainder of the padding and absorb it with the duplex.
         let mut padding_block = vec![0u8; padding as usize];
         reader.read_exact(&mut padding_block)?;
         mres.absorb(&padding_block);
 
         // Return the duplex and DEK.
-        Ok((mres, q_e, dek))
+        Ok((mres, dek))
     } else {
         Err(DecryptError::InvalidCiphertext)
     }
@@ -312,7 +315,7 @@ fn decrypt_header(
 
 /// Decode a header into a DEK, header count, and padding size.
 #[inline]
-fn decode_header((q_e, header): (Point, Vec<u8>)) -> Option<(Vec<u8>, Point, u64, u64)> {
+fn decode_header((_, header): (Point, Vec<u8>)) -> Option<(Vec<u8>, u64, u64)> {
     // Check header for proper length.
     if header.len() != HEADER_LEN {
         return None;
@@ -327,7 +330,7 @@ fn decode_header((q_e, header): (Point, Vec<u8>)) -> Option<(Vec<u8>, Point, u64
     let hdr_count = u64::from_le_bytes(hdr_count.try_into().expect("invalid u64 len"));
     let padding = u64::from_le_bytes(padding.try_into().expect("invalid u64 len"));
 
-    Some((dek, q_e, hdr_count, padding))
+    Some((dek, hdr_count, padding))
 }
 
 struct RngRead<R>(R)

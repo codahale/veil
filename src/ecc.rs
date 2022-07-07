@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+//! Elliptic curve cryptography functions.
 
 use elliptic_curve::generic_array::GenericArray;
 use elliptic_curve::group::prime::PrimeCurveAffine;
@@ -14,6 +14,9 @@ use subtle::CtOption;
 
 /// The length of an encoded point in bytes.
 pub(crate) const POINT_LEN: usize = 33;
+
+/// The length of an Elligator Squared representative in bytes.
+pub(crate) const REPRESENTATIVE_LEN: usize = 64;
 
 /// The length of an encoded scalar in bytes.
 pub(crate) const SCALAR_LEN: usize = 32;
@@ -43,7 +46,7 @@ impl FromCanonicalBytes for Point {
 }
 
 /// Decodes the uniform representative into the originally encoded point.
-pub fn representative_to_point(b: &[u8; 64]) -> Option<ProjectivePoint> {
+pub fn representative_to_point(b: &[u8; REPRESENTATIVE_LEN]) -> Option<ProjectivePoint> {
     let u: [u8; 32] = b[..32].try_into().ok()?;
     let v: [u8; 32] = b[32..].try_into().ok()?;
     FieldElement::from_bytes(&u.into())
@@ -54,7 +57,10 @@ pub fn representative_to_point(b: &[u8; 64]) -> Option<ProjectivePoint> {
 }
 
 /// Encodes the given point as a random, uniform representative.
-pub fn point_to_representative(p: &ProjectivePoint, mut rng: impl RngCore + CryptoRng) -> [u8; 64] {
+pub fn point_to_representative(
+    p: &ProjectivePoint,
+    mut rng: impl RngCore + CryptoRng,
+) -> [u8; REPRESENTATIVE_LEN] {
     // Iterate through no more than one thousand candidates. On average, we try N(P) candidates.
     for _ in 0..1_000 {
         // Generate a random field element \not\in {-1, 0, 1}.
