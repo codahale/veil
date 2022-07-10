@@ -126,7 +126,7 @@ fn f(u: &FieldElement) -> AffinePoint {
 }
 
 fn x_0(u: &FieldElement) -> FieldElement {
-    -(curve_b() * curve_a().invert().unwrap())
+    -(curve_b_over_a())
         * (FieldElement::ONE + ((u.square() * u.square()) - u.square()).invert().unwrap())
 }
 
@@ -139,7 +139,7 @@ fn r(q: &ProjectivePoint, j: usize) -> CtOption<FieldElement> {
 
     // Inverting `f` requires two branches, one for X_0 and one for X_1, each of which has four
     // roots. omega is constant across all of them.
-    let omega = ((curve_a() * curve_b().invert().unwrap()) * x) + FieldElement::ONE;
+    let omega = ((curve_a_over_b()) * x) + FieldElement::ONE;
 
     (omega.square() - (FOUR * omega)).sqrt().and_then(|a| {
         // The first division in roots comes at \sqrt{\omega^2 - 4 \omega}. The first and second
@@ -189,6 +189,20 @@ const fn curve_a() -> FieldElement {
         .subtract(&FieldElement::ONE)
         .subtract(&FieldElement::ONE)
         .subtract(&FieldElement::ONE)
+}
+
+fn curve_a_over_b() -> FieldElement {
+    FieldElement::from_bytes(
+        &hex!("FD251ACEDDF5D6ED473C5EDE084C2F36DEAA32AC7B707D4201BCF78020CA730E").into(),
+    )
+    .unwrap()
+}
+
+fn curve_b_over_a() -> FieldElement {
+    FieldElement::from_bytes(
+        &hex!("8C6898B71C972408C406C0E383227DC133A0FDC5BBE41A5896BB41409D648A91").into(),
+    )
+    .unwrap()
 }
 
 // A final bummer is that p256 doesn't provide access to curve constants _and_ doesn't provide a
