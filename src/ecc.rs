@@ -12,11 +12,14 @@ use p256::{
 use rand::{CryptoRng, RngCore};
 use subtle::CtOption;
 
+/// The length of an encoded field element in bytes.
+const FE_LEN: usize = 32;
+
 /// The length of an encoded point in bytes.
-pub(crate) const POINT_LEN: usize = 33;
+pub(crate) const POINT_LEN: usize = FE_LEN + 1;
 
 /// The length of an Elligator Squared representative in bytes.
-pub(crate) const REPRESENTATIVE_LEN: usize = 64;
+pub(crate) const REPRESENTATIVE_LEN: usize = FE_LEN * 2;
 
 /// The length of an encoded scalar in bytes.
 pub(crate) const SCALAR_LEN: usize = 32;
@@ -47,8 +50,8 @@ impl FromCanonicalBytes for Point {
 
 /// Decodes the uniform representative into the originally encoded point.
 pub fn representative_to_point(b: &[u8; REPRESENTATIVE_LEN]) -> Option<ProjectivePoint> {
-    let u: [u8; 32] = b[..32].try_into().ok()?;
-    let v: [u8; 32] = b[32..].try_into().ok()?;
+    let u: [u8; FE_LEN] = b[..FE_LEN].try_into().ok()?;
+    let v: [u8; FE_LEN] = b[FE_LEN..].try_into().ok()?;
     FieldElement::from_bytes(&u.into())
         .and_then(|u| {
             FieldElement::from_bytes(&v.into()).map(|v| f(&u).to_curve() + f(&v).to_curve())
@@ -86,9 +89,9 @@ pub fn point_to_representative(
         // and our preimage field element.
         let v: Option<FieldElement> = r(&q, j).into();
         if let Some(v) = v {
-            let mut b = [0u8; 64];
-            b[..32].copy_from_slice(&u.to_bytes());
-            b[32..].copy_from_slice(&v.to_bytes());
+            let mut b = [0u8; REPRESENTATIVE_LEN];
+            b[..FE_LEN].copy_from_slice(&u.to_bytes());
+            b[FE_LEN..].copy_from_slice(&v.to_bytes());
             return b;
         }
     }
