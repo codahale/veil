@@ -3,7 +3,7 @@
 use elliptic_curve::generic_array::GenericArray;
 use elliptic_curve::group::prime::PrimeCurveAffine;
 use elliptic_curve::group::GroupEncoding;
-use elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint};
+use elliptic_curve::sec1::{Coordinates, FromEncodedPoint, ToEncodedPoint};
 use elliptic_curve::{Field, Group};
 use hex_literal::hex;
 use p256::{
@@ -170,17 +170,22 @@ fn r(q: &ProjectivePoint, j: usize) -> CtOption<FieldElement> {
 // There isn't a constructor available for converting FieldElement coordinates into an AffinePoint
 // directly, so we're stuck having to make an EncodedPoint as an intermediary.
 fn coordinates_to_point(x: &FieldElement, y: &FieldElement) -> AffinePoint {
-    let enc = EncodedPoint::from_affine_coordinates(&x.to_bytes(), &y.to_bytes(), false);
-    AffinePoint::from_encoded_point(&enc).unwrap()
+    AffinePoint::from_encoded_point(&EncodedPoint::from_affine_coordinates(
+        &x.to_bytes(),
+        &y.to_bytes(),
+        false,
+    ))
+    .unwrap()
 }
 
 // Similarly, there isn't an accessor for the y-coordinate of AffinePoint, so we're stuck encoding
 // the point without compression and then decoding the coordinates manually.
 fn point_to_coordinates(q: AffinePoint) -> (FieldElement, FieldElement) {
-    let enc = q.to_encoded_point(false);
-    let x = FieldElement::from_bytes(enc.x().unwrap()).unwrap();
-    let y = FieldElement::from_bytes(enc.y().unwrap()).unwrap();
-    (x, y)
+    if let Coordinates::Uncompressed { x, y } = q.to_encoded_point(false).coordinates() {
+        (FieldElement::from_bytes(x).unwrap(), FieldElement::from_bytes(y).unwrap())
+    } else {
+        unreachable!("unable to access coordinates of uncompressed point")
+    }
 }
 
 const TWO: FieldElement = FieldElement::add(&FieldElement::ONE, &FieldElement::ONE);
