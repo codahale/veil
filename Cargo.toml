@@ -16,6 +16,7 @@ bs58 = "0.4.0"
 cyclist = { version = "0.1.0", default-features = false, features = ["std", "keccyak"] }
 elliptic-curve = { version = "0.12.2", default-features = false, features = ["arithmetic"] }
 hex-literal = "0.3.4"
+once_cell = "1.13.0"
 p256 = { version = "0.11.1", default-features = false, features = ["arithmetic", "expose-field"] }
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 subtle = "2.4.1"

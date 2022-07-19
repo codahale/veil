@@ -1,11 +1,14 @@
 //! Elliptic curve cryptography functions.
 
+use std::ops::{Deref, Neg};
+
 use elliptic_curve::generic_array::GenericArray;
 use elliptic_curve::group::prime::PrimeCurveAffine;
 use elliptic_curve::group::GroupEncoding;
 use elliptic_curve::sec1::{Coordinates, FromEncodedPoint, ToEncodedPoint};
 use elliptic_curve::{Field, Group};
 use hex_literal::hex;
+use once_cell::sync::Lazy;
 use p256::{
     AffinePoint, CompressedPoint, EncodedPoint, FieldElement, NonZeroScalar, ProjectivePoint,
 };
@@ -102,7 +105,7 @@ pub fn point_to_representative(
 }
 
 fn g(x: &FieldElement) -> FieldElement {
-    x.cube() + (curve_a() * x) + curve_b()
+    x.cube() + (CURVE_A.deref() * x) + CURVE_B.deref()
 }
 
 fn f(u: &FieldElement) -> AffinePoint {
@@ -129,7 +132,7 @@ fn f(u: &FieldElement) -> AffinePoint {
 }
 
 fn x_0(u: &FieldElement) -> FieldElement {
-    -(curve_b_over_a())
+    CURVE_B_OVER_A.neg()
         * (FieldElement::ONE + ((u.square() * u.square()) - u.square()).invert().unwrap())
 }
 
@@ -142,7 +145,7 @@ fn r(q: &ProjectivePoint, j: usize) -> CtOption<FieldElement> {
 
     // Inverting `f` requires two branches, one for X_0 and one for X_1, each of which has four
     // roots. omega is constant across all of them.
-    let omega = ((curve_a_over_b()) * x) + FieldElement::ONE;
+    let omega = (CURVE_A_OVER_B.deref() * &x) + FieldElement::ONE;
 
     (omega.square() - (FOUR * omega)).sqrt().and_then(|a| {
         // The first division in roots comes at \sqrt{\omega^2 - 4 \omega}. The first and second
@@ -191,37 +194,30 @@ fn point_to_coordinates(q: AffinePoint) -> (FieldElement, FieldElement) {
 const TWO: FieldElement = FieldElement::add(&FieldElement::ONE, &FieldElement::ONE);
 const FOUR: FieldElement = TWO.square();
 
-const fn curve_a() -> FieldElement {
+// A final bummer is that p256 doesn't provide access to curve constants _and_ doesn't provide a
+// const FieldElement constructor.
+
+static CURVE_A: Lazy<FieldElement> = Lazy::new(|| {
     // a = -3
     FieldElement::ZERO
         .subtract(&FieldElement::ONE)
         .subtract(&FieldElement::ONE)
         .subtract(&FieldElement::ONE)
-}
+});
 
-fn curve_a_over_b() -> FieldElement {
-    FieldElement::from_bytes(
-        &hex!("FD251ACEDDF5D6ED473C5EDE084C2F36DEAA32AC7B707D4201BCF78020CA730E").into(),
-    )
-    .unwrap()
-}
-
-fn curve_b_over_a() -> FieldElement {
-    FieldElement::from_bytes(
-        &hex!("8C6898B71C972408C406C0E383227DC133A0FDC5BBE41A5896BB41409D648A91").into(),
-    )
-    .unwrap()
-}
-
-// A final bummer is that p256 doesn't provide access to curve constants _and_ doesn't provide a
-// const FieldElement constructor.
-fn curve_b() -> FieldElement {
+static CURVE_B: Lazy<FieldElement> = Lazy::new(|| {
     // b = 0x5AC635D8AA3A93E7B3EBBD55769886BC651D06B0CC53B0F63BCE3C3E27D2604B
     FieldElement::from_bytes(
         &hex!("5AC635D8AA3A93E7B3EBBD55769886BC651D06B0CC53B0F63BCE3C3E27D2604B").into(),
     )
     .unwrap()
-}
+});
+
+static CURVE_A_OVER_B: Lazy<FieldElement> =
+    Lazy::new(|| CURVE_A.deref() * &CURVE_B.invert().unwrap());
+
+static CURVE_B_OVER_A: Lazy<FieldElement> =
+    Lazy::new(|| CURVE_B.deref() * &CURVE_A.invert().unwrap());
 
 #[cfg(test)]
 mod tests {

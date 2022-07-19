@@ -1032,6 +1032,7 @@ dependencies = [
  "elliptic-curve",
  "hex-literal",
  "mimalloc",
+ "once_cell",
  "p256",
  "rand",
  "rand_chacha",
