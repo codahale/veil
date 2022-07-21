@@ -107,9 +107,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.2.13"
+version = "3.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac2bd7a1eb07da9ac757c923f69373deb7bc2ba5efc951b873bcb5e693992dca"
+checksum = "54635806b078b7925d6e36810b1755f2a4b5b4d57560432c1ecf60bcbe10602b"
 dependencies = [
  "atty",
  "bitflags",
@@ -128,7 +128,7 @@ version = "3.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ead064480dfc4880a10764488415a97fdd36a4cf1bb022d372f02e8faf8386e1"
 dependencies = [
- "clap 3.2.13",
+ "clap 3.2.14",
 ]
 
 [[package]]
@@ -159,7 +159,7 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c850d26e67812ca0adb581c77e4ad1fd0a27ea3a8f8205fddfe7d5f52b783788"
 dependencies = [
- "clap 3.2.13",
+ "clap 3.2.14",
  "libc",
 ]
 
@@ -1023,7 +1023,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bs58",
- "clap 3.2.13",
+ "clap 3.2.14",
  "clap_complete",
  "clio",
  "criterion",
