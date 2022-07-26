@@ -302,10 +302,8 @@ fn decrypt_header(
     }
 
     if let Some((dek, padding)) = dek.zip(padding) {
-        // Read the remainder of the padding and absorb it with the duplex.
-        let mut padding_block = vec![0u8; padding as usize];
-        reader.read_exact(&mut padding_block)?;
-        mres.absorb(&padding_block);
+        // Read the padding and absorb it with the duplex.
+        mres.absorb_reader(&mut reader.take(padding))?;
 
         // Return the duplex and DEK.
         Ok((mres, dek))
