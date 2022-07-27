@@ -1,7 +1,7 @@
 //! Implements a cryptographic duplex using Cyclist/Keccak.
 
 use std::io;
-use std::io::Read;
+use std::io::{Read, Write};
 
 use cyclist::keccyak::{Keccyak128Hash, Keccyak128Keyed};
 use cyclist::Cyclist;
@@ -127,11 +127,21 @@ pub trait Absorb: Clone {
     }
 
     /// Absorb the entire contents of the given reader as a single operation.
-    fn absorb_reader(&mut self, mut reader: impl Read) -> io::Result<()> {
+    fn absorb_reader(&mut self, reader: impl Read) -> io::Result<u64> {
+        self.absorb_reader_into(reader, io::sink())
+    }
+
+    /// Copy the contents of `reader` into `writer`, absorbing the contents as a single operation.
+    fn absorb_reader_into(
+        &mut self,
+        mut reader: impl Read,
+        mut writer: impl Write,
+    ) -> io::Result<u64> {
         let block_len = self.absorb_rate() * 32;
 
         let mut buf = Vec::with_capacity(block_len);
         let mut first = true;
+        let mut written = 0;
 
         loop {
             // Read a block of data.
@@ -146,6 +156,10 @@ pub trait Absorb: Clone {
                 self.absorb_more(block);
             }
 
+            // Write the block.
+            writer.write_all(block)?;
+            written += u64::try_from(n).expect("unexpected overflow");
+
             // If the block was undersized, we're at the end of the reader.
             if n < block_len {
                 break;
@@ -155,7 +169,7 @@ pub trait Absorb: Clone {
             buf.clear();
         }
 
-        Ok(())
+        Ok(written)
     }
 
     /// Clone the duplex and use it to absorb the given secret and 64 random bytes. Pass the clone

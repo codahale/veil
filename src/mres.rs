@@ -19,7 +19,7 @@ use crate::{schnorr, sres, DecryptError};
 pub fn encrypt(
     mut rng: impl Rng + CryptoRng,
     reader: &mut impl Read,
-    writer: &mut impl Write,
+    mut writer: &mut impl Write,
     (d_s, q_s): (&Scalar, &Point),
     q_rs: &[Point],
     padding: usize,
@@ -54,10 +54,7 @@ pub fn encrypt(
     )?;
 
     // Add random padding to the end of the headers.
-    let mut padding_block = vec![0u8; padding];
-    rng.fill_bytes(&mut padding_block);
-    mres.absorb(&padding_block);
-    writer.write_all(&padding_block)?;
+    written += mres.absorb_reader_into(RngRead(&mut rng).take(padding as u64), &mut writer)?;
 
     // Absorb the DEK.
     mres.absorb(&dek);
@@ -78,7 +75,7 @@ pub fn encrypt(
     writer.write_all(&i)?;
     writer.write_all(&s)?;
 
-    Ok(written + padding as u64 + i.len() as u64 + s.len() as u64)
+    Ok(written + i.len() as u64 + s.len() as u64)
 }
 
 /// The length of the data encryption key.
