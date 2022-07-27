@@ -86,7 +86,7 @@ pub fn point_to_representative(
         }
 
         // Pick a random biquadratic root from [0,4).
-        let j = rng.next_u32() as usize % 4;
+        let j = (rng.next_u32() % 4).try_into().expect("unexpected overflow");
 
         // If the Jth biquadratic root exists for the delta point, return our random field element
         // and our preimage field element.

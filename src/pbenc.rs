@@ -90,12 +90,13 @@ fn init(passphrase: &str, salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
     pbenc.absorb(salt);
     pbenc.absorb(&[time]);
     pbenc.absorb(&[space]);
-    pbenc.absorb(&[N as u8]);
-    pbenc.absorb(&[DELTA as u8]);
+    pbenc.absorb(&[N.try_into().expect("unexpected overflow")]);
+    pbenc.absorb(&[DELTA.try_into().expect("unexpected overflow")]);
 
     // Convert time and space params into linear terms.
     let time = 1usize << time;
     let space = 1usize << space;
+    let space64 = u64::try_from(space).expect("unexpected overflow");
 
     // Allocate buffers.
     let mut ctr = 0u64;
@@ -118,18 +119,24 @@ fn init(passphrase: &str, salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
             for i in 0..DELTA {
                 // Map indexes to a block and hash it and the salt.
                 let mut idx = Vec::with_capacity(mem::size_of::<u64>() * 3);
-                idx.extend((t as u64).to_le_bytes());
-                idx.extend((m as u64).to_le_bytes());
-                idx.extend((i as u64).to_le_bytes());
+                idx.extend(u64::try_from(t).expect("unexpected overflow").to_le_bytes());
+                idx.extend(u64::try_from(m).expect("unexpected overflow").to_le_bytes());
+                idx.extend(u64::try_from(i).expect("unexpected overflow").to_le_bytes());
                 hash_counter!(pbenc, ctr, salt, idx);
 
                 // Map the PRF output to a block index.
                 let mut idx = [0u8; mem::size_of::<u64>()];
                 pbenc.squeeze_mut(&mut idx);
-                let idx = u64::from_le_bytes(idx) % space as u64;
+                let idx = u64::from_le_bytes(idx) % space64;
 
                 // Hash the pseudo-randomly selected block.
-                hash_counter!(pbenc, ctr, buf[idx as usize], [], buf[m]);
+                hash_counter!(
+                    pbenc,
+                    ctr,
+                    buf[usize::try_from(idx).expect("unexpected overflow")],
+                    [],
+                    buf[m]
+                );
             }
         }
     }

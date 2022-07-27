@@ -145,7 +145,9 @@ pub trait Absorb: Clone {
 
         loop {
             // Read a block of data.
-            let n = (&mut reader).take(block_len as u64).read_to_end(&mut buf)?;
+            let n = (&mut reader)
+                .take(u64::try_from(block_len).expect("unexpected overflow"))
+                .read_to_end(&mut buf)?;
             let block = &buf[..n];
 
             // Absorb the block.

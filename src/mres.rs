@@ -24,6 +24,8 @@ pub fn encrypt(
     q_rs: &[Point],
     padding: usize,
 ) -> io::Result<u64> {
+    let padding = u64::try_from(padding).expect("unexpected overflow");
+
     // Initialize an unkeyed duplex and absorb the sender's public key.
     let mut mres = UnkeyedDuplex::new("veil.mres");
     mres.absorb_point(q_s);
@@ -39,7 +41,7 @@ pub fn encrypt(
     // Absorb and write the representative.
     mres.absorb(&q_e_r);
     writer.write_all(&q_e_r)?;
-    let mut written = q_e_r.len() as u64;
+    let mut written = u64::try_from(REPRESENTATIVE_LEN).expect("unexpected overflow");
 
     // Encrypt a header for each receiver.
     written += encrypt_headers(
@@ -49,12 +51,12 @@ pub fn encrypt(
         (&d_e, &q_e),
         q_rs,
         &dek,
-        padding as u64,
+        padding,
         writer,
     )?;
 
     // Add random padding to the end of the headers.
-    written += mres.absorb_reader_into(RngRead(&mut rng).take(padding as u64), &mut writer)?;
+    written += mres.absorb_reader_into(RngRead(&mut rng).take(padding), &mut writer)?;
 
     // Absorb the DEK.
     mres.absorb(&dek);
@@ -75,7 +77,9 @@ pub fn encrypt(
     writer.write_all(&i)?;
     writer.write_all(&s)?;
 
-    Ok(written + i.len() as u64 + s.len() as u64)
+    Ok(written
+        + u64::try_from(i.len()).expect("unexpected overflow")
+        + u64::try_from(s.len()).expect("unexpected overflow"))
 }
 
 /// The length of the data encryption key.
@@ -105,8 +109,7 @@ fn encrypt_headers(
     writer: &mut impl Write,
 ) -> io::Result<u64> {
     let mut written = 0u64;
-
-    let header = encode_header(dek, q_rs.len() as u64, padding);
+    let header = encode_header(dek, q_rs.len().try_into().expect("unexpected overflow"), padding);
 
     // For each receiver, encrypt a copy of the header with veil.sres.
     for q_r in q_rs {
@@ -121,7 +124,7 @@ fn encrypt_headers(
 
         // Write the encrypted header.
         writer.write_all(&ciphertext)?;
-        written += ciphertext.len() as u64;
+        written += u64::try_from(ciphertext.len()).expect("unexpected overflow");
     }
 
     Ok(written)
@@ -142,12 +145,14 @@ fn encrypt_message(
 
     loop {
         // Read a block of data.
-        let n = reader.take(BLOCK_LEN as u64).read_to_end(&mut buf)?;
+        let n = reader
+            .take(BLOCK_LEN.try_into().expect("unexpected overflow"))
+            .read_to_end(&mut buf)?;
         let block = &buf[..n];
 
         // Encrypt the block and write the ciphertext and a tag.
         writer.write_all(&mres.seal(block))?;
-        written += (n + TAG_LEN) as u64;
+        written += u64::try_from(n + TAG_LEN).expect("unexpected overflow");
 
         // If the block was undersized, we're at the end of the reader.
         if n < BLOCK_LEN {
@@ -216,7 +221,10 @@ fn decrypt_message(
         // Read a block and a possible signature, keeping in mind the unused bit of the buffer from
         // the last iteration.
         let n = reader
-            .take((ENC_BLOCK_LEN + SIGNATURE_LEN - buf.len()) as u64)
+            .take(
+                u64::try_from(ENC_BLOCK_LEN + SIGNATURE_LEN - buf.len())
+                    .expect("unexpected overflow"),
+            )
             .read_to_end(&mut buf)?;
 
         // If we're at the end of the reader, we only have the signature left to process. Break out
@@ -233,7 +241,7 @@ fn decrypt_message(
         // error.
         let plaintext = mres.unseal(block).ok_or(DecryptError::InvalidCiphertext)?;
         writer.write_all(&plaintext)?;
-        written += plaintext.len() as u64;
+        written += u64::try_from(plaintext.len()).expect("unexpected overflow");
 
         // Clear the part of the buffer we used.
         buf.drain(0..n);
@@ -266,7 +274,9 @@ fn decrypt_header(
     // Iterate through blocks, looking for an encrypted header that can be decrypted.
     while i < hdr_count {
         // Read a potential encrypted header.
-        let n = reader.take(ENC_HEADER_LEN as u64).read_to_end(&mut buf)?;
+        let n = reader
+            .take(ENC_HEADER_LEN.try_into().expect("unexpected overflow"))
+            .read_to_end(&mut buf)?;
         let header = &buf[..n];
 
         // If the header is short, we're at the end of the reader.

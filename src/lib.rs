@@ -62,6 +62,7 @@
     unused_lifetimes,
     unused_qualifications,
     missing_debug_implementations,
+    clippy::as_conversions,
     clippy::cognitive_complexity,
     clippy::missing_const_for_fn,
     clippy::doc_markdown,
