@@ -4,7 +4,7 @@ In the interests of cryptographic minimalism, Veil uses just two distinct crypto
 
 \begin{itemize}
     \item Keccyak-128~\cite{daemen2020,bertoni2018} for confidentiality, authentication, and integrity.
-    \item NIST P-256 for key agreement and authenticity~\cite{fips1864}.
+    \item Ristretto255 for key agreement and authenticity~\cite{deValence2020}.
 \end{itemize}
 
 \subsection{Keccyak-128}\label{subsec:keccyak}
@@ -31,13 +31,13 @@ Veil's security assumes that Cyclist's \textsc{Encrypt} operation is IND-CPA sec
 \textsc{Squeeze} operation is sUF-CMA secure, and its
 \textsc{Encrypt}/\textsc{Squeeze}-based authenticated encryption construction is IND-CCA2 secure.
 
-\subsection{P-256}\label{subsec:p256}
+\subsection{Ristretto255}\label{subsec:ristretto255}
 
-NIST P-256 is an elliptic curve with a prime-order cyclic group, which eliminates co-factor concerns~\cite{fips1864}.
+Ristretto255 uses a safe curve, is a prime-order cyclic group, has non-malleable encodings, and has no
+co-factor concerns.
 This allows for the use of a wide variety of cryptographic constructions built on group operations.
-The development of complete formulas for Weierstrass curves by Renes et al\.~\cite{renes2016} allows for simple
-constant-time implementations, and the exclusive use of SEC1-encoded compressed points combined with strict checks
-for the additive identity (a\.k\.a\. ``infinity'') and coordinate modularity eliminate malleability and invalid curve
-attacks.
+It targets a 128-bit security level, lends itself to constant-time implementations, and can run in constrained
+environments~\cite{deValence2018}.
 
-Veil's security assumes that the Gap Discrete Logarithm and Gap Diffie-Hellman problems are hard relative to P-256.
+Veil's security assumes that the Gap Discrete Logarithm and Gap Diffie-Hellman problems are hard relative to
+Ristretto255.
