@@ -93,8 +93,8 @@ pub trait Squeeze {
     #[must_use]
     fn squeeze_scalar(&mut self) -> Scalar {
         loop {
-            let (v, ok) = Scalar::decode32(&self.squeeze::<{ Scalar::LEN }>());
-            if ok != 0 {
+            let v = Scalar::decode_reduce(&self.squeeze::<64>());
+            if v.iszero() == 0 {
                 return v;
             }
         }
