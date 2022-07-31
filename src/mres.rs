@@ -7,9 +7,7 @@ use std::mem;
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex, TAG_LEN};
-use crate::ecc::{
-    point_to_representative, representative_to_point, Point, Scalar, REPRESENTATIVE_LEN,
-};
+use crate::ecc::{CanonicallyEncoded, Point, Scalar};
 use crate::schnorr::SIGNATURE_LEN;
 use crate::sres::NONCE_LEN;
 use crate::{schnorr, sres, DecryptError};
@@ -30,18 +28,16 @@ pub fn encrypt(
     let mut mres = UnkeyedDuplex::new("veil.mres");
     mres.absorb_point(q_s);
 
-    // Generate ephemeral key pair and DEK and encode the ephemeral public key with Elligator
-    // Squared.
-    let (d_e, dek) = mres.hedge(&mut rng, &d_s.to_bytes(), |clone| {
-        (clone.squeeze_scalar(), clone.squeeze::<DEK_LEN>())
+    // Generate ephemeral key pair, DEK, and nonce.
+    let (d_e, dek, nonce) = mres.hedge(&mut rng, &d_s.as_canonical_bytes(), |clone| {
+        (clone.squeeze_scalar(), clone.squeeze::<DEK_LEN>(), clone.squeeze::<NONCE_LEN>())
     });
-    let q_e = &Point::GENERATOR * &d_e;
-    let q_e_r = point_to_representative(&q_e, &mut rng);
+    let q_e = Point::mulgen(&d_e);
 
-    // Absorb and write the representative.
-    mres.absorb(&q_e_r);
-    writer.write_all(&q_e_r)?;
-    let mut written = u64::try_from(REPRESENTATIVE_LEN).expect("unexpected overflow");
+    // Absorb and write the nonce.
+    mres.absorb(&nonce);
+    writer.write_all(&nonce)?;
+    let mut written = u64::try_from(NONCE_LEN).expect("unexpected overflow");
 
     // Encrypt a header for each receiver.
     written += encrypt_headers(
@@ -71,7 +67,7 @@ pub fn encrypt(
     let (i, s) = schnorr::sign_duplex(&mut mres, &mut rng, &d_e);
 
     // Encrypt the proof scalar.
-    let s = mres.encrypt(&s.to_bytes());
+    let s = mres.encrypt(&s.as_canonical_bytes());
 
     // Write the signature components.
     writer.write_all(&i)?;
@@ -179,14 +175,13 @@ pub fn decrypt(
     let mut mres = UnkeyedDuplex::new("veil.mres");
     mres.absorb_point(q_s);
 
-    // Read, absorb, and decode the Elligator Squared representative.
-    let mut q_e_r = [0u8; REPRESENTATIVE_LEN];
-    reader.read_exact(&mut q_e_r)?;
-    mres.absorb(&q_e_r);
-    let q_e = representative_to_point(&q_e_r).ok_or(DecryptError::InvalidCiphertext)?;
+    // Read and absorb the nonce.
+    let mut nonce = [0u8; NONCE_LEN];
+    reader.read_exact(&mut nonce)?;
+    mres.absorb(&nonce);
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the duplex.
-    let (mut mres, dek) = decrypt_header(mres, reader, d_r, q_r, &q_e, q_s)?;
+    let (mut mres, q_e, dek) = decrypt_header(mres, reader, d_r, q_r, q_s)?;
 
     // Absorb the DEK.
     mres.absorb(&dek);
@@ -261,15 +256,13 @@ fn decrypt_header(
     reader: &mut impl Read,
     d_r: &Scalar,
     q_r: &Point,
-    q_e: &Point,
     q_s: &Point,
-) -> Result<(UnkeyedDuplex, Vec<u8>), DecryptError> {
+) -> Result<(UnkeyedDuplex, Point, Vec<u8>), DecryptError> {
     let mut buf = Vec::with_capacity(ENC_HEADER_LEN);
     let mut i = 0u64;
     let mut hdr_count = u64::MAX;
 
-    let mut padding: Option<u64> = None;
-    let mut dek: Option<Vec<u8>> = None;
+    let mut header_values: Option<(Point, u64, Vec<u8>)> = None;
 
     // Iterate through blocks, looking for an encrypted header that can be decrypted.
     while i < hdr_count {
@@ -289,15 +282,14 @@ fn decrypt_header(
         let nonce = mres.squeeze::<NONCE_LEN>();
 
         // If a header hasn't been decrypted yet, try to decrypt this one.
-        if dek.is_none() {
-            if let Some((d, c, p)) =
-                sres::decrypt((d_r, q_r), q_e, q_s, &nonce, header).and_then(decode_header)
+        if header_values.is_none() {
+            if let Some((q_e, d, c, p)) =
+                sres::decrypt((d_r, q_r), q_s, &nonce, header).and_then(decode_header)
             {
-                // If the header was successfully decrypted, keep the DEK and padding and update the
-                // loop variable to not be effectively infinite.
-                dek = Some(d);
+                // If the header was successfully decrypted, keep the ephemeral public key, DEK, and
+                // padding and update the loop variable to not be effectively infinite.
+                header_values = Some((q_e, p, d));
                 hdr_count = c;
-                padding = Some(p);
             }
         }
 
@@ -308,20 +300,21 @@ fn decrypt_header(
         buf.clear();
     }
 
-    if let Some((dek, padding)) = dek.zip(padding) {
+    if let Some((q_e, padding, dek)) = header_values {
         // Read the padding and absorb it with the duplex.
         mres.absorb_reader(&mut reader.take(padding))?;
 
-        // Return the duplex and DEK.
-        Ok((mres, dek))
+        // Return the duplex, ephemeral public key, and DEK.
+        Ok((mres, q_e, dek))
     } else {
         Err(DecryptError::InvalidCiphertext)
     }
 }
 
-/// Decode a header into a DEK, header count, and padding size.
+/// Decode an ephemeral public key and header into an ephemeral public key, DEK, header count, and
+/// padding size.
 #[inline]
-fn decode_header(header: Vec<u8>) -> Option<(Vec<u8>, u64, u64)> {
+fn decode_header((q_e, header): (Point, Vec<u8>)) -> Option<(Point, Vec<u8>, u64, u64)> {
     // Check header for proper length.
     if header.len() != HEADER_LEN {
         return None;
@@ -336,7 +329,7 @@ fn decode_header(header: Vec<u8>) -> Option<(Vec<u8>, u64, u64)> {
     let hdr_count = u64::from_le_bytes(hdr_count.try_into().expect("invalid u64 len"));
     let padding = u64::from_le_bytes(padding.try_into().expect("invalid u64 len"));
 
-    Some((dek, hdr_count, padding))
+    Some((q_e, dek, hdr_count, padding))
 }
 
 struct RngRead<R>(R)
@@ -357,7 +350,6 @@ where
 mod tests {
     use std::io::Cursor;
 
-    use elliptic_curve::Group;
     use rand::SeedableRng;
     use rand_chacha::ChaChaRng;
 
@@ -527,10 +519,10 @@ mod tests {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let d_s = Scalar::random(&mut rng);
-        let q_s = &Point::GENERATOR * &d_s;
+        let q_s = Point::mulgen(&d_s);
 
         let d_r = Scalar::random(&mut rng);
-        let q_r = &Point::GENERATOR * &d_r;
+        let q_r = Point::mulgen(&d_r);
 
         (rng, d_s, q_s, d_r, q_r)
     }

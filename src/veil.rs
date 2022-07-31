@@ -5,19 +5,15 @@ use std::io::{BufWriter, Read, Write};
 use std::str::FromStr;
 use std::{fmt, io, iter};
 
-use elliptic_curve::group::GroupEncoding;
-use elliptic_curve::Group;
 use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
-use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::ecc::{FromCanonicalBytes, Point, Scalar, POINT_LEN};
+use crate::ecc::{CanonicallyEncoded, Point, Scalar};
 use crate::{
     mres, pbenc, schnorr, AsciiEncoded, DecryptError, ParsePublicKeyError, Signature, VerifyError,
 };
 
 /// A private key, used to encrypt, decrypt, and sign messages.
-#[derive(ZeroizeOnDrop)]
 pub struct PrivateKey {
     d: Scalar,
     pk: PublicKey,
@@ -25,7 +21,7 @@ pub struct PrivateKey {
 
 impl PrivateKey {
     fn from_scalar(d: Scalar) -> PrivateKey {
-        let q = &Point::GENERATOR * &d;
+        let q = Point::mulgen(&d);
         PrivateKey { d, pk: PublicKey { q } }
     }
 
@@ -55,7 +51,7 @@ impl PrivateKey {
         time: u8,
         space: u8,
     ) -> io::Result<usize> {
-        let b = pbenc::encrypt(rng, passphrase, time, space, &self.d.to_bytes());
+        let b = pbenc::encrypt(rng, passphrase, time, space, &self.d.as_canonical_bytes());
         writer.write_all(&b)?;
         Ok(b.len())
     }
@@ -68,7 +64,7 @@ impl PrivateKey {
     /// [`DecryptError::InvalidCiphertext`] error will be returned. If an error occurred while
     /// reading, a [`DecryptError::IoError`] error will be returned.
     pub fn load(mut reader: impl Read, passphrase: &str) -> Result<PrivateKey, DecryptError> {
-        let mut b = Vec::with_capacity(POINT_LEN);
+        let mut b = Vec::with_capacity(Point::LEN);
         reader.read_to_end(&mut b)?;
 
         // Decrypt the ciphertext and use the plaintext as the private key.
@@ -166,9 +162,17 @@ impl Debug for PrivateKey {
 }
 
 /// A public key, used to verify messages.
-#[derive(Clone, Copy, Eq, PartialEq, Zeroize)]
+#[derive(Clone, Copy)]
 pub struct PublicKey {
     q: Point,
+}
+
+impl Eq for PublicKey {}
+
+impl PartialEq for PublicKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.q.equals(other.q) != 0
+    }
 }
 
 impl PublicKey {
@@ -194,7 +198,7 @@ impl AsciiEncoded for PublicKey {
     }
 
     fn to_bytes(&self) -> Vec<u8> {
-        self.q.to_bytes().to_vec()
+        self.q.as_canonical_bytes().to_vec()
     }
 }
 
@@ -229,14 +233,14 @@ mod tests {
 
     #[test]
     fn public_key_encoding() {
-        let base = PublicKey { q: Point::GENERATOR };
+        let base = PublicKey { q: Point::BASE };
         assert_eq!(
-            "21tzoXVq7aGx61bNRTPDVn9hJhszdDA4CPcp9LYZL8ffT",
+            "GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3",
             base.to_string(),
             "invalid encoded public key"
         );
 
-        let decoded = "21tzoXVq7aGx61bNRTPDVn9hJhszdDA4CPcp9LYZL8ffT".parse::<PublicKey>();
+        let decoded = "GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3".parse::<PublicKey>();
         assert_eq!(Ok(base), decoded, "error parsing public key");
 
         assert_eq!(

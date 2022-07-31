@@ -5,11 +5,9 @@ use std::io::{Read, Write};
 
 use cyclist::keccyak::{Keccyak128Hash, Keccyak128Keyed};
 use cyclist::Cyclist;
-use elliptic_curve::group::GroupEncoding;
-use elliptic_curve::ops::Reduce;
 use rand::{CryptoRng, Rng};
 
-use crate::ecc::{Point, Scalar, SCALAR_LEN};
+use crate::ecc::{CanonicallyEncoded, Point, Scalar};
 
 /// The length of an authentication tag in bytes.
 pub const TAG_LEN: usize = 16;
@@ -94,7 +92,12 @@ pub trait Squeeze {
     /// Squeeze 32 bytes from the duplex and map them to a [`Scalar`].
     #[must_use]
     fn squeeze_scalar(&mut self) -> Scalar {
-        Scalar::from_be_bytes_reduced(self.squeeze::<{ SCALAR_LEN }>().into())
+        loop {
+            let (v, ok) = Scalar::decode32(&self.squeeze::<{ Scalar::LEN }>());
+            if ok != 0 {
+                return v;
+            }
+        }
     }
 }
 
@@ -123,7 +126,7 @@ pub trait Absorb: Clone {
 
     /// Absorb a point.
     fn absorb_point(&mut self, q: &Point) {
-        self.absorb(&q.to_bytes());
+        self.absorb(&q.as_canonical_bytes());
     }
 
     /// Absorb the entire contents of the given reader as a single operation.

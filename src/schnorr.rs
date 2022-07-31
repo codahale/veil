@@ -6,16 +6,14 @@ use std::io::{Read, Result};
 use std::str::FromStr;
 use std::{fmt, result};
 
-use elliptic_curve::group::GroupEncoding;
-use elliptic_curve::ops::LinearCombination;
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex};
-use crate::ecc::{FromCanonicalBytes, Point, Scalar, POINT_LEN, SCALAR_LEN};
+use crate::ecc::{CanonicallyEncoded, Point, Scalar};
 use crate::{AsciiEncoded, ParseSignatureError, VerifyError};
 
 /// The length of a signature, in bytes.
-pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
+pub const SIGNATURE_LEN: usize = Point::LEN + Scalar::LEN;
 
 /// A Schnorr signature.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -69,7 +67,7 @@ pub fn sign(
     let (i, s) = sign_duplex(&mut schnorr, rng, d);
 
     // Encrypt the proof scalar.
-    let s = schnorr.encrypt(&s.to_bytes());
+    let s = schnorr.encrypt(&s.as_canonical_bytes());
 
     // Allocate an output buffer.
     let mut out = Vec::with_capacity(SIGNATURE_LEN);
@@ -111,20 +109,20 @@ pub fn sign_duplex(
 
         // Derive a commitment scalar from the duplex's current state, the signer's private key,
         // and a random nonce.
-        let k = clone.hedge(&mut rng, &d.to_bytes(), Squeeze::squeeze_scalar);
+        let k = clone.hedge(&mut rng, &d.as_canonical_bytes(), Squeeze::squeeze_scalar);
 
         // Calculate and encrypt the commitment point.
-        let i = clone.encrypt(&(&Point::GENERATOR * &k).to_bytes());
+        let i = clone.encrypt(&(Point::mulgen(&k)).as_canonical_bytes());
 
         // Squeeze a challenge scalar.
         let r = clone.squeeze_scalar();
 
         // Calculate the proof scalar.
-        let s = (*d * r).as_ref() + &k;
+        let s = (d * r) + k;
 
         // Ensure the proof scalar isn't zero. This would only happen if d * r == -k, which is
         // astronomically rare but not impossible.
-        if let Some(s) = Scalar::new(s).into() {
+        if s.iszero() == 0 {
             // If the proof scalar is non-zero, set the duplex's state to the current clone.
             *duplex = clone;
 
@@ -141,7 +139,7 @@ pub fn verify_duplex(
     sig: &[u8],
 ) -> result::Result<(), VerifyError> {
     // Split the signature into parts.
-    let (i, s) = sig.split_at(POINT_LEN);
+    let (i, s) = sig.split_at(Point::LEN);
 
     // Decrypt and decode the commitment point.
     let i = Point::from_canonical_bytes(duplex.decrypt(i)).ok_or(VerifyError::InvalidSignature)?;
@@ -154,7 +152,8 @@ pub fn verify_duplex(
 
     // Return true iff I and s are well-formed and I == [s]G - [r']Q.
     //    I == [r'](-Q) + [s]G == [s]G - [r']Q
-    if i == Point::lincomb(&-q, &r_p, &Point::GENERATOR, &s) {
+    let i_p = (-q * r_p) + Point::mulgen(&s);
+    if i.equals(i_p) != 0 {
         Ok(())
     } else {
         Err(VerifyError::InvalidSignature)
@@ -165,7 +164,6 @@ pub fn verify_duplex(
 mod tests {
     use std::io::Cursor;
 
-    use elliptic_curve::Group;
     use rand::SeedableRng;
     use rand_chacha::ChaChaRng;
 
@@ -176,7 +174,7 @@ mod tests {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let d = Scalar::random(&mut rng);
-        let q = &Point::GENERATOR * &d;
+        let q = Point::mulgen(&d);
         let message = b"this is a message";
         let sig = sign(&mut rng, (&d, &q), Cursor::new(message))?;
 
@@ -203,7 +201,7 @@ mod tests {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let d = Scalar::random(&mut rng);
-        let q = &Point::GENERATOR * &d;
+        let q = Point::mulgen(&d);
         let message = b"this is a message";
         let sig = sign(&mut rng, (&d, &q), Cursor::new(message))?;
 
@@ -216,7 +214,7 @@ mod tests {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let d = Scalar::random(&mut rng);
-        let q = &Point::GENERATOR * &d;
+        let q = Point::mulgen(&d);
         let message = b"this is a message";
         let sig = sign(&mut rng, (&d, &q), Cursor::new(message))?;
 
@@ -230,7 +228,7 @@ mod tests {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let d = Scalar::random(&mut rng);
-        let q = &Point::GENERATOR * &d;
+        let q = Point::mulgen(&d);
         let message = b"this is a message";
         let mut sig = sign(&mut rng, (&d, &q), Cursor::new(message))?;
 
@@ -243,12 +241,12 @@ mod tests {
     fn signature_encoding() {
         let sig = Signature([69u8; SIGNATURE_LEN]);
         assert_eq!(
-            "77YbyELZPNMqGWewHAJS2kdWfwTiUqjaUurpM73jLrQw7DCndkszKMzC5QzmBPkTvxAgpAc8y9dp8FVJCKBrL4GQk",
+            "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC",
             sig.to_string(),
             "invalid encoded signature"
         );
 
-        let decoded = "77YbyELZPNMqGWewHAJS2kdWfwTiUqjaUurpM73jLrQw7DCndkszKMzC5QzmBPkTvxAgpAc8y9dp8FVJCKBrL4GQk".parse::<Signature>();
+        let decoded = "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC".parse::<Signature>();
         assert_eq!(Ok(sig), decoded, "error parsing signature");
 
         assert_eq!(
