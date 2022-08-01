@@ -250,7 +250,7 @@ dependencies = [
 [[package]]
 name = "crrl"
 version = "0.1.0"
-source = "git+https://github.com/pornin/crrl?branch=main#6f29c06d4b2c0b18f591510c77111d751c6c21b1"
+source = "git+https://github.com/codahale/crrl?branch=r255-mul-add-mulgen-vartime#8d1747da50d7db69dc81f1715498ab3e6e19cd21"
 dependencies = [
  "sha2",
 ]

@@ -151,9 +151,7 @@ pub fn verify_duplex(
     let s = Scalar::from_canonical_bytes(duplex.decrypt(s)).ok_or(VerifyError::InvalidSignature)?;
 
     // Return true iff I and s are well-formed and I == [s]G - [r']Q.
-    //    I == [r'](-Q) + [s]G == [s]G - [r']Q
-    let i_p = (-q * r_p) + Point::mulgen(&s);
-    if i.equals(i_p) != 0 {
+    if q.verify_helper_vartime(&i, &s, &r_p) {
         Ok(())
     } else {
         Err(VerifyError::InvalidSignature)
