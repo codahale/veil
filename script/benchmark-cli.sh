@@ -38,6 +38,14 @@ case $1 in
     -n experimental "head -c $SIZE /dev/zero | ./target/release/veil-experiment sign --passphrase-file=README.md /tmp/private-key - /dev/null" \
     ;
   ;;
+"verify")
+  # benchmark verifying a signature
+  SIG=$(head -c "$SIZE" /dev/zero | ./target/release/veil-control sign --passphrase-file=README.md /tmp/private-key -)
+  hyperfine --warmup 10 -S /bin/sh \
+    -n control "head -c $SIZE /dev/zero | ./target/release/veil-control verify $PUBLIC_KEY - $SIG" \
+    -n experimental "head -c $SIZE /dev/zero | ./target/release/veil-experiment verify $PUBLIC_KEY - $SIG" \
+    ;
+  ;;
 "digest")
   # benchmark hashing a file
   hyperfine --warmup 10 -S /bin/sh \
