@@ -21,27 +21,28 @@ cp target/release/veil target/release/veil-control
 ./target/release/veil-experiment private-key /tmp/private-key --passphrase-file=README.md --space=0 --time=0
 
 PUBLIC_KEY="$(./target/release/veil-control public-key /tmp/private-key --passphrase-file=README.md)"
+SIZE="$((1024 * 1024 * 1024))" # 1 GiB file
 
 case $1 in
 "encrypt")
   # benchmark encrypting a 100MiB file for 10 receivers
   hyperfine --warmup 10 -S /bin/sh \
-    -n control "head -c 104857600 /dev/zero | ./target/release/veil-control encrypt --passphrase-file=README.md /tmp/private-key - /dev/null $PUBLIC_KEY --fakes 9" \
-    -n experimental "head -c 104857600 /dev/zero | ./target/release/veil-experiment encrypt --passphrase-file=README.md /tmp/private-key - /dev/null $PUBLIC_KEY --fakes 9" \
+    -n control "head -c $SIZE /dev/zero | ./target/release/veil-control encrypt --passphrase-file=README.md /tmp/private-key - /dev/null $PUBLIC_KEY --fakes 9" \
+    -n experimental "head -c $SIZE /dev/zero | ./target/release/veil-experiment encrypt --passphrase-file=README.md /tmp/private-key - /dev/null $PUBLIC_KEY --fakes 9" \
     ;
   ;;
 "sign")
   # benchmark signing a 100MiB file
   hyperfine --warmup 10 -S /bin/sh \
-    -n control 'head -c 104857600 /dev/zero | ./target/release/veil-control sign --passphrase-file=README.md /tmp/private-key - /dev/null' \
-    -n experimental 'head -c 104857600 /dev/zero | ./target/release/veil-experiment sign --passphrase-file=README.md /tmp/private-key - /dev/null' \
+    -n control "head -c $SIZE /dev/zero | ./target/release/veil-control sign --passphrase-file=README.md /tmp/private-key - /dev/null" \
+    -n experimental "head -c $SIZE /dev/zero | ./target/release/veil-experiment sign --passphrase-file=README.md /tmp/private-key - /dev/null" \
     ;
   ;;
 "digest")
   # benchmark hashing a 100MiB file
   hyperfine --warmup 10 -S /bin/sh \
-    -n control 'head -c 104857600 /dev/zero | ./target/release/veil-control digest - /dev/null' \
-    -n experimental 'head -c 104857600 /dev/zero | ./target/release/veil-experiment digest - /dev/null' \
+    -n control "head -c $SIZE /dev/zero | ./target/release/veil-control digest - /dev/null" \
+    -n experimental "head -c $SIZE /dev/zero | ./target/release/veil-experiment digest - /dev/null" \
     ;
   ;;
 *)
