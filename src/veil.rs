@@ -8,7 +8,7 @@ use std::{fmt, io, iter};
 use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
 
-use crate::ecc::{CanonicallyEncoded, Point, Scalar};
+use crate::ecc::{CanonicallyEncoded, Point, Scalar, POINT_LEN};
 use crate::{
     mres, pbenc, schnorr, AsciiEncoded, DecryptError, ParsePublicKeyError, Signature, VerifyError,
 };
@@ -189,16 +189,16 @@ impl PublicKey {
     }
 }
 
-impl AsciiEncoded for PublicKey {
+impl AsciiEncoded<POINT_LEN> for PublicKey {
     type Err = ParsePublicKeyError;
 
-    fn from_bytes(b: &[u8]) -> Result<Self, <Self as AsciiEncoded>::Err> {
+    fn from_bytes(b: &[u8]) -> Result<Self, <Self as AsciiEncoded<POINT_LEN>>::Err> {
         let q = Point::from_canonical_bytes(b).ok_or(ParsePublicKeyError::InvalidPublicKey)?;
         Ok(PublicKey { q })
     }
 
-    fn to_bytes(&self) -> Vec<u8> {
-        self.q.as_canonical_bytes().to_vec()
+    fn to_bytes(&self) -> [u8; POINT_LEN] {
+        self.q.as_canonical_bytes()
     }
 }
 

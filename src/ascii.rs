@@ -2,7 +2,7 @@ use std::fmt::Display;
 use std::str::FromStr;
 
 /// The `AsciiEncoded` trait allows for encoding and decoding types as base58.
-pub trait AsciiEncoded: Sized + FromStr + Display {
+pub trait AsciiEncoded<const LEN: usize>: Sized + FromStr + Display {
     /// The associated error which can be returned from parsing.
     type Err: From<bs58::decode::Error>;
 
@@ -11,18 +11,20 @@ pub trait AsciiEncoded: Sized + FromStr + Display {
     /// # Errors
     ///
     /// If `b` is not a valid encoding, returns an error.
-    fn from_bytes(b: &[u8]) -> Result<Self, <Self as AsciiEncoded>::Err>;
+    fn from_bytes(b: &[u8]) -> Result<Self, <Self as AsciiEncoded<LEN>>::Err>;
 
     /// Encode a value as bytes.
-    fn to_bytes(&self) -> Vec<u8>;
+    fn to_bytes(&self) -> [u8; LEN];
 
     /// Decode a value from a base58 string.
     ///
     /// # Errors
     ///
     /// If `s` is valid Base58 or not a valid encoding, returns an error.
-    fn from_ascii(s: &str) -> Result<Self, <Self as AsciiEncoded>::Err> {
-        Self::from_bytes(&bs58::decode(s).into_vec()?)
+    fn from_ascii(s: &str) -> Result<Self, <Self as AsciiEncoded<LEN>>::Err> {
+        let mut b = [0u8; LEN];
+        bs58::decode(s).into(&mut b)?;
+        Self::from_bytes(&b)
     }
 
     /// Encode a value as a base58 string.

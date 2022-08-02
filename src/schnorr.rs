@@ -19,15 +19,15 @@ pub const SIGNATURE_LEN: usize = Point::LEN + Scalar::LEN;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Signature(pub(crate) [u8; SIGNATURE_LEN]);
 
-impl AsciiEncoded for Signature {
+impl AsciiEncoded<SIGNATURE_LEN> for Signature {
     type Err = ParseSignatureError;
 
-    fn from_bytes(b: &[u8]) -> result::Result<Self, <Self as AsciiEncoded>::Err> {
+    fn from_bytes(b: &[u8]) -> result::Result<Self, <Self as AsciiEncoded<SIGNATURE_LEN>>::Err> {
         Ok(Signature(b.try_into().map_err(|_| ParseSignatureError::InvalidLength)?))
     }
 
-    fn to_bytes(&self) -> Vec<u8> {
-        self.0.to_vec()
+    fn to_bytes(&self) -> [u8; SIGNATURE_LEN] {
+        self.0
     }
 }
 

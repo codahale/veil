@@ -10,15 +10,15 @@ use crate::{AsciiEncoded, ParseDigestError};
 #[derive(Clone, Copy, Debug, Eq)]
 pub struct Digest([u8; DIGEST_LEN]);
 
-impl AsciiEncoded for Digest {
+impl AsciiEncoded<DIGEST_LEN> for Digest {
     type Err = ParseDigestError;
 
-    fn from_bytes(b: &[u8]) -> Result<Self, <Self as AsciiEncoded>::Err> {
+    fn from_bytes(b: &[u8]) -> Result<Self, <Self as AsciiEncoded<DIGEST_LEN>>::Err> {
         Ok(Digest(b.try_into().map_err(|_| ParseDigestError::InvalidLength)?))
     }
 
-    fn to_bytes(&self) -> Vec<u8> {
-        self.0.to_vec()
+    fn to_bytes(&self) -> [u8; DIGEST_LEN] {
+        self.0
     }
 }
 

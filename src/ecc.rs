@@ -5,8 +5,14 @@ use rand::{CryptoRng, Rng, RngCore};
 /// A scalar value for the elliptic curve.
 pub(crate) type Scalar = crrl::ristretto255::Scalar;
 
+/// The length of an encoded scalar in bytes.
+pub const SCALAR_LEN: usize = 32;
+
 /// A point on the elliptic curve. Never the additive identity.
 pub(crate) type Point = crrl::ristretto255::Point;
+
+/// The length of an encoded point in bytes.
+pub const POINT_LEN: usize = 32;
 
 pub trait CanonicallyEncoded<const LEN: usize>: Sized {
     const LEN: usize = LEN;
@@ -18,13 +24,13 @@ pub trait CanonicallyEncoded<const LEN: usize>: Sized {
     fn random(rng: impl RngCore + CryptoRng) -> Self;
 }
 
-impl CanonicallyEncoded<32> for Scalar {
+impl CanonicallyEncoded<SCALAR_LEN> for Scalar {
     fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<Self> {
         let (v, _) = Scalar::decode32(b.as_ref());
         (v.iszero() == 0).then_some(v)
     }
 
-    fn as_canonical_bytes(&self) -> [u8; 32] {
+    fn as_canonical_bytes(&self) -> [u8; SCALAR_LEN] {
         self.encode32()
     }
 
@@ -39,12 +45,12 @@ impl CanonicallyEncoded<32> for Scalar {
     }
 }
 
-impl CanonicallyEncoded<32> for Point {
+impl CanonicallyEncoded<POINT_LEN> for Point {
     fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<Self> {
         Point::decode(b.as_ref()).filter(|q| q.isneutral() == 0)
     }
 
-    fn as_canonical_bytes(&self) -> [u8; 32] {
+    fn as_canonical_bytes(&self) -> [u8; POINT_LEN] {
         self.encode()
     }
 
