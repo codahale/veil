@@ -64,7 +64,7 @@ impl PrivateKey {
     /// [`DecryptError::InvalidCiphertext`] error will be returned. If an error occurred while
     /// reading, a [`DecryptError::IoError`] error will be returned.
     pub fn load(mut reader: impl Read, passphrase: &str) -> Result<PrivateKey, DecryptError> {
-        let mut b = Vec::with_capacity(Point::LEN);
+        let mut b = Vec::with_capacity(Scalar::LEN + pbenc::OVERHEAD);
         reader.read_to_end(&mut b)?;
 
         // Decrypt the ciphertext and use the plaintext as the private key.
