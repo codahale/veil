@@ -108,7 +108,7 @@ pub fn decrypt(
     let plaintext = sres.decrypt(ciphertext);
 
     // Verify the designated signature.
-    (schnorr::verify_duplex(&mut sres, q_s, Some(d_r), &sig)).ok().map(|_| (q_e, plaintext))
+    schnorr::verify_duplex(&mut sres, q_s, Some(d_r), &sig).then_some((q_e, plaintext))
 }
 
 #[cfg(test)]

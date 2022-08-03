@@ -2,9 +2,9 @@
 
 use std::convert::TryInto;
 use std::fmt::Formatter;
-use std::io::{Read, Result};
+use std::io::Read;
 use std::str::FromStr;
-use std::{fmt, result};
+use std::{fmt, io};
 
 use rand::{CryptoRng, Rng};
 
@@ -22,7 +22,7 @@ pub struct Signature(pub(crate) [u8; SIGNATURE_LEN]);
 impl AsciiEncoded<SIGNATURE_LEN> for Signature {
     type Err = ParseSignatureError;
 
-    fn from_bytes(b: &[u8]) -> result::Result<Self, <Self as AsciiEncoded<SIGNATURE_LEN>>::Err> {
+    fn from_bytes(b: &[u8]) -> Result<Self, <Self as AsciiEncoded<SIGNATURE_LEN>>::Err> {
         Ok(Signature(b.try_into().map_err(|_| ParseSignatureError::InvalidLength)?))
     }
 
@@ -34,7 +34,7 @@ impl AsciiEncoded<SIGNATURE_LEN> for Signature {
 impl FromStr for Signature {
     type Err = ParseSignatureError;
 
-    fn from_str(s: &str) -> result::Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         Signature::from_ascii(s)
     }
 }
@@ -50,7 +50,7 @@ pub fn sign(
     rng: impl Rng + CryptoRng,
     (d, q): (&Scalar, &Point),
     message: impl Read,
-) -> Result<Signature> {
+) -> io::Result<Signature> {
     // Initialize an unkeyed duplex.
     let mut schnorr = UnkeyedDuplex::new("veil.schnorr");
 
@@ -68,7 +68,7 @@ pub fn sign(
 }
 
 /// Verify a Schnorr signature of the given message using the given public key.
-pub fn verify(q: &Point, message: impl Read, sig: &Signature) -> result::Result<(), VerifyError> {
+pub fn verify(q: &Point, message: impl Read, sig: &Signature) -> Result<(), VerifyError> {
     // Initialize an unkeyed duplex.
     let mut schnorr = UnkeyedDuplex::new("veil.schnorr");
 
@@ -82,7 +82,11 @@ pub fn verify(q: &Point, message: impl Read, sig: &Signature) -> result::Result<
     let mut schnorr = schnorr.into_keyed();
 
     // Verify the signature.
-    verify_duplex(&mut schnorr, q, None, sig)
+    if verify_duplex(&mut schnorr, q, None, sig) {
+        Ok(())
+    } else {
+        Err(VerifyError::InvalidSignature)
+    }
 }
 
 /// Create a Schnorr signature of the given duplex's state using the given private key and an
@@ -141,11 +145,15 @@ pub fn verify_duplex(
     q: &Point,
     d_v: Option<&Scalar>,
     sig: &Signature,
-) -> result::Result<(), VerifyError> {
+) -> bool {
     // Decrypt and decode the commitment point.
     let mut sig = sig.0;
     duplex.decrypt_mut(&mut sig[..Point::LEN]);
-    let i = Point::from_canonical_bytes(&sig[..Point::LEN]).ok_or(VerifyError::InvalidSignature)?;
+    let i = if let Some(i) = Point::from_canonical_bytes(&sig[..Point::LEN]) {
+        i
+    } else {
+        return false;
+    };
 
     // Re-derive the challenge scalar.
     let r_p = duplex.squeeze_scalar();
@@ -162,14 +170,15 @@ pub fn verify_duplex(
         &sig[Point::LEN..] == x_p.as_canonical_bytes().as_slice()
     } else {
         // If the signature is publicly verifiable, decrypt and decode the proof scalar.
-        let s = Scalar::from_canonical_bytes(&sig[Point::LEN..])
-            .ok_or(VerifyError::InvalidSignature)?;
+        let s = if let Some(s) = Scalar::from_canonical_bytes(&sig[Point::LEN..]) {
+            s
+        } else {
+            return false;
+        };
 
         // Return true iff I and s are well-formed and I == [s]G - [r']Q.
         q.verify_helper_vartime(&i, &s, &r_p)
     }
-    .then_some(())
-    .ok_or(VerifyError::InvalidSignature)
 }
 
 #[cfg(test)]
@@ -182,7 +191,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn sign_and_verify() -> Result<()> {
+    fn sign_and_verify() -> io::Result<()> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let d = Scalar::random(&mut rng);
@@ -209,7 +218,7 @@ mod tests {
     }
 
     #[test]
-    fn modified_message() -> result::Result<(), VerifyError> {
+    fn modified_message() -> Result<(), VerifyError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let d = Scalar::random(&mut rng);
@@ -222,7 +231,7 @@ mod tests {
     }
 
     #[test]
-    fn wrong_public_key() -> result::Result<(), VerifyError> {
+    fn wrong_public_key() -> Result<(), VerifyError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let d = Scalar::random(&mut rng);
@@ -236,7 +245,7 @@ mod tests {
     }
 
     #[test]
-    fn modified_sig() -> result::Result<(), VerifyError> {
+    fn modified_sig() -> Result<(), VerifyError> {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let d = Scalar::random(&mut rng);

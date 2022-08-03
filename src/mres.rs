@@ -186,12 +186,12 @@ pub fn decrypt(
     // Decrypt the message.
     let (written, sig) = decrypt_message(&mut mres, reader, writer)?;
 
-    // Verify the signature.
-    schnorr::verify_duplex(&mut mres, &q_e, None, &sig)
-        .map_err(|_| DecryptError::InvalidCiphertext)?;
-
-    // Return the number of plaintext bytes written.
-    Ok(written)
+    // Verify the signature and return the number of bytes written.
+    if schnorr::verify_duplex(&mut mres, &q_e, None, &sig) {
+        Ok(written)
+    } else {
+        Err(DecryptError::InvalidCiphertext)
+    }
 }
 
 /// The length of an encrypted block and authentication tag.
