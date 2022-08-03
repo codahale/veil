@@ -252,12 +252,12 @@ fn decrypt_header(
     d_r: &Scalar,
     q_r: &Point,
     q_s: &Point,
-) -> Result<(UnkeyedDuplex, Point, Vec<u8>), DecryptError> {
+) -> Result<(UnkeyedDuplex, Point, [u8; DEK_LEN]), DecryptError> {
     let mut buf = Vec::with_capacity(ENC_HEADER_LEN);
     let mut i = 0u64;
     let mut hdr_count = u64::MAX;
 
-    let mut header_values: Option<(Point, u64, Vec<u8>)> = None;
+    let mut header_values: Option<(Point, u64, [u8; DEK_LEN])> = None;
 
     // Iterate through blocks, looking for an encrypted header that can be decrypted.
     while i < hdr_count {
@@ -309,7 +309,7 @@ fn decrypt_header(
 /// Decode an ephemeral public key and header into an ephemeral public key, DEK, header count, and
 /// padding size.
 #[inline]
-fn decode_header((q_e, header): (Point, Vec<u8>)) -> Option<(Point, Vec<u8>, u64, u64)> {
+fn decode_header((q_e, header): (Point, Vec<u8>)) -> Option<(Point, [u8; DEK_LEN], u64, u64)> {
     // Check header for proper length.
     if header.len() != HEADER_LEN {
         return None;
@@ -320,7 +320,7 @@ fn decode_header((q_e, header): (Point, Vec<u8>)) -> Option<(Point, Vec<u8>, u64
     let (hdr_count, padding) = hdr_count.split_at(mem::size_of::<u64>());
 
     // Decode components.
-    let dek = dek.to_vec();
+    let dek = dek.try_into().expect("invalid DEK len");
     let hdr_count = u64::from_le_bytes(hdr_count.try_into().expect("invalid u64 len"));
     let padding = u64::from_le_bytes(padding.try_into().expect("invalid u64 len"));
 
