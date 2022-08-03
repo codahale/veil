@@ -55,6 +55,11 @@ impl KeyedDuplex {
         self.state.encrypt(plaintext)
     }
 
+    /// Encrypt the given plaintext in place. **Provides no guarantees for authenticity.**
+    pub fn encrypt_mut(&mut self, in_out: &mut [u8]) {
+        self.state.encrypt_mut(in_out);
+    }
+
     /// Decrypt the given plaintext. **Provides no guarantees for authenticity.**
     #[must_use]
     pub fn decrypt(&mut self, ciphertext: &[u8]) -> Vec<u8> {

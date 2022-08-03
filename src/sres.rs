@@ -4,7 +4,7 @@ use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, Squeeze, UnkeyedDuplex};
 use crate::ecc::{CanonicallyEncoded, Point, Scalar};
-use crate::schnorr;
+use crate::{schnorr, AsciiEncoded};
 
 /// The recommended size of the nonce passed to [encrypt].
 pub const NONCE_LEN: usize = 16;
@@ -52,13 +52,9 @@ pub fn encrypt(
     // Encrypt the plaintext.
     out.extend(sres.encrypt(plaintext));
 
-    // Create a Schnorr signature using the duplex.
-    let (i, s) = schnorr::sign_duplex(&mut sres, rng, d_s);
-    out.extend(i);
-
-    // Calculate the proof point and encrypt it.
-    let x = q_r * s;
-    out.extend(sres.encrypt(&x.as_canonical_bytes()));
+    // Create a designated Schnorr signature using the duplex.
+    let sig = schnorr::sign_duplex(&mut sres, rng, d_s, Some(q_r));
+    out.extend(sig.to_bytes());
 
     // Return the ciphertext, encrypted commitment point, and encrypted proof point.
     out

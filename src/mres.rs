@@ -64,18 +64,11 @@ pub fn encrypt(
     written += encrypt_message(&mut mres, reader, writer)?;
 
     // Sign the duplex's final state with the ephemeral private key.
-    let (i, s) = schnorr::sign_duplex(&mut mres, &mut rng, &d_e);
+    let sig = schnorr::sign_duplex(&mut mres, &mut rng, &d_e, None);
 
-    // Encrypt the proof scalar.
-    let s = mres.encrypt(&s.as_canonical_bytes());
+    writer.write_all(&sig.to_bytes())?;
 
-    // Write the signature components.
-    writer.write_all(&i)?;
-    writer.write_all(&s)?;
-
-    Ok(written
-        + u64::try_from(i.len()).expect("unexpected overflow")
-        + u64::try_from(s.len()).expect("unexpected overflow"))
+    Ok(written + u64::try_from(SIGNATURE_LEN).expect("unexpected overflow"))
 }
 
 /// The length of the data encryption key.

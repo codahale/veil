@@ -63,19 +63,8 @@ pub fn sign(
     // Convert the unkeyed duplex to a keyed duplex.
     let mut schnorr = schnorr.into_keyed();
 
-    // Calculate the encrypted commitment point and proof scalar.
-    let (i, s) = sign_duplex(&mut schnorr, rng, d);
-
-    // Encrypt the proof scalar.
-    let s = schnorr.encrypt(&s.as_canonical_bytes());
-
-    // Allocate an output buffer.
-    let mut out = Vec::with_capacity(SIGNATURE_LEN);
-    out.extend(i);
-    out.extend(s);
-
-    // Return the encrypted commitment point and proof scalar.
-    Ok(Signature(out.try_into().expect("invalid sig len")))
+    // Calculate and return the encrypted commitment point and proof scalar.
+    Ok(sign_duplex(&mut schnorr, rng, d, None))
 }
 
 /// Verify a Schnorr signature of the given message using the given public key.
@@ -96,13 +85,14 @@ pub fn verify(q: &Point, message: impl Read, sig: &Signature) -> result::Result<
     verify_duplex(&mut schnorr, q, sig)
 }
 
-/// Create a Schnorr signature of the given duplex's state using the given private key. Returns
-/// the encrypted commitment point and the proof scalar.
+/// Create a Schnorr signature of the given duplex's state using the given private key and an
+/// optional designated verifier public key. Returns the full signature.
 pub fn sign_duplex(
     duplex: &mut KeyedDuplex,
     mut rng: impl CryptoRng + Rng,
     d: &Scalar,
-) -> (Vec<u8>, Scalar) {
+    q_v: Option<&Point>,
+) -> Signature {
     loop {
         // Clone the duplex's state in case we need to re-generate the commitment scalar.
         let mut clone = duplex.clone();
@@ -111,8 +101,11 @@ pub fn sign_duplex(
         // and a random nonce.
         let k = clone.hedge(&mut rng, &d.as_canonical_bytes(), Squeeze::squeeze_scalar);
 
-        // Calculate and encrypt the commitment point.
-        let i = clone.encrypt(&(Point::mulgen(&k)).as_canonical_bytes());
+        // Calculate, encode, and encrypt the commitment point.
+        let i = Point::mulgen(&k);
+        let mut sig = [0u8; SIGNATURE_LEN];
+        sig[..Point::LEN].copy_from_slice(&i.as_canonical_bytes());
+        clone.encrypt_mut(&mut sig[..Point::LEN]);
 
         // Squeeze a challenge scalar.
         let r = clone.squeeze_scalar();
@@ -123,11 +116,20 @@ pub fn sign_duplex(
         // Ensure the proof scalar isn't zero. This would only happen if d * r == -k, which is
         // astronomically rare but not impossible.
         if s.iszero() == 0 {
-            // If the proof scalar is non-zero, set the duplex's state to the current clone.
+            // If no designated verifier is specified, encode the proof scalar.
+            // Otherwise, calculate a designated proof point and encode it.
+            sig[Point::LEN..].copy_from_slice(
+                &q_v.map_or_else(|| s.as_canonical_bytes(), |q_v| (q_v * s).as_canonical_bytes()),
+            );
+
+            // Encrypt the last part of the signature.
+            clone.encrypt_mut(&mut sig[Point::LEN..]);
+
+            // Set the duplex's state to the current clone.
             *duplex = clone;
 
-            // Return the encrypted commitment point and the proof scalar.
-            return (i, s);
+            // Return the full signature.
+            return Signature(sig);
         }
     }
 }
