@@ -187,7 +187,8 @@ pub fn decrypt(
     let (written, sig) = decrypt_message(&mut mres, reader, writer)?;
 
     // Verify the signature.
-    schnorr::verify_duplex(&mut mres, &q_e, &sig).map_err(|_| DecryptError::InvalidCiphertext)?;
+    schnorr::verify_duplex(&mut mres, &q_e, None, &sig)
+        .map_err(|_| DecryptError::InvalidCiphertext)?;
 
     // Return the number of plaintext bytes written.
     Ok(written)

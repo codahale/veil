@@ -2,9 +2,10 @@
 
 use rand::{CryptoRng, Rng};
 
-use crate::duplex::{Absorb, Squeeze, UnkeyedDuplex};
+use crate::duplex::{Absorb, UnkeyedDuplex};
 use crate::ecc::{CanonicallyEncoded, Point, Scalar};
-use crate::{schnorr, AsciiEncoded};
+use crate::schnorr::SIGNATURE_LEN;
+use crate::{schnorr, AsciiEncoded, Signature};
 
 /// The recommended size of the nonce passed to [encrypt].
 pub const NONCE_LEN: usize = 16;
@@ -76,8 +77,8 @@ pub fn decrypt(
 
     // Split the ciphertext into its components.
     let (q_e, ciphertext) = ciphertext.split_at(Point::LEN);
-    let (ciphertext, i) = ciphertext.split_at(ciphertext.len() - Point::LEN - Point::LEN);
-    let (i, x) = i.split_at(Point::LEN);
+    let (ciphertext, sig) = ciphertext.split_at(ciphertext.len() - SIGNATURE_LEN);
+    let sig = Signature::from_bytes(sig).ok()?;
 
     // Initialize an unkeyed duplex.
     let mut sres = UnkeyedDuplex::new("veil.sres");
@@ -100,27 +101,14 @@ pub fn decrypt(
     // Decrypt and decode the ephemeral public key.
     let q_e = Point::from_canonical_bytes(&sres.decrypt(q_e))?;
 
-    // Absorb the ephemral ECDH shared secret.
+    // Absorb the ephemeral ECDH shared secret.
     sres.absorb_point(&(q_e * d_r));
 
     // Decrypt the plaintext.
     let plaintext = sres.decrypt(ciphertext);
 
-    // Decrypt the decode the commitment point.
-    let i = Point::from_canonical_bytes(sres.decrypt(i))?;
-
-    // Squeeze a challenge scalar from the public keys, plaintext, and commitment point.
-    let r_p = sres.squeeze_scalar();
-
-    // Decrypt the proof point.
-    let x = Point::from_canonical_bytes(&sres.decrypt(x))?;
-
-    // Re-calculate the proof point.
-    let x_p = (i + (q_s * r_p)) * d_r;
-
-    // If the re-calculated proof point matches the decrypted proof point, return the authenticated
-    // plaintext.
-    (x.equals(x_p) != 0).then_some((q_e, plaintext))
+    // Verify the designated signature.
+    (schnorr::verify_duplex(&mut sres, q_s, Some(d_r), &sig)).ok().map(|_| (q_e, plaintext))
 }
 
 #[cfg(test)]

@@ -82,7 +82,7 @@ pub fn verify(q: &Point, message: impl Read, sig: &Signature) -> result::Result<
     let mut schnorr = schnorr.into_keyed();
 
     // Verify the signature.
-    verify_duplex(&mut schnorr, q, sig)
+    verify_duplex(&mut schnorr, q, None, sig)
 }
 
 /// Create a Schnorr signature of the given duplex's state using the given private key and an
@@ -134,30 +134,42 @@ pub fn sign_duplex(
     }
 }
 
-/// Verify a Schnorr signature of the given duplex's state using the given public key.
+/// Verify a Schnorr signature of the given duplex's state using the given public key and optional
+/// designated verifier's private key.
 pub fn verify_duplex(
     duplex: &mut KeyedDuplex,
     q: &Point,
+    d_v: Option<&Scalar>,
     sig: &Signature,
 ) -> result::Result<(), VerifyError> {
-    // Split the signature into parts.
-    let (i, s) = sig.0.split_at(Point::LEN);
-
     // Decrypt and decode the commitment point.
-    let i = Point::from_canonical_bytes(duplex.decrypt(i)).ok_or(VerifyError::InvalidSignature)?;
+    let mut sig = sig.0;
+    duplex.decrypt_mut(&mut sig[..Point::LEN]);
+    let i = Point::from_canonical_bytes(&sig[..Point::LEN]).ok_or(VerifyError::InvalidSignature)?;
 
     // Re-derive the challenge scalar.
     let r_p = duplex.squeeze_scalar();
 
-    // Decrypt and decode the proof scalar.
-    let s = Scalar::from_canonical_bytes(duplex.decrypt(s)).ok_or(VerifyError::InvalidSignature)?;
+    // Decrypt either the proof scalar or the designated proof point.
+    duplex.decrypt_mut(&mut sig[Point::LEN..]);
 
-    // Return true iff I and s are well-formed and I == [s]G - [r']Q.
-    if q.verify_helper_vartime(&i, &s, &r_p) {
-        Ok(())
+    if let Some(d) = d_v {
+        // If the signature has a designated verifier, re-calculate the proof point.
+        let x_p = (i + (q * r_p)) * d;
+
+        // Return true iff the canonical encoding of the re-calculated proof point matches the
+        // encoding of the decrypted proof point.
+        &sig[Point::LEN..] == x_p.as_canonical_bytes().as_slice()
     } else {
-        Err(VerifyError::InvalidSignature)
+        // If the signature is publicly verifiable, decrypt and decode the proof scalar.
+        let s = Scalar::from_canonical_bytes(&sig[Point::LEN..])
+            .ok_or(VerifyError::InvalidSignature)?;
+
+        // Return true iff I and s are well-formed and I == [s]G - [r']Q.
+        q.verify_helper_vartime(&i, &s, &r_p)
     }
+    .then_some(())
+    .ok_or(VerifyError::InvalidSignature)
 }
 
 #[cfg(test)]

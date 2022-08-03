@@ -66,6 +66,11 @@ impl KeyedDuplex {
         self.state.decrypt(ciphertext)
     }
 
+    /// Decrypt the given plaintext in place. **Provides no guarantees for authenticity.**
+    pub fn decrypt_mut(&mut self, in_out: &mut [u8]) {
+        self.state.decrypt_mut(in_out);
+    }
+
     /// Encrypt and seal the given plaintext, adding [`TAG_LEN`] bytes to the end.
     /// **Guarantees authenticity.**
     #[must_use]
