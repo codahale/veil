@@ -10,7 +10,7 @@ use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex, TAG_LEN};
 use crate::ecc::{CanonicallyEncoded, Point, Scalar};
 use crate::schnorr::SIGNATURE_LEN;
 use crate::sres::NONCE_LEN;
-use crate::{schnorr, sres, DecryptError};
+use crate::{schnorr, sres, AsciiEncoded, DecryptError, Signature};
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
@@ -209,7 +209,7 @@ fn decrypt_message(
     mres: &mut KeyedDuplex,
     reader: &mut impl Read,
     writer: &mut impl Write,
-) -> Result<(u64, Vec<u8>), DecryptError> {
+) -> Result<(u64, Signature), DecryptError> {
     let mut buf = Vec::with_capacity(ENC_BLOCK_LEN + SIGNATURE_LEN);
     let mut written = 0;
 
@@ -244,7 +244,7 @@ fn decrypt_message(
     }
 
     // Return the number of bytes and the signature.
-    Ok((written, buf))
+    Ok((written, Signature::from_bytes(&buf).expect("invalid signature len")))
 }
 
 /// The length of an encrypted header.

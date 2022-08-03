@@ -93,7 +93,7 @@ pub fn verify(q: &Point, message: impl Read, sig: &Signature) -> result::Result<
     let mut schnorr = schnorr.into_keyed();
 
     // Verify the signature.
-    verify_duplex(&mut schnorr, q, &sig.0)
+    verify_duplex(&mut schnorr, q, sig)
 }
 
 /// Create a Schnorr signature of the given duplex's state using the given private key. Returns
@@ -136,10 +136,10 @@ pub fn sign_duplex(
 pub fn verify_duplex(
     duplex: &mut KeyedDuplex,
     q: &Point,
-    sig: &[u8],
+    sig: &Signature,
 ) -> result::Result<(), VerifyError> {
     // Split the signature into parts.
-    let (i, s) = sig.split_at(Point::LEN);
+    let (i, s) = sig.0.split_at(Point::LEN);
 
     // Decrypt and decode the commitment point.
     let i = Point::from_canonical_bytes(duplex.decrypt(i)).ok_or(VerifyError::InvalidSignature)?;
