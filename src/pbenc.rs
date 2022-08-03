@@ -28,9 +28,9 @@ pub fn encrypt(
     // Allocate an output buffer.
     let mut out = Vec::with_capacity(plaintext.len() + OVERHEAD);
 
-    // Encode the time, space, and block size parameters.
-    out.extend(time.to_le_bytes());
-    out.extend(space.to_le_bytes());
+    // Encode the time and space parameters.
+    out.push(time);
+    out.push(space);
 
     // Copy the salt.
     out.extend(salt);
