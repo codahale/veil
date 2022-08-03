@@ -86,7 +86,7 @@ const HEADER_LEN: usize = DEK_LEN + INT_LEN + INT_LEN;
 
 /// Encode the DEK, header count, and padding size in a header.
 #[inline]
-fn encode_header(dek: &[u8], hdr_count: u64, padding: u64) -> [u8; HEADER_LEN] {
+fn encode_header(dek: &[u8; DEK_LEN], hdr_count: u64, padding: u64) -> [u8; HEADER_LEN] {
     let mut header = [0u8; HEADER_LEN];
     header[..DEK_LEN].copy_from_slice(dek);
     header[DEK_LEN..DEK_LEN + INT_LEN].copy_from_slice(&hdr_count.to_le_bytes());
@@ -101,7 +101,7 @@ fn encrypt_headers(
     (d_s, q_s): (&Scalar, &Point),
     (d_e, q_e): (&Scalar, &Point),
     q_rs: &[Point],
-    dek: &[u8],
+    dek: &[u8; DEK_LEN],
     padding: u64,
     writer: &mut impl Write,
 ) -> io::Result<u64> {
