@@ -105,11 +105,12 @@ pub fn sign_duplex(
         // and a random nonce.
         let k = clone.hedge(&mut rng, &d.as_canonical_bytes(), Squeeze::squeeze_scalar);
 
-        // Calculate, encode, and encrypt the commitment point.
+        // Allocate an output buffer.
+        let mut sig = Vec::with_capacity(SIGNATURE_LEN);
+
+        // Calculate and encrypt the commitment point.
         let i = Point::mulgen(&k);
-        let mut sig = [0u8; SIGNATURE_LEN];
-        sig[..Point::LEN].copy_from_slice(&i.as_canonical_bytes());
-        clone.encrypt_mut(&mut sig[..Point::LEN]);
+        sig.extend(clone.encrypt(&i.as_canonical_bytes()));
 
         // Squeeze a challenge scalar.
         let r = clone.squeeze_scalar();
@@ -120,20 +121,19 @@ pub fn sign_duplex(
         // Ensure the proof scalar isn't zero. This would only happen if d * r == -k, which is
         // astronomically rare but not impossible.
         if s.iszero() == 0 {
-            // If no designated verifier is specified, encode the proof scalar.
-            // Otherwise, calculate a designated proof point and encode it.
-            sig[Point::LEN..].copy_from_slice(
-                &q_v.map_or_else(|| s.as_canonical_bytes(), |q_v| (q_v * s).as_canonical_bytes()),
-            );
-
-            // Encrypt the last part of the signature.
-            clone.encrypt_mut(&mut sig[Point::LEN..]);
+            // If a designated verifier is specified, calculate a designated proof point and encode
+            // it. Otherwise, encode the proof scalar.
+            sig.extend(clone.encrypt(&if let Some(q_v) = q_v {
+                (q_v * s).as_canonical_bytes()
+            } else {
+                s.as_canonical_bytes()
+            }));
 
             // Set the duplex's state to the current clone.
             *duplex = clone;
 
             // Return the full signature.
-            return Signature(sig);
+            return Signature(sig.try_into().expect("invalid signature len"));
         }
     }
 }
@@ -146,10 +146,11 @@ pub fn verify_duplex(
     d_v: Option<&Scalar>,
     sig: &Signature,
 ) -> bool {
+    // Split signature into components.
+    let (i, s_or_x) = sig.0.split_at(Point::LEN);
+
     // Decrypt and decode the commitment point.
-    let mut sig = sig.0;
-    duplex.decrypt_mut(&mut sig[..Point::LEN]);
-    let i = if let Some(i) = Point::from_canonical_bytes(&sig[..Point::LEN]) {
+    let i = if let Some(i) = Point::from_canonical_bytes(&duplex.decrypt(i)) {
         i
     } else {
         return false;
@@ -159,7 +160,7 @@ pub fn verify_duplex(
     let r_p = duplex.squeeze_scalar();
 
     // Decrypt either the proof scalar or the designated proof point.
-    duplex.decrypt_mut(&mut sig[Point::LEN..]);
+    let s_or_x = duplex.decrypt(s_or_x);
 
     if let Some(d) = d_v {
         // If the signature has a designated verifier, re-calculate the proof point.
@@ -167,10 +168,10 @@ pub fn verify_duplex(
 
         // Return true iff the canonical encoding of the re-calculated proof point matches the
         // encoding of the decrypted proof point.
-        &sig[Point::LEN..] == x_p.as_canonical_bytes().as_slice()
+        s_or_x == x_p.as_canonical_bytes().as_slice()
     } else {
         // If the signature is publicly verifiable, decrypt and decode the proof scalar.
-        let s = if let Some(s) = Scalar::from_canonical_bytes(&sig[Point::LEN..]) {
+        let s = if let Some(s) = Scalar::from_canonical_bytes(&s_or_x) {
             s
         } else {
             return false;
