@@ -43,7 +43,13 @@ Initializing a duplex from a passphrase is described in full in Alg.~\ref{alg:ve
                 \For{$m$ in $0..N_S$}\Comment{Hash last and current blocks.}
                     \State $B[m] \gets $\Call{Hash}{$B[m-1 \bmod N_S], B[m]$}
                     \For{$i$ in $0..D$}\Comment{Hash in pseudo-randomly chosen blocks.}
-                        \State $I \gets $\Call{Hash}{$S, t || m || i$}$ \bmod N_S$
+                        \State $c \gets c + 1$
+                        \State \Call{Absorb}{$c$}
+                        \State \Call{Absorb}{$S$}
+                        \State \Call{Absorb}{$t$}
+                        \State \Call{Absorb}{$m$}
+                        \State \Call{Absorb}{$i$}
+                        \State $I \gets $\Call{Squeeze}{$8$}$ \bmod N_S$
                         \State $B[m] \gets $\Call{Hash}{$B[m], B[I]$}
                     \EndFor
                 \EndFor

@@ -63,11 +63,14 @@ pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Vec<u8>> {
 }
 
 macro_rules! hash_counter {
-    ($pbenc:ident, $ctr:ident, $left:expr, $right:expr) => {
+    ($pbenc:ident, $ctr:ident, $left:expr) => {
         $pbenc.absorb(&$ctr.to_le_bytes());
         $ctr += 1;
 
         $pbenc.absorb(&$left);
+    };
+    ($pbenc:ident, $ctr:ident, $left:expr, $right:expr) => {
+        hash_counter!($pbenc, $ctr, $left);
         $pbenc.absorb(&$right);
     };
     ($pbenc:ident, $ctr:ident, $left:expr, $right:expr, $out:expr) => {
@@ -117,26 +120,18 @@ fn init(passphrase: &str, salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
 
             // Step 2b: Hash in pseudo-randomly chosen blocks.
             for i in 0..DELTA {
-                // Map indexes to a block and hash it and the salt.
-                let mut idx = Vec::with_capacity(mem::size_of::<u64>() * 3);
-                idx.extend(u64::try_from(t).expect("unexpected overflow").to_le_bytes());
-                idx.extend(u64::try_from(m).expect("unexpected overflow").to_le_bytes());
-                idx.extend(u64::try_from(i).expect("unexpected overflow").to_le_bytes());
-                hash_counter!(pbenc, ctr, salt, idx);
+                // Hash the salt and the indexes.
+                hash_counter!(pbenc, ctr, salt);
+                pbenc.absorb(&u64::try_from(t).expect("unexpected overflow").to_le_bytes());
+                pbenc.absorb(&u64::try_from(m).expect("unexpected overflow").to_le_bytes());
+                pbenc.absorb(&u64::try_from(i).expect("unexpected overflow").to_le_bytes());
 
                 // Map the PRF output to a block index.
-                let mut idx = [0u8; mem::size_of::<u64>()];
-                pbenc.squeeze_mut(&mut idx);
-                let idx = u64::from_le_bytes(idx) % space64;
+                let idx = usize::try_from(u64::from_le_bytes(pbenc.squeeze()) % space64)
+                    .expect("unexpected overflow");
 
                 // Hash the pseudo-randomly selected block.
-                hash_counter!(
-                    pbenc,
-                    ctr,
-                    buf[usize::try_from(idx).expect("unexpected overflow")],
-                    [],
-                    buf[m]
-                );
+                hash_counter!(pbenc, ctr, buf[idx], [], buf[m]);
             }
         }
     }
