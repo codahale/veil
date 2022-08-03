@@ -81,15 +81,16 @@ pub fn encrypt(
 /// The length of the data encryption key.
 const DEK_LEN: usize = 32;
 
-const HEADER_LEN: usize = DEK_LEN + mem::size_of::<u64>() + mem::size_of::<u64>();
+const INT_LEN: usize = mem::size_of::<u64>();
+const HEADER_LEN: usize = DEK_LEN + INT_LEN + INT_LEN;
 
 /// Encode the DEK, header count, and padding size in a header.
 #[inline]
-fn encode_header(dek: &[u8], hdr_count: u64, padding: u64) -> Vec<u8> {
-    let mut header = Vec::with_capacity(HEADER_LEN);
-    header.extend(dek);
-    header.extend(hdr_count.to_le_bytes());
-    header.extend(padding.to_le_bytes());
+fn encode_header(dek: &[u8], hdr_count: u64, padding: u64) -> [u8; HEADER_LEN] {
+    let mut header = [0u8; HEADER_LEN];
+    header[..DEK_LEN].copy_from_slice(dek);
+    header[DEK_LEN..DEK_LEN + INT_LEN].copy_from_slice(&hdr_count.to_le_bytes());
+    header[DEK_LEN + INT_LEN..].copy_from_slice(&padding.to_le_bytes());
     header
 }
 
