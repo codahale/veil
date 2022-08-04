@@ -63,9 +63,8 @@ pub fn encrypt(
     // Encrypt the plaintext in blocks and write them.
     written += encrypt_message(&mut mres, reader, writer)?;
 
-    // Sign the duplex's final state with the ephemeral private key.
+    // Sign the duplex's final state with the ephemeral private key and append the signature.
     let sig = schnorr::sign_duplex(&mut mres, &mut rng, &d_e, None);
-
     writer.write_all(&sig.to_bytes())?;
 
     Ok(written + u64::try_from(SIGNATURE_LEN).expect("unexpected overflow"))
