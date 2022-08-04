@@ -2,6 +2,7 @@ use std::fmt::Formatter;
 use std::io::Read;
 use std::str::FromStr;
 use std::{fmt, io};
+use subtle::ConstantTimeEq;
 
 use crate::duplex::{Absorb, Squeeze, UnkeyedDuplex};
 use crate::{AsciiEncoded, ParseDigestError};
@@ -61,11 +62,7 @@ impl Digest {
 
 impl PartialEq for Digest {
     fn eq(&self, other: &Self) -> bool {
-        let mut r = self.0[0] ^ other.0[0];
-        for i in 1..DIGEST_LEN {
-            r |= self.0[i] ^ other.0[i];
-        }
-        ((r | r.wrapping_neg()) >> 7).wrapping_sub(1) != 0
+        self.0.ct_eq(&other.0).into()
     }
 }
 
