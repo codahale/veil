@@ -33,10 +33,9 @@ impl CanonicallyEncoded<SCALAR_LEN> for Scalar {
     }
 
     fn random(mut rng: impl RngCore + CryptoRng) -> Self {
-        let mut b = [0u8; SCALAR_LEN];
         loop {
-            rng.fill_bytes(&mut b);
-            if let Some(v) = Self::from_canonical_bytes(&b) {
+            let v = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
+            if v.iszero() == 0 {
                 return v;
             }
         }
