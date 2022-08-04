@@ -15,8 +15,6 @@ pub(crate) type Point = crrl::ristretto255::Point;
 pub const POINT_LEN: usize = 32;
 
 pub trait CanonicallyEncoded<const LEN: usize>: Sized {
-    const LEN: usize = LEN;
-
     fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<Self>;
 
     fn as_canonical_bytes(&self) -> [u8; LEN];
@@ -35,7 +33,7 @@ impl CanonicallyEncoded<SCALAR_LEN> for Scalar {
     }
 
     fn random(mut rng: impl RngCore + CryptoRng) -> Self {
-        let mut b = [0u8; Self::LEN];
+        let mut b = [0u8; SCALAR_LEN];
         loop {
             rng.fill_bytes(&mut b);
             if let Some(v) = Self::from_canonical_bytes(&b) {

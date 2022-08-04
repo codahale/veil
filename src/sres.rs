@@ -3,7 +3,7 @@
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, UnkeyedDuplex};
-use crate::ecc::{CanonicallyEncoded, Point, Scalar};
+use crate::ecc::{CanonicallyEncoded, Point, Scalar, POINT_LEN};
 use crate::schnorr::SIGNATURE_LEN;
 use crate::{schnorr, AsciiEncoded, Signature};
 
@@ -11,7 +11,7 @@ use crate::{schnorr, AsciiEncoded, Signature};
 pub const NONCE_LEN: usize = 16;
 
 /// The number of bytes added to plaintext by [encrypt].
-pub const OVERHEAD: usize = Point::LEN + Point::LEN + Point::LEN;
+pub const OVERHEAD: usize = POINT_LEN + POINT_LEN + POINT_LEN;
 
 /// Given the sender's key pair, the ephemeral key pair, the receiver's public key, a nonce, and a
 /// plaintext, encrypts the given plaintext and returns the ciphertext.
@@ -76,7 +76,7 @@ pub fn decrypt(
     }
 
     // Split the ciphertext into its components.
-    let (q_e, ciphertext) = ciphertext.split_at(Point::LEN);
+    let (q_e, ciphertext) = ciphertext.split_at(POINT_LEN);
     let (ciphertext, sig) = ciphertext.split_at(ciphertext.len() - SIGNATURE_LEN);
     let sig = Signature::from_bytes(sig).ok()?;
 
