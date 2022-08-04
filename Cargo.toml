@@ -17,7 +17,7 @@ crrl = { git = "https://github.com/codahale/crrl", branch = "r255-mul-add-mulgen
 cyclist = { version = "0.1.1", default-features = false, features = ["std", "keccyak"] }
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 subtle = "2.4.1"
-thiserror = "1.0.31"
+thiserror = "1.0.32"
 unicode-normalization = "0.1.21"
 
 # cli-only deps
