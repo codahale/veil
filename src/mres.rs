@@ -278,7 +278,7 @@ fn decrypt_header(
         // If a header hasn't been decrypted yet, try to decrypt this one.
         if header_values.is_none() {
             if let Some((q_e, d, c, p)) =
-                sres::decrypt((d_r, q_r), q_s, &nonce, header).and_then(decode_header)
+                sres::decrypt((d_r, q_r), q_s, &nonce, header).map(decode_header)
             {
                 // If the header was successfully decrypted, keep the ephemeral public key, DEK, and
                 // padding and update the loop variable to not be effectively infinite.
@@ -308,12 +308,7 @@ fn decrypt_header(
 /// Decode an ephemeral public key and header into an ephemeral public key, DEK, header count, and
 /// padding size.
 #[inline]
-fn decode_header((q_e, header): (Point, Vec<u8>)) -> Option<(Point, [u8; DEK_LEN], u64, u64)> {
-    // Check header for proper length.
-    if header.len() != HEADER_LEN {
-        return None;
-    }
-
+fn decode_header((q_e, header): (Point, Vec<u8>)) -> (Point, [u8; DEK_LEN], u64, u64) {
     // Split header into components.
     let (dek, hdr_count) = header.split_at(DEK_LEN);
     let (hdr_count, padding) = hdr_count.split_at(mem::size_of::<u64>());
@@ -323,7 +318,7 @@ fn decode_header((q_e, header): (Point, Vec<u8>)) -> Option<(Point, [u8; DEK_LEN
     let hdr_count = u64::from_le_bytes(hdr_count.try_into().expect("invalid u64 len"));
     let padding = u64::from_le_bytes(padding.try_into().expect("invalid u64 len"));
 
-    Some((q_e, dek, hdr_count, padding))
+    (q_e, dek, hdr_count, padding)
 }
 
 struct RngRead<R>(R)
