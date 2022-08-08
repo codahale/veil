@@ -21,7 +21,7 @@ thiserror = "1.0.32"
 unicode-normalization = "0.1.21"
 
 # cli-only deps
-anyhow = { version = "1.0.59", optional = true }
+anyhow = { version = "1.0.60", optional = true }
 clap = { version = "3.2.16", features = ["derive"], optional = true }
 clap_complete = { version = "3.2.3", optional = true }
 clio = { version = "0.2.3", features = ["clap-parse"], optional = true }
