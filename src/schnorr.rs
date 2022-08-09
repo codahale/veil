@@ -192,71 +192,69 @@ mod tests {
     use super::*;
 
     #[test]
-    fn sign_and_verify() -> io::Result<()> {
+    fn sign_and_verify() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let d = Scalar::random(&mut rng);
         let q = Point::mulgen(&d);
         let message = b"this is a message";
-        let sig = sign(&mut rng, (&d, &q), Cursor::new(message))?;
+        let sig = sign(&mut rng, (&d, &q), Cursor::new(message)).expect("error signing message");
 
         assert!(
             verify(&q, Cursor::new(message), &sig).is_ok(),
             "should have verified a valid signature"
         );
-
-        Ok(())
     }
 
     macro_rules! assert_failed {
         ($action: expr) => {
             match $action {
                 Ok(_) => panic!("verified but shouldn't have"),
-                Err(VerifyError::InvalidSignature) => Ok(()),
-                Err(e) => Err(e),
+                Err(VerifyError::InvalidSignature) => {}
+                Err(e) => panic!("unknown error: {}", e),
             }
         };
     }
 
     #[test]
-    fn modified_message() -> Result<(), VerifyError> {
+    fn modified_message() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let d = Scalar::random(&mut rng);
         let q = Point::mulgen(&d);
         let message = b"this is a message";
-        let sig = sign(&mut rng, (&d, &q), Cursor::new(message))?;
+        let sig = sign(&mut rng, (&d, &q), Cursor::new(message)).expect("error signing");
 
         let message = b"this is NOT a message";
-        assert_failed!(verify(&q, Cursor::new(message), &sig))
+        assert_failed!(verify(&q, Cursor::new(message), &sig));
     }
 
     #[test]
-    fn wrong_public_key() -> Result<(), VerifyError> {
+    fn wrong_public_key() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let d = Scalar::random(&mut rng);
         let q = Point::mulgen(&d);
         let message = b"this is a message";
-        let sig = sign(&mut rng, (&d, &q), Cursor::new(message))?;
+        let sig = sign(&mut rng, (&d, &q), Cursor::new(message)).expect("error signing");
 
         let q = Point::random(&mut rng);
 
-        assert_failed!(verify(&q, Cursor::new(message), &sig))
+        assert_failed!(verify(&q, Cursor::new(message), &sig));
     }
 
     #[test]
-    fn modified_sig() -> Result<(), VerifyError> {
+    fn modified_sig() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let d = Scalar::random(&mut rng);
         let q = Point::mulgen(&d);
         let message = b"this is a message";
-        let mut sig = sign(&mut rng, (&d, &q), Cursor::new(message))?;
+        let mut sig = sign(&mut rng, (&d, &q), Cursor::new(message)).expect("error signing");
 
         sig.0[22] ^= 1;
 
-        assert_failed!(verify(&q, Cursor::new(message), &sig))
+        assert_failed!(verify(&q, Cursor::new(message), &sig));
     }
 
     #[test]

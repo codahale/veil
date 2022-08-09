@@ -254,7 +254,7 @@ mod tests {
     }
 
     #[test]
-    fn round_trip() -> Result<(), DecryptError> {
+    fn round_trip() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let priv_a = PrivateKey::random(&mut rng);
         let priv_b = PrivateKey::random(&mut rng);
@@ -263,38 +263,32 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = priv_a.encrypt(
-            &mut rng,
-            &mut src,
-            &mut dst,
-            &[priv_b.public_key()],
-            Some(20),
-            Some(123),
-        )?;
+        let ctx_len = priv_a
+            .encrypt(&mut rng, &mut src, &mut dst, &[priv_b.public_key()], Some(20), Some(123))
+            .expect("error encrypting");
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        let ptx_len = priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key())?;
+        let ptx_len =
+            priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()).expect("error decrypting");
         assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
         assert_eq!(message.to_vec(), dst.into_inner(), "incorrect plaintext");
-
-        Ok(())
     }
 
     macro_rules! assert_failed {
         ($action: expr) => {
             match $action {
                 Ok(_) => panic!("decrypted but shouldn't have"),
-                Err(DecryptError::InvalidCiphertext) => Ok(()),
-                Err(e) => Err(e),
+                Err(DecryptError::InvalidCiphertext) => {}
+                Err(e) => panic!("unknown error: {:?}", e),
             }
         };
     }
 
     #[test]
-    fn wrong_sender_key() -> Result<(), DecryptError> {
+    fn wrong_sender_key() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let priv_a = PrivateKey::random(&mut rng);
         let priv_b = PrivateKey::random(&mut rng);
@@ -303,24 +297,19 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = priv_a.encrypt(
-            &mut rng,
-            &mut src,
-            &mut dst,
-            &[priv_b.public_key()],
-            Some(20),
-            Some(123),
-        )?;
+        let ctx_len = priv_a
+            .encrypt(&mut rng, &mut src, &mut dst, &[priv_b.public_key()], Some(20), Some(123))
+            .expect("error encrypting");
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert_failed!(priv_b.decrypt(&mut src, &mut dst, &priv_b.public_key()))
+        assert_failed!(priv_b.decrypt(&mut src, &mut dst, &priv_b.public_key()));
     }
 
     #[test]
-    fn wrong_receiver() -> Result<(), DecryptError> {
+    fn wrong_receiver() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let priv_a = PrivateKey::random(&mut rng);
         let priv_b = PrivateKey::random(&mut rng);
@@ -329,24 +318,19 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = priv_a.encrypt(
-            &mut rng,
-            &mut src,
-            &mut dst,
-            &[priv_a.public_key()],
-            Some(20),
-            Some(123),
-        )?;
+        let ctx_len = priv_a
+            .encrypt(&mut rng, &mut src, &mut dst, &[priv_a.public_key()], Some(20), Some(123))
+            .expect("error encrypting");
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert_failed!(priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()))
+        assert_failed!(priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()));
     }
 
     #[test]
-    fn modified_ciphertext() -> Result<(), DecryptError> {
+    fn modified_ciphertext() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let priv_a = PrivateKey::random(&mut rng);
         let priv_b = PrivateKey::random(&mut rng);
@@ -355,14 +339,9 @@ mod tests {
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = priv_a.encrypt(
-            &mut rng,
-            &mut src,
-            &mut dst,
-            &[priv_b.public_key()],
-            Some(20),
-            Some(123),
-        )?;
+        let ctx_len = priv_a
+            .encrypt(&mut rng, &mut src, &mut dst, &[priv_b.public_key()], Some(20), Some(123))
+            .expect("error encrypting");
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut ciphertext = dst.into_inner();
@@ -371,20 +350,20 @@ mod tests {
         let mut src = Cursor::new(ciphertext);
         let mut dst = Cursor::new(Vec::new());
 
-        assert_failed!(priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()))
+        assert_failed!(priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()));
     }
 
     #[test]
-    fn sign_and_verify() -> Result<(), VerifyError> {
+    fn sign_and_verify() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let priv_key = PrivateKey::random(&mut rng);
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
 
-        let sig = priv_key.sign(&mut rng, &mut src)?;
+        let sig = priv_key.sign(&mut rng, &mut src).expect("error signing");
 
         let mut src = Cursor::new(message);
-        priv_key.public_key().verify(&mut src, &sig)
+        priv_key.public_key().verify(&mut src, &sig).expect("error verifying");
     }
 }

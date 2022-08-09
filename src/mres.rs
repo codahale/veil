@@ -348,14 +348,14 @@ mod tests {
         ($action: expr) => {
             match $action {
                 Ok(_) => panic!("decrypted but shouldn't have"),
-                Err(DecryptError::InvalidCiphertext) => Ok(()),
-                Err(e) => Err(e),
+                Err(DecryptError::InvalidCiphertext) => {}
+                Err(e) => panic!("unexpected error: {:?}", e),
             }
         };
     }
 
     #[test]
-    fn round_trip() -> Result<(), DecryptError> {
+    fn round_trip() {
         let (mut rng, d_s, q_s, d_r, q_r) = setup();
 
         let message = b"this is a thingy";
@@ -363,28 +363,28 @@ mod tests {
         let mut dst = Cursor::new(Vec::new());
 
         let q_rs = &[q_s, q_r, q_s, q_s, q_s];
-        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), q_rs, 123)?;
+        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), q_rs, 123)
+            .expect("error encrypting");
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        let ptx_len = decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s)?;
+        let ptx_len = decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s).expect("error decrypting");
         assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
         assert_eq!(message.to_vec(), dst.into_inner(), "incorrect plaintext");
-
-        Ok(())
     }
 
     #[test]
-    fn wrong_sender_public_key() -> Result<(), DecryptError> {
+    fn wrong_sender_public_key() {
         let (mut rng, d_s, q_s, d_r, q_r) = setup();
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)?;
+        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)
+            .expect("error encrypting");
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let q_s = Point::random(&mut rng);
@@ -392,18 +392,19 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert_failed!(decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s))
+        assert_failed!(decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s));
     }
 
     #[test]
-    fn wrong_receiver_public_key() -> Result<(), DecryptError> {
+    fn wrong_receiver_public_key() {
         let (mut rng, d_s, q_s, d_r, q_r) = setup();
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)?;
+        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)
+            .expect("error encrypting");
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let q_r = Point::random(&mut rng);
@@ -411,18 +412,19 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert_failed!(decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s))
+        assert_failed!(decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s));
     }
 
     #[test]
-    fn wrong_receiver_private_key() -> Result<(), DecryptError> {
+    fn wrong_receiver_private_key() {
         let (mut rng, d_s, q_s, _, q_r) = setup();
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)?;
+        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)
+            .expect("error encrypting");
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let d_r = Scalar::random(&mut rng);
@@ -430,60 +432,59 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert_failed!(decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s))
+        assert_failed!(decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s));
     }
 
     #[test]
-    fn multi_block_message() -> Result<(), DecryptError> {
+    fn multi_block_message() {
         let (mut rng, d_s, q_s, d_r, q_r) = setup();
 
         let message = [69u8; 65 * 1024];
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)?;
+        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)
+            .expect("error encrypting");
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        let ptx_len = decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s)?;
+        let ptx_len = decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s).expect("error decrypting");
         assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
         assert_eq!(message.to_vec(), dst.into_inner(), "incorrect plaintext");
-
-        Ok(())
     }
 
     #[test]
-    fn split_sig() -> Result<(), DecryptError> {
+    fn split_sig() {
         let (mut rng, d_s, q_s, d_r, q_r) = setup();
 
         let message = [69u8; 32 * 1024 - 37];
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 0)?;
+        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 0)
+            .expect("error encrypting");
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        let ptx_len = decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s)?;
+        let ptx_len = decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s).expect("error decrypting");
         assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
         assert_eq!(message.to_vec(), dst.into_inner(), "incorrect plaintext");
-
-        Ok(())
     }
 
     #[test]
-    fn flip_every_bit() -> Result<(), DecryptError> {
+    fn flip_every_bit() {
         let (mut rng, d_s, q_s, d_r, q_r) = setup();
 
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)?;
+        encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)
+            .expect("error encrypting");
 
         let ciphertext = dst.into_inner();
 
@@ -500,8 +501,6 @@ mod tests {
                 };
             }
         }
-
-        Ok(())
     }
 
     fn setup() -> (ChaChaRng, Scalar, Point, Scalar, Point) {
