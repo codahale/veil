@@ -68,11 +68,25 @@ impl KeyedDuplex {
         self.state.seal(plaintext)
     }
 
+    /// Encrypt and seal the given plaintext in place, adding [`TAG_LEN`] bytes to the end.
+    /// **Guarantees authenticity.**
+    pub fn seal_mut(&mut self, in_out: &mut [u8]) {
+        self.state.seal_mut(in_out);
+    }
+
     /// Decrypt and unseal the given ciphertext. If the ciphertext is invalid, returns `None`.
     /// **Guarantees authenticity.**
     #[must_use]
     pub fn unseal(&mut self, ciphertext: &[u8]) -> Option<Vec<u8>> {
         self.state.open(ciphertext)
+    }
+
+    /// Decrypt and unseal the given ciphertext in place. If the ciphertext is valid, returns the
+    /// length of the plaintext; if invalid, returns `None`.
+    /// **Guarantees authenticity.**
+    #[must_use]
+    pub fn unseal_mut(&mut self, in_out: &mut [u8]) -> Option<usize> {
+        self.state.open_mut(in_out).then_some(in_out.len() - TAG_LEN)
     }
 }
 

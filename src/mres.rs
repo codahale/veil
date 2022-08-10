@@ -129,7 +129,7 @@ fn encrypt_message(
     reader: &mut impl Read,
     writer: &mut impl Write,
 ) -> io::Result<u64> {
-    let mut buf = Vec::with_capacity(BLOCK_LEN);
+    let mut buf = Vec::with_capacity(ENC_BLOCK_LEN);
     let mut written = 0;
 
     loop {
@@ -137,11 +137,13 @@ fn encrypt_message(
         let n = reader
             .take(BLOCK_LEN.try_into().expect("unexpected overflow"))
             .read_to_end(&mut buf)?;
-        let block = &buf[..n];
+        buf.extend_from_slice(&[0u8; TAG_LEN]);
+        let block = &mut buf[..n + TAG_LEN];
 
         // Encrypt the block and write the ciphertext and a tag.
-        writer.write_all(&mres.seal(block))?;
-        written += u64::try_from(n + TAG_LEN).expect("unexpected overflow");
+        mres.seal_mut(block);
+        writer.write_all(block)?;
+        written += u64::try_from(block.len()).expect("unexpected overflow");
 
         // If the block was undersized, we're at the end of the reader.
         if n < BLOCK_LEN {
@@ -224,13 +226,16 @@ fn decrypt_message(
 
         // Pretend we don't see the possible signature at the end.
         let n = buf.len() - SIGNATURE_LEN;
-        let block = &buf[..n];
+        let block = &mut buf[..n];
 
         // Decrypt the block and write the plaintext. If the block cannot be decrypted, return an
         // error.
-        let plaintext = mres.unseal(block).ok_or(DecryptError::InvalidCiphertext)?;
-        writer.write_all(&plaintext)?;
-        written += u64::try_from(plaintext.len()).expect("unexpected overflow");
+        let n_p = mres.unseal_mut(block).ok_or(DecryptError::InvalidCiphertext)?;
+        let plaintext = &block[..n_p];
+
+        // let plaintext = mres.unseal(block).ok_or(DecryptError::InvalidCiphertext)?;
+        writer.write_all(plaintext)?;
+        written += u64::try_from(n_p).expect("unexpected overflow");
 
         // Clear the part of the buffer we used.
         buf.drain(0..n);
