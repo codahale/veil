@@ -249,12 +249,12 @@ fn decrypt_header(
 ) -> Result<(UnkeyedDuplex, Point, [u8; DEK_LEN]), DecryptError> {
     let mut header = [0u8; ENC_HEADER_LEN];
     let mut i = 0u64;
-    let mut hdr_count = u64::MAX;
+    let mut recv_count = u64::MAX;
 
     let mut header_values: Option<(Point, u64, [u8; DEK_LEN])> = None;
 
     // Iterate through blocks, looking for an encrypted header that can be decrypted.
-    while i < hdr_count {
+    while i < recv_count {
         // Read a potential encrypted header.
         let n = read_chunk(&mut reader, &mut header)?;
 
@@ -275,7 +275,7 @@ fn decrypt_header(
                 // If the header was successfully decrypted, keep the ephemeral public key, DEK, and
                 // padding and update the loop variable to not be effectively infinite.
                 header_values = Some((q_e, p, d));
-                hdr_count = c;
+                recv_count = c;
             }
         }
 
