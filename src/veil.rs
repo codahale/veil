@@ -88,8 +88,8 @@ impl PrivateKey {
     pub fn encrypt(
         &self,
         mut rng: impl Rng + CryptoRng,
-        reader: &mut impl Read,
-        writer: &mut impl Write,
+        mut reader: impl Read,
+        writer: impl Write,
         receivers: &[PublicKey],
         fakes: Option<usize>,
         padding: Option<usize>,
@@ -107,7 +107,7 @@ impl PrivateKey {
         // Finally, encrypt.
         mres::encrypt(
             &mut rng,
-            reader,
+            &mut reader,
             &mut BufWriter::new(writer),
             (&self.d, &self.pk.q),
             &q_rs,
@@ -126,8 +126,8 @@ impl PrivateKey {
     /// from `reader` or writing to `writer`, returns [`DecryptError::IoError`].
     pub fn decrypt(
         &self,
-        reader: &mut impl Read,
-        writer: &mut impl Write,
+        reader: impl Read,
+        writer: impl Write,
         sender: &PublicKey,
     ) -> Result<u64, DecryptError> {
         mres::decrypt(reader, &mut BufWriter::new(writer), (&self.d, &self.pk.q), &sender.q)
@@ -138,11 +138,7 @@ impl PrivateKey {
     /// # Errors
     ///
     /// If there is an error while reading from `message`, an [`io::Error`] will be returned.
-    pub fn sign(
-        &self,
-        rng: impl Rng + CryptoRng,
-        message: &mut impl Read,
-    ) -> io::Result<Signature> {
+    pub fn sign(&self, rng: impl Rng + CryptoRng, message: impl Read) -> io::Result<Signature> {
         schnorr::sign(rng, (&self.d, &self.pk.q), message)
     }
 }
@@ -184,7 +180,7 @@ impl PublicKey {
     /// If the message has been modified or was not signed by the owner of this public key, returns
     /// [`VerifyError::InvalidSignature`]. If there was an error reading from `message` or writing
     /// to `writer`, returns [`VerifyError::IoError`].
-    pub fn verify(&self, message: &mut impl Read, sig: &Signature) -> Result<(), VerifyError> {
+    pub fn verify(&self, message: impl Read, sig: &Signature) -> Result<(), VerifyError> {
         schnorr::verify(&self.q, message, sig)
     }
 }
