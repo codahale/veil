@@ -8,6 +8,7 @@ use cyclist::Cyclist;
 use rand::{CryptoRng, Rng};
 
 use crate::ecc::{CanonicallyEncoded, Point, Scalar};
+use crate::read_chunk;
 
 /// The length of an authentication tag in bytes.
 pub const TAG_LEN: usize = 16;
@@ -154,17 +155,13 @@ pub trait Absorb: Clone {
         mut reader: impl Read,
         mut writer: impl Write,
     ) -> io::Result<u64> {
-        let block_len = self.absorb_rate() * 32;
-
-        let mut buf = Vec::with_capacity(block_len);
+        let mut buf = vec![0u8; self.absorb_rate() * 32];
         let mut first = true;
         let mut written = 0;
 
         loop {
             // Read a block of data.
-            let n = (&mut reader)
-                .take(u64::try_from(block_len).expect("unexpected overflow"))
-                .read_to_end(&mut buf)?;
+            let n = read_chunk(&mut reader, &mut buf)?;
             let block = &buf[..n];
 
             // Absorb the block.
@@ -180,12 +177,9 @@ pub trait Absorb: Clone {
             written += u64::try_from(n).expect("unexpected overflow");
 
             // If the block was undersized, we're at the end of the reader.
-            if n < block_len {
+            if n < buf.len() {
                 break;
             }
-
-            // Reset the buffer.
-            buf.clear();
         }
 
         Ok(written)
