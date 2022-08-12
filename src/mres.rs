@@ -78,12 +78,14 @@ const HEADER_LEN: usize = DEK_LEN + INT_LEN + INT_LEN;
 
 /// Encode the DEK, header count, and padding size in a header.
 #[inline]
-fn encode_header(dek: &[u8; DEK_LEN], hdr_count: u64, padding: u64) -> [u8; HEADER_LEN] {
-    let mut header = Vec::with_capacity(HEADER_LEN);
-    header.extend(dek);
-    header.extend(hdr_count.to_le_bytes());
-    header.extend(padding.to_le_bytes());
-    header.try_into().expect("invalid header len")
+fn encode_header(dek: &[u8; DEK_LEN], recv_count: u64, padding: u64) -> [u8; HEADER_LEN] {
+    let mut header = [0u8; HEADER_LEN];
+    let (hdr_dek, hdr_recv_count) = header.split_at_mut(DEK_LEN);
+    let (hdr_recv_count, hdr_padding) = hdr_recv_count.split_at_mut(INT_LEN);
+    hdr_dek.copy_from_slice(dek);
+    hdr_recv_count.copy_from_slice(&recv_count.to_le_bytes());
+    hdr_padding.copy_from_slice(&padding.to_le_bytes());
+    header
 }
 
 #[allow(clippy::too_many_arguments)]
