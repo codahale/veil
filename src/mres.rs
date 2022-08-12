@@ -16,8 +16,8 @@ use crate::{schnorr, sres, AsciiEncoded, DecryptError, Signature};
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
 pub fn encrypt(
     mut rng: impl Rng + CryptoRng,
-    reader: &mut impl Read,
-    mut writer: &mut impl Write,
+    reader: impl Read,
+    mut writer: impl Write,
     (d_s, q_s): (&Scalar, &Point),
     q_rs: &[Point],
     padding: usize,
@@ -48,7 +48,7 @@ pub fn encrypt(
         q_rs,
         &dek,
         padding,
-        writer,
+        &mut writer,
     )?;
 
     // Add random padding to the end of the headers.
@@ -61,7 +61,7 @@ pub fn encrypt(
     let mut mres = mres.into_keyed();
 
     // Encrypt the plaintext in blocks and write them.
-    written += encrypt_message(&mut mres, reader, writer)?;
+    written += encrypt_message(&mut mres, reader, &mut writer)?;
 
     // Sign the duplex's final state with the ephemeral private key and append the signature.
     let sig = schnorr::sign_duplex(&mut mres, &mut rng, &d_e, None);
@@ -95,7 +95,7 @@ fn encrypt_headers(
     q_rs: &[Point],
     dek: &[u8; DEK_LEN],
     padding: u64,
-    writer: &mut impl Write,
+    mut writer: impl Write,
 ) -> io::Result<u64> {
     let mut written = 0u64;
     let header = encode_header(dek, q_rs.len().try_into().expect("unexpected overflow"), padding);
@@ -126,15 +126,15 @@ const BLOCK_LEN: usize = 32 * 1024;
 /// encrypted blocks and authentication tags to `writer`.
 fn encrypt_message(
     mres: &mut KeyedDuplex,
-    reader: &mut impl Read,
-    writer: &mut impl Write,
+    mut reader: impl Read,
+    mut writer: impl Write,
 ) -> io::Result<u64> {
     let mut buf = Vec::with_capacity(ENC_BLOCK_LEN);
     let mut written = 0;
 
     loop {
         // Read a block of data.
-        let n = reader
+        let n = (&mut reader)
             .take(BLOCK_LEN.try_into().expect("unexpected overflow"))
             .read_to_end(&mut buf)?;
         buf.extend_from_slice(&[0u8; TAG_LEN]);
@@ -161,8 +161,8 @@ fn encrypt_message(
 /// Decrypt the contents of `reader` iff they were originally encrypted by `q_s` for `q_r` and write
 /// the plaintext to `writer`.
 pub fn decrypt(
-    reader: &mut impl Read,
-    writer: &mut impl Write,
+    mut reader: impl Read,
+    mut writer: impl Write,
     (d_r, q_r): (&Scalar, &Point),
     q_s: &Point,
 ) -> Result<u64, DecryptError> {
@@ -176,7 +176,7 @@ pub fn decrypt(
     mres.absorb(&nonce);
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the duplex.
-    let (mut mres, q_e, dek) = decrypt_header(mres, reader, d_r, q_r, q_s)?;
+    let (mut mres, q_e, dek) = decrypt_header(mres, &mut reader, d_r, q_r, q_s)?;
 
     // Absorb the DEK.
     mres.absorb(&dek);
@@ -185,7 +185,7 @@ pub fn decrypt(
     let mut mres = mres.into_keyed();
 
     // Decrypt the message.
-    let (written, sig) = decrypt_message(&mut mres, reader, writer)?;
+    let (written, sig) = decrypt_message(&mut mres, &mut reader, &mut writer)?;
 
     // Verify the signature and return the number of bytes written.
     if schnorr::verify_duplex(&mut mres, &q_e, None, &sig) {
@@ -202,8 +202,8 @@ const ENC_BLOCK_LEN: usize = BLOCK_LEN + TAG_LEN;
 /// decrypted blocks `writer`.
 fn decrypt_message(
     mres: &mut KeyedDuplex,
-    reader: &mut impl Read,
-    writer: &mut impl Write,
+    mut reader: impl Read,
+    mut writer: impl Write,
 ) -> Result<(u64, Signature), DecryptError> {
     let mut buf = Vec::with_capacity(ENC_BLOCK_LEN + SIGNATURE_LEN);
     let mut written = 0;
@@ -211,7 +211,7 @@ fn decrypt_message(
     loop {
         // Read a block and a possible signature, keeping in mind the unused bit of the buffer from
         // the last iteration.
-        let n = reader
+        let n = (&mut reader)
             .take(
                 u64::try_from(ENC_BLOCK_LEN + SIGNATURE_LEN - buf.len())
                     .expect("unexpected overflow"),
@@ -252,7 +252,7 @@ const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
 /// sender for the given receiver.
 fn decrypt_header(
     mut mres: UnkeyedDuplex,
-    reader: &mut impl Read,
+    mut reader: impl Read,
     d_r: &Scalar,
     q_r: &Point,
     q_s: &Point,
@@ -266,7 +266,7 @@ fn decrypt_header(
     // Iterate through blocks, looking for an encrypted header that can be decrypted.
     while i < hdr_count {
         // Read a potential encrypted header.
-        let n = reader
+        let n = (&mut reader)
             .take(ENC_HEADER_LEN.try_into().expect("unexpected overflow"))
             .read_to_end(&mut buf)?;
         let header = &buf[..n];
