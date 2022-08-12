@@ -10,7 +10,7 @@ use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex, TAG_LEN};
 use crate::ecc::{CanonicallyEncoded, Point, Scalar};
 use crate::schnorr::SIGNATURE_LEN;
 use crate::sres::NONCE_LEN;
-use crate::{schnorr, sres, AsciiEncoded, DecryptError, Signature};
+use crate::{read_chunk, schnorr, sres, AsciiEncoded, DecryptError, Signature};
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
@@ -129,15 +129,12 @@ fn encrypt_message(
     mut reader: impl Read,
     mut writer: impl Write,
 ) -> io::Result<u64> {
-    let mut buf = Vec::with_capacity(ENC_BLOCK_LEN);
+    let mut buf = [0u8; ENC_BLOCK_LEN];
     let mut written = 0;
 
     loop {
         // Read a block of data.
-        let n = (&mut reader)
-            .take(BLOCK_LEN.try_into().expect("unexpected overflow"))
-            .read_to_end(&mut buf)?;
-        buf.extend_from_slice(&[0u8; TAG_LEN]);
+        let n = read_chunk(&mut reader, &mut buf[..BLOCK_LEN])?;
         let block = &mut buf[..n + TAG_LEN];
 
         // Encrypt the block and write the ciphertext and a tag.
@@ -149,9 +146,6 @@ fn encrypt_message(
         if n < BLOCK_LEN {
             break;
         }
-
-        // Reset the buffer.
-        buf.clear();
     }
 
     // Return the number of ciphertext bytes written.
@@ -205,18 +199,14 @@ fn decrypt_message(
     mut reader: impl Read,
     mut writer: impl Write,
 ) -> Result<(u64, Signature), DecryptError> {
-    let mut buf = Vec::with_capacity(ENC_BLOCK_LEN + SIGNATURE_LEN);
+    let mut buf = [0u8; ENC_BLOCK_LEN + SIGNATURE_LEN];
+    let mut offset = 0;
     let mut written = 0;
 
     loop {
         // Read a block and a possible signature, keeping in mind the unused bit of the buffer from
         // the last iteration.
-        let n = (&mut reader)
-            .take(
-                u64::try_from(ENC_BLOCK_LEN + SIGNATURE_LEN - buf.len())
-                    .expect("unexpected overflow"),
-            )
-            .read_to_end(&mut buf)?;
+        let n = read_chunk(&mut reader, &mut buf[offset..])?;
 
         // If we're at the end of the reader, we only have the signature left to process. Break out
         // of the read loop and go process the signature.
@@ -225,24 +215,22 @@ fn decrypt_message(
         }
 
         // Pretend we don't see the possible signature at the end.
-        let n = buf.len() - SIGNATURE_LEN;
-        let block = &mut buf[..n];
+        let block_len = n - SIGNATURE_LEN + offset;
+        let block = &mut buf[..block_len];
 
         // Decrypt the block and write the plaintext. If the block cannot be decrypted, return an
         // error.
         let n_p = mres.unseal_mut(block).ok_or(DecryptError::InvalidCiphertext)?;
-        let plaintext = &block[..n_p];
-
-        // let plaintext = mres.unseal(block).ok_or(DecryptError::InvalidCiphertext)?;
-        writer.write_all(plaintext)?;
+        writer.write_all(&block[..n_p])?;
         written += u64::try_from(n_p).expect("unexpected overflow");
 
-        // Clear the part of the buffer we used.
-        buf.drain(0..n);
+        // Copy the unused part to the beginning of the buffer and set the offset for the next loop.
+        buf.copy_within(block_len.., 0);
+        offset = buf.len() - block_len;
     }
 
     // Return the number of bytes and the signature.
-    Ok((written, Signature::from_bytes(&buf).expect("invalid signature len")))
+    Ok((written, Signature::from_bytes(&buf[..SIGNATURE_LEN]).expect("invalid signature len")))
 }
 
 /// The length of an encrypted header.
@@ -257,7 +245,7 @@ fn decrypt_header(
     q_r: &Point,
     q_s: &Point,
 ) -> Result<(UnkeyedDuplex, Point, [u8; DEK_LEN]), DecryptError> {
-    let mut buf = Vec::with_capacity(ENC_HEADER_LEN);
+    let mut header = [0u8; ENC_HEADER_LEN];
     let mut i = 0u64;
     let mut hdr_count = u64::MAX;
 
@@ -266,13 +254,10 @@ fn decrypt_header(
     // Iterate through blocks, looking for an encrypted header that can be decrypted.
     while i < hdr_count {
         // Read a potential encrypted header.
-        let n = (&mut reader)
-            .take(ENC_HEADER_LEN.try_into().expect("unexpected overflow"))
-            .read_to_end(&mut buf)?;
-        let header = &buf[..n];
+        let n = read_chunk(&mut reader, &mut header)?;
 
         // If the header is short, we're at the end of the reader.
-        if header.len() < ENC_HEADER_LEN {
+        if n < ENC_HEADER_LEN {
             return Err(DecryptError::InvalidCiphertext);
         }
 
@@ -283,7 +268,7 @@ fn decrypt_header(
         // If a header hasn't been decrypted yet, try to decrypt this one.
         if header_values.is_none() {
             if let Some((q_e, d, c, p)) =
-                sres::decrypt((d_r, q_r), q_s, &nonce, header).map(decode_header)
+                sres::decrypt((d_r, q_r), q_s, &nonce, &header).map(decode_header)
             {
                 // If the header was successfully decrypted, keep the ephemeral public key, DEK, and
                 // padding and update the loop variable to not be effectively infinite.
@@ -293,10 +278,8 @@ fn decrypt_header(
         }
 
         // Absorb the encrypted header with the duplex.
-        mres.absorb(header);
+        mres.absorb(&header);
         i += 1;
-
-        buf.clear();
     }
 
     if let Some((q_e, padding, dek)) = header_values {
