@@ -11,7 +11,7 @@ use crate::{schnorr, AsciiEncoded, Signature};
 pub const NONCE_LEN: usize = 16;
 
 /// The number of bytes added to plaintext by [encrypt].
-pub const OVERHEAD: usize = POINT_LEN + POINT_LEN + POINT_LEN;
+pub const OVERHEAD: usize = POINT_LEN + SIGNATURE_LEN;
 
 /// Given the sender's key pair, the ephemeral key pair, the receiver's public key, a nonce, and a
 /// plaintext, encrypts the given plaintext and returns the ciphertext.
