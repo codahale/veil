@@ -106,11 +106,12 @@ pub fn sign_duplex(
         let k = clone.hedge(&mut rng, &d.as_canonical_bytes(), Squeeze::squeeze_scalar);
 
         // Allocate an output buffer.
-        let mut sig = Vec::with_capacity(SIGNATURE_LEN);
+        let mut sig = [0u8; SIGNATURE_LEN];
+        let (sig_i, sig_s_or_x) = sig.split_at_mut(POINT_LEN);
 
         // Calculate and encrypt the commitment point.
         let i = Point::mulgen(&k);
-        sig.extend(clone.encrypt(&i.as_canonical_bytes()));
+        sig_i.copy_from_slice(&clone.encrypt(&i.as_canonical_bytes()));
 
         // Squeeze a challenge scalar.
         let r = clone.squeeze_scalar();
@@ -123,7 +124,7 @@ pub fn sign_duplex(
         if s.iszero() == 0 {
             // If a designated verifier is specified, calculate a designated proof point and encode
             // it. Otherwise, encode the proof scalar.
-            sig.extend(clone.encrypt(&if let Some(q_v) = q_v {
+            sig_s_or_x.copy_from_slice(&clone.encrypt(&if let Some(q_v) = q_v {
                 (q_v * s).as_canonical_bytes()
             } else {
                 s.as_canonical_bytes()
@@ -133,7 +134,7 @@ pub fn sign_duplex(
             *duplex = clone;
 
             // Return the full signature.
-            return Signature(sig.try_into().expect("invalid signature len"));
+            return Signature(sig);
         }
     }
 }
