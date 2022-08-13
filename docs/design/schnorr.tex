@@ -75,6 +75,8 @@ Unlike Construction 13.12 of~\cite[p. 482]{katz2020}, \texttt{veil.schnorr} tran
 of the signature and the verifier calculates $I'$ vs transmitting the challenge scalar $r$ and calculating $r'$.
 In this way, \texttt{veil.schnorr} is closer to EdDSA~\cite{brendel2021} or the Schnorr variant proposed by Hamburg
 in~\cite{hamburg2017}.
+In addition, this construction allows for the use of variable-time optimizations during signature
+verification~\cite{pornin2020}.
 
 \subsection{UF-CMA Security}\label{subsec:veil.schnorr-uf-cma}
 
