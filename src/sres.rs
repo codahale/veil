@@ -2,16 +2,14 @@
 
 use rand::{CryptoRng, Rng};
 
-use crate::duplex::{Absorb, UnkeyedDuplex};
+use crate::duplex::{Absorb, Squeeze, UnkeyedDuplex};
 use crate::ecc::{CanonicallyEncoded, Point, Scalar, POINT_LEN};
-use crate::schnorr::SIGNATURE_LEN;
-use crate::{schnorr, AsciiEncoded, Signature};
 
 /// The recommended size of the nonce passed to [encrypt].
 pub const NONCE_LEN: usize = 16;
 
 /// The number of bytes added to plaintext by [encrypt].
-pub const OVERHEAD: usize = POINT_LEN + SIGNATURE_LEN;
+pub const OVERHEAD: usize = POINT_LEN + POINT_LEN + POINT_LEN;
 
 /// Given the sender's key pair, the ephemeral key pair, the receiver's public key, a nonce, and a
 /// plaintext, encrypts the given plaintext and returns the ciphertext.
@@ -53,9 +51,19 @@ pub fn encrypt(
     // Encrypt the plaintext.
     out.extend(sres.encrypt(plaintext));
 
-    // Create a designated Schnorr signature using the duplex.
-    let sig = schnorr::sign_duplex(&mut sres, rng, d_s, Some(q_r));
-    out.extend(sig.to_bytes());
+    // Derive a commitment scalar from the duplex's current state, the sender's private key,
+    // and a random nonce.
+    let k = sres.hedge(rng, &d_s.as_canonical_bytes(), Squeeze::squeeze_scalar);
+
+    // Calculate and encrypt the commitment point.
+    out.extend(&sres.encrypt(&Point::mulgen(&k).as_canonical_bytes()));
+
+    // Squeeze a challenge scalar.
+    let r = sres.squeeze_scalar();
+
+    // Calculate and encrypt the designated proof point.
+    let x = q_r * ((d_s * r) + k);
+    out.extend(&sres.encrypt(&x.as_canonical_bytes()));
 
     // Return the ciphertext, encrypted commitment point, and encrypted proof point.
     out
@@ -77,8 +85,8 @@ pub fn decrypt(
 
     // Split the ciphertext into its components.
     let (q_e, ciphertext) = ciphertext.split_at(POINT_LEN);
-    let (ciphertext, sig) = ciphertext.split_at(ciphertext.len() - SIGNATURE_LEN);
-    let sig = Signature::from_bytes(sig).ok()?;
+    let (ciphertext, i) = ciphertext.split_at(ciphertext.len() - POINT_LEN - POINT_LEN);
+    let (i, x) = i.split_at(POINT_LEN);
 
     // Initialize an unkeyed duplex.
     let mut sres = UnkeyedDuplex::new("veil.sres");
@@ -107,8 +115,21 @@ pub fn decrypt(
     // Decrypt the plaintext.
     let plaintext = sres.decrypt(ciphertext);
 
-    // Verify the designated signature.
-    schnorr::verify_duplex(&mut sres, q_s, Some(d_r), &sig).then_some((q_e, plaintext))
+    // Decrypt and decode the commitment point.
+    let i = Point::from_canonical_bytes(&sres.decrypt(i))?;
+
+    // Re-derive the challenge scalar.
+    let r_p = sres.squeeze_scalar();
+
+    // Decrypt the designated proof point.
+    let x = sres.decrypt(x);
+
+    // Re-calculate the proof point.
+    let x_p = (i + (q_s * r_p)) * d_r;
+
+    // Return the ephemeral public key and plaintext iff the canonical encoding of the re-calculated
+    // proof point matches the encoding of the decrypted proof point.
+    (x == x_p.as_canonical_bytes().as_slice()).then_some((q_e, plaintext))
 }
 
 #[cfg(test)]
