@@ -24,8 +24,8 @@ pub trait CanonicallyEncoded<const LEN: usize>: Sized {
 
 impl CanonicallyEncoded<SCALAR_LEN> for Scalar {
     fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<Self> {
-        let (v, _) = Scalar::decode32(b.as_ref());
-        (v.iszero() == 0).then_some(v)
+        let (v, ok) = Scalar::decode32(b.as_ref());
+        (ok != 0).then_some(v)
     }
 
     fn as_canonical_bytes(&self) -> [u8; SCALAR_LEN] {
@@ -44,7 +44,7 @@ impl CanonicallyEncoded<SCALAR_LEN> for Scalar {
 
 impl CanonicallyEncoded<POINT_LEN> for Point {
     fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<Self> {
-        Point::decode(b.as_ref()).filter(|q| q.isneutral() == 0)
+        Point::decode(b.as_ref())
     }
 
     fn as_canonical_bytes(&self) -> [u8; POINT_LEN] {
