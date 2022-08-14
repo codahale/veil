@@ -104,15 +104,10 @@ pub trait Squeeze {
         b
     }
 
-    /// Squeeze 32 bytes from the duplex and map them to a [`Scalar`].
+    /// Squeeze 64 bytes from the duplex and map them to a [`Scalar`].
     #[must_use]
     fn squeeze_scalar(&mut self) -> Scalar {
-        loop {
-            let v = Scalar::decode_reduce(&self.squeeze::<64>());
-            if v.iszero() == 0 {
-                return v;
-            }
-        }
+        Scalar::decode_reduce(&self.squeeze::<64>())
     }
 }
 
