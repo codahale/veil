@@ -92,13 +92,13 @@ pub fn sign_duplex(
     mut rng: impl CryptoRng + Rng,
     d: &Scalar,
 ) -> Signature {
-    // Derive a commitment scalar from the duplex's current state, the signer's private key,
-    // and a random nonce.
-    let k = duplex.hedge(&mut rng, &d.as_canonical_bytes(), Squeeze::squeeze_scalar);
-
     // Allocate an output buffer.
     let mut sig = [0u8; SIGNATURE_LEN];
     let (sig_i, sig_s) = sig.split_at_mut(POINT_LEN);
+
+    // Derive a commitment scalar from the duplex's current state, the signer's private key,
+    // and a random nonce.
+    let k = duplex.hedge(&mut rng, &d.as_canonical_bytes(), Squeeze::squeeze_scalar);
 
     // Calculate and encrypt the commitment point.
     let i = Point::mulgen(&k);
@@ -110,8 +110,7 @@ pub fn sign_duplex(
     // Calculate the proof scalar.
     let s = (d * r) + k;
 
-    // If a designated verifier is specified, calculate a designated proof point and encode
-    // it. Otherwise, encode the proof scalar.
+    // Encode and encrypt the proof scalar.
     sig_s.copy_from_slice(&duplex.encrypt(&s.as_canonical_bytes()));
 
     // Return the full signature.
