@@ -179,7 +179,15 @@ pub fn verify_duplex(
         };
 
         // Return true iff I and s are well-formed and I == [s]G - [r']Q.
-        q.verify_helper_vartime(&i, &s, &r_p)
+        unsafe {
+            // crrl doesn't yet support using Pornin's EdDSA verification optimizations for
+            // Ristretto, so we resort to some unsafe trickery here. A Ristretto point is internally
+            // just a newtype wrapper around an Ed25519 point. We transmute the pointers to
+            // Ristretto points to pointers to Ed25519 points and use them to verify the signature.
+            let q_raw = std::mem::transmute::<_, &crrl::ed25519::Point>(q);
+            let i_raw = std::mem::transmute::<_, &crrl::ed25519::Point>(&i);
+            q_raw.verify_helper_vartime(i_raw, &s, &r_p)
+        }
     }
 }
 
