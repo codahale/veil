@@ -1,7 +1,6 @@
 //! Schnorr-variant digital signatures.
 
 use std::convert::TryInto;
-use std::fmt::Formatter;
 use std::io::Read;
 use std::str::FromStr;
 use std::{fmt, io};
@@ -40,7 +39,7 @@ impl FromStr for Signature {
 }
 
 impl fmt::Display for Signature {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.to_ascii())
     }
 }

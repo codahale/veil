@@ -1,4 +1,3 @@
-use std::fmt::Formatter;
 use std::io::Read;
 use std::str::FromStr;
 use std::{fmt, io};
@@ -32,7 +31,7 @@ impl FromStr for Digest {
 }
 
 impl fmt::Display for Digest {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.to_ascii())
     }
 }
