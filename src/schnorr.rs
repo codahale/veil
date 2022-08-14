@@ -64,7 +64,7 @@ pub fn sign(
     let mut schnorr = schnorr.into_keyed();
 
     // Calculate and return the encrypted commitment point and proof scalar.
-    Ok(sign_duplex(&mut schnorr, rng, d, None))
+    Ok(sign_duplex(&mut schnorr, rng, d))
 }
 
 /// Verify a Schnorr signature of the given message using the given public key.
@@ -82,21 +82,16 @@ pub fn verify(q: &Point, message: impl Read, sig: &Signature) -> Result<(), Veri
     let mut schnorr = schnorr.into_keyed();
 
     // Verify the signature.
-    if verify_duplex(&mut schnorr, q, None, sig) {
-        Ok(())
-    } else {
-        Err(VerifyError::InvalidSignature)
-    }
+    verify_duplex(&mut schnorr, q, sig).ok_or(VerifyError::InvalidSignature)
 }
 
-/// Create a Schnorr signature of the given duplex's state using the given private key and an
-/// optional designated verifier public key. Returns the full signature.
+/// Create a Schnorr signature of the given duplex's state using the given private key.
+/// Returns the full signature.
 #[must_use]
 pub fn sign_duplex(
     duplex: &mut KeyedDuplex,
     mut rng: impl CryptoRng + Rng,
     d: &Scalar,
-    q_v: Option<&Point>,
 ) -> Signature {
     // Derive a commitment scalar from the duplex's current state, the signer's private key,
     // and a random nonce.
@@ -104,7 +99,7 @@ pub fn sign_duplex(
 
     // Allocate an output buffer.
     let mut sig = [0u8; SIGNATURE_LEN];
-    let (sig_i, sig_s_or_x) = sig.split_at_mut(POINT_LEN);
+    let (sig_i, sig_s) = sig.split_at_mut(POINT_LEN);
 
     // Calculate and encrypt the commitment point.
     let i = Point::mulgen(&k);
@@ -118,67 +113,37 @@ pub fn sign_duplex(
 
     // If a designated verifier is specified, calculate a designated proof point and encode
     // it. Otherwise, encode the proof scalar.
-    sig_s_or_x.copy_from_slice(&duplex.encrypt(&if let Some(q_v) = q_v {
-        (q_v * s).as_canonical_bytes()
-    } else {
-        s.as_canonical_bytes()
-    }));
+    sig_s.copy_from_slice(&duplex.encrypt(&s.as_canonical_bytes()));
 
     // Return the full signature.
     Signature(sig)
 }
 
-/// Verify a Schnorr signature of the given duplex's state using the given public key and optional
-/// designated verifier's private key.
-#[must_use]
-pub fn verify_duplex(
-    duplex: &mut KeyedDuplex,
-    q: &Point,
-    d_v: Option<&Scalar>,
-    sig: &Signature,
-) -> bool {
+/// Verify a Schnorr signature of the given duplex's state using the given public key.
+pub fn verify_duplex(duplex: &mut KeyedDuplex, q: &Point, sig: &Signature) -> Option<()> {
     // Split signature into components.
-    let (i, s_or_x) = sig.0.split_at(POINT_LEN);
+    let (i, s) = sig.0.split_at(POINT_LEN);
 
     // Decrypt and decode the commitment point.
-    let i = if let Some(i) = Point::from_canonical_bytes(&duplex.decrypt(i)) {
-        i
-    } else {
-        return false;
-    };
+    let i = Point::from_canonical_bytes(&duplex.decrypt(i))?;
 
     // Re-derive the challenge scalar.
     let r_p = duplex.squeeze_scalar();
 
-    // Decrypt either the proof scalar or the designated proof point.
-    let s_or_x = duplex.decrypt(s_or_x);
+    // If the signature is publicly verifiable, decrypt and decode the proof scalar.
+    let s = Scalar::from_canonical_bytes(&duplex.decrypt(s))?;
 
-    if let Some(d) = d_v {
-        // If the signature has a designated verifier, re-calculate the proof point.
-        let x_p = (i + (q * r_p)) * d;
-
-        // Return true iff the canonical encoding of the re-calculated proof point matches the
-        // encoding of the decrypted proof point.
-        s_or_x == x_p.as_canonical_bytes().as_slice()
-    } else {
-        // If the signature is publicly verifiable, decrypt and decode the proof scalar.
-        let s = if let Some(s) = Scalar::from_canonical_bytes(&s_or_x) {
-            s
-        } else {
-            return false;
-        };
-
-        // Return true iff I and s are well-formed and I == [s]G - [r']Q.
-        unsafe {
-            // crrl doesn't yet support using Pornin's EdDSA verification optimizations for
-            // Ristretto, so we resort to some unsafe trickery here. A Ristretto point is internally
-            // just a newtype wrapper around an Ed25519 point. We transmute the pointers to
-            // Ristretto points to pointers to Ed25519 points and use them to verify the signature.
-            let q_raw = std::mem::transmute::<_, &crrl::ed25519::Point>(q);
-            let i_raw = std::mem::transmute::<_, &crrl::ed25519::Point>(&i);
-            q_raw.verify_helper_vartime(i_raw, &s, &r_p)
-        }
+    // Return true iff I and s are well-formed and I == [s]G - [r']Q.
+    unsafe {
+        // crrl doesn't yet support using Pornin's EdDSA verification optimizations for
+        // Ristretto, so we resort to some unsafe trickery here. A Ristretto point is internally
+        // just a newtype wrapper around an Ed25519 point. We transmute the pointers to
+        // Ristretto points to pointers to Ed25519 points and use them to verify the signature.
+        let q_raw = std::mem::transmute::<_, &crrl::ed25519::Point>(q);
+        let i_raw = std::mem::transmute::<_, &crrl::ed25519::Point>(&i);
+        q_raw.verify_helper_vartime(i_raw, &s, &r_p)
     }
+    .then_some(())
 }
 
 #[cfg(test)]
