@@ -231,12 +231,12 @@ mod tests {
     fn public_key_encoding() {
         let base = PublicKey { q: Point::BASE };
         assert_eq!(
-            "GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3",
+            "3ULQeLqAKMjxy7rTod4VHF9cXxBgJPGhNwhaKwcSzpcW",
             base.to_string(),
             "invalid encoded public key"
         );
 
-        let decoded = "GGumV86X6FZzHRo8bLvbW2LJ3PZ45EqRPWeogP8ufcm3".parse::<PublicKey>();
+        let decoded = "3ULQeLqAKMjxy7rTod4VHF9cXxBgJPGhNwhaKwcSzpcW".parse::<PublicKey>();
         assert_eq!(Ok(base), decoded, "error parsing public key");
 
         assert_eq!(

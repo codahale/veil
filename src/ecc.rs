@@ -3,13 +3,13 @@
 use rand::{CryptoRng, Rng, RngCore};
 
 /// A scalar value for the elliptic curve.
-pub(crate) type Scalar = crrl::ristretto255::Scalar;
+pub(crate) type Scalar = crrl::jq255e::Scalar;
 
 /// The length of an encoded scalar in bytes.
 pub const SCALAR_LEN: usize = 32;
 
 /// A point on the elliptic curve. Never the additive identity.
-pub(crate) type Point = crrl::ristretto255::Point;
+pub(crate) type Point = crrl::jq255e::Point;
 
 /// The length of an encoded point in bytes.
 pub const POINT_LEN: usize = 32;
@@ -52,6 +52,6 @@ impl CanonicallyEncoded<POINT_LEN> for Point {
     }
 
     fn random(mut rng: impl RngCore + CryptoRng) -> Self {
-        Point::one_way_map(&rng.gen::<[u8; 64]>())
+        Point::hash_to_curve("", &rng.gen::<[u8; 64]>())
     }
 }

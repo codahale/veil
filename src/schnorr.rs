@@ -101,8 +101,7 @@ pub fn sign_duplex(
     let k = duplex.hedge(&mut rng, &d.as_canonical_bytes(), Squeeze::squeeze_scalar);
 
     // Calculate and encrypt the commitment point.
-    let i = Point::mulgen(&k);
-    sig_i.copy_from_slice(&duplex.encrypt(&i.as_canonical_bytes()));
+    sig_i.copy_from_slice(&duplex.encrypt(&Point::mulgen(&k).as_canonical_bytes()));
 
     // Squeeze a challenge scalar.
     let r = duplex.squeeze_scalar();
@@ -122,8 +121,8 @@ pub fn verify_duplex(duplex: &mut KeyedDuplex, q: &Point, sig: &Signature) -> Op
     // Split signature into components.
     let (i, s) = sig.0.split_at(POINT_LEN);
 
-    // Decrypt and decode the commitment point.
-    let i = Point::from_canonical_bytes(&duplex.decrypt(i))?;
+    // Decrypt the commitment point.
+    let i = &duplex.decrypt(i);
 
     // Re-derive the challenge scalar.
     let r_p = duplex.squeeze_scalar();
@@ -132,16 +131,7 @@ pub fn verify_duplex(duplex: &mut KeyedDuplex, q: &Point, sig: &Signature) -> Op
     let s = Scalar::from_canonical_bytes(&duplex.decrypt(s))?;
 
     // Return true iff I and s are well-formed and I == [s]G - [r']Q.
-    unsafe {
-        // crrl doesn't yet support using Pornin's EdDSA verification optimizations for
-        // Ristretto, so we resort to some unsafe trickery here. A Ristretto point is internally
-        // just a newtype wrapper around an Ed25519 point. We transmute the pointers to
-        // Ristretto points to pointers to Ed25519 points and use them to verify the signature.
-        let q_raw = std::mem::transmute::<_, &crrl::ed25519::Point>(q);
-        let i_raw = std::mem::transmute::<_, &crrl::ed25519::Point>(&i);
-        q_raw.verify_helper_vartime(i_raw, &s, &r_p)
-    }
-    .then_some(())
+    ((-q).mul_add_mulgen_vartime(&r_p, &s).encode().as_slice() == i.as_slice()).then_some(())
 }
 
 #[cfg(test)]
