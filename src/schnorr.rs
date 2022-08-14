@@ -91,6 +91,7 @@ pub fn verify(q: &Point, message: impl Read, sig: &Signature) -> Result<(), Veri
 
 /// Create a Schnorr signature of the given duplex's state using the given private key and an
 /// optional designated verifier public key. Returns the full signature.
+#[must_use]
 pub fn sign_duplex(
     duplex: &mut KeyedDuplex,
     mut rng: impl CryptoRng + Rng,
@@ -141,6 +142,7 @@ pub fn sign_duplex(
 
 /// Verify a Schnorr signature of the given duplex's state using the given public key and optional
 /// designated verifier's private key.
+#[must_use]
 pub fn verify_duplex(
     duplex: &mut KeyedDuplex,
     q: &Point,
