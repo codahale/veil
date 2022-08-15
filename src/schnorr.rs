@@ -15,7 +15,7 @@ pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
 
 /// A Schnorr signature.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Signature(pub(crate) [u8; SIGNATURE_LEN]);
+pub struct Signature([u8; SIGNATURE_LEN]);
 
 impl AsciiEncoded<SIGNATURE_LEN> for Signature {
     type Err = ParseSignatureError;
