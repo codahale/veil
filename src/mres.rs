@@ -1,6 +1,5 @@
 //! A multi-receiver, hybrid cryptosystem.
 
-use std::convert::TryInto;
 use std::io::{self, Read, Write};
 use std::mem;
 

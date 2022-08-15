@@ -1,6 +1,5 @@
 //! Schnorr-variant digital signatures.
 
-use std::convert::TryInto;
 use std::io::Read;
 use std::str::FromStr;
 use std::{fmt, io};
