@@ -4,7 +4,7 @@ In the interests of cryptographic minimalism, Veil uses just two distinct crypto
 
 \begin{itemize}
     \item Keccyak-128~\cite{daemen2020,bertoni2018} for confidentiality, authentication, and integrity.
-    \item Ristretto255 for key agreement and authenticity~\cite{deValence2020}.
+    \item jq255e for key agreement and authenticity~\cite{pornin2022}.
 \end{itemize}
 
 \subsection{Keccyak-128}\label{subsec:keccyak}
@@ -31,13 +31,13 @@ Veil's security assumes that Cyclist's \textsc{Encrypt} operation is IND-CPA sec
 \textsc{Squeeze} operation is sUF-CMA secure, and its
 \textsc{Encrypt}/\textsc{Squeeze}-based authenticated encryption construction is IND-CCA2 secure.
 
-\subsection{Ristretto255}\label{subsec:ristretto255}
+\subsection{jq255e}\label{subsec:jq255e}
 
-Ristretto255 uses a safe curve, is a prime-order cyclic group, has non-malleable encodings, and has no
-co-factor concerns.
+jq255e is a double-odd elliptic curve selected for efficiency and simplicity~\cite{pornin2022}.
+It provides a prime-order group, has non-malleable encodings, and has no co-factor concerns.
 This allows for the use of a wide variety of cryptographic constructions built on group operations.
 It targets a 128-bit security level, lends itself to constant-time implementations, and can run in constrained
-environments~\cite{deValence2018}.
+environments~\cite{pornin2022do}.
 
 Veil's security assumes that the Gap Discrete Logarithm and Gap Diffie-Hellman problems are hard relative to
-Ristretto255.
+jq255e.
