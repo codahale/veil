@@ -128,7 +128,7 @@ pub fn verify_duplex(duplex: &mut KeyedDuplex, q: &Point, sig: &Signature) -> Op
     // Re-derive the challenge scalar.
     let r_p = duplex.squeeze_scalar();
 
-    // If the signature is publicly verifiable, decrypt and decode the proof scalar.
+    // Decrypt and decode the proof scalar.
     let s = Scalar::from_canonical_bytes(&duplex.decrypt(s))?;
 
     // Return true iff I and s are well-formed and I == [s]G - [r']Q.
