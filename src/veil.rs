@@ -1,7 +1,7 @@
 //! The Veil hybrid cryptosystem.
 
 use std::fmt::{Debug, Formatter};
-use std::io::{BufWriter, Read, Write};
+use std::io::{Read, Write};
 use std::str::FromStr;
 use std::{fmt, io, iter};
 
@@ -88,7 +88,7 @@ impl PrivateKey {
     pub fn encrypt(
         &self,
         mut rng: impl Rng + CryptoRng,
-        mut reader: impl Read,
+        reader: impl Read,
         writer: impl Write,
         receivers: &[PublicKey],
         fakes: Option<usize>,
@@ -107,8 +107,8 @@ impl PrivateKey {
         // Finally, encrypt.
         mres::encrypt(
             &mut rng,
-            &mut reader,
-            &mut BufWriter::new(writer),
+            reader,
+            writer,
             (&self.d, &self.pk.q),
             &q_rs,
             padding.unwrap_or_default(),
@@ -130,7 +130,7 @@ impl PrivateKey {
         writer: impl Write,
         sender: &PublicKey,
     ) -> Result<u64, DecryptError> {
-        mres::decrypt(reader, &mut BufWriter::new(writer), (&self.d, &self.pk.q), &sender.q)
+        mres::decrypt(reader, writer, (&self.d, &self.pk.q), &sender.q)
     }
 
     /// Reads the contents of the reader and returns a digital signature.
