@@ -157,16 +157,6 @@ mod tests {
         );
     }
 
-    macro_rules! assert_failed {
-        ($action: expr) => {
-            match $action {
-                Ok(_) => panic!("verified but shouldn't have"),
-                Err(VerifyError::InvalidSignature) => {}
-                Err(e) => panic!("unknown error: {}", e),
-            }
-        };
-    }
-
     #[test]
     fn modified_message() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
@@ -177,7 +167,12 @@ mod tests {
         let sig = sign(&mut rng, (&d, &q), Cursor::new(message)).expect("error signing");
 
         let message = b"this is NOT a message";
-        assert_failed!(verify(&q, Cursor::new(message), &sig));
+        assert_eq!(
+            "invalid signature",
+            verify(&q, Cursor::new(message), &sig)
+                .expect_err("should not have verified")
+                .to_string()
+        );
     }
 
     #[test]
@@ -191,7 +186,12 @@ mod tests {
 
         let q = Point::random(&mut rng);
 
-        assert_failed!(verify(&q, Cursor::new(message), &sig));
+        assert_eq!(
+            "invalid signature",
+            verify(&q, Cursor::new(message), &sig)
+                .expect_err("should not have verified")
+                .to_string()
+        );
     }
 
     #[test]
@@ -205,7 +205,12 @@ mod tests {
 
         sig.0[22] ^= 1;
 
-        assert_failed!(verify(&q, Cursor::new(message), &sig));
+        assert_eq!(
+            "invalid signature",
+            verify(&q, Cursor::new(message), &sig)
+                .expect_err("should not have verified")
+                .to_string()
+        );
     }
 
     #[test]
