@@ -273,16 +273,6 @@ mod tests {
         assert_eq!(message.to_vec(), dst.into_inner(), "incorrect plaintext");
     }
 
-    macro_rules! assert_failed {
-        ($action: expr) => {
-            match $action {
-                Ok(_) => panic!("decrypted but shouldn't have"),
-                Err(DecryptError::InvalidCiphertext) => {}
-                Err(e) => panic!("unknown error: {:?}", e),
-            }
-        };
-    }
-
     #[test]
     fn wrong_sender_key() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
@@ -301,7 +291,13 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert_failed!(priv_b.decrypt(&mut src, &mut dst, &priv_b.public_key()));
+        assert_eq!(
+            "invalid ciphertext",
+            priv_b
+                .decrypt(&mut src, &mut dst, &priv_b.public_key())
+                .expect_err("should not have decrypted")
+                .to_string()
+        );
     }
 
     #[test]
@@ -322,7 +318,13 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert_failed!(priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()));
+        assert_eq!(
+            "invalid ciphertext",
+            priv_b
+                .decrypt(&mut src, &mut dst, &priv_a.public_key())
+                .expect_err("should not have decrypted")
+                .to_string()
+        );
     }
 
     #[test]
@@ -346,7 +348,13 @@ mod tests {
         let mut src = Cursor::new(ciphertext);
         let mut dst = Cursor::new(Vec::new());
 
-        assert_failed!(priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()));
+        assert_eq!(
+            "invalid ciphertext",
+            priv_b
+                .decrypt(&mut src, &mut dst, &priv_a.public_key())
+                .expect_err("should not have decrypted")
+                .to_string()
+        );
     }
 
     #[test]
