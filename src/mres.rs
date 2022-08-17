@@ -264,6 +264,9 @@ fn decrypt_header(
         // consistent.
         let nonce = mres.squeeze::<NONCE_LEN>();
 
+        // Absorb the encrypted header with the duplex.
+        mres.absorb(&header);
+
         // If a header hasn't been decrypted yet, try to decrypt this one.
         if header_values.is_none() {
             if let Some((q_e, d, c, p)) =
@@ -276,8 +279,6 @@ fn decrypt_header(
             }
         }
 
-        // Absorb the encrypted header with the duplex.
-        mres.absorb(&header);
         i += 1;
     }
 
