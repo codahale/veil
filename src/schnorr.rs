@@ -99,8 +99,9 @@ pub fn sign_duplex(
     // and a random nonce.
     let k = duplex.hedge(&mut rng, &d.as_canonical_bytes(), Squeeze::squeeze_scalar);
 
-    // Calculate and encrypt the commitment point.
-    sig_i.copy_from_slice(&duplex.encrypt(&Point::mulgen(&k).as_canonical_bytes()));
+    // Calculate, encode, and encrypt the commitment point.
+    sig_i.copy_from_slice(&Point::mulgen(&k).as_canonical_bytes());
+    duplex.encrypt_mut(sig_i);
 
     // Squeeze a challenge scalar.
     let r = duplex.squeeze_scalar();
@@ -109,7 +110,8 @@ pub fn sign_duplex(
     let s = (d * r) + k;
 
     // Encode and encrypt the proof scalar.
-    sig_s.copy_from_slice(&duplex.encrypt(&s.as_canonical_bytes()));
+    sig_s.copy_from_slice(&s.as_canonical_bytes());
+    duplex.encrypt_mut(sig_s);
 
     // Return the full signature.
     Signature(sig)
@@ -118,19 +120,21 @@ pub fn sign_duplex(
 /// Verify a Schnorr signature of the given duplex's state using the given public key.
 pub fn verify_duplex(duplex: &mut KeyedDuplex, q: &Point, sig: &Signature) -> Option<()> {
     // Split signature into components.
-    let (i, s) = sig.0.split_at(POINT_LEN);
+    let mut sig = sig.0;
+    let (i, s) = sig.split_at_mut(POINT_LEN);
 
     // Decrypt the commitment point.
-    let i = &duplex.decrypt(i);
+    duplex.decrypt_mut(i);
 
     // Re-derive the challenge scalar.
     let r_p = duplex.squeeze_scalar();
 
     // Decrypt and decode the proof scalar.
-    let s = Scalar::from_canonical_bytes(&duplex.decrypt(s))?;
+    duplex.decrypt_mut(s);
+    let s = Scalar::from_canonical_bytes(s)?;
 
     // Return true iff I and s are well-formed and I == [s]G - [r']Q.
-    ((-q).mul_add_mulgen_vartime(&r_p, &s).encode().as_slice() == i.as_slice()).then_some(())
+    ((-q).mul_add_mulgen_vartime(&r_p, &s).encode().as_slice() == i).then_some(())
 }
 
 #[cfg(test)]

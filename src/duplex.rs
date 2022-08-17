@@ -50,16 +50,14 @@ pub struct KeyedDuplex {
 }
 
 impl KeyedDuplex {
-    /// Encrypt the given plaintext. **Provides no guarantees for authenticity.**
-    #[must_use]
-    pub fn encrypt(&mut self, plaintext: &[u8]) -> Vec<u8> {
-        self.state.encrypt(plaintext)
+    /// Encrypt the given plaintext in place. **Provides no guarantees for authenticity.**
+    pub fn encrypt_mut(&mut self, in_out: &mut [u8]) {
+        self.state.encrypt_mut(in_out);
     }
 
-    /// Decrypt the given plaintext. **Provides no guarantees for authenticity.**
-    #[must_use]
-    pub fn decrypt(&mut self, ciphertext: &[u8]) -> Vec<u8> {
-        self.state.decrypt(ciphertext)
+    /// Decrypt the given ciphertext in place. **Provides no guarantees for authenticity.**
+    pub fn decrypt_mut(&mut self, in_out: &mut [u8]) {
+        self.state.decrypt_mut(in_out);
     }
 
     /// Encrypt and seal the given plaintext, adding [`TAG_LEN`] bytes to the end.
@@ -246,14 +244,16 @@ mod tests {
         unkeyed.absorb(b"this is some more data");
 
         let mut keyed = unkeyed.into_keyed();
-        let ciphertext = keyed.encrypt(plaintext);
+        let mut ciphertext = plaintext.to_vec();
+        keyed.encrypt_mut(&mut ciphertext);
 
         let mut unkeyed = UnkeyedDuplex::new("test");
         unkeyed.absorb(b"this is a new key");
         unkeyed.absorb(b"this is some more data");
 
         let mut keyed = unkeyed.into_keyed();
-        assert_eq!(plaintext.to_vec(), keyed.decrypt(&ciphertext));
+        keyed.decrypt_mut(&mut ciphertext);
+        assert_eq!(plaintext.to_vec(), ciphertext);
     }
 
     #[test]

@@ -22,7 +22,10 @@ pub fn encrypt(
     plaintext: &[u8],
 ) -> Vec<u8> {
     // Allocate an output buffer.
-    let mut out = Vec::with_capacity(plaintext.len() + OVERHEAD);
+    let mut out = vec![0u8; plaintext.len() + OVERHEAD];
+    let (out_q_e, out_ciphertext) = out.split_at_mut(POINT_LEN);
+    let (out_ciphertext, out_i) = out_ciphertext.split_at_mut(plaintext.len());
+    let (out_i, out_x) = out_i.split_at_mut(POINT_LEN);
 
     // Initialize an unkeyed duplex.
     let mut sres = UnkeyedDuplex::new("veil.sres");
@@ -43,27 +46,31 @@ pub fn encrypt(
     let mut sres = sres.into_keyed();
 
     // Encrypt the ephemeral public key.
-    out.extend(sres.encrypt(&q_e.as_canonical_bytes()));
+    out_q_e.copy_from_slice(&q_e.as_canonical_bytes());
+    sres.encrypt_mut(out_q_e);
 
     // Absorb the ephemeral ECDH shared secret.
     sres.absorb_point(&(q_r * d_e));
 
     // Encrypt the plaintext.
-    out.extend(sres.encrypt(plaintext));
+    out_ciphertext.copy_from_slice(plaintext);
+    sres.encrypt_mut(out_ciphertext);
 
     // Derive a commitment scalar from the duplex's current state, the sender's private key,
     // and a random nonce.
     let k = sres.hedge(rng, &d_s.as_canonical_bytes(), Squeeze::squeeze_scalar);
 
     // Calculate and encrypt the commitment point.
-    out.extend(&sres.encrypt(&Point::mulgen(&k).as_canonical_bytes()));
+    out_i.copy_from_slice(&Point::mulgen(&k).as_canonical_bytes());
+    sres.encrypt_mut(out_i);
 
     // Squeeze a challenge scalar.
     let r = sres.squeeze_scalar();
 
     // Calculate and encrypt the designated proof point.
     let x = q_r * ((d_s * r) + k);
-    out.extend(&sres.encrypt(&x.as_canonical_bytes()));
+    out_x.copy_from_slice(&x.as_canonical_bytes());
+    sres.encrypt_mut(out_x);
 
     // Return the ciphertext, encrypted commitment point, and encrypted proof point.
     out
@@ -84,9 +91,10 @@ pub fn decrypt(
     }
 
     // Split the ciphertext into its components.
-    let (q_e, ciphertext) = ciphertext.split_at(POINT_LEN);
-    let (ciphertext, i) = ciphertext.split_at(ciphertext.len() - POINT_LEN - POINT_LEN);
-    let (i, x) = i.split_at(POINT_LEN);
+    let mut ciphertext = ciphertext.to_vec();
+    let (q_e, ciphertext) = ciphertext.split_at_mut(POINT_LEN);
+    let (ciphertext, i) = ciphertext.split_at_mut(ciphertext.len() - POINT_LEN - POINT_LEN);
+    let (i, x) = i.split_at_mut(POINT_LEN);
 
     // Initialize an unkeyed duplex.
     let mut sres = UnkeyedDuplex::new("veil.sres");
@@ -107,29 +115,32 @@ pub fn decrypt(
     let mut sres = sres.into_keyed();
 
     // Decrypt and decode the ephemeral public key.
-    let q_e = Point::from_canonical_bytes(&sres.decrypt(q_e))?;
+    sres.decrypt_mut(q_e);
+    let q_e = Point::from_canonical_bytes(q_e)?;
 
     // Absorb the ephemeral ECDH shared secret.
     sres.absorb_point(&(q_e * d_r));
 
     // Decrypt the plaintext.
-    let plaintext = sres.decrypt(ciphertext);
+    sres.decrypt_mut(ciphertext);
+    let plaintext = ciphertext;
 
     // Decrypt and decode the commitment point.
-    let i = Point::from_canonical_bytes(&sres.decrypt(i))?;
+    sres.decrypt_mut(i);
+    let i = Point::from_canonical_bytes(i)?;
 
     // Re-derive the challenge scalar.
     let r_p = sres.squeeze_scalar();
 
     // Decrypt the designated proof point.
-    let x = sres.decrypt(x);
+    sres.decrypt_mut(x);
 
     // Re-calculate the proof point.
     let x_p = (i + (q_s * r_p)) * d_r;
 
     // Return the ephemeral public key and plaintext iff the canonical encoding of the re-calculated
     // proof point matches the encoding of the decrypted proof point.
-    (x == x_p.as_canonical_bytes().as_slice()).then_some((q_e, plaintext))
+    (x == x_p.as_canonical_bytes().as_slice()).then_some((q_e, plaintext.to_vec()))
 }
 
 #[cfg(test)]
