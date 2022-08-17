@@ -33,11 +33,11 @@ Veil's security assumes that Cyclist's \textsc{Encrypt} operation is IND-CPA sec
 
 \subsection{jq255e}\label{subsec:jq255e}
 
-jq255e is a double-odd elliptic curve selected for efficiency and simplicity~\cite{pornin2022}.
+jq255e is a double-odd elliptic curve selected for efficiency and simplicity~\cite{pornin2020do,pornin2022}.
 It provides a prime-order group, has non-malleable encodings, and has no co-factor concerns.
 This allows for the use of a wide variety of cryptographic constructions built on group operations.
 It targets a 128-bit security level, lends itself to constant-time implementations, and can run in constrained
-environments~\cite{pornin2022do}.
+environments.
 
 Veil's security assumes that the Gap Discrete Logarithm and Gap Diffie-Hellman problems are hard relative to
 jq255e.
