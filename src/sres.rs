@@ -20,10 +20,12 @@ pub fn encrypt(
     q_r: &Point,
     nonce: &[u8],
     plaintext: &[u8],
-) -> Vec<u8> {
-    // Allocate an output buffer.
-    let mut out = vec![0u8; plaintext.len() + OVERHEAD];
-    let (out_q_e, out_ciphertext) = out.split_at_mut(POINT_LEN);
+    ciphertext: &mut [u8],
+) {
+    debug_assert_eq!(ciphertext.len(), plaintext.len() + OVERHEAD);
+
+    // Split up the output buffer.
+    let (out_q_e, out_ciphertext) = ciphertext.split_at_mut(POINT_LEN);
     let (out_ciphertext, out_i) = out_ciphertext.split_at_mut(plaintext.len());
     let (out_i, out_x) = out_i.split_at_mut(POINT_LEN);
 
@@ -71,28 +73,24 @@ pub fn encrypt(
     let x = q_r * ((d_s * r) + k);
     out_x.copy_from_slice(&x.as_canonical_bytes());
     sres.encrypt_mut(out_x);
-
-    // Return the ciphertext, encrypted commitment point, and encrypted proof point.
-    out
 }
 
 /// Given the receiver's key pair, the sender's public key, a nonce, and a ciphertext, decrypts the
 /// given ciphertext and returns the ephemeral public key and plaintext iff the ciphertext was
 /// encrypted for the receiver by the sender.
-pub fn decrypt(
+pub fn decrypt<'a>(
     (d_r, q_r): (&Scalar, &Point),
     q_s: &Point,
     nonce: &[u8],
-    ciphertext: &[u8],
-) -> Option<(Point, Vec<u8>)> {
+    in_out: &'a mut [u8],
+) -> Option<(Point, &'a [u8])> {
     // Check for too-small ciphertexts.
-    if ciphertext.len() < OVERHEAD {
+    if in_out.len() < OVERHEAD {
         return None;
     }
 
     // Split the ciphertext into its components.
-    let mut ciphertext = ciphertext.to_vec();
-    let (q_e, ciphertext) = ciphertext.split_at_mut(POINT_LEN);
+    let (q_e, ciphertext) = in_out.split_at_mut(POINT_LEN);
     let (ciphertext, i) = ciphertext.split_at_mut(ciphertext.len() - POINT_LEN - POINT_LEN);
     let (i, x) = i.split_at_mut(POINT_LEN);
 
@@ -123,7 +121,6 @@ pub fn decrypt(
 
     // Decrypt the plaintext.
     sres.decrypt_mut(ciphertext);
-    let plaintext = ciphertext;
 
     // Decrypt and decode the commitment point.
     sres.decrypt_mut(i);
@@ -140,7 +137,7 @@ pub fn decrypt(
 
     // Return the ephemeral public key and plaintext iff the canonical encoding of the re-calculated
     // proof point matches the encoding of the decrypted proof point.
-    (x == x_p.as_canonical_bytes().as_slice()).then_some((q_e, plaintext.to_vec()))
+    (x == x_p.as_canonical_bytes().as_slice()).then_some((q_e, ciphertext))
 }
 
 #[cfg(test)]
@@ -155,11 +152,12 @@ mod tests {
         let (mut rng, d_s, q_s, d_e, q_e, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
         let nonce = b"this is a nonce";
-        let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext);
+        let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
+        encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext, &mut ciphertext);
 
-        if let Some((q_e_p, plaintext_p)) = decrypt((&d_r, &q_r), &q_s, nonce, &ciphertext) {
+        if let Some((q_e_p, plaintext_p)) = decrypt((&d_r, &q_r), &q_s, nonce, &mut ciphertext) {
             assert_ne!(q_e.equals(q_e_p), 0, "invalid ephemeral public key");
-            assert_eq!(plaintext.as_slice(), plaintext_p.as_slice());
+            assert_eq!(plaintext.as_slice(), plaintext_p);
         } else {
             unreachable!("invalid plaintext")
         }
@@ -170,11 +168,12 @@ mod tests {
         let (mut rng, d_s, q_s, d_e, q_e, _, q_r) = setup();
         let plaintext = b"ok this is fun";
         let nonce = b"this is a nonce";
-        let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext);
+        let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
+        encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext, &mut ciphertext);
 
         let d_r = Scalar::random(&mut rng);
 
-        let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &ciphertext);
+        let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &mut ciphertext);
         assert!(plaintext.is_none(), "decrypted an invalid ciphertext");
     }
 
@@ -183,11 +182,12 @@ mod tests {
         let (mut rng, d_s, q_s, d_e, q_e, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
         let nonce = b"this is a nonce";
-        let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext);
+        let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
+        encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext, &mut ciphertext);
 
         let q_r = Point::random(&mut rng);
 
-        let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &ciphertext);
+        let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &mut ciphertext);
         assert!(plaintext.is_none(), "decrypted an invalid ciphertext");
     }
 
@@ -196,11 +196,12 @@ mod tests {
         let (mut rng, d_s, q_s, d_e, q_e, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
         let nonce = b"this is a nonce";
-        let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext);
+        let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
+        encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext, &mut ciphertext);
 
         let q_s = Point::random(&mut rng);
 
-        let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &ciphertext);
+        let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &mut ciphertext);
         assert!(plaintext.is_none(), "decrypted an invalid ciphertext");
     }
 
@@ -209,11 +210,12 @@ mod tests {
         let (mut rng, d_s, q_s, d_e, q_e, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
         let nonce = b"this is a nonce";
-        let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext);
+        let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
+        encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext, &mut ciphertext);
 
         let nonce = b"this is not a nonce";
 
-        let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &ciphertext);
+        let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &mut ciphertext);
         assert!(plaintext.is_none(), "decrypted an invalid ciphertext");
     }
 
@@ -222,14 +224,15 @@ mod tests {
         let (mut rng, d_s, q_s, d_e, q_e, d_r, q_r) = setup();
         let plaintext = b"ok this is fun";
         let nonce = b"this is a nonce";
-        let ciphertext = encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext);
+        let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
+        encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext, &mut ciphertext);
 
         for i in 0..ciphertext.len() {
             for j in 0u8..8 {
                 let mut ciphertext = ciphertext.clone();
                 ciphertext[i] ^= 1 << j;
                 assert!(
-                    decrypt((&d_r, &q_r), &q_s, nonce, &ciphertext).is_none(),
+                    decrypt((&d_r, &q_r), &q_s, nonce, &mut ciphertext).is_none(),
                     "bit flip at byte {}, bit {} produced a valid message",
                     i,
                     j

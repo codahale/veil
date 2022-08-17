@@ -100,6 +100,7 @@ fn encrypt_headers(
 ) -> io::Result<u64> {
     let mut written = 0u64;
     let header = encode_header(dek, q_rs.len().try_into().expect("unexpected overflow"), padding);
+    let mut enc_header = [0u8; ENC_HEADER_LEN];
 
     // For each receiver, encrypt a copy of the header with veil.sres.
     for q_r in q_rs {
@@ -107,14 +108,14 @@ fn encrypt_headers(
         let nonce = mres.squeeze::<NONCE_LEN>();
 
         // Encrypt the header for the given receiver.
-        let ciphertext = sres::encrypt(&mut rng, (d_s, q_s), (d_e, q_e), q_r, &nonce, &header);
+        sres::encrypt(&mut rng, (d_s, q_s), (d_e, q_e), q_r, &nonce, &header, &mut enc_header);
 
         // Absorb the encrypted header.
-        mres.absorb(&ciphertext);
+        mres.absorb(&enc_header);
 
         // Write the encrypted header.
-        writer.write_all(&ciphertext)?;
-        written += u64::try_from(ciphertext.len()).expect("unexpected overflow");
+        writer.write_all(&enc_header)?;
+        written += u64::try_from(ENC_HEADER_LEN).expect("unexpected overflow");
     }
 
     Ok(written)
@@ -270,7 +271,7 @@ fn decrypt_header(
         // If a header hasn't been decrypted yet, try to decrypt this one.
         if header_values.is_none() {
             if let Some((q_e, d, c, p)) =
-                sres::decrypt((d_r, q_r), q_s, &nonce, &header).map(decode_header)
+                sres::decrypt((d_r, q_r), q_s, &nonce, &mut header).map(decode_header)
             {
                 // If the header was successfully decrypted, keep the ephemeral public key, DEK, and
                 // padding and update the loop variable to not be effectively infinite.
@@ -296,7 +297,7 @@ fn decrypt_header(
 /// Decode an ephemeral public key and header into an ephemeral public key, DEK, header count, and
 /// padding size.
 #[inline]
-fn decode_header((q_e, header): (Point, Vec<u8>)) -> (Point, [u8; DEK_LEN], u64, u64) {
+fn decode_header((q_e, header): (Point, &[u8])) -> (Point, [u8; DEK_LEN], u64, u64) {
     // Split header into components.
     let (dek, hdr_count) = header.split_at(DEK_LEN);
     let (hdr_count, padding) = hdr_count.split_at(mem::size_of::<u64>());
