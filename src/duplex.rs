@@ -11,7 +11,7 @@ use crate::ecc::{CanonicallyEncoded, Point, Scalar};
 use crate::read_chunk;
 
 /// The length of an authentication tag in bytes.
-pub const TAG_LEN: usize = 16;
+pub const TAG_LEN: usize = Keccyak128Keyed::tag_len();
 
 /// An unkeyed cryptographic duplex.
 #[derive(Clone)]
@@ -60,7 +60,8 @@ impl KeyedDuplex {
         self.state.decrypt_mut(in_out);
     }
 
-    /// Encrypt and seal the given plaintext in place, adding [`TAG_LEN`] bytes to the end.
+    /// Encrypt and seal the given plaintext in place. Requires [`TAG_LEN`] extra bytes on the end
+    /// of `in_out`.
     /// **Guarantees authenticity.**
     pub fn seal_mut(&mut self, in_out: &mut [u8]) {
         self.state.seal_mut(in_out);
@@ -108,10 +109,7 @@ impl Squeeze for KeyedDuplex {
 }
 
 // Common duplex input operations.
-pub trait Absorb: Clone {
-    /// The number of bytes which can be absorbed before the state is permuted.
-    fn absorb_rate(&self) -> usize;
-
+pub trait Absorb<const BUFFER_LEN: usize>: Clone {
     /// Absorb the given slice of data.
     fn absorb(&mut self, data: &[u8]);
 
@@ -134,7 +132,7 @@ pub trait Absorb: Clone {
         mut reader: impl Read,
         mut writer: impl Write,
     ) -> io::Result<u64> {
-        let mut buf = vec![0u8; self.absorb_rate() * 32];
+        let mut buf = [0u8; BUFFER_LEN];
         let mut first = true;
         let mut written = 0;
 
@@ -187,11 +185,7 @@ pub trait Absorb: Clone {
     }
 }
 
-impl Absorb for UnkeyedDuplex {
-    fn absorb_rate(&self) -> usize {
-        self.state.absorb_rate()
-    }
-
+impl Absorb<{ Keccyak128Hash::absorb_rate() * 32 }> for UnkeyedDuplex {
     fn absorb(&mut self, data: &[u8]) {
         self.state.absorb(data);
     }
@@ -201,11 +195,7 @@ impl Absorb for UnkeyedDuplex {
     }
 }
 
-impl Absorb for KeyedDuplex {
-    fn absorb_rate(&self) -> usize {
-        self.state.absorb_rate()
-    }
-
+impl Absorb<{ Keccyak128Keyed::absorb_rate() * 32 }> for KeyedDuplex {
     fn absorb(&mut self, data: &[u8]) {
         self.state.absorb(data);
     }
