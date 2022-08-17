@@ -16,7 +16,7 @@ SHA2-384, SHA2-512, SHA2-224.
 For public key encryption, it's supported RSA, ElGamal, Diffie-Hellman, and ECDH, all with different parameters.
 For digital signatures, it's supported RSA, DSA, ElGamal, ECDSA, and EdDSA, again, all with different parameters.
 
-As Adam Langley said regarding TLS~\cite{langley2016}:
+As \textcite{langley2016} said regarding TLS:
 
 \begin{displayquote}
     Cryptographic agility is a huge cost.
@@ -28,24 +28,24 @@ As Adam Langley said regarding TLS~\cite{langley2016}:
 \end{displayquote}
 
 At best, each of these algorithms represents a geometrically increasing burden on implementors, analysts, and users.
-At worst, they represent a catastrophic risk to the security of the system~\cite{nguyen2004, blessing2021}.
+At worst, they represent a catastrophic risk to the security of the system~\cite{nguyen2004, blessing2021}\@.
 
 A modern system would use a limited number of cryptographic primitives and use a single instance of each.
 
 \subsection{Informal Constructions}\label{subsec:informal-constructions}
 
 PGP messages use a Sign-Then-Encrypt ($\StE$) construction, which is insecure given an encryption
-oracle~\cite[p. 41]{an2010}:
+oracle~\cite[p. 41]{an2010}\@:
 
 \begin{displayquote}
     In the $\StE$ scheme, the adversary $\Adversary$ can easily break the sUF-CMA security in the outsider model.
-    It can ask [the encryption oracle] to signcrypt a message $m$ for $R'$ and get
+    It can ask \@[the encryption oracle] to signcrypt a message $m$ for $R'$ and get
     $C=(\textsc{Encrypt}(pk_{R'},m||\sigma),ID_S,ID_{R'})$, where $\sigma \stackrel{R}{\gets} \textsc{Sign}(pk_S,m)$.
     Then, it can recover $m||\sigma$ using $sk_{R'}$ and forge the signcryption ciphertext
     $C' = (\textsc{Encrypt}(pk_R,m||\sigma),ID_S,ID_R)$.
 \end{displayquote}
 
-~This may seem like an academic distinction, but this attack is trivial to mount.
+This may seem like an academic distinction, but this attack is trivial to mount.
 If you send your boss an angry resignation letter signed and encrypted with PGP, your boss can re-transmit that to your
 future boss, encrypted with her public key.
 
@@ -54,17 +54,17 @@ notions with reasonable reductions to weak assumptions.
 
 \subsection{Non-Repudiation}\label{subsec:non-repudiation}
 
-A standard property of digital signatures is that of \emph{non-repudiation}, or the inability of the signer to deny they
-signed a message.
+A standard property of digital signatures is that of \emph{non-repudiation}\@, or the inability of the signer to deny
+they signed a message.
 Any possessor of the signer's public key, a message, and a signature can verify the signature for themselves.
 For explicitly signed, public messages, this is a very desirable property.
 For encrypted, confidential messages, this is not.
 
 Similar to the vindictive boss scenario above, an encrypted-then-signed PGP message can be decrypted by an intended
-receiver (or someone in possession of their private key) and presented to a third party as an unencrypted, signed
+receiver \@(or someone in possession of their private key) and presented to a third party as an unencrypted, signed
 message without having to reveal anything about themselves.
 The inability of PGP to preserve the privacy context of confidential messages should rightfully have a chilling effect
-on its users~\cite{borisov2004}.
+on its users~\cite{borisov2004}\@.
 
 A modern system would be designed to provide some level of deniability to confidential messages.
 
@@ -77,7 +77,8 @@ cryptographically-protected messages is trivial given the metadata they often ex
 Even privacy features like GnuPG's \texttt{--hidden-recipients} still produce encrypted messages which are trivially
 identifiable as encrypted messages, because PGP messages consist of packets with explicitly identifiable metadata.
 In addition to being secure, privacy-enhancing technologies must be undetectable.
-Per Bernstein~\cite{bernstein2013}:
+
+\textcite{bernstein2013} summarized this dilemma:
 
 \begin{displayquote}
     Cryptography hides patterns in user data but does not evade censorship if the censor can recognize patterns in the

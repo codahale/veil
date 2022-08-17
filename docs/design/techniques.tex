@@ -4,7 +4,7 @@ Veil uses a few common construction techniques in its design which bear specific
 
 \subsection{Unkeyed And Keyed Duplexes}\label{subsec:cons-keyed-duplexes}
 
-Veil uses Cyclist, which offers both unkeyed (``hash'') and keyed modes.
+Veil uses Cyclist, which offers both unkeyed \@(``hash'') and keyed modes.
 All Veil constructions begin in the unkeyed mode by absorbing a constant domain separation string (e.g.\
 \texttt{veil.mres}).
 To convert from an unkeyed duplex to a keyed duplex, a 512-bit key is derived from the unkeyed duplex's state and used
@@ -29,13 +29,13 @@ providing better avalanching properties.
 
 Cyclist is a cryptographic duplex, thus each operation is cryptographically dependent on the previous operations.
 Veil makes use of this by integrating different types of constructions to produce a single, unified construction.
-Instead of having to pass forward specific values (e.g.\ hashes of values or derived keys) to ensure cryptographic
+Instead of having to pass forward specific values \@(e.g.\ hashes of values or derived keys) to ensure cryptographic
 dependency, Cyclist allows for constructions which simply absorb all values, thus ensuring transcript integrity of
 complex protocols.
 
 For example, a traditional hybrid encryption scheme like HPKE~\cite{rfc9180} will describe a key encapsulation mechanism
-(KEM) like X25519 and a data encapsulation mechanism (DEM) like AES-GCM and link the two together via a key derivation
-function (KDF) like HKDF by deriving a key and nonce for the DEM from the KEM output.
+\@(KEM) like X25519 and a data encapsulation mechanism \@(DEM) like AES-GCM and link the two together via a key
+derivation function (KDF) like HKDF by deriving a key and nonce for the DEM from the KEM output.
 
 In contrast, the same construction using Cyclist would be the following three operations, in order (\ref{alg:hpke}):
 
@@ -52,7 +52,7 @@ In contrast, the same construction using Cyclist would be the following three op
 The duplex is keyed with the shared secret point (line~\ref{alg:hpke:key}), used to encrypt the plaintext
 (line~\ref{alg:hpke:encrypt}), and finally used to squeeze an authentication tag (line~\ref{alg:hpke:tag}).
 Each operation modifies the duplex's state, making the final $\textsc{Squeeze}$ operation dependent on both the
-previous $\textsc{Encrypt}$ operation (and its argument, $P$) but also the $\textsc{Cyclist}$ operation before it.
+previous $\textsc{Encrypt}$ operation \@(and its argument, $P$) but also the $\textsc{Cyclist}$ operation before it.
 
 This is both a dramatically clearer way of expressing the overall hybrid public-key encryption construction and more
 efficient: because the ephemeral shared secret point is unique, no nonce need be derived (or no all-zero nonce need be
@@ -66,7 +66,7 @@ ciphertext.
 The DEM components of Alg.~\ref{alg:hpke} (i.e.\ \textsc{Encrypt}/\textsc{Squeeze}) are superficially similar to an
 Encrypt-then-MAC ($\EtM$) construction, but where an adversary in possession of the MAC key can forge authenticators
 given an $\EtM$ ciphertext, the duplex-based approach makes that infeasible.
-The output of the \textsc{Squeeze} operation is dependent not just on the keying material (i.e.\ the \textsc{Cyclist}
+The output of the \textsc{Squeeze} operation is dependent not just on the keying material \@(i.e.\ the \textsc{Cyclist}
 operation) but also on the plaintext $P$.
 An adversary attempting to forge an authenticator given only key material and ciphertext will be unable to reconstruct
 the duplex's state and thus unable to compute their forgery.

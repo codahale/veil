@@ -4,7 +4,7 @@ Veil can create message digests given a set of metadata and a message.
 
 \subsection{Creating A Message Digest}\label{subsec:veil.digest-digest}
 
-Creating a message digest is described in full in Alg.~\ref{alg:veil.digest}.
+Creating a message digest is described in full in Alg.~\ref{alg:veil.digest}\@.
 
 \begin{algorithm}[h]
     \caption{Creating a message digest with metadata strings $V$ and message $M$.}
@@ -41,12 +41,12 @@ codes (see Alg.~\ref{alg:veil.digest-mac}).
 \subsection{Preimage Security and Collision Resistance}\label{subsec:veil.digest-preimage}
 
 The duplex is indistinguishable from a random oracle given that the underlying permutation is indistinguishable from a
-random permutation~\cite[Sec. 8.5]{bertoni2011sponge}.
+random permutation~\cite[Sec. 8.5]{bertoni2011sponge}\@.
 If Keccak-\emph{p} is strong, an attacker has negligible advantage in finding first or second preimages.
 
 \subsection{sUF-CMA Security}\label{subsec:veil.digest-suf-cma}
 
 Similarly, the security of a duplex as a MAC reduces to the strength of the
-permutation~\cite[Sec. 8.6]{bertoni2011sponge}.
+permutation~\cite[Sec. 8.6]{bertoni2011sponge}\@.
 An attack which forges a message for a given key and MAC would imply Cyclist's \textsc{Squeeze} operation is not sUF-CMA
 secure.
