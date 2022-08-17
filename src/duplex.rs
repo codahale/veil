@@ -60,32 +60,18 @@ impl KeyedDuplex {
         self.state.decrypt_mut(in_out);
     }
 
-    /// Encrypt and seal the given plaintext, adding [`TAG_LEN`] bytes to the end.
-    /// **Guarantees authenticity.**
-    #[must_use]
-    pub fn seal(&mut self, plaintext: &[u8]) -> Vec<u8> {
-        self.state.seal(plaintext)
-    }
-
     /// Encrypt and seal the given plaintext in place, adding [`TAG_LEN`] bytes to the end.
     /// **Guarantees authenticity.**
     pub fn seal_mut(&mut self, in_out: &mut [u8]) {
         self.state.seal_mut(in_out);
     }
 
-    /// Decrypt and unseal the given ciphertext. If the ciphertext is invalid, returns `None`.
-    /// **Guarantees authenticity.**
-    #[must_use]
-    pub fn unseal(&mut self, ciphertext: &[u8]) -> Option<Vec<u8>> {
-        self.state.open(ciphertext)
-    }
-
     /// Decrypt and unseal the given ciphertext in place. If the ciphertext is valid, returns the
     /// length of the plaintext; if invalid, returns `None`.
     /// **Guarantees authenticity.**
     #[must_use]
-    pub fn unseal_mut(&mut self, in_out: &mut [u8]) -> Option<usize> {
-        self.state.open_mut(in_out).then_some(in_out.len() - TAG_LEN)
+    pub fn unseal_mut<'a>(&mut self, in_out: &'a mut [u8]) -> Option<&'a [u8]> {
+        self.state.open_mut(in_out).then_some(&in_out[..in_out.len() - TAG_LEN])
     }
 }
 
@@ -261,10 +247,12 @@ mod tests {
         let plaintext = b"this is an example plaintext";
 
         let mut duplex = UnkeyedDuplex::new("test").into_keyed();
-        let ciphertext = duplex.seal(plaintext);
+        let mut ciphertext = vec![0u8; plaintext.len() + TAG_LEN];
+        ciphertext[..plaintext.len()].copy_from_slice(plaintext);
+        duplex.seal_mut(&mut ciphertext);
 
         let mut duplex = UnkeyedDuplex::new("test").into_keyed();
-        assert_eq!(Some(plaintext.to_vec()), duplex.unseal(&ciphertext));
+        assert_eq!(Some(plaintext.as_slice()), duplex.unseal_mut(&mut ciphertext));
     }
 
     #[test]

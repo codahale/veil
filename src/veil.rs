@@ -51,9 +51,10 @@ impl PrivateKey {
         time: u8,
         space: u8,
     ) -> io::Result<usize> {
-        let b = pbenc::encrypt(rng, passphrase, time, space, &self.d.as_canonical_bytes());
-        writer.write_all(&b)?;
-        Ok(b.len())
+        let mut enc_key = [0u8; SCALAR_LEN + pbenc::OVERHEAD];
+        pbenc::encrypt(rng, passphrase, time, space, &self.d.as_canonical_bytes(), &mut enc_key);
+        writer.write_all(&enc_key)?;
+        Ok(enc_key.len())
     }
 
     /// Loads and decrypts the private key from the given reader with the given passphrase.
@@ -68,7 +69,7 @@ impl PrivateKey {
         reader.read_to_end(&mut b)?;
 
         // Decrypt the ciphertext and use the plaintext as the private key.
-        pbenc::decrypt(passphrase, &b)
+        pbenc::decrypt(passphrase, &mut b)
             .and_then(Scalar::from_canonical_bytes)
             .map(PrivateKey::from_scalar)
             .ok_or(DecryptError::InvalidCiphertext)

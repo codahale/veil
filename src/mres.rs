@@ -220,9 +220,9 @@ fn decrypt_message(
 
         // Decrypt the block and write the plaintext. If the block cannot be decrypted, return an
         // error.
-        let n_p = mres.unseal_mut(block).ok_or(DecryptError::InvalidCiphertext)?;
-        writer.write_all(&block[..n_p])?;
-        written += u64::try_from(n_p).expect("unexpected overflow");
+        let plaintext = mres.unseal_mut(block).ok_or(DecryptError::InvalidCiphertext)?;
+        writer.write_all(plaintext)?;
+        written += u64::try_from(plaintext.len()).expect("unexpected overflow");
 
         // Copy the unused part to the beginning of the buffer and set the offset for the next loop.
         buf.copy_within(block_len.., 0);

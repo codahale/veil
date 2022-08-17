@@ -11,55 +11,55 @@ use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex, TAG_LEN};
 pub const OVERHEAD: usize = mem::size_of::<u8>() + mem::size_of::<u8>() + SALT_LEN + TAG_LEN;
 
 /// Encrypt the given plaintext using the given passphrase.
-#[must_use]
 pub fn encrypt(
     mut rng: impl Rng + CryptoRng,
     passphrase: &str,
     time: u8,
     space: u8,
     plaintext: &[u8],
-) -> Vec<u8> {
-    // Generate a random salt.
-    let salt: [u8; SALT_LEN] = rng.gen();
+    ciphertext: &mut [u8],
+) {
+    debug_assert_eq!(ciphertext.len(), plaintext.len() + OVERHEAD);
 
-    // Perform the balloon hashing.
-    let mut pbenc = init(passphrase, &salt, time, space);
-
-    // Allocate an output buffer.
-    let mut out = Vec::with_capacity(plaintext.len() + OVERHEAD);
+    // Split up the output buffer.
+    let (out_time, out_space) = ciphertext.split_at_mut(1);
+    let (out_space, out_salt) = out_space.split_at_mut(1);
+    let (out_salt, out_ciphertext) = out_salt.split_at_mut(SALT_LEN);
 
     // Encode the time and space parameters.
-    out.push(time);
-    out.push(space);
+    out_time[0] = time;
+    out_space[0] = space;
 
-    // Copy the salt.
-    out.extend(salt);
+    // Generate a random salt.
+    rng.fill_bytes(out_salt);
 
-    // Encrypt the ciphertext.
-    out.extend(pbenc.seal(plaintext));
+    // Perform the balloon hashing.
+    let mut pbenc = init(passphrase, out_salt, time, space);
 
-    out
+    // Encrypt the plaintext.
+    out_ciphertext[..plaintext.len()].copy_from_slice(plaintext);
+    pbenc.seal_mut(out_ciphertext);
 }
 
 /// Decrypt the given ciphertext using the given passphrase.
 #[must_use]
-pub fn decrypt(passphrase: &str, ciphertext: &[u8]) -> Option<Vec<u8>> {
-    if ciphertext.len() < OVERHEAD {
+pub fn decrypt<'a>(passphrase: &str, in_out: &'a mut [u8]) -> Option<&'a [u8]> {
+    if in_out.len() < OVERHEAD {
         return None;
     }
 
     // Decode the parameters.
-    let (time, ciphertext) = ciphertext.split_at(1);
+    let (time, ciphertext) = in_out.split_at_mut(1);
     let time = time[0];
-    let (space, ciphertext) = ciphertext.split_at(1);
+    let (space, ciphertext) = ciphertext.split_at_mut(1);
     let space = space[0];
 
     // Perform the balloon hashing.
-    let (salt, ciphertext) = ciphertext.split_at(SALT_LEN);
+    let (salt, ciphertext) = ciphertext.split_at_mut(SALT_LEN);
     let mut pbenc = init(passphrase, salt, time, space);
 
     // Decrypt the ciphertext.
-    pbenc.unseal(ciphertext)
+    pbenc.unseal_mut(ciphertext)
 }
 
 macro_rules! hash_counter {
@@ -165,10 +165,11 @@ mod tests {
 
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let ciphertext = encrypt(&mut rng, passphrase, 2, 6, message);
+        let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
+        encrypt(&mut rng, passphrase, 2, 6, message, &mut ciphertext);
 
-        let plaintext = decrypt(passphrase, &ciphertext);
-        assert_eq!(Some(message.to_vec()), plaintext, "invalid plaintext");
+        let plaintext = decrypt(passphrase, &mut ciphertext);
+        assert_eq!(Some(message.as_slice()), plaintext, "invalid plaintext");
     }
 
     #[test]
@@ -177,9 +178,10 @@ mod tests {
 
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let ciphertext = encrypt(&mut rng, passphrase, 2, 6, message);
+        let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
+        encrypt(&mut rng, passphrase, 2, 6, message, &mut ciphertext);
 
-        let plaintext = decrypt("whoops", &ciphertext);
+        let plaintext = decrypt("whoops", &mut ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -189,10 +191,11 @@ mod tests {
 
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt(&mut rng, passphrase, 2, 6, message);
+        let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
+        encrypt(&mut rng, passphrase, 2, 6, message, &mut ciphertext);
         ciphertext[0] ^= 1;
 
-        let plaintext = decrypt(passphrase, &ciphertext);
+        let plaintext = decrypt(passphrase, &mut ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -202,10 +205,11 @@ mod tests {
 
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt(&mut rng, passphrase, 2, 6, message);
+        let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
+        encrypt(&mut rng, passphrase, 2, 6, message, &mut ciphertext);
         ciphertext[1] ^= 1;
 
-        let plaintext = decrypt(passphrase, &ciphertext);
+        let plaintext = decrypt(passphrase, &mut ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -215,10 +219,11 @@ mod tests {
 
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt(&mut rng, passphrase, 5, 3, message);
+        let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
+        encrypt(&mut rng, passphrase, 2, 6, message, &mut ciphertext);
         ciphertext[9] ^= 1;
 
-        let plaintext = decrypt(passphrase, &ciphertext);
+        let plaintext = decrypt(passphrase, &mut ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -228,10 +233,11 @@ mod tests {
 
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt(&mut rng, passphrase, 5, 3, message);
+        let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
+        encrypt(&mut rng, passphrase, 2, 6, message, &mut ciphertext);
         ciphertext[OVERHEAD - TAG_LEN + 1] ^= 1;
 
-        let plaintext = decrypt(passphrase, &ciphertext);
+        let plaintext = decrypt(passphrase, &mut ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -241,10 +247,11 @@ mod tests {
 
         let passphrase = "this is a secret";
         let message = b"this is too";
-        let mut ciphertext = encrypt(&mut rng, passphrase, 5, 3, message);
+        let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
+        encrypt(&mut rng, passphrase, 2, 6, message, &mut ciphertext);
         ciphertext[message.len() + OVERHEAD - 1] ^= 1;
 
-        let plaintext = decrypt(passphrase, &ciphertext);
+        let plaintext = decrypt(passphrase, &mut ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 }
