@@ -331,16 +331,6 @@ mod tests {
 
     use super::*;
 
-    macro_rules! assert_failed {
-        ($action: expr) => {
-            match $action {
-                Ok(_) => panic!("decrypted but shouldn't have"),
-                Err(DecryptError::InvalidCiphertext) => {}
-                Err(e) => panic!("unexpected error: {:?}", e),
-            }
-        };
-    }
-
     #[test]
     fn round_trip() {
         let (mut rng, d_s, q_s, d_r, q_r) = setup();
@@ -379,7 +369,12 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert_failed!(decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s));
+        assert_eq!(
+            "invalid ciphertext",
+            decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s)
+                .expect_err("should not have decrypted")
+                .to_string()
+        );
     }
 
     #[test]
@@ -399,7 +394,12 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert_failed!(decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s));
+        assert_eq!(
+            "invalid ciphertext",
+            decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s)
+                .expect_err("should not have decrypted")
+                .to_string()
+        );
     }
 
     #[test]
@@ -419,7 +419,12 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert_failed!(decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s));
+        assert_eq!(
+            "invalid ciphertext",
+            decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s)
+                .expect_err("should not have decrypted")
+                .to_string()
+        );
     }
 
     #[test]
