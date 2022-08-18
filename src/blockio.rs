@@ -23,3 +23,24 @@ pub trait ReadBlock: Read {
 }
 
 impl<R> ReadBlock for R where R: Read {}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
+
+    use super::*;
+
+    #[test]
+    fn blockwise_reads() {
+        let mut reader = Cursor::new(b"ayellowsubmarinebaby");
+        let mut block = [0u8; 16];
+
+        let n = reader.read_block(&mut block).expect("error reading");
+        assert_eq!(n, 16);
+        assert_eq!(&block, b"ayellowsubmarine");
+
+        let n = reader.read_block(&mut block).expect("error reading");
+        assert_eq!(n, 4);
+        assert_eq!(&block[..4], b"baby");
+    }
+}
