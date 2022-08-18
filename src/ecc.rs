@@ -15,10 +15,13 @@ pub(crate) type Point = crrl::jq255e::Point;
 pub const POINT_LEN: usize = 32;
 
 pub trait CanonicallyEncoded<const LEN: usize>: Sized {
+    #[must_use]
     fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<Self>;
 
+    #[must_use]
     fn as_canonical_bytes(&self) -> [u8; LEN];
 
+    #[must_use]
     fn random(rng: impl RngCore + CryptoRng) -> Self;
 }
 

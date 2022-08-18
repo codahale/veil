@@ -14,6 +14,7 @@ pub trait AsciiEncoded<const LEN: usize>: Sized + FromStr + Display {
     fn from_bytes(b: &[u8]) -> Result<Self, <Self as AsciiEncoded<LEN>>::Err>;
 
     /// Encode a value as bytes.
+    #[must_use]
     fn to_bytes(&self) -> [u8; LEN];
 
     /// Decode a value from a base58 string.
@@ -28,6 +29,7 @@ pub trait AsciiEncoded<const LEN: usize>: Sized + FromStr + Display {
     }
 
     /// Encode a value as a base58 string.
+    #[must_use]
     fn to_ascii(&self) -> String {
         bs58::encode(self.to_bytes()).into_string()
     }

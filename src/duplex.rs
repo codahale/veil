@@ -33,6 +33,7 @@ impl UnkeyedDuplex {
     }
 
     /// Extract a key from this duplex's state and use it to create a keyed duplex.
+    #[must_use]
     pub fn into_keyed(mut self) -> KeyedDuplex {
         const KEY_LEN: usize = 64;
 

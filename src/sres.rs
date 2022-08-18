@@ -78,6 +78,7 @@ pub fn encrypt(
 /// Given the receiver's key pair, the sender's public key, a nonce, and a ciphertext, decrypts the
 /// given ciphertext and returns the ephemeral public key and plaintext iff the ciphertext was
 /// encrypted for the receiver by the sender.
+#[must_use]
 pub fn decrypt<'a>(
     (d_r, q_r): (&Scalar, &Point),
     q_s: &Point,

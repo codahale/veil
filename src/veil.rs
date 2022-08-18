@@ -20,6 +20,7 @@ pub struct PrivateKey {
 }
 
 impl PrivateKey {
+    #[must_use]
     fn from_scalar(d: Scalar) -> PrivateKey {
         let q = Point::mulgen(&d);
         PrivateKey { d, pk: PublicKey { q } }

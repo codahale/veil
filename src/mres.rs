@@ -78,6 +78,7 @@ const HEADER_LEN: usize = DEK_LEN + INT_LEN + INT_LEN;
 
 /// Encode the DEK, header count, and padding size in a header.
 #[inline]
+#[must_use]
 fn encode_header(dek: &[u8; DEK_LEN], recv_count: u64, padding: u64) -> [u8; HEADER_LEN] {
     let mut header = [0u8; HEADER_LEN];
     let (hdr_dek, hdr_recv_count) = header.split_at_mut(DEK_LEN);
@@ -298,6 +299,7 @@ fn decrypt_header(
 /// Decode an ephemeral public key and header into an ephemeral public key, DEK, header count, and
 /// padding size.
 #[inline]
+#[must_use]
 fn decode_header((q_e, header): (Point, &[u8])) -> (Point, [u8; DEK_LEN], u64, u64) {
     // Split header into components.
     let (dek, hdr_count) = header.split_at(DEK_LEN);

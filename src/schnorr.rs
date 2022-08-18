@@ -117,6 +117,7 @@ pub fn sign_duplex(
 }
 
 /// Verify a Schnorr signature of the given duplex's state using the given public key.
+#[must_use]
 pub fn verify_duplex(duplex: &mut KeyedDuplex, q: &Point, sig: &Signature) -> Option<()> {
     // Split signature into components.
     let mut sig = sig.0;
