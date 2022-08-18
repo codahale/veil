@@ -174,7 +174,7 @@ pub fn decrypt(
     mres.absorb(&nonce);
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the duplex.
-    let (mut mres, q_e, dek) = decrypt_header(mres, &mut reader, d_r, q_r, q_s)?;
+    let (q_e, dek) = decrypt_header(&mut mres, &mut reader, d_r, q_r, q_s)?;
 
     // Absorb the DEK.
     mres.absorb(&dek);
@@ -241,43 +241,44 @@ const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
 /// Iterate through the contents of `reader` looking for a header which was encrypted by the given
 /// sender for the given receiver.
 fn decrypt_header(
-    mut mres: UnkeyedDuplex,
+    mres: &mut UnkeyedDuplex,
     mut reader: impl Read,
     d_r: &Scalar,
     q_r: &Point,
     q_s: &Point,
-) -> Result<(UnkeyedDuplex, Point, [u8; DEK_LEN]), DecryptError> {
-    let mut header = [0u8; ENC_HEADER_LEN];
+) -> Result<(Point, [u8; DEK_LEN]), DecryptError> {
+    let mut enc_header = [0u8; ENC_HEADER_LEN];
+    let mut header = None;
     let mut i = 0u64;
     let mut recv_count = u64::MAX;
 
-    let mut header_values: Option<(Point, u64, [u8; DEK_LEN])> = None;
-
     // Iterate through blocks, looking for an encrypted header that can be decrypted.
     while i < recv_count {
-        // Read a potential encrypted header.
-        let n = reader.read_block(&mut header)?;
-
-        // If the header is short, we're at the end of the reader.
-        if n < ENC_HEADER_LEN {
-            return Err(DecryptError::InvalidCiphertext);
-        }
+        // Read a potential encrypted header. If the header is short, we're at the end of the
+        // reader.
+        reader.read_exact(&mut enc_header).map_err(|e| {
+            if e.kind() == io::ErrorKind::UnexpectedEof {
+                DecryptError::InvalidCiphertext
+            } else {
+                e.into()
+            }
+        })?;
 
         // Squeeze a nonce regardless of whether we need to in order to keep the duplex state
         // consistent.
         let nonce = mres.squeeze::<NONCE_LEN>();
 
         // Absorb the encrypted header with the duplex.
-        mres.absorb(&header);
+        mres.absorb(&enc_header);
 
         // If a header hasn't been decrypted yet, try to decrypt this one.
-        if header_values.is_none() {
+        if header.is_none() {
             if let Some((q_e, d, c, p)) =
-                sres::decrypt((d_r, q_r), q_s, &nonce, &mut header).map(decode_header)
+                sres::decrypt((d_r, q_r), q_s, &nonce, &mut enc_header).map(decode_header)
             {
                 // If the header was successfully decrypted, keep the ephemeral public key, DEK, and
                 // padding and update the loop variable to not be effectively infinite.
-                header_values = Some((q_e, p, d));
+                header = Some((q_e, p, d));
                 recv_count = c;
             }
         }
@@ -285,15 +286,14 @@ fn decrypt_header(
         i += 1;
     }
 
-    if let Some((q_e, padding, dek)) = header_values {
-        // Read the padding and absorb it with the duplex.
-        mres.absorb_reader(&mut reader.take(padding))?;
+    // Unpack the header values, if any.
+    let (q_e, padding, dek) = header.ok_or(DecryptError::InvalidCiphertext)?;
 
-        // Return the duplex, ephemeral public key, and DEK.
-        Ok((mres, q_e, dek))
-    } else {
-        Err(DecryptError::InvalidCiphertext)
-    }
+    // Read the padding and absorb it with the duplex.
+    mres.absorb_reader(&mut reader.take(padding))?;
+
+    // Return the ephemeral public key and DEK.
+    Ok((q_e, dek))
 }
 
 /// Decode an ephemeral public key and header into an ephemeral public key, DEK, header count, and
