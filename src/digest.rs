@@ -1,7 +1,8 @@
 use std::io::Read;
 use std::str::FromStr;
 use std::{fmt, io};
-use subtle::ConstantTimeEq;
+
+use constant_time_eq::constant_time_eq_n;
 
 use crate::duplex::{Absorb, Squeeze, UnkeyedDuplex};
 use crate::{AsciiEncoded, ParseDigestError};
@@ -61,7 +62,7 @@ impl Digest {
 
 impl PartialEq for Digest {
     fn eq(&self, other: &Self) -> bool {
-        self.0.ct_eq(&other.0).into()
+        constant_time_eq_n::<DIGEST_LEN>(&self.0, &other.0)
     }
 }
 
