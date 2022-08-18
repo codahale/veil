@@ -69,9 +69,6 @@
     clippy::semicolon_if_nothing_returned
 )]
 
-use std::io;
-use std::io::Read;
-
 pub use self::ascii::*;
 pub use self::digest::*;
 pub use self::errors::*;
@@ -79,6 +76,7 @@ pub use self::schnorr::Signature;
 pub use self::veil::*;
 
 mod ascii;
+mod blockio;
 mod digest;
 mod duplex;
 mod ecc;
@@ -88,20 +86,3 @@ mod pbenc;
 mod schnorr;
 mod sres;
 mod veil;
-
-/// Like `read_exact` but returns `Ok(n)` on EOF.
-pub(crate) fn read_chunk<R: Read + ?Sized>(this: &mut R, mut buf: &mut [u8]) -> io::Result<usize> {
-    let max = buf.len();
-    while !buf.is_empty() {
-        match this.read(buf) {
-            Ok(0) => break,
-            Ok(n) => {
-                let tmp = buf;
-                buf = &mut tmp[n..];
-            }
-            Err(ref e) if e.kind() == io::ErrorKind::Interrupted => {}
-            Err(e) => return Err(e),
-        }
-    }
-    Ok(max - buf.len())
-}

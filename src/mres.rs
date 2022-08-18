@@ -5,11 +5,12 @@ use std::mem;
 
 use rand::{CryptoRng, Rng};
 
+use crate::blockio::ReadBlock;
 use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex, TAG_LEN};
 use crate::ecc::{CanonicallyEncoded, Point, Scalar};
 use crate::schnorr::SIGNATURE_LEN;
 use crate::sres::NONCE_LEN;
-use crate::{read_chunk, schnorr, sres, AsciiEncoded, DecryptError, Signature};
+use crate::{schnorr, sres, AsciiEncoded, DecryptError, Signature};
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
@@ -136,7 +137,7 @@ fn encrypt_message(
 
     loop {
         // Read a block of data.
-        let n = read_chunk(&mut reader, &mut buf[..BLOCK_LEN])?;
+        let n = reader.read_block(&mut buf[..BLOCK_LEN])?;
         let block = &mut buf[..n + TAG_LEN];
 
         // Encrypt the block and write the ciphertext and a tag.
@@ -206,7 +207,7 @@ fn decrypt_message(
     loop {
         // Read a block and a possible signature, keeping in mind the unused bit of the buffer from
         // the last iteration.
-        let n = read_chunk(&mut reader, &mut buf[offset..])?;
+        let n = reader.read_block(&mut buf[offset..])?;
 
         // If we're at the end of the reader, we only have the signature left to process. Break out
         // of the read loop and go process the signature.
@@ -254,7 +255,7 @@ fn decrypt_header(
     // Iterate through blocks, looking for an encrypted header that can be decrypted.
     while i < recv_count {
         // Read a potential encrypted header.
-        let n = read_chunk(&mut reader, &mut header)?;
+        let n = reader.read_block(&mut header)?;
 
         // If the header is short, we're at the end of the reader.
         if n < ENC_HEADER_LEN {

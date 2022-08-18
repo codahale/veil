@@ -3,12 +3,12 @@
 use std::io;
 use std::io::{Read, Write};
 
+use crate::blockio::ReadBlock;
 use cyclist::keccyak::{Keccyak128Hash, Keccyak128Keyed};
 use cyclist::Cyclist;
 use rand::{CryptoRng, Rng};
 
 use crate::ecc::{CanonicallyEncoded, Point, Scalar};
-use crate::read_chunk;
 
 /// The length of an authentication tag in bytes.
 pub const TAG_LEN: usize = Keccyak128Keyed::tag_len();
@@ -138,7 +138,7 @@ pub trait Absorb<const BUFFER_LEN: usize>: Clone {
 
         loop {
             // Read a block of data.
-            let n = read_chunk(&mut reader, &mut buf)?;
+            let n = reader.read_block(&mut buf)?;
             let block = &buf[..n];
 
             // Absorb the block.
