@@ -116,7 +116,7 @@ fn bench_pbenc(c: &mut Criterion) {
                         pk.store(
                             Cursor::new(vec![]),
                             &mut rng,
-                            black_box("passphrase"),
+                            black_box(b"passphrase"),
                             time,
                             space,
                         )

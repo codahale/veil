@@ -3,7 +3,6 @@
 use std::mem;
 
 use rand::{CryptoRng, Rng};
-use unicode_normalization::UnicodeNormalization;
 
 use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex, TAG_LEN};
 
@@ -13,7 +12,7 @@ pub const OVERHEAD: usize = mem::size_of::<u8>() + mem::size_of::<u8>() + SALT_L
 /// Encrypt the given plaintext using the given passphrase.
 pub fn encrypt(
     mut rng: impl Rng + CryptoRng,
-    passphrase: &str,
+    passphrase: &[u8],
     time: u8,
     space: u8,
     plaintext: &[u8],
@@ -43,7 +42,7 @@ pub fn encrypt(
 
 /// Decrypt the given ciphertext using the given passphrase.
 #[must_use]
-pub fn decrypt<'a>(passphrase: &str, in_out: &'a mut [u8]) -> Option<&'a [u8]> {
+pub fn decrypt<'a>(passphrase: &[u8], in_out: &'a mut [u8]) -> Option<&'a [u8]> {
     if in_out.len() < OVERHEAD {
         return None;
     }
@@ -79,15 +78,12 @@ macro_rules! hash_counter {
     };
 }
 
-fn init(passphrase: &str, salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
-    // Normalize the passphrase into NFKC form.
-    let passphrase = normalize(passphrase);
-
+fn init(passphrase: &[u8], salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
     // Initialize an unkeyed duplex.
     let mut pbenc = UnkeyedDuplex::new("veil.pbenc");
 
     // Absorb the passphrase.
-    pbenc.absorb(&passphrase);
+    pbenc.absorb(passphrase);
 
     // Absorb the salt, time, space, block size, and delta parameters.
     pbenc.absorb(salt);
@@ -143,11 +139,6 @@ fn init(passphrase: &str, salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
     pbenc.into_keyed()
 }
 
-#[inline]
-fn normalize(passphrase: &str) -> Vec<u8> {
-    passphrase.nfkc().collect::<String>().as_bytes().to_vec()
-}
-
 const SALT_LEN: usize = 16;
 const DELTA: usize = 3;
 const N: usize = 32;
@@ -163,7 +154,7 @@ mod tests {
     fn round_trip() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let passphrase = "this is a secret";
+        let passphrase = b"this is a secret";
         let message = b"this is too";
         let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
         encrypt(&mut rng, passphrase, 2, 6, message, &mut ciphertext);
@@ -176,12 +167,12 @@ mod tests {
     fn wrong_passphrase() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let passphrase = "this is a secret";
+        let passphrase = b"this is a secret";
         let message = b"this is too";
         let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
         encrypt(&mut rng, passphrase, 2, 6, message, &mut ciphertext);
 
-        let plaintext = decrypt("whoops", &mut ciphertext);
+        let plaintext = decrypt(b"whoops", &mut ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
@@ -189,7 +180,7 @@ mod tests {
     fn modified_time() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let passphrase = "this is a secret";
+        let passphrase = b"this is a secret";
         let message = b"this is too";
         let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
         encrypt(&mut rng, passphrase, 2, 6, message, &mut ciphertext);
@@ -203,7 +194,7 @@ mod tests {
     fn modified_space() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let passphrase = "this is a secret";
+        let passphrase = b"this is a secret";
         let message = b"this is too";
         let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
         encrypt(&mut rng, passphrase, 2, 6, message, &mut ciphertext);
@@ -217,7 +208,7 @@ mod tests {
     fn modified_salt() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let passphrase = "this is a secret";
+        let passphrase = b"this is a secret";
         let message = b"this is too";
         let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
         encrypt(&mut rng, passphrase, 2, 6, message, &mut ciphertext);
@@ -231,7 +222,7 @@ mod tests {
     fn modified_ciphertext() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let passphrase = "this is a secret";
+        let passphrase = b"this is a secret";
         let message = b"this is too";
         let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
         encrypt(&mut rng, passphrase, 2, 6, message, &mut ciphertext);
@@ -245,7 +236,7 @@ mod tests {
     fn modified_tag() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let passphrase = "this is a secret";
+        let passphrase = b"this is a secret";
         let message = b"this is too";
         let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
         encrypt(&mut rng, passphrase, 2, 6, message, &mut ciphertext);

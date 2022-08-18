@@ -7,6 +7,7 @@ use clap::{AppSettings, IntoApp, Parser, Subcommand, ValueHint};
 use clap_complete::{generate_to, Shell};
 use clio::{Input, Output};
 use mimalloc::MiMalloc;
+use unicode_normalization::UnicodeNormalization;
 
 use veil::{Digest, PrivateKey, PublicKey, Signature};
 
@@ -306,9 +307,10 @@ fn decrypt_private_key(passphrase_file: &Option<PathBuf>, path: &Path) -> Result
     Ok(pk)
 }
 
-fn prompt_passphrase(passphrase_file: &Option<PathBuf>) -> Result<String> {
+fn prompt_passphrase(passphrase_file: &Option<PathBuf>) -> Result<Vec<u8>> {
     match passphrase_file {
-        Some(p) => Ok(fs::read_to_string(p)?),
-        None => Ok(rpassword::prompt_password("Enter passphrase: ")?),
+        Some(p) => Ok(fs::read(p)?),
+        None => Ok(rpassword::prompt_password("Enter passphrase: ")
+            .map(|s| s.nfkc().collect::<String>().as_bytes().to_vec())?),
     }
 }

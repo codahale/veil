@@ -48,7 +48,7 @@ impl PrivateKey {
         &self,
         mut writer: impl Write,
         rng: impl Rng + CryptoRng,
-        passphrase: &str,
+        passphrase: &[u8],
         time: u8,
         space: u8,
     ) -> io::Result<usize> {
@@ -65,7 +65,7 @@ impl PrivateKey {
     /// If the passphrase is incorrect and/or the ciphertext has been modified, a
     /// [`DecryptError::InvalidCiphertext`] error will be returned. If an error occurred while
     /// reading, a [`DecryptError::IoError`] error will be returned.
-    pub fn load(mut reader: impl Read, passphrase: &str) -> Result<PrivateKey, DecryptError> {
+    pub fn load(mut reader: impl Read, passphrase: &[u8]) -> Result<PrivateKey, DecryptError> {
         let mut b = Vec::with_capacity(SCALAR_LEN + pbenc::OVERHEAD);
         reader.read_to_end(&mut b)?;
 
