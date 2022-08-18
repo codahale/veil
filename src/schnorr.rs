@@ -96,20 +96,19 @@ pub fn sign_duplex(
     let (sig_i, sig_s) = sig.split_at_mut(POINT_LEN);
 
     // Derive a commitment scalar from the duplex's current state, the signer's private key,
-    // and a random nonce.
+    // and a random nonce, and calculate the commitment point.
     let k = duplex.hedge(&mut rng, &d.as_canonical_bytes(), Squeeze::squeeze_scalar);
+    let i = Point::mulgen(&k);
 
     // Calculate, encode, and encrypt the commitment point.
-    sig_i.copy_from_slice(&Point::mulgen(&k).as_canonical_bytes());
+    sig_i.copy_from_slice(&i.as_canonical_bytes());
     duplex.encrypt_mut(sig_i);
 
     // Squeeze a challenge scalar.
     let r = duplex.squeeze_scalar();
 
-    // Calculate the proof scalar.
+    // Calculate, encode, and encrypt the proof scalar.
     let s = (d * r) + k;
-
-    // Encode and encrypt the proof scalar.
     sig_s.copy_from_slice(&s.as_canonical_bytes());
     duplex.encrypt_mut(sig_s);
 
@@ -123,7 +122,7 @@ pub fn verify_duplex(duplex: &mut KeyedDuplex, q: &Point, sig: &Signature) -> Op
     let mut sig = sig.0;
     let (i, s) = sig.split_at_mut(POINT_LEN);
 
-    // Decrypt the commitment point.
+    // Decrypt the commitment point but don't decode it.
     duplex.decrypt_mut(i);
 
     // Re-derive the challenge scalar.
@@ -133,8 +132,10 @@ pub fn verify_duplex(duplex: &mut KeyedDuplex, q: &Point, sig: &Signature) -> Op
     duplex.decrypt_mut(s);
     let s = Scalar::from_canonical_bytes(s)?;
 
-    // Return true iff I and s are well-formed and I == [s]G - [r']Q.
-    ((-q).mul_add_mulgen_vartime(&r_p, &s).encode().as_slice() == i).then_some(())
+    // Return true iff I and s are well-formed and I == [s]G - [r']Q. Here we compare the encoded
+    // form of I' with the encoded form of I from the signature. This is faster, as encoding a point
+    // is faster than decoding a point.
+    ((-q).mul_add_mulgen_vartime(&r_p, &s).as_canonical_bytes().as_slice() == i).then_some(())
 }
 
 #[cfg(test)]
