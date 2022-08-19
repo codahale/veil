@@ -293,13 +293,10 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert_eq!(
-            "invalid ciphertext",
-            priv_b
-                .decrypt(&mut src, &mut dst, &priv_b.public_key())
-                .expect_err("should not have decrypted")
-                .to_string()
-        );
+        assert!(matches!(
+            priv_b.decrypt(&mut src, &mut dst, &priv_b.public_key()),
+            Err(DecryptError::InvalidCiphertext)
+        ));
     }
 
     #[test]
@@ -320,13 +317,10 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert_eq!(
-            "invalid ciphertext",
-            priv_b
-                .decrypt(&mut src, &mut dst, &priv_a.public_key())
-                .expect_err("should not have decrypted")
-                .to_string()
-        );
+        assert!(matches!(
+            priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()),
+            Err(DecryptError::InvalidCiphertext)
+        ));
     }
 
     #[test]
@@ -350,13 +344,10 @@ mod tests {
         let mut src = Cursor::new(ciphertext);
         let mut dst = Cursor::new(Vec::new());
 
-        assert_eq!(
-            "invalid ciphertext",
-            priv_b
-                .decrypt(&mut src, &mut dst, &priv_a.public_key())
-                .expect_err("should not have decrypted")
-                .to_string()
-        );
+        assert!(matches!(
+            priv_b.decrypt(&mut src, &mut dst, &priv_a.public_key()),
+            Err(DecryptError::InvalidCiphertext)
+        ));
     }
 
     #[test]

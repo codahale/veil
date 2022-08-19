@@ -173,12 +173,10 @@ mod tests {
         let sig = sign(&mut rng, (&d, &q), Cursor::new(message)).expect("error signing");
 
         let message = b"this is NOT a message";
-        assert_eq!(
-            "invalid signature",
-            verify(&q, Cursor::new(message), &sig)
-                .expect_err("should not have verified")
-                .to_string()
-        );
+        assert!(matches!(
+            verify(&q, Cursor::new(message), &sig),
+            Err(VerifyError::InvalidSignature)
+        ));
     }
 
     #[test]
@@ -192,12 +190,10 @@ mod tests {
 
         let q = Point::random(&mut rng);
 
-        assert_eq!(
-            "invalid signature",
-            verify(&q, Cursor::new(message), &sig)
-                .expect_err("should not have verified")
-                .to_string()
-        );
+        assert!(matches!(
+            verify(&q, Cursor::new(message), &sig),
+            Err(VerifyError::InvalidSignature)
+        ));
     }
 
     #[test]
@@ -211,12 +207,10 @@ mod tests {
 
         sig.0[22] ^= 1;
 
-        assert_eq!(
-            "invalid signature",
-            verify(&q, Cursor::new(message), &sig)
-                .expect_err("should not have verified")
-                .to_string()
-        );
+        assert!(matches!(
+            verify(&q, Cursor::new(message), &sig),
+            Err(VerifyError::InvalidSignature)
+        ));
     }
 
     #[test]

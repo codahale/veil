@@ -373,12 +373,10 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert_eq!(
-            "invalid ciphertext",
-            decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s)
-                .expect_err("should not have decrypted")
-                .to_string()
-        );
+        assert!(matches!(
+            decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s),
+            Err(DecryptError::InvalidCiphertext)
+        ));
     }
 
     #[test]
@@ -398,12 +396,10 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert_eq!(
-            "invalid ciphertext",
-            decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s)
-                .expect_err("should not have decrypted")
-                .to_string()
-        );
+        assert!(matches!(
+            decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s),
+            Err(DecryptError::InvalidCiphertext)
+        ));
     }
 
     #[test]
@@ -423,12 +419,10 @@ mod tests {
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        assert_eq!(
-            "invalid ciphertext",
-            decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s)
-                .expect_err("should not have decrypted")
-                .to_string()
-        );
+        assert!(matches!(
+            decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s),
+            Err(DecryptError::InvalidCiphertext)
+        ));
     }
 
     #[test]
