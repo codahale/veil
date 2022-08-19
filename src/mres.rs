@@ -30,7 +30,7 @@ pub fn encrypt(
 
     // Generate ephemeral key pair, DEK, and nonce.
     let (d_e, dek, nonce) = mres.hedge(&mut rng, &d_s.as_canonical_bytes(), |clone| {
-        (clone.squeeze_scalar(), clone.squeeze::<DEK_LEN>(), clone.squeeze::<NONCE_LEN>())
+        (clone.squeeze_scalar(), clone.squeeze(), clone.squeeze::<NONCE_LEN>())
     });
     let q_e = Point::mulgen(&d_e);
 
