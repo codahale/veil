@@ -55,14 +55,14 @@ impl Digest {
         // Absorb the reader contents.
         digest.absorb_reader(reader)?;
 
-        // Squeeze N bytes as a digest.
-        Ok(Digest(digest.squeeze::<DIGEST_LEN>()))
+        // Squeeze 64 bytes as a digest.
+        Ok(Digest(digest.squeeze()))
     }
 }
 
 impl PartialEq for Digest {
     fn eq(&self, other: &Self) -> bool {
-        constant_time_eq_n::<DIGEST_LEN>(&self.0, &other.0)
+        constant_time_eq_n(&self.0, &other.0)
     }
 }
 
