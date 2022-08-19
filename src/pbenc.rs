@@ -21,8 +21,8 @@ pub fn encrypt(
     debug_assert_eq!(ciphertext.len(), plaintext.len() + OVERHEAD);
 
     // Split up the output buffer.
-    let (out_time, out_space) = ciphertext.split_at_mut(1);
-    let (out_space, out_salt) = out_space.split_at_mut(1);
+    let (out_time, out_space) = ciphertext.split_at_mut(mem::size_of::<u8>());
+    let (out_space, out_salt) = out_space.split_at_mut(mem::size_of::<u8>());
     let (out_salt, out_ciphertext) = out_salt.split_at_mut(SALT_LEN);
 
     // Encode the time and space parameters.
