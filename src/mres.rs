@@ -29,10 +29,9 @@ pub fn encrypt(
     mres.absorb(&sender.pub_key.encoded);
 
     // Generate ephemeral key pair, DEK, and nonce.
-    let (d_e, dek, nonce) = mres.hedge(&mut rng, &sender.d.encode32(), |clone| {
-        (clone.squeeze_scalar(), clone.squeeze(), clone.squeeze::<NONCE_LEN>())
+    let (ephemeral, dek, nonce) = mres.hedge(&mut rng, &sender.d.encode32(), |clone| {
+        (clone.squeeze_private_key(), clone.squeeze(), clone.squeeze::<NONCE_LEN>())
     });
-    let ephemeral = PrivKey::from_scalar(d_e);
 
     // Absorb and write the nonce.
     mres.absorb(&nonce);

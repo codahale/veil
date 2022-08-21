@@ -3,12 +3,13 @@
 use std::io;
 use std::io::{Read, Write};
 
-use crrl::jq255e::{Point, Scalar};
+use crrl::jq255e::Scalar;
 use cyclist::keccyak::{Keccyak128Hash, Keccyak128Keyed};
 use cyclist::Cyclist;
 use rand::{CryptoRng, Rng};
 
 use crate::blockio::ReadBlock;
+use crate::keys::PrivKey;
 
 /// The length of an authentication tag in bytes.
 pub const TAG_LEN: usize = Keccyak128Keyed::tag_len();
@@ -95,6 +96,12 @@ pub trait Squeeze {
     fn squeeze_scalar(&mut self) -> Scalar {
         Scalar::decode_reduce(&self.squeeze::<64>())
     }
+
+    /// Squeeze 64 bytes from the duplex and map them to a [`PrivKey`].
+    #[must_use]
+    fn squeeze_private_key(&mut self) -> PrivKey {
+        PrivKey::from_scalar(self.squeeze_scalar())
+    }
 }
 
 impl Squeeze for UnkeyedDuplex {
@@ -116,11 +123,6 @@ pub trait Absorb<const BUFFER_LEN: usize>: Clone {
 
     /// Extend a previous absorb operation with the given slice of data.
     fn absorb_more(&mut self, data: &[u8]);
-
-    /// Absorb a point.
-    fn absorb_point(&mut self, q: &Point) {
-        self.absorb(&q.encode());
-    }
 
     /// Absorb the entire contents of the given reader as a single operation.
     fn absorb_reader(&mut self, reader: impl Read) -> io::Result<u64> {
