@@ -171,14 +171,14 @@ pub trait Absorb<const BUFFER_LEN: usize>: Clone {
     fn hedge<R>(
         &self,
         mut rng: impl Rng + CryptoRng,
-        secret: &[u8],
+        secret: &PrivKey,
         f: impl Fn(&mut Self) -> R,
     ) -> R {
         // Clone the duplex's state.
         let mut clone = self.clone();
 
         // Absorb the given secret.
-        clone.absorb(secret);
+        clone.absorb(&secret.d.encode32());
 
         // Absorb a random value.
         clone.absorb(&rng.gen::<[u8; 64]>());

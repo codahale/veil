@@ -61,7 +61,7 @@ pub fn encrypt(
 
     // Derive a commitment scalar from the duplex's current state, the sender's private key,
     // and a random nonce.
-    let k = sres.hedge(rng, &sender.d.encode32(), Squeeze::squeeze_scalar);
+    let k = sres.hedge(rng, sender, Squeeze::squeeze_scalar);
 
     // Calculate and encrypt the commitment point.
     out_i.copy_from_slice(&Point::mulgen(&k).encode());
