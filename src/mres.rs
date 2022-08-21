@@ -3,11 +3,11 @@
 use std::io::{self, Read, Write};
 use std::mem;
 
+use crrl::jq255e::{Point, Scalar};
 use rand::{CryptoRng, Rng};
 
 use crate::blockio::ReadBlock;
 use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex, TAG_LEN};
-use crate::ecc::{CanonicallyEncoded, Point, Scalar};
 use crate::schnorr::SIGNATURE_LEN;
 use crate::sres::NONCE_LEN;
 use crate::{schnorr, sres, DecryptError, Signature};
@@ -29,7 +29,7 @@ pub fn encrypt(
     mres.absorb_point(q_s);
 
     // Generate ephemeral key pair, DEK, and nonce.
-    let (d_e, dek, nonce) = mres.hedge(&mut rng, &d_s.as_canonical_bytes(), |clone| {
+    let (d_e, dek, nonce) = mres.hedge(&mut rng, &d_s.encode32(), |clone| {
         (clone.squeeze_scalar(), clone.squeeze(), clone.squeeze::<NONCE_LEN>())
     });
     let q_e = Point::mulgen(&d_e);
@@ -368,7 +368,7 @@ mod tests {
             .expect("error encrypting");
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
-        let q_s = Point::random(&mut rng);
+        let q_s = Point::hash_to_curve("", &rng.gen::<[u8; 64]>());
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
@@ -391,7 +391,7 @@ mod tests {
             .expect("error encrypting");
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
-        let q_r = Point::random(&mut rng);
+        let q_r = Point::hash_to_curve("", &rng.gen::<[u8; 64]>());
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
@@ -414,7 +414,7 @@ mod tests {
             .expect("error encrypting");
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
-        let d_r = Scalar::random(&mut rng);
+        let d_r = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
@@ -496,10 +496,10 @@ mod tests {
     fn setup() -> (ChaChaRng, Scalar, Point, Scalar, Point) {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let d_s = Scalar::random(&mut rng);
+        let d_s = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
         let q_s = Point::mulgen(&d_s);
 
-        let d_r = Scalar::random(&mut rng);
+        let d_r = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
         let q_r = Point::mulgen(&d_r);
 
         (rng, d_s, q_s, d_r, q_r)

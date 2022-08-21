@@ -77,10 +77,15 @@ pub use self::veil::*;
 mod blockio;
 mod digest;
 mod duplex;
-mod ecc;
 mod errors;
 mod mres;
 mod pbenc;
 mod schnorr;
 mod sres;
 mod veil;
+
+/// The length of an encoded scalar in bytes.
+const SCALAR_LEN: usize = 32;
+
+/// The length of an encoded point in bytes.
+const POINT_LEN: usize = 32;

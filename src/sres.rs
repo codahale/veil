@@ -1,9 +1,10 @@
 //! An insider-secure hybrid signcryption implementation.
 
+use crrl::jq255e::{Point, Scalar};
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, Squeeze, UnkeyedDuplex};
-use crate::ecc::{CanonicallyEncoded, Point, Scalar, POINT_LEN};
+use crate::POINT_LEN;
 
 /// The recommended size of the nonce passed to [encrypt].
 pub const NONCE_LEN: usize = 16;
@@ -48,7 +49,7 @@ pub fn encrypt(
     let mut sres = sres.into_keyed();
 
     // Encrypt the ephemeral public key.
-    out_q_e.copy_from_slice(&q_e.as_canonical_bytes());
+    out_q_e.copy_from_slice(&q_e.encode());
     sres.encrypt_mut(out_q_e);
 
     // Absorb the ephemeral ECDH shared secret.
@@ -60,10 +61,10 @@ pub fn encrypt(
 
     // Derive a commitment scalar from the duplex's current state, the sender's private key,
     // and a random nonce.
-    let k = sres.hedge(rng, &d_s.as_canonical_bytes(), Squeeze::squeeze_scalar);
+    let k = sres.hedge(rng, &d_s.encode32(), Squeeze::squeeze_scalar);
 
     // Calculate and encrypt the commitment point.
-    out_i.copy_from_slice(&Point::mulgen(&k).as_canonical_bytes());
+    out_i.copy_from_slice(&Point::mulgen(&k).encode());
     sres.encrypt_mut(out_i);
 
     // Squeeze a challenge scalar.
@@ -71,7 +72,7 @@ pub fn encrypt(
 
     // Calculate and encrypt the designated proof point.
     let x = q_r * ((d_s * r) + k);
-    out_x.copy_from_slice(&x.as_canonical_bytes());
+    out_x.copy_from_slice(&x.encode());
     sres.encrypt_mut(out_x);
 }
 
@@ -115,7 +116,7 @@ pub fn decrypt<'a>(
 
     // Decrypt and decode the ephemeral public key.
     sres.decrypt_mut(q_e);
-    let q_e = Point::from_canonical_bytes(q_e)?;
+    let q_e = Point::decode(q_e)?;
 
     // Absorb the ephemeral ECDH shared secret.
     sres.absorb_point(&(q_e * d_r));
@@ -125,7 +126,7 @@ pub fn decrypt<'a>(
 
     // Decrypt and decode the commitment point.
     sres.decrypt_mut(i);
-    let i = Point::from_canonical_bytes(i)?;
+    let i = Point::decode(i)?;
 
     // Re-derive the challenge scalar.
     let r_p = sres.squeeze_scalar();
@@ -138,7 +139,7 @@ pub fn decrypt<'a>(
 
     // Return the ephemeral public key and plaintext iff the canonical encoding of the re-calculated
     // proof point matches the encoding of the decrypted proof point.
-    (x == x_p.as_canonical_bytes().as_slice()).then_some((q_e, ciphertext))
+    (x == x_p.encode().as_slice()).then_some((q_e, ciphertext))
 }
 
 #[cfg(test)]
@@ -172,7 +173,7 @@ mod tests {
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
         encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext, &mut ciphertext);
 
-        let d_r = Scalar::random(&mut rng);
+        let d_r = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
 
         let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &mut ciphertext);
         assert!(plaintext.is_none(), "decrypted an invalid ciphertext");
@@ -186,7 +187,7 @@ mod tests {
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
         encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext, &mut ciphertext);
 
-        let q_r = Point::random(&mut rng);
+        let q_r = Point::hash_to_curve("", &rng.gen::<[u8; 64]>());
 
         let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &mut ciphertext);
         assert!(plaintext.is_none(), "decrypted an invalid ciphertext");
@@ -200,7 +201,7 @@ mod tests {
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
         encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext, &mut ciphertext);
 
-        let q_s = Point::random(&mut rng);
+        let q_s = Point::hash_to_curve("", &rng.gen::<[u8; 64]>());
 
         let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &mut ciphertext);
         assert!(plaintext.is_none(), "decrypted an invalid ciphertext");
@@ -245,13 +246,13 @@ mod tests {
     fn setup() -> (ChaChaRng, Scalar, Point, Scalar, Point, Scalar, Point) {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let d_s = Scalar::random(&mut rng);
+        let d_s = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
         let q_s = Point::mulgen(&d_s);
 
-        let d_e = Scalar::random(&mut rng);
+        let d_e = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
         let q_e = Point::mulgen(&d_e);
 
-        let d_r = Scalar::random(&mut rng);
+        let d_r = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
         let q_r = Point::mulgen(&d_r);
 
         (rng, d_s, q_s, d_e, q_e, d_r, q_r)

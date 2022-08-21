@@ -5,11 +5,14 @@ use std::io::{Read, Write};
 use std::str::FromStr;
 use std::{fmt, io, iter};
 
+use crrl::jq255e::{Point, Scalar};
 use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
 
-use crate::ecc::{CanonicallyEncoded, Point, Scalar, POINT_LEN, SCALAR_LEN};
-use crate::{mres, pbenc, schnorr, DecryptError, ParsePublicKeyError, Signature, VerifyError};
+use crate::{
+    mres, pbenc, schnorr, DecryptError, ParsePublicKeyError, Signature, VerifyError, POINT_LEN,
+    SCALAR_LEN,
+};
 
 /// A private key, used to encrypt, decrypt, and sign messages.
 pub struct PrivateKey {
@@ -27,7 +30,12 @@ impl PrivateKey {
     /// Creates a randomly generated private key.
     #[must_use]
     pub fn random(mut rng: impl Rng + CryptoRng) -> PrivateKey {
-        PrivateKey::from_scalar(Scalar::random(&mut rng))
+        loop {
+            let d = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
+            if d.iszero() == 0 {
+                return PrivateKey::from_scalar(d);
+            }
+        }
     }
 
     /// Returns the corresponding public key.
@@ -51,7 +59,7 @@ impl PrivateKey {
         space: u8,
     ) -> io::Result<usize> {
         let mut enc_key = [0u8; SCALAR_LEN + pbenc::OVERHEAD];
-        pbenc::encrypt(rng, passphrase, time, space, &self.d.as_canonical_bytes(), &mut enc_key);
+        pbenc::encrypt(rng, passphrase, time, space, &self.d.encode32(), &mut enc_key);
         writer.write_all(&enc_key)?;
         Ok(enc_key.len())
     }
@@ -69,7 +77,10 @@ impl PrivateKey {
 
         // Decrypt the ciphertext and use the plaintext as the private key.
         pbenc::decrypt(passphrase, &mut b)
-            .and_then(Scalar::from_canonical_bytes)
+            .and_then(|b| {
+                let (d, ok) = Scalar::decode32(b);
+                (ok != 0).then_some(d)
+            })
             .map(PrivateKey::from_scalar)
             .ok_or(DecryptError::InvalidCiphertext)
     }
@@ -98,7 +109,10 @@ impl PrivateKey {
         let mut q_rs = receivers
             .iter()
             .map(|pk| pk.q)
-            .chain(iter::repeat_with(|| Point::random(&mut rng)).take(fakes.unwrap_or_default()))
+            .chain(
+                iter::repeat_with(|| Point::hash_to_curve("", &rng.gen::<[u8; 64]>()))
+                    .take(fakes.unwrap_or_default()),
+            )
             .collect::<Vec<Point>>();
 
         // Shuffle the receivers list.

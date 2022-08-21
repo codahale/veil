@@ -4,11 +4,11 @@ use std::io::Read;
 use std::str::FromStr;
 use std::{fmt, io};
 
+use crrl::jq255e::{Point, Scalar};
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex};
-use crate::ecc::{CanonicallyEncoded, Point, Scalar, POINT_LEN, SCALAR_LEN};
-use crate::{ParseSignatureError, VerifyError};
+use crate::{ParseSignatureError, VerifyError, POINT_LEN, SCALAR_LEN};
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
@@ -100,11 +100,11 @@ pub fn sign_duplex(
 
     // Derive a commitment scalar from the duplex's current state, the signer's private key,
     // and a random nonce, and calculate the commitment point.
-    let k = duplex.hedge(&mut rng, &d.as_canonical_bytes(), Squeeze::squeeze_scalar);
+    let k = duplex.hedge(&mut rng, &d.encode32(), Squeeze::squeeze_scalar);
     let i = Point::mulgen(&k);
 
     // Calculate, encode, and encrypt the commitment point.
-    sig_i.copy_from_slice(&i.as_canonical_bytes());
+    sig_i.copy_from_slice(&i.encode());
     duplex.encrypt_mut(sig_i);
 
     // Squeeze a challenge scalar.
@@ -112,7 +112,7 @@ pub fn sign_duplex(
 
     // Calculate, encode, and encrypt the proof scalar.
     let s = (d * r) + k;
-    sig_s.copy_from_slice(&s.as_canonical_bytes());
+    sig_s.copy_from_slice(&s.encode32());
     duplex.encrypt_mut(sig_s);
 
     // Return the full signature.
@@ -134,12 +134,15 @@ pub fn verify_duplex(duplex: &mut KeyedDuplex, q: &Point, sig: &Signature) -> Op
 
     // Decrypt and decode the proof scalar.
     duplex.decrypt_mut(s);
-    let s = Scalar::from_canonical_bytes(s)?;
+    let (s, ok) = Scalar::decode32(s);
+    if ok == 0 {
+        return None;
+    }
 
     // Return true iff I and s are well-formed and I == [s]G - [r']Q. Here we compare the encoded
     // form of I' with the encoded form of I from the signature. This is faster, as encoding a point
     // is faster than decoding a point.
-    ((-q).mul_add_mulgen_vartime(&r_p, &s).as_canonical_bytes().as_slice() == i).then_some(())
+    ((-q).mul_add_mulgen_vartime(&r_p, &s).encode().as_slice() == i).then_some(())
 }
 
 #[cfg(test)]
@@ -155,7 +158,7 @@ mod tests {
     fn sign_and_verify() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let d = Scalar::random(&mut rng);
+        let d = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
         let q = Point::mulgen(&d);
         let message = b"this is a message";
         let sig = sign(&mut rng, (&d, &q), Cursor::new(message)).expect("error signing message");
@@ -170,7 +173,7 @@ mod tests {
     fn modified_message() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let d = Scalar::random(&mut rng);
+        let d = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
         let q = Point::mulgen(&d);
         let message = b"this is a message";
         let sig = sign(&mut rng, (&d, &q), Cursor::new(message)).expect("error signing");
@@ -186,12 +189,12 @@ mod tests {
     fn wrong_public_key() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let d = Scalar::random(&mut rng);
+        let d = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
         let q = Point::mulgen(&d);
         let message = b"this is a message";
         let sig = sign(&mut rng, (&d, &q), Cursor::new(message)).expect("error signing");
 
-        let q = Point::random(&mut rng);
+        let q = Point::hash_to_curve("", &rng.gen::<[u8; 64]>());
 
         assert!(matches!(
             verify(&q, Cursor::new(message), &sig),
@@ -203,7 +206,7 @@ mod tests {
     fn modified_sig() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let d = Scalar::random(&mut rng);
+        let d = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
         let q = Point::mulgen(&d);
         let message = b"this is a message";
         let mut sig = sign(&mut rng, (&d, &q), Cursor::new(message)).expect("error signing");
