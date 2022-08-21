@@ -8,6 +8,7 @@ use crrl::jq255e::{Point, Scalar};
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex};
+use crate::keys::{PrivKey, PubKey};
 use crate::{ParseSignatureError, VerifyError, POINT_LEN, SCALAR_LEN};
 
 /// The length of a signature, in bytes.
@@ -49,14 +50,14 @@ impl fmt::Display for Signature {
 /// Create a Schnorr signature of the given message using the given key pair.
 pub fn sign(
     rng: impl Rng + CryptoRng,
-    (d, q): (&Scalar, &Point),
+    signer: &PrivKey,
     message: impl Read,
 ) -> io::Result<Signature> {
     // Initialize an unkeyed duplex.
     let mut schnorr = UnkeyedDuplex::new("veil.schnorr");
 
     // Absorb the signer's public key.
-    schnorr.absorb_point(q);
+    schnorr.absorb(&signer.pub_key.encoded);
 
     // Absorb the message.
     schnorr.absorb_reader(message)?;
@@ -65,16 +66,16 @@ pub fn sign(
     let mut schnorr = schnorr.into_keyed();
 
     // Calculate and return the encrypted commitment point and proof scalar.
-    Ok(sign_duplex(&mut schnorr, rng, d))
+    Ok(sign_duplex(&mut schnorr, rng, signer))
 }
 
 /// Verify a Schnorr signature of the given message using the given public key.
-pub fn verify(q: &Point, message: impl Read, sig: &Signature) -> Result<(), VerifyError> {
+pub fn verify(signer: &PubKey, message: impl Read, sig: &Signature) -> Result<(), VerifyError> {
     // Initialize an unkeyed duplex.
     let mut schnorr = UnkeyedDuplex::new("veil.schnorr");
 
     // Absorb the signer's public key.
-    schnorr.absorb_point(q);
+    schnorr.absorb(&signer.encoded);
 
     // Absorb the message.
     schnorr.absorb_reader(message)?;
@@ -83,7 +84,7 @@ pub fn verify(q: &Point, message: impl Read, sig: &Signature) -> Result<(), Veri
     let mut schnorr = schnorr.into_keyed();
 
     // Verify the signature.
-    verify_duplex(&mut schnorr, q, sig).ok_or(VerifyError::InvalidSignature)
+    verify_duplex(&mut schnorr, signer, sig).ok_or(VerifyError::InvalidSignature)
 }
 
 /// Create a Schnorr signature of the given duplex's state using the given private key.
@@ -92,7 +93,7 @@ pub fn verify(q: &Point, message: impl Read, sig: &Signature) -> Result<(), Veri
 pub fn sign_duplex(
     duplex: &mut KeyedDuplex,
     mut rng: impl CryptoRng + Rng,
-    d: &Scalar,
+    signer: &PrivKey,
 ) -> Signature {
     // Allocate an output buffer.
     let mut sig = [0u8; SIGNATURE_LEN];
@@ -100,7 +101,7 @@ pub fn sign_duplex(
 
     // Derive a commitment scalar from the duplex's current state, the signer's private key,
     // and a random nonce, and calculate the commitment point.
-    let k = duplex.hedge(&mut rng, &d.encode32(), Squeeze::squeeze_scalar);
+    let k = duplex.hedge(&mut rng, &signer.d.encode32(), Squeeze::squeeze_scalar);
     let i = Point::mulgen(&k);
 
     // Calculate, encode, and encrypt the commitment point.
@@ -111,7 +112,7 @@ pub fn sign_duplex(
     let r = duplex.squeeze_scalar();
 
     // Calculate, encode, and encrypt the proof scalar.
-    let s = (d * r) + k;
+    let s = (signer.d * r) + k;
     sig_s.copy_from_slice(&s.encode32());
     duplex.encrypt_mut(sig_s);
 
@@ -121,7 +122,7 @@ pub fn sign_duplex(
 
 /// Verify a Schnorr signature of the given duplex's state using the given public key.
 #[must_use]
-pub fn verify_duplex(duplex: &mut KeyedDuplex, q: &Point, sig: &Signature) -> Option<()> {
+pub fn verify_duplex(duplex: &mut KeyedDuplex, signer: &PubKey, sig: &Signature) -> Option<()> {
     // Split signature into components.
     let mut sig = sig.0;
     let (i, s) = sig.split_at_mut(POINT_LEN);
@@ -142,7 +143,7 @@ pub fn verify_duplex(duplex: &mut KeyedDuplex, q: &Point, sig: &Signature) -> Op
     // Return true iff I and s are well-formed and I == [s]G - [r']Q. Here we compare the encoded
     // form of I' with the encoded form of I from the signature. This is faster, as encoding a point
     // is faster than decoding a point.
-    ((-q).mul_add_mulgen_vartime(&r_p, &s).encode().as_slice() == i).then_some(())
+    ((-signer.q).mul_add_mulgen_vartime(&r_p, &s).encode().as_slice() == i).then_some(())
 }
 
 #[cfg(test)]
@@ -157,14 +158,13 @@ mod tests {
     #[test]
     fn sign_and_verify() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let signer = PrivKey::random(&mut rng);
 
-        let d = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
-        let q = Point::mulgen(&d);
         let message = b"this is a message";
-        let sig = sign(&mut rng, (&d, &q), Cursor::new(message)).expect("error signing message");
+        let sig = sign(&mut rng, &signer, Cursor::new(message)).expect("error signing message");
 
         assert!(
-            verify(&q, Cursor::new(message), &sig).is_ok(),
+            verify(&signer.pub_key, Cursor::new(message), &sig).is_ok(),
             "should have verified a valid signature"
         );
     }
@@ -172,32 +172,27 @@ mod tests {
     #[test]
     fn modified_message() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-
-        let d = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
-        let q = Point::mulgen(&d);
+        let signer = PrivKey::random(&mut rng);
         let message = b"this is a message";
-        let sig = sign(&mut rng, (&d, &q), Cursor::new(message)).expect("error signing");
+        let sig = sign(&mut rng, &signer, Cursor::new(message)).expect("error signing");
 
         let message = b"this is NOT a message";
         assert!(matches!(
-            verify(&q, Cursor::new(message), &sig),
+            verify(&signer.pub_key, Cursor::new(message), &sig),
             Err(VerifyError::InvalidSignature)
         ));
     }
 
     #[test]
-    fn wrong_public_key() {
+    fn wrong_signer() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-
-        let d = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
-        let q = Point::mulgen(&d);
+        let signer = PrivKey::random(&mut rng);
+        let wrong_signer = PubKey::random(&mut rng);
         let message = b"this is a message";
-        let sig = sign(&mut rng, (&d, &q), Cursor::new(message)).expect("error signing");
-
-        let q = Point::hash_to_curve("", &rng.gen::<[u8; 64]>());
+        let sig = sign(&mut rng, &signer, Cursor::new(message)).expect("error signing");
 
         assert!(matches!(
-            verify(&q, Cursor::new(message), &sig),
+            verify(&wrong_signer, Cursor::new(message), &sig),
             Err(VerifyError::InvalidSignature)
         ));
     }
@@ -205,16 +200,14 @@ mod tests {
     #[test]
     fn modified_sig() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-
-        let d = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
-        let q = Point::mulgen(&d);
+        let signer = PrivKey::random(&mut rng);
         let message = b"this is a message";
-        let mut sig = sign(&mut rng, (&d, &q), Cursor::new(message)).expect("error signing");
+        let mut sig = sign(&mut rng, &signer, Cursor::new(message)).expect("error signing");
 
         sig.0[22] ^= 1;
 
         assert!(matches!(
-            verify(&q, Cursor::new(message), &sig),
+            verify(&signer.pub_key, Cursor::new(message), &sig),
             Err(VerifyError::InvalidSignature)
         ));
     }

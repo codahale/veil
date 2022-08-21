@@ -134,7 +134,7 @@ impl PrivateKey {
     ///
     /// If there is an error while reading from `message`, an [`io::Error`] will be returned.
     pub fn sign(&self, rng: impl Rng + CryptoRng, message: impl Read) -> io::Result<Signature> {
-        schnorr::sign(rng, (&self.0.d, &self.0.pub_key.q), message)
+        schnorr::sign(rng, &self.0, message)
     }
 }
 
@@ -178,7 +178,7 @@ impl PublicKey {
     /// [`VerifyError::InvalidSignature`]. If there was an error reading from `message` or writing
     /// to `writer`, returns [`VerifyError::IoError`].
     pub fn verify(&self, message: impl Read, sig: &Signature) -> Result<(), VerifyError> {
-        schnorr::verify(&self.0.q, message, sig)
+        schnorr::verify(&self.0, message, sig)
     }
 }
 

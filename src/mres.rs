@@ -64,7 +64,7 @@ pub fn encrypt(
     written += encrypt_message(&mut mres, reader, &mut writer)?;
 
     // Sign the duplex's final state with the ephemeral private key and append the signature.
-    let sig = schnorr::sign_duplex(&mut mres, &mut rng, &d_e);
+    let sig = schnorr::sign_duplex(&mut mres, &mut rng, &ephemeral);
     writer.write_all(&sig.encode())?;
 
     Ok(written + u64::try_from(SIGNATURE_LEN).expect("unexpected overflow"))
@@ -186,7 +186,7 @@ pub fn decrypt(
     let (written, sig) = decrypt_message(&mut mres, &mut reader, &mut writer)?;
 
     // Verify the signature and return the number of bytes written.
-    schnorr::verify_duplex(&mut mres, &ephemeral.q, &sig)
+    schnorr::verify_duplex(&mut mres, &ephemeral, &sig)
         .and(Some(written))
         .ok_or(DecryptError::InvalidCiphertext)
 }
