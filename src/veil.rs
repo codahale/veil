@@ -9,39 +9,31 @@ use crrl::jq255e::{Point, Scalar};
 use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
 
+use crate::keys::{PrivKey, PubKey};
 use crate::{
     mres, pbenc, schnorr, DecryptError, ParsePublicKeyError, Signature, VerifyError, POINT_LEN,
     SCALAR_LEN,
 };
 
 /// A private key, used to encrypt, decrypt, and sign messages.
-pub struct PrivateKey {
-    d: Scalar,
-    pk: PublicKey,
-}
+pub struct PrivateKey(PrivKey);
 
 impl PrivateKey {
     #[must_use]
     fn from_scalar(d: Scalar) -> PrivateKey {
-        let q = Point::mulgen(&d);
-        PrivateKey { d, pk: PublicKey { q } }
+        PrivateKey(PrivKey::from_scalar(d))
     }
 
     /// Creates a randomly generated private key.
     #[must_use]
-    pub fn random(mut rng: impl Rng + CryptoRng) -> PrivateKey {
-        loop {
-            let d = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
-            if d.iszero() == 0 {
-                return PrivateKey::from_scalar(d);
-            }
-        }
+    pub fn random(rng: impl Rng + CryptoRng) -> PrivateKey {
+        PrivateKey(PrivKey::random(rng))
     }
 
     /// Returns the corresponding public key.
     #[must_use]
     pub const fn public_key(&self) -> PublicKey {
-        self.pk
+        PublicKey(self.0.pub_key)
     }
 
     /// Encrypts the private key with the given passphrase and `veil.pbenc` parameters and writes it
@@ -59,7 +51,7 @@ impl PrivateKey {
         space: u8,
     ) -> io::Result<usize> {
         let mut enc_key = [0u8; SCALAR_LEN + pbenc::OVERHEAD];
-        pbenc::encrypt(rng, passphrase, time, space, &self.d.encode32(), &mut enc_key);
+        pbenc::encrypt(rng, passphrase, time, space, &self.0.d.encode32(), &mut enc_key);
         writer.write_all(&enc_key)?;
         Ok(enc_key.len())
     }
@@ -108,7 +100,7 @@ impl PrivateKey {
         // Add fakes.
         let mut q_rs = receivers
             .iter()
-            .map(|pk| pk.q)
+            .map(|pk| pk.0.q)
             .chain(
                 iter::repeat_with(|| Point::hash_to_curve("", &rng.gen::<[u8; 64]>()))
                     .take(fakes.unwrap_or_default()),
@@ -123,7 +115,7 @@ impl PrivateKey {
             &mut rng,
             reader,
             writer,
-            (&self.d, &self.pk.q),
+            (&self.0.d, &self.0.pub_key.q),
             &q_rs,
             padding.unwrap_or_default(),
         )
@@ -144,7 +136,7 @@ impl PrivateKey {
         writer: impl Write,
         sender: &PublicKey,
     ) -> Result<u64, DecryptError> {
-        mres::decrypt(reader, writer, (&self.d, &self.pk.q), &sender.q)
+        mres::decrypt(reader, writer, (&self.0.d, &self.0.pub_key.q), &sender.0.q)
     }
 
     /// Reads the contents of the reader and returns a digital signature.
@@ -153,7 +145,7 @@ impl PrivateKey {
     ///
     /// If there is an error while reading from `message`, an [`io::Error`] will be returned.
     pub fn sign(&self, rng: impl Rng + CryptoRng, message: impl Read) -> io::Result<Signature> {
-        schnorr::sign(rng, (&self.d, &self.pk.q), message)
+        schnorr::sign(rng, (&self.0.d, &self.0.pub_key.q), message)
     }
 }
 
@@ -161,33 +153,31 @@ impl Eq for PrivateKey {}
 
 impl PartialEq for PrivateKey {
     fn eq(&self, other: &Self) -> bool {
-        self.pk == other.pk
+        self.public_key() == other.public_key()
     }
 }
 
 impl Debug for PrivateKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.pk.fmt(f)
+        self.public_key().fmt(f)
     }
 }
 
 /// A public key, used to verify messages.
 #[derive(Clone, Copy)]
-pub struct PublicKey {
-    q: Point,
-}
+pub struct PublicKey(PubKey);
 
 impl PublicKey {
-    /// Create a signature from a 32-byte slice.
+    /// Decode a public key from a 32-byte slice.
     #[must_use]
     pub fn decode(b: impl AsRef<[u8]>) -> Option<PublicKey> {
-        Some(PublicKey { q: Point::decode(b.as_ref())? })
+        PubKey::decode(b).map(PublicKey)
     }
 
     /// Encode the public key as a 32-byte array.
     #[must_use]
-    pub fn encode(&self) -> [u8; POINT_LEN] {
-        self.q.encode()
+    pub const fn encode(&self) -> [u8; POINT_LEN] {
+        self.0.encoded
     }
 
     /// Verifies that the given signature was created by the owner of this public key for the exact
@@ -199,7 +189,7 @@ impl PublicKey {
     /// [`VerifyError::InvalidSignature`]. If there was an error reading from `message` or writing
     /// to `writer`, returns [`VerifyError::IoError`].
     pub fn verify(&self, message: impl Read, sig: &Signature) -> Result<(), VerifyError> {
-        schnorr::verify(&self.q, message, sig)
+        schnorr::verify(&self.0.q, message, sig)
     }
 }
 
@@ -228,7 +218,7 @@ impl Eq for PublicKey {}
 
 impl PartialEq for PublicKey {
     fn eq(&self, other: &Self) -> bool {
-        self.q.equals(other.q) != 0
+        self.0.encoded == other.0.encoded
     }
 }
 
@@ -243,7 +233,7 @@ mod tests {
 
     #[test]
     fn public_key_encoding() {
-        let base = PublicKey { q: Point::BASE };
+        let base = PublicKey(PubKey::from_point(Point::BASE));
         assert_eq!(
             "3ULQeLqAKMjxy7rTod4VHF9cXxBgJPGhNwhaKwcSzpcW",
             base.to_string(),

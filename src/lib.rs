@@ -78,6 +78,7 @@ mod blockio;
 mod digest;
 mod duplex;
 mod errors;
+mod keys;
 mod mres;
 mod pbenc;
 mod schnorr;
