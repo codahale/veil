@@ -8,8 +8,8 @@ use crrl::jq255e::{Point, Scalar};
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex};
-use crate::keys::{PrivKey, PubKey};
-use crate::{ParseSignatureError, VerifyError, POINT_LEN, SCALAR_LEN};
+use crate::keys::{PrivKey, PubKey, POINT_LEN, SCALAR_LEN};
+use crate::{ParseSignatureError, VerifyError};
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;

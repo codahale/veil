@@ -84,9 +84,3 @@ mod pbenc;
 mod schnorr;
 mod sres;
 mod veil;
-
-/// The length of an encoded scalar in bytes.
-const SCALAR_LEN: usize = 32;
-
-/// The length of an encoded point in bytes.
-const POINT_LEN: usize = 32;

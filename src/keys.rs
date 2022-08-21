@@ -1,7 +1,11 @@
 use crrl::jq255e::{Point, Scalar};
 use rand::{CryptoRng, Rng};
 
-use crate::POINT_LEN;
+/// The length of an encoded scalar in bytes.
+pub const SCALAR_LEN: usize = 32;
+
+/// The length of an encoded point in bytes.
+pub const POINT_LEN: usize = 32;
 
 #[derive(Clone, Copy)]
 pub struct PubKey {

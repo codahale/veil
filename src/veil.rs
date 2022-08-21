@@ -9,11 +9,8 @@ use crrl::jq255e::Scalar;
 use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
 
-use crate::keys::{PrivKey, PubKey};
-use crate::{
-    mres, pbenc, schnorr, DecryptError, ParsePublicKeyError, Signature, VerifyError, POINT_LEN,
-    SCALAR_LEN,
-};
+use crate::keys::{PrivKey, PubKey, POINT_LEN, SCALAR_LEN};
+use crate::{mres, pbenc, schnorr, DecryptError, ParsePublicKeyError, Signature, VerifyError};
 
 /// A private key, used to encrypt, decrypt, and sign messages.
 pub struct PrivateKey(PrivKey);

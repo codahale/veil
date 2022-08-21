@@ -4,8 +4,7 @@ use crrl::jq255e::Point;
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, Squeeze, UnkeyedDuplex};
-use crate::keys::{PrivKey, PubKey};
-use crate::POINT_LEN;
+use crate::keys::{PrivKey, PubKey, POINT_LEN};
 
 /// The recommended size of the nonce passed to [encrypt].
 pub const NONCE_LEN: usize = 16;
