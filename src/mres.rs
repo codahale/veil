@@ -3,7 +3,6 @@
 use std::io::{self, Read, Write};
 use std::mem;
 
-use crrl::jq255e::Point;
 use rand::{CryptoRng, Rng};
 
 use crate::blockio::ReadBlock;
@@ -111,15 +110,7 @@ fn encrypt_headers(
         let nonce = mres.squeeze::<NONCE_LEN>();
 
         // Encrypt the header for the given receiver.
-        sres::encrypt(
-            &mut rng,
-            (&sender.d, &sender.pub_key.q),
-            (&ephemeral.d, &ephemeral.pub_key.q),
-            &receiver.q,
-            &nonce,
-            &header,
-            &mut enc_header,
-        );
+        sres::encrypt(&mut rng, sender, ephemeral, receiver, &nonce, &header, &mut enc_header);
 
         // Absorb the encrypted header.
         mres.absorb(&enc_header);
@@ -281,13 +272,8 @@ fn decrypt_header(
 
         // If a header hasn't been decrypted yet, try to decrypt this one.
         if header.is_none() {
-            if let Some((ephemeral, d, c, p)) = sres::decrypt(
-                (&receiver.d, &receiver.pub_key.q),
-                &sender.q,
-                &nonce,
-                &mut enc_header,
-            )
-            .map(decode_header)
+            if let Some((ephemeral, d, c, p)) =
+                sres::decrypt(receiver, sender, &nonce, &mut enc_header).map(decode_header)
             {
                 // If the header was successfully decrypted, keep the ephemeral public key, DEK, and
                 // padding and update the loop variable to not be effectively infinite.
@@ -313,7 +299,7 @@ fn decrypt_header(
 /// padding size.
 #[inline]
 #[must_use]
-fn decode_header((q_e, header): (Point, &[u8])) -> (PubKey, [u8; DEK_LEN], u64, u64) {
+fn decode_header((ephemeral, header): (PubKey, &[u8])) -> (PubKey, [u8; DEK_LEN], u64, u64) {
     // Split header into components.
     let (dek, hdr_count) = header.split_at(DEK_LEN);
     let (hdr_count, padding) = hdr_count.split_at(mem::size_of::<u64>());
@@ -323,7 +309,7 @@ fn decode_header((q_e, header): (Point, &[u8])) -> (PubKey, [u8; DEK_LEN], u64, 
     let hdr_count = u64::from_le_bytes(hdr_count.try_into().expect("invalid u64 len"));
     let padding = u64::from_le_bytes(padding.try_into().expect("invalid u64 len"));
 
-    (PubKey::from_point(q_e), dek, hdr_count, padding)
+    (ephemeral, dek, hdr_count, padding)
 }
 
 struct RngRead<R>(R)

@@ -11,11 +11,6 @@ pub struct PubKey {
 
 impl PubKey {
     #[must_use]
-    pub fn from_point(q: Point) -> PubKey {
-        PubKey { q, encoded: q.encode() }
-    }
-
-    #[must_use]
     pub fn decode(b: impl AsRef<[u8]>) -> Option<PubKey> {
         let encoded = <[u8; POINT_LEN]>::try_from(b.as_ref()).ok()?;
         let q = Point::decode(&encoded)?;
@@ -24,7 +19,9 @@ impl PubKey {
 
     #[must_use]
     pub fn random(mut rng: impl CryptoRng + Rng) -> PubKey {
-        PubKey::from_point(Point::hash_to_curve("", &rng.gen::<[u8; 64]>()))
+        let q = Point::hash_to_curve("", &rng.gen::<[u8; 64]>());
+        let encoded = q.encode();
+        PubKey { q, encoded }
     }
 }
 

@@ -213,7 +213,6 @@ impl PartialEq for PublicKey {
 
 #[cfg(test)]
 mod tests {
-    use crrl::jq255e::Point;
     use std::io::Cursor;
 
     use rand::SeedableRng;
@@ -223,7 +222,14 @@ mod tests {
 
     #[test]
     fn public_key_encoding() {
-        let base = PublicKey(PubKey::from_point(Point::BASE));
+        let base = PublicKey(
+            PubKey::decode(&[
+                0x24, 0xb7, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                0xff, 0xff, 0xff, 0x7f,
+            ])
+            .expect("unable to decode point"),
+        );
         assert_eq!(
             "3ULQeLqAKMjxy7rTod4VHF9cXxBgJPGhNwhaKwcSzpcW",
             base.to_string(),

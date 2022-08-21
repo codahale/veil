@@ -1,9 +1,10 @@
 //! An insider-secure hybrid signcryption implementation.
 
-use crrl::jq255e::{Point, Scalar};
+use crrl::jq255e::Point;
 use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, Squeeze, UnkeyedDuplex};
+use crate::keys::{PrivKey, PubKey};
 use crate::POINT_LEN;
 
 /// The recommended size of the nonce passed to [encrypt].
@@ -16,9 +17,9 @@ pub const OVERHEAD: usize = POINT_LEN + POINT_LEN + POINT_LEN;
 /// plaintext, encrypts the given plaintext and returns the ciphertext.
 pub fn encrypt(
     rng: impl Rng + CryptoRng,
-    (d_s, q_s): (&Scalar, &Point),
-    (d_e, q_e): (&Scalar, &Point),
-    q_r: &Point,
+    sender: &PrivKey,
+    ephemeral: &PrivKey,
+    receiver: &PubKey,
     nonce: &[u8],
     plaintext: &[u8],
     ciphertext: &mut [u8],
@@ -34,26 +35,26 @@ pub fn encrypt(
     let mut sres = UnkeyedDuplex::new("veil.sres");
 
     // Absorb the sender's public key.
-    sres.absorb_point(q_s);
+    sres.absorb(&sender.pub_key.encoded);
 
     // Absorb the receiver's public key.
-    sres.absorb_point(q_r);
+    sres.absorb(&receiver.encoded);
 
     // Absorb the nonce.
     sres.absorb(nonce);
 
     // Absorb the static ECDH shared secret.
-    sres.absorb_point(&(q_r * d_s));
+    sres.absorb(&ecdh(sender, receiver));
 
     // Convert the unkeyed duplex to a keyed duplex.
     let mut sres = sres.into_keyed();
 
     // Encrypt the ephemeral public key.
-    out_q_e.copy_from_slice(&q_e.encode());
+    out_q_e.copy_from_slice(&ephemeral.pub_key.encoded);
     sres.encrypt_mut(out_q_e);
 
     // Absorb the ephemeral ECDH shared secret.
-    sres.absorb_point(&(q_r * d_e));
+    sres.absorb(&ecdh(ephemeral, receiver));
 
     // Encrypt the plaintext.
     out_ciphertext.copy_from_slice(plaintext);
@@ -61,7 +62,7 @@ pub fn encrypt(
 
     // Derive a commitment scalar from the duplex's current state, the sender's private key,
     // and a random nonce.
-    let k = sres.hedge(rng, &d_s.encode32(), Squeeze::squeeze_scalar);
+    let k = sres.hedge(rng, &sender.d.encode32(), Squeeze::squeeze_scalar);
 
     // Calculate and encrypt the commitment point.
     out_i.copy_from_slice(&Point::mulgen(&k).encode());
@@ -71,7 +72,7 @@ pub fn encrypt(
     let r = sres.squeeze_scalar();
 
     // Calculate and encrypt the designated proof point.
-    let x = q_r * ((d_s * r) + k);
+    let x = receiver.q * ((sender.d * r) + k);
     out_x.copy_from_slice(&x.encode());
     sres.encrypt_mut(out_x);
 }
@@ -81,18 +82,18 @@ pub fn encrypt(
 /// encrypted for the receiver by the sender.
 #[must_use]
 pub fn decrypt<'a>(
-    (d_r, q_r): (&Scalar, &Point),
-    q_s: &Point,
+    receiver: &PrivKey,
+    sender: &PubKey,
     nonce: &[u8],
     in_out: &'a mut [u8],
-) -> Option<(Point, &'a [u8])> {
+) -> Option<(PubKey, &'a [u8])> {
     // Check for too-small ciphertexts.
     if in_out.len() < OVERHEAD {
         return None;
     }
 
     // Split the ciphertext into its components.
-    let (q_e, ciphertext) = in_out.split_at_mut(POINT_LEN);
+    let (ephemeral, ciphertext) = in_out.split_at_mut(POINT_LEN);
     let (ciphertext, i) = ciphertext.split_at_mut(ciphertext.len() - POINT_LEN - POINT_LEN);
     let (i, x) = i.split_at_mut(POINT_LEN);
 
@@ -100,26 +101,26 @@ pub fn decrypt<'a>(
     let mut sres = UnkeyedDuplex::new("veil.sres");
 
     // Absorb the sender's public key.
-    sres.absorb_point(q_s);
+    sres.absorb(&sender.encoded);
 
     // Absorb the receiver's public key.
-    sres.absorb_point(q_r);
+    sres.absorb(&receiver.pub_key.encoded);
 
     // Absorb the nonce.
     sres.absorb(nonce);
 
     // Absorb the static ECDH shared secret.
-    sres.absorb_point(&(q_s * d_r));
+    sres.absorb(&ecdh(receiver, sender));
 
     // Convert the unkeyed duplex to a keyed duplex.
     let mut sres = sres.into_keyed();
 
     // Decrypt and decode the ephemeral public key.
-    sres.decrypt_mut(q_e);
-    let q_e = Point::decode(q_e)?;
+    sres.decrypt_mut(ephemeral);
+    let ephemeral = PubKey::decode(ephemeral)?;
 
     // Absorb the ephemeral ECDH shared secret.
-    sres.absorb_point(&(q_e * d_r));
+    sres.absorb(&ecdh(receiver, &ephemeral));
 
     // Decrypt the plaintext.
     sres.decrypt_mut(ciphertext);
@@ -135,11 +136,25 @@ pub fn decrypt<'a>(
     sres.decrypt_mut(x);
 
     // Re-calculate the proof point.
-    let x_p = (i + (q_s * r_p)) * d_r;
+    let x_p = (i + (sender.q * r_p)) * receiver.d;
 
     // Return the ephemeral public key and plaintext iff the canonical encoding of the re-calculated
     // proof point matches the encoding of the decrypted proof point.
-    (x == x_p.encode().as_slice()).then_some((q_e, ciphertext))
+    (x == x_p.encode().as_slice()).then_some((ephemeral, ciphertext))
+}
+
+/// Calculate the ECDH shared secret, deterministically substituting `(Q ^ d)` if the peer public
+/// key is the neutral point.
+#[must_use]
+fn ecdh(a: &PrivKey, b: &PubKey) -> [u8; POINT_LEN] {
+    // Pornin's algorithm for safe, constant-time ECDH.
+    let mut zz_ab = (a.d * b.q).encode();
+    let zz_aa = a.d.encode32();
+    let non_contributory = u8::try_from(b.q.isneutral()).expect("unexpected overflow");
+    for i in 0..POINT_LEN {
+        zz_ab[i] ^= non_contributory & (zz_ab[i] ^ zz_aa[i]);
+    }
+    zz_ab
 }
 
 #[cfg(test)]
@@ -151,14 +166,28 @@ mod tests {
 
     #[test]
     fn round_trip() {
-        let (mut rng, d_s, q_s, d_e, q_e, d_r, q_r) = setup();
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let sender = PrivKey::random(&mut rng);
+        let receiver = PrivKey::random(&mut rng);
+        let ephemeral = PrivKey::random(&mut rng);
         let plaintext = b"ok this is fun";
         let nonce = b"this is a nonce";
-        let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
-        encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext, &mut ciphertext);
 
-        if let Some((q_e_p, plaintext_p)) = decrypt((&d_r, &q_r), &q_s, nonce, &mut ciphertext) {
-            assert_ne!(q_e.equals(q_e_p), 0, "invalid ephemeral public key");
+        let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
+        encrypt(
+            &mut rng,
+            &sender,
+            &ephemeral,
+            &receiver.pub_key,
+            nonce,
+            plaintext,
+            &mut ciphertext,
+        );
+
+        if let Some((ephemeral_q, plaintext_p)) =
+            decrypt(&receiver, &sender.pub_key, nonce, &mut ciphertext)
+        {
+            assert_eq!(ephemeral.pub_key.encoded, ephemeral_q.encoded);
             assert_eq!(plaintext.as_slice(), plaintext_p);
         } else {
             unreachable!("invalid plaintext")
@@ -166,95 +195,111 @@ mod tests {
     }
 
     #[test]
-    fn wrong_receiver_private_key() {
-        let (mut rng, d_s, q_s, d_e, q_e, _, q_r) = setup();
+    fn wrong_receiver() {
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let sender = PrivKey::random(&mut rng);
+        let receiver = PrivKey::random(&mut rng);
+        let wrong_receiver = PrivKey::random(&mut rng);
+        let ephemeral = PrivKey::random(&mut rng);
         let plaintext = b"ok this is fun";
         let nonce = b"this is a nonce";
+
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
-        encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext, &mut ciphertext);
+        encrypt(
+            &mut rng,
+            &sender,
+            &ephemeral,
+            &receiver.pub_key,
+            nonce,
+            plaintext,
+            &mut ciphertext,
+        );
 
-        let d_r = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
-
-        let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &mut ciphertext);
+        let plaintext = decrypt(&wrong_receiver, &sender.pub_key, nonce, &mut ciphertext);
         assert!(plaintext.is_none(), "decrypted an invalid ciphertext");
     }
 
     #[test]
-    fn wrong_receiver_public_key() {
-        let (mut rng, d_s, q_s, d_e, q_e, d_r, q_r) = setup();
+    fn wrong_sender() {
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let sender = PrivKey::random(&mut rng);
+        let receiver = PrivKey::random(&mut rng);
+        let wrong_sender = PrivKey::random(&mut rng);
+        let ephemeral = PrivKey::random(&mut rng);
         let plaintext = b"ok this is fun";
         let nonce = b"this is a nonce";
+
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
-        encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext, &mut ciphertext);
+        encrypt(
+            &mut rng,
+            &sender,
+            &ephemeral,
+            &receiver.pub_key,
+            nonce,
+            plaintext,
+            &mut ciphertext,
+        );
 
-        let q_r = Point::hash_to_curve("", &rng.gen::<[u8; 64]>());
-
-        let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &mut ciphertext);
-        assert!(plaintext.is_none(), "decrypted an invalid ciphertext");
-    }
-
-    #[test]
-    fn wrong_sender_public_key() {
-        let (mut rng, d_s, q_s, d_e, q_e, d_r, q_r) = setup();
-        let plaintext = b"ok this is fun";
-        let nonce = b"this is a nonce";
-        let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
-        encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext, &mut ciphertext);
-
-        let q_s = Point::hash_to_curve("", &rng.gen::<[u8; 64]>());
-
-        let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &mut ciphertext);
+        let plaintext = decrypt(&receiver, &wrong_sender.pub_key, nonce, &mut ciphertext);
         assert!(plaintext.is_none(), "decrypted an invalid ciphertext");
     }
 
     #[test]
     fn wrong_nonce() {
-        let (mut rng, d_s, q_s, d_e, q_e, d_r, q_r) = setup();
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let sender = PrivKey::random(&mut rng);
+        let receiver = PrivKey::random(&mut rng);
+        let ephemeral = PrivKey::random(&mut rng);
         let plaintext = b"ok this is fun";
         let nonce = b"this is a nonce";
+        let wrong_nonce = b"this is NOT a nonce";
+
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
-        encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext, &mut ciphertext);
+        encrypt(
+            &mut rng,
+            &sender,
+            &ephemeral,
+            &receiver.pub_key,
+            nonce,
+            plaintext,
+            &mut ciphertext,
+        );
 
-        let nonce = b"this is not a nonce";
-
-        let plaintext = decrypt((&d_r, &q_r), &q_s, nonce, &mut ciphertext);
+        let plaintext = decrypt(&receiver, &sender.pub_key, wrong_nonce, &mut ciphertext);
         assert!(plaintext.is_none(), "decrypted an invalid ciphertext");
     }
 
     #[test]
     fn flip_every_bit() {
-        let (mut rng, d_s, q_s, d_e, q_e, d_r, q_r) = setup();
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let sender = PrivKey::random(&mut rng);
+        let receiver = PrivKey::random(&mut rng);
+        let ephemeral = PrivKey::random(&mut rng);
         let plaintext = b"ok this is fun";
         let nonce = b"this is a nonce";
+
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
-        encrypt(&mut rng, (&d_s, &q_s), (&d_e, &q_e), &q_r, nonce, plaintext, &mut ciphertext);
+        encrypt(
+            &mut rng,
+            &sender,
+            &ephemeral,
+            &receiver.pub_key,
+            nonce,
+            plaintext,
+            &mut ciphertext,
+        );
 
         for i in 0..ciphertext.len() {
             for j in 0u8..8 {
                 let mut ciphertext = ciphertext.clone();
                 ciphertext[i] ^= 1 << j;
                 assert!(
-                    decrypt((&d_r, &q_r), &q_s, nonce, &mut ciphertext).is_none(),
+                    decrypt(&receiver, &sender.pub_key, nonce, &mut ciphertext).is_none(),
                     "bit flip at byte {}, bit {} produced a valid message",
                     i,
                     j
                 );
             }
         }
-    }
-
-    fn setup() -> (ChaChaRng, Scalar, Point, Scalar, Point, Scalar, Point) {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-
-        let d_s = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
-        let q_s = Point::mulgen(&d_s);
-
-        let d_e = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
-        let q_e = Point::mulgen(&d_e);
-
-        let d_r = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
-        let q_r = Point::mulgen(&d_r);
-
-        (rng, d_s, q_s, d_e, q_e, d_r, q_r)
     }
 }
