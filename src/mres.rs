@@ -12,6 +12,21 @@ use crate::schnorr::SIGNATURE_LEN;
 use crate::sres::NONCE_LEN;
 use crate::{schnorr, sres, DecryptError, Signature};
 
+/// The length of plaintext blocks which are encrypted.
+const BLOCK_LEN: usize = 32 * 1024;
+
+/// The length of an encrypted block and authentication tag.
+const ENC_BLOCK_LEN: usize = BLOCK_LEN + TAG_LEN;
+
+/// The length of the data encryption key.
+const DEK_LEN: usize = 32;
+
+/// The length of an encoded header.
+const HEADER_LEN: usize = DEK_LEN + mem::size_of::<u64>() + mem::size_of::<u64>();
+
+/// The length of an encrypted header.
+const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
+
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `receivers` and write the ciphertext to `writer` with `padding` bytes of random data added.
 pub fn encrypt(
@@ -38,17 +53,25 @@ pub fn encrypt(
     writer.write_all(&nonce)?;
     let mut written = u64::try_from(NONCE_LEN).expect("unexpected overflow");
 
-    // Encrypt a header for each receiver.
-    written += encrypt_headers(
-        &mut mres,
-        &mut rng,
-        sender,
-        &ephemeral,
-        receivers,
-        &dek,
-        padding,
-        &mut writer,
-    )?;
+    // Encode a header with the DEK, receiver count, and padding.
+    let header = Header::new(dek, receivers.len(), padding).encode();
+
+    // For each receiver, encrypt a copy of the header with veil.sres.
+    let mut enc_header = [0u8; ENC_HEADER_LEN];
+    for receiver in receivers {
+        // Squeeze a nonce for each header.
+        let nonce = mres.squeeze::<NONCE_LEN>();
+
+        // Encrypt the header for the given receiver.
+        sres::encrypt(&mut rng, sender, &ephemeral, receiver, &nonce, &header, &mut enc_header);
+
+        // Absorb the encrypted header.
+        mres.absorb(&enc_header);
+
+        // Write the encrypted header.
+        writer.write_all(&enc_header)?;
+        written += u64::try_from(ENC_HEADER_LEN).expect("unexpected overflow");
+    }
 
     // Add random padding to the end of the headers.
     written += mres.absorb_reader_into(RngRead(&mut rng).take(padding), &mut writer)?;
@@ -68,62 +91,6 @@ pub fn encrypt(
 
     Ok(written + u64::try_from(SIGNATURE_LEN).expect("unexpected overflow"))
 }
-
-/// The length of the data encryption key.
-const DEK_LEN: usize = 32;
-
-const HEADER_LEN: usize = DEK_LEN + mem::size_of::<u64>() + mem::size_of::<u64>();
-
-/// Encode the DEK, header count, and padding size in a header.
-#[inline]
-#[must_use]
-fn encode_header(dek: &[u8; DEK_LEN], recv_count: u64, padding: u64) -> [u8; HEADER_LEN] {
-    let mut header = [0u8; HEADER_LEN];
-    let (hdr_dek, hdr_recv_count) = header.split_at_mut(DEK_LEN);
-    let (hdr_recv_count, hdr_padding) = hdr_recv_count.split_at_mut(mem::size_of::<u64>());
-    hdr_dek.copy_from_slice(dek);
-    hdr_recv_count.copy_from_slice(&recv_count.to_le_bytes());
-    hdr_padding.copy_from_slice(&padding.to_le_bytes());
-    header
-}
-
-#[allow(clippy::too_many_arguments)]
-fn encrypt_headers(
-    mres: &mut UnkeyedDuplex,
-    mut rng: impl Rng + CryptoRng,
-    sender: &PrivKey,
-    ephemeral: &PrivKey,
-    receivers: &[PubKey],
-    dek: &[u8; DEK_LEN],
-    padding: u64,
-    mut writer: impl Write,
-) -> io::Result<u64> {
-    let mut written = 0u64;
-    let header =
-        encode_header(dek, receivers.len().try_into().expect("unexpected overflow"), padding);
-    let mut enc_header = [0u8; ENC_HEADER_LEN];
-
-    // For each receiver, encrypt a copy of the header with veil.sres.
-    for receiver in receivers {
-        // Squeeze a nonce for each header.
-        let nonce = mres.squeeze::<NONCE_LEN>();
-
-        // Encrypt the header for the given receiver.
-        sres::encrypt(&mut rng, sender, ephemeral, receiver, &nonce, &header, &mut enc_header);
-
-        // Absorb the encrypted header.
-        mres.absorb(&enc_header);
-
-        // Write the encrypted header.
-        writer.write_all(&enc_header)?;
-        written += u64::try_from(ENC_HEADER_LEN).expect("unexpected overflow");
-    }
-
-    Ok(written)
-}
-
-/// The length of plaintext blocks which are encrypted.
-const BLOCK_LEN: usize = 32 * 1024;
 
 /// Given a duplex keyed with the DEK, read the entire contents of `reader` in blocks and write the
 /// encrypted blocks and authentication tags to `writer`.
@@ -190,9 +157,6 @@ pub fn decrypt(
         .ok_or(DecryptError::InvalidCiphertext)
 }
 
-/// The length of an encrypted block and authentication tag.
-const ENC_BLOCK_LEN: usize = BLOCK_LEN + TAG_LEN;
-
 /// Given a duplex keyed with the DEK, read the entire contents of `reader` in blocks and write the
 /// decrypted blocks `writer`.
 fn decrypt_message(
@@ -234,9 +198,6 @@ fn decrypt_message(
     Ok((written, Signature::decode(&buf[..SIGNATURE_LEN]).expect("invalid signature len")))
 }
 
-/// The length of an encrypted header.
-const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
-
 /// Iterate through the contents of `reader` looking for a header which was encrypted by the given
 /// sender for the given receiver.
 fn decrypt_header(
@@ -271,13 +232,13 @@ fn decrypt_header(
 
         // If a header hasn't been decrypted yet, try to decrypt this one.
         if header.is_none() {
-            if let Some((ephemeral, d, c, p)) =
-                sres::decrypt(receiver, sender, &nonce, &mut enc_header).map(decode_header)
+            if let Some((ephemeral, hdr)) = sres::decrypt(receiver, sender, &nonce, &mut enc_header)
             {
                 // If the header was successfully decrypted, keep the ephemeral public key, DEK, and
                 // padding and update the loop variable to not be effectively infinite.
-                header = Some((ephemeral, p, d));
-                recv_count = c;
+                let hdr = Header::decode(hdr);
+                recv_count = hdr.recv_count;
+                header = Some((ephemeral, hdr));
             }
         }
 
@@ -285,30 +246,52 @@ fn decrypt_header(
     }
 
     // Unpack the header values, if any.
-    let (ephemeral, padding, dek) = header.ok_or(DecryptError::InvalidCiphertext)?;
+    let (ephemeral, header) = header.ok_or(DecryptError::InvalidCiphertext)?;
 
     // Read the padding and absorb it with the duplex.
-    mres.absorb_reader(&mut reader.take(padding))?;
+    mres.absorb_reader(&mut reader.take(header.padding))?;
 
     // Return the ephemeral public key and DEK.
-    Ok((ephemeral, dek))
+    Ok((ephemeral, header.dek))
 }
 
-/// Decode an ephemeral public key and header into an ephemeral public key, DEK, header count, and
-/// padding size.
-#[inline]
-#[must_use]
-fn decode_header((ephemeral, header): (PubKey, &[u8])) -> (PubKey, [u8; DEK_LEN], u64, u64) {
-    // Split header into components.
-    let (dek, hdr_count) = header.split_at(DEK_LEN);
-    let (hdr_count, padding) = hdr_count.split_at(mem::size_of::<u64>());
+struct Header {
+    dek: [u8; DEK_LEN],
+    recv_count: u64,
+    padding: u64,
+}
 
-    // Decode components.
-    let dek = dek.try_into().expect("invalid DEK len");
-    let hdr_count = u64::from_le_bytes(hdr_count.try_into().expect("invalid u64 len"));
-    let padding = u64::from_le_bytes(padding.try_into().expect("invalid u64 len"));
+impl Header {
+    fn new(dek: [u8; DEK_LEN], recv_count: usize, padding: u64) -> Header {
+        Header { dek, recv_count: recv_count.try_into().expect("unexpected overflow"), padding }
+    }
 
-    (ephemeral, dek, hdr_count, padding)
+    #[inline]
+    #[must_use]
+    fn decode(header: &[u8]) -> Header {
+        // Split header into components.
+        let (dek, recv_count) = header.split_at(DEK_LEN);
+        let (recv_count, padding) = recv_count.split_at(mem::size_of::<u64>());
+
+        // Decode components.
+        let dek = dek.try_into().expect("invalid DEK len");
+        let recv_count = u64::from_le_bytes(recv_count.try_into().expect("invalid u64 len"));
+        let padding = u64::from_le_bytes(padding.try_into().expect("invalid u64 len"));
+
+        Header { dek, recv_count, padding }
+    }
+
+    #[inline]
+    #[must_use]
+    fn encode(&self) -> [u8; HEADER_LEN] {
+        let mut header = [0u8; HEADER_LEN];
+        let (hdr_dek, hdr_recv_count) = header.split_at_mut(DEK_LEN);
+        let (hdr_recv_count, hdr_padding) = hdr_recv_count.split_at_mut(mem::size_of::<u64>());
+        hdr_dek.copy_from_slice(&self.dek);
+        hdr_recv_count.copy_from_slice(&self.recv_count.to_le_bytes());
+        hdr_padding.copy_from_slice(&self.padding.to_le_bytes());
+        header
+    }
 }
 
 struct RngRead<R>(R)
