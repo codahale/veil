@@ -13,7 +13,7 @@ use crate::sres::NONCE_LEN;
 use crate::{schnorr, sres, DecryptError, Signature};
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
-/// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
+/// `receivers` and write the ciphertext to `writer` with `padding` bytes of random data added.
 pub fn encrypt(
     mut rng: impl Rng + CryptoRng,
     reader: impl Read,
