@@ -5,37 +5,11 @@ use std::{fmt, io};
 use constant_time_eq::constant_time_eq_n;
 
 use crate::duplex::{Absorb, Squeeze, UnkeyedDuplex};
-use crate::{AsciiEncoded, ParseDigestError};
+use crate::ParseDigestError;
 
 /// The digest of a set of metadata and a message.
 #[derive(Clone, Copy, Debug, Eq)]
 pub struct Digest([u8; DIGEST_LEN]);
-
-impl AsciiEncoded<DIGEST_LEN> for Digest {
-    type Err = ParseDigestError;
-
-    fn from_bytes(b: &[u8]) -> Result<Self, <Self as AsciiEncoded<DIGEST_LEN>>::Err> {
-        Ok(Digest(b.try_into().map_err(|_| ParseDigestError::InvalidLength)?))
-    }
-
-    fn to_bytes(&self) -> [u8; DIGEST_LEN] {
-        self.0
-    }
-}
-
-impl FromStr for Digest {
-    type Err = ParseDigestError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Digest::from_ascii(s)
-    }
-}
-
-impl fmt::Display for Digest {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_ascii())
-    }
-}
 
 impl Digest {
     /// Create a digest from a set of metadata strings and a reader.
@@ -57,6 +31,33 @@ impl Digest {
 
         // Squeeze 64 bytes as a digest.
         Ok(Digest(digest.squeeze()))
+    }
+
+    /// Create a digest from a 64-byte slice.
+    #[must_use]
+    pub fn decode(b: impl AsRef<[u8]>) -> Option<Digest> {
+        Some(Digest(b.as_ref().try_into().ok()?))
+    }
+
+    /// Encode the digest as a 64-byte array.
+    #[must_use]
+    pub const fn encode(&self) -> [u8; DIGEST_LEN] {
+        self.0
+    }
+}
+
+impl FromStr for Digest {
+    type Err = ParseDigestError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Digest::decode(bs58::decode(s).into_vec()?.as_slice())
+            .ok_or(ParseDigestError::InvalidLength)
+    }
+}
+
+impl fmt::Display for Digest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", bs58::encode(self.0).into_string())
     }
 }
 

@@ -69,13 +69,11 @@
     clippy::semicolon_if_nothing_returned
 )]
 
-pub use self::ascii::*;
 pub use self::digest::*;
 pub use self::errors::*;
 pub use self::schnorr::Signature;
 pub use self::veil::*;
 
-mod ascii;
 mod blockio;
 mod digest;
 mod duplex;

@@ -9,9 +9,7 @@ use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
 
 use crate::ecc::{CanonicallyEncoded, Point, Scalar, POINT_LEN, SCALAR_LEN};
-use crate::{
-    mres, pbenc, schnorr, AsciiEncoded, DecryptError, ParsePublicKeyError, Signature, VerifyError,
-};
+use crate::{mres, pbenc, schnorr, DecryptError, ParsePublicKeyError, Signature, VerifyError};
 
 /// A private key, used to encrypt, decrypt, and sign messages.
 pub struct PrivateKey {
@@ -165,15 +163,19 @@ pub struct PublicKey {
     q: Point,
 }
 
-impl Eq for PublicKey {}
-
-impl PartialEq for PublicKey {
-    fn eq(&self, other: &Self) -> bool {
-        self.q.equals(other.q) != 0
-    }
-}
-
 impl PublicKey {
+    /// Create a signature from a 32-byte slice.
+    #[must_use]
+    pub fn decode(b: impl AsRef<[u8]>) -> Option<PublicKey> {
+        Some(PublicKey { q: Point::decode(b.as_ref())? })
+    }
+
+    /// Encode the public key as a 32-byte array.
+    #[must_use]
+    pub fn encode(&self) -> [u8; POINT_LEN] {
+        self.q.encode()
+    }
+
     /// Verifies that the given signature was created by the owner of this public key for the exact
     /// contents of `message`. Returns `Ok(())` if successful.
     ///
@@ -187,28 +189,15 @@ impl PublicKey {
     }
 }
 
-impl AsciiEncoded<POINT_LEN> for PublicKey {
-    type Err = ParsePublicKeyError;
-
-    fn from_bytes(b: &[u8]) -> Result<Self, <Self as AsciiEncoded<POINT_LEN>>::Err> {
-        let q = Point::from_canonical_bytes(b).ok_or(ParsePublicKeyError::InvalidPublicKey)?;
-        Ok(PublicKey { q })
-    }
-
-    fn to_bytes(&self) -> [u8; POINT_LEN] {
-        self.q.as_canonical_bytes()
-    }
-}
-
 impl Debug for PublicKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self.to_ascii())
+        write!(f, "{:?}", self.to_string())
     }
 }
 
 impl fmt::Display for PublicKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_ascii())
+        write!(f, "{}", bs58::encode(self.encode()).into_string())
     }
 }
 
@@ -216,7 +205,16 @@ impl FromStr for PublicKey {
     type Err = ParsePublicKeyError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        PublicKey::from_ascii(s)
+        PublicKey::decode(bs58::decode(s).into_vec()?.as_slice())
+            .ok_or(ParsePublicKeyError::InvalidPublicKey)
+    }
+}
+
+impl Eq for PublicKey {}
+
+impl PartialEq for PublicKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.q.equals(other.q) != 0
     }
 }
 

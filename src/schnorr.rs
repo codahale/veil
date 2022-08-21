@@ -8,7 +8,7 @@ use rand::{CryptoRng, Rng};
 
 use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex};
 use crate::ecc::{CanonicallyEncoded, Point, Scalar, POINT_LEN, SCALAR_LEN};
-use crate::{AsciiEncoded, ParseSignatureError, VerifyError};
+use crate::{ParseSignatureError, VerifyError};
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
@@ -17,14 +17,16 @@ pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Signature([u8; SIGNATURE_LEN]);
 
-impl AsciiEncoded<SIGNATURE_LEN> for Signature {
-    type Err = ParseSignatureError;
-
-    fn from_bytes(b: &[u8]) -> Result<Self, <Self as AsciiEncoded<SIGNATURE_LEN>>::Err> {
-        Ok(Signature(b.try_into().map_err(|_| ParseSignatureError::InvalidLength)?))
+impl Signature {
+    /// Create a signature from a 64-byte slice.
+    #[must_use]
+    pub fn decode(b: impl AsRef<[u8]>) -> Option<Signature> {
+        Some(Signature(b.as_ref().try_into().ok()?))
     }
 
-    fn to_bytes(&self) -> [u8; SIGNATURE_LEN] {
+    /// Encode the signature as a 64-byte array.
+    #[must_use]
+    pub const fn encode(&self) -> [u8; SIGNATURE_LEN] {
         self.0
     }
 }
@@ -33,13 +35,14 @@ impl FromStr for Signature {
     type Err = ParseSignatureError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Signature::from_ascii(s)
+        Signature::decode(bs58::decode(s).into_vec()?.as_slice())
+            .ok_or(ParseSignatureError::InvalidLength)
     }
 }
 
 impl fmt::Display for Signature {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_ascii())
+        write!(f, "{}", bs58::encode(self.0).into_string())
     }
 }
 

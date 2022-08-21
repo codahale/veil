@@ -10,7 +10,7 @@ use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex, TAG_LEN};
 use crate::ecc::{CanonicallyEncoded, Point, Scalar};
 use crate::schnorr::SIGNATURE_LEN;
 use crate::sres::NONCE_LEN;
-use crate::{schnorr, sres, AsciiEncoded, DecryptError, Signature};
+use crate::{schnorr, sres, DecryptError, Signature};
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `q_rs` and write the ciphertext to `writer` with `padding` bytes of random data added.
@@ -65,7 +65,7 @@ pub fn encrypt(
 
     // Sign the duplex's final state with the ephemeral private key and append the signature.
     let sig = schnorr::sign_duplex(&mut mres, &mut rng, &d_e);
-    writer.write_all(&sig.to_bytes())?;
+    writer.write_all(&sig.encode())?;
 
     Ok(written + u64::try_from(SIGNATURE_LEN).expect("unexpected overflow"))
 }
@@ -231,7 +231,7 @@ fn decrypt_message(
     }
 
     // Return the number of bytes and the signature.
-    Ok((written, Signature::from_bytes(&buf[..SIGNATURE_LEN]).expect("invalid signature len")))
+    Ok((written, Signature::decode(&buf[..SIGNATURE_LEN]).expect("invalid signature len")))
 }
 
 /// The length of an encrypted header.
