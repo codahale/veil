@@ -3,11 +3,12 @@
 use std::io::{self, Read, Write};
 use std::mem;
 
-use crrl::jq255e::{Point, Scalar};
+use crrl::jq255e::Point;
 use rand::{CryptoRng, Rng};
 
 use crate::blockio::ReadBlock;
 use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex, TAG_LEN};
+use crate::keys::{PrivKey, PubKey};
 use crate::schnorr::SIGNATURE_LEN;
 use crate::sres::NONCE_LEN;
 use crate::{schnorr, sres, DecryptError, Signature};
@@ -18,21 +19,21 @@ pub fn encrypt(
     mut rng: impl Rng + CryptoRng,
     reader: impl Read,
     mut writer: impl Write,
-    (d_s, q_s): (&Scalar, &Point),
-    q_rs: &[Point],
+    sender: &PrivKey,
+    receivers: &[PubKey],
     padding: usize,
 ) -> io::Result<u64> {
     let padding = u64::try_from(padding).expect("unexpected overflow");
 
     // Initialize an unkeyed duplex and absorb the sender's public key.
     let mut mres = UnkeyedDuplex::new("veil.mres");
-    mres.absorb_point(q_s);
+    mres.absorb(&sender.pub_key.encoded);
 
     // Generate ephemeral key pair, DEK, and nonce.
-    let (d_e, dek, nonce) = mres.hedge(&mut rng, &d_s.encode32(), |clone| {
+    let (d_e, dek, nonce) = mres.hedge(&mut rng, &sender.d.encode32(), |clone| {
         (clone.squeeze_scalar(), clone.squeeze(), clone.squeeze::<NONCE_LEN>())
     });
-    let q_e = Point::mulgen(&d_e);
+    let ephemeral = PrivKey::from_scalar(d_e);
 
     // Absorb and write the nonce.
     mres.absorb(&nonce);
@@ -43,9 +44,9 @@ pub fn encrypt(
     written += encrypt_headers(
         &mut mres,
         &mut rng,
-        (d_s, q_s),
-        (&d_e, &q_e),
-        q_rs,
+        sender,
+        &ephemeral,
+        receivers,
         &dek,
         padding,
         &mut writer,
@@ -92,24 +93,33 @@ fn encode_header(dek: &[u8; DEK_LEN], recv_count: u64, padding: u64) -> [u8; HEA
 fn encrypt_headers(
     mres: &mut UnkeyedDuplex,
     mut rng: impl Rng + CryptoRng,
-    (d_s, q_s): (&Scalar, &Point),
-    (d_e, q_e): (&Scalar, &Point),
-    q_rs: &[Point],
+    sender: &PrivKey,
+    ephemeral: &PrivKey,
+    receivers: &[PubKey],
     dek: &[u8; DEK_LEN],
     padding: u64,
     mut writer: impl Write,
 ) -> io::Result<u64> {
     let mut written = 0u64;
-    let header = encode_header(dek, q_rs.len().try_into().expect("unexpected overflow"), padding);
+    let header =
+        encode_header(dek, receivers.len().try_into().expect("unexpected overflow"), padding);
     let mut enc_header = [0u8; ENC_HEADER_LEN];
 
     // For each receiver, encrypt a copy of the header with veil.sres.
-    for q_r in q_rs {
+    for receiver in receivers {
         // Squeeze a nonce for each header.
         let nonce = mres.squeeze::<NONCE_LEN>();
 
         // Encrypt the header for the given receiver.
-        sres::encrypt(&mut rng, (d_s, q_s), (d_e, q_e), q_r, &nonce, &header, &mut enc_header);
+        sres::encrypt(
+            &mut rng,
+            (&sender.d, &sender.pub_key.q),
+            (&ephemeral.d, &ephemeral.pub_key.q),
+            &receiver.q,
+            &nonce,
+            &header,
+            &mut enc_header,
+        );
 
         // Absorb the encrypted header.
         mres.absorb(&enc_header);
@@ -160,12 +170,12 @@ fn encrypt_message(
 pub fn decrypt(
     mut reader: impl Read,
     mut writer: impl Write,
-    (d_r, q_r): (&Scalar, &Point),
-    q_s: &Point,
+    receiver: &PrivKey,
+    sender: &PubKey,
 ) -> Result<u64, DecryptError> {
     // Initialize an unkeyed duplex and absorb the sender's public key.
     let mut mres = UnkeyedDuplex::new("veil.mres");
-    mres.absorb_point(q_s);
+    mres.absorb(&sender.encoded);
 
     // Read and absorb the nonce.
     let mut nonce = [0u8; NONCE_LEN];
@@ -173,7 +183,7 @@ pub fn decrypt(
     mres.absorb(&nonce);
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the duplex.
-    let (q_e, dek) = decrypt_header(&mut mres, &mut reader, d_r, q_r, q_s)?;
+    let (ephemeral, dek) = decrypt_header(&mut mres, &mut reader, receiver, sender)?;
 
     // Absorb the DEK.
     mres.absorb(&dek);
@@ -185,7 +195,7 @@ pub fn decrypt(
     let (written, sig) = decrypt_message(&mut mres, &mut reader, &mut writer)?;
 
     // Verify the signature and return the number of bytes written.
-    schnorr::verify_duplex(&mut mres, &q_e, &sig)
+    schnorr::verify_duplex(&mut mres, &ephemeral.q, &sig)
         .and(Some(written))
         .ok_or(DecryptError::InvalidCiphertext)
 }
@@ -242,10 +252,9 @@ const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
 fn decrypt_header(
     mres: &mut UnkeyedDuplex,
     mut reader: impl Read,
-    d_r: &Scalar,
-    q_r: &Point,
-    q_s: &Point,
-) -> Result<(Point, [u8; DEK_LEN]), DecryptError> {
+    receiver: &PrivKey,
+    sender: &PubKey,
+) -> Result<(PubKey, [u8; DEK_LEN]), DecryptError> {
     let mut enc_header = [0u8; ENC_HEADER_LEN];
     let mut header = None;
     let mut i = 0u64;
@@ -272,12 +281,17 @@ fn decrypt_header(
 
         // If a header hasn't been decrypted yet, try to decrypt this one.
         if header.is_none() {
-            if let Some((q_e, d, c, p)) =
-                sres::decrypt((d_r, q_r), q_s, &nonce, &mut enc_header).map(decode_header)
+            if let Some((ephemeral, d, c, p)) = sres::decrypt(
+                (&receiver.d, &receiver.pub_key.q),
+                &sender.q,
+                &nonce,
+                &mut enc_header,
+            )
+            .map(decode_header)
             {
                 // If the header was successfully decrypted, keep the ephemeral public key, DEK, and
                 // padding and update the loop variable to not be effectively infinite.
-                header = Some((q_e, p, d));
+                header = Some((ephemeral, p, d));
                 recv_count = c;
             }
         }
@@ -286,20 +300,20 @@ fn decrypt_header(
     }
 
     // Unpack the header values, if any.
-    let (q_e, padding, dek) = header.ok_or(DecryptError::InvalidCiphertext)?;
+    let (ephemeral, padding, dek) = header.ok_or(DecryptError::InvalidCiphertext)?;
 
     // Read the padding and absorb it with the duplex.
     mres.absorb_reader(&mut reader.take(padding))?;
 
     // Return the ephemeral public key and DEK.
-    Ok((q_e, dek))
+    Ok((ephemeral, dek))
 }
 
 /// Decode an ephemeral public key and header into an ephemeral public key, DEK, header count, and
 /// padding size.
 #[inline]
 #[must_use]
-fn decode_header((q_e, header): (Point, &[u8])) -> (Point, [u8; DEK_LEN], u64, u64) {
+fn decode_header((q_e, header): (Point, &[u8])) -> (PubKey, [u8; DEK_LEN], u64, u64) {
     // Split header into components.
     let (dek, hdr_count) = header.split_at(DEK_LEN);
     let (hdr_count, padding) = hdr_count.split_at(mem::size_of::<u64>());
@@ -309,7 +323,7 @@ fn decode_header((q_e, header): (Point, &[u8])) -> (Point, [u8; DEK_LEN], u64, u
     let hdr_count = u64::from_le_bytes(hdr_count.try_into().expect("invalid u64 len"));
     let padding = u64::from_le_bytes(padding.try_into().expect("invalid u64 len"));
 
-    (q_e, dek, hdr_count, padding)
+    (PubKey::from_point(q_e), dek, hdr_count, padding)
 }
 
 struct RngRead<R>(R)
@@ -337,143 +351,150 @@ mod tests {
 
     #[test]
     fn round_trip() {
-        let (mut rng, d_s, q_s, d_r, q_r) = setup();
-
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let sender = PrivKey::random(&mut rng);
+        let receiver = PrivKey::random(&mut rng);
         let message = b"this is a thingy";
+
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let q_rs = &[q_s, q_r, q_s, q_s, q_s];
-        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), q_rs, 123)
+        let receivers = &[sender.pub_key, receiver.pub_key];
+        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, &sender, receivers, 123)
             .expect("error encrypting");
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        let ptx_len = decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s).expect("error decrypting");
+        let ptx_len =
+            decrypt(&mut src, &mut dst, &receiver, &sender.pub_key).expect("error decrypting");
         assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
         assert_eq!(message.to_vec(), dst.into_inner(), "incorrect plaintext");
     }
 
     #[test]
     fn wrong_sender_public_key() {
-        let (mut rng, d_s, q_s, d_r, q_r) = setup();
-
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let sender = PrivKey::random(&mut rng);
+        let receiver = PrivKey::random(&mut rng);
         let message = b"this is a thingy";
+
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)
-            .expect("error encrypting");
+        let ctx_len = encrypt(
+            &mut rng,
+            &mut src,
+            &mut dst,
+            &sender,
+            &[sender.pub_key, receiver.pub_key],
+            123,
+        )
+        .expect("error encrypting");
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
-        let q_s = Point::hash_to_curve("", &rng.gen::<[u8; 64]>());
+        let wrong_sender = PubKey::random(&mut rng);
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
         assert!(matches!(
-            decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s),
+            decrypt(&mut src, &mut dst, &receiver, &wrong_sender),
             Err(DecryptError::InvalidCiphertext)
         ));
     }
 
     #[test]
-    fn wrong_receiver_public_key() {
-        let (mut rng, d_s, q_s, d_r, q_r) = setup();
-
+    fn wrong_receiver() {
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let sender = PrivKey::random(&mut rng);
+        let receiver = PrivKey::random(&mut rng);
         let message = b"this is a thingy";
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)
-            .expect("error encrypting");
+        let ctx_len = encrypt(
+            &mut rng,
+            &mut src,
+            &mut dst,
+            &sender,
+            &[sender.pub_key, receiver.pub_key],
+            123,
+        )
+        .expect("error encrypting");
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
-        let q_r = Point::hash_to_curve("", &rng.gen::<[u8; 64]>());
+        let wrong_receiver = PrivKey::random(&mut rng);
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
         assert!(matches!(
-            decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s),
-            Err(DecryptError::InvalidCiphertext)
-        ));
-    }
-
-    #[test]
-    fn wrong_receiver_private_key() {
-        let (mut rng, d_s, q_s, _, q_r) = setup();
-
-        let message = b"this is a thingy";
-        let mut src = Cursor::new(message);
-        let mut dst = Cursor::new(Vec::new());
-
-        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)
-            .expect("error encrypting");
-        assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
-
-        let d_r = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
-
-        let mut src = Cursor::new(dst.into_inner());
-        let mut dst = Cursor::new(Vec::new());
-
-        assert!(matches!(
-            decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s),
+            decrypt(&mut src, &mut dst, &wrong_receiver, &sender.pub_key),
             Err(DecryptError::InvalidCiphertext)
         ));
     }
 
     #[test]
     fn multi_block_message() {
-        let (mut rng, d_s, q_s, d_r, q_r) = setup();
-
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let sender = PrivKey::random(&mut rng);
+        let receiver = PrivKey::random(&mut rng);
         let message = [69u8; 65 * 1024];
+
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)
+        let receivers = &[sender.pub_key, receiver.pub_key];
+        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, &sender, receivers, 123)
             .expect("error encrypting");
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        let ptx_len = decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s).expect("error decrypting");
+        let ptx_len =
+            decrypt(&mut src, &mut dst, &receiver, &sender.pub_key).expect("error decrypting");
         assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
         assert_eq!(message.to_vec(), dst.into_inner(), "incorrect plaintext");
     }
 
     #[test]
     fn split_sig() {
-        let (mut rng, d_s, q_s, d_r, q_r) = setup();
-
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let sender = PrivKey::random(&mut rng);
+        let receiver = PrivKey::random(&mut rng);
         let message = [69u8; 32 * 1024 - 37];
+
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 0)
+        let receivers = &[sender.pub_key, receiver.pub_key];
+        let ctx_len = encrypt(&mut rng, &mut src, &mut dst, &sender, receivers, 123)
             .expect("error encrypting");
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         let mut src = Cursor::new(dst.into_inner());
         let mut dst = Cursor::new(Vec::new());
 
-        let ptx_len = decrypt(&mut src, &mut dst, (&d_r, &q_r), &q_s).expect("error decrypting");
+        let ptx_len =
+            decrypt(&mut src, &mut dst, &receiver, &sender.pub_key).expect("error decrypting");
         assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
         assert_eq!(message.to_vec(), dst.into_inner(), "incorrect plaintext");
     }
 
     #[test]
     fn flip_every_bit() {
-        let (mut rng, d_s, q_s, d_r, q_r) = setup();
-
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let sender = PrivKey::random(&mut rng);
+        let receiver = PrivKey::random(&mut rng);
         let message = b"this is a thingy";
+
         let mut src = Cursor::new(message);
         let mut dst = Cursor::new(Vec::new());
 
-        encrypt(&mut rng, &mut src, &mut dst, (&d_s, &q_s), &[q_s, q_r], 123)
+        encrypt(&mut rng, &mut src, &mut dst, &sender, &[sender.pub_key, receiver.pub_key], 123)
             .expect("error encrypting");
 
         let ciphertext = dst.into_inner();
@@ -484,24 +505,12 @@ mod tests {
                 ciphertext[i] ^= 1 << j;
                 let mut src = Cursor::new(ciphertext);
 
-                match decrypt(&mut src, &mut io::sink(), (&d_r, &q_r), &q_s) {
+                match decrypt(&mut src, &mut io::sink(), &receiver, &sender.pub_key) {
                     Err(DecryptError::InvalidCiphertext) => {}
                     Ok(_) => panic!("bit flip at byte {i}, bit {j} produced a valid message"),
                     Err(e) => panic!("unknown error: {:?}", e),
                 };
             }
         }
-    }
-
-    fn setup() -> (ChaChaRng, Scalar, Point, Scalar, Point) {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-
-        let d_s = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
-        let q_s = Point::mulgen(&d_s);
-
-        let d_r = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
-        let q_r = Point::mulgen(&d_r);
-
-        (rng, d_s, q_s, d_r, q_r)
     }
 }

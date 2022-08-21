@@ -5,7 +5,7 @@ use std::io::{Read, Write};
 use std::str::FromStr;
 use std::{fmt, io, iter};
 
-use crrl::jq255e::{Point, Scalar};
+use crrl::jq255e::Scalar;
 use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
 
@@ -97,28 +97,17 @@ impl PrivateKey {
         fakes: Option<usize>,
         padding: Option<usize>,
     ) -> io::Result<u64> {
-        // Add fakes.
-        let mut q_rs = receivers
+        let mut receivers = receivers
             .iter()
-            .map(|pk| pk.0.q)
-            .chain(
-                iter::repeat_with(|| Point::hash_to_curve("", &rng.gen::<[u8; 64]>()))
-                    .take(fakes.unwrap_or_default()),
-            )
-            .collect::<Vec<Point>>();
+            .map(|pk| pk.0)
+            .chain(iter::repeat_with(|| PubKey::random(&mut rng)).take(fakes.unwrap_or_default()))
+            .collect::<Vec<PubKey>>();
 
         // Shuffle the receivers list.
-        q_rs.shuffle(&mut rng);
+        receivers.shuffle(&mut rng);
 
         // Finally, encrypt.
-        mres::encrypt(
-            &mut rng,
-            reader,
-            writer,
-            (&self.0.d, &self.0.pub_key.q),
-            &q_rs,
-            padding.unwrap_or_default(),
-        )
+        mres::encrypt(&mut rng, reader, writer, &self.0, &receivers, padding.unwrap_or_default())
     }
 
     /// Decrypts the contents of `reader`, if possible, and writes the plaintext to `writer`.
@@ -136,7 +125,7 @@ impl PrivateKey {
         writer: impl Write,
         sender: &PublicKey,
     ) -> Result<u64, DecryptError> {
-        mres::decrypt(reader, writer, (&self.0.d, &self.0.pub_key.q), &sender.0.q)
+        mres::decrypt(reader, writer, &self.0, &sender.0)
     }
 
     /// Reads the contents of the reader and returns a digital signature.
@@ -224,6 +213,7 @@ impl PartialEq for PublicKey {
 
 #[cfg(test)]
 mod tests {
+    use crrl::jq255e::Point;
     use std::io::Cursor;
 
     use rand::SeedableRng;

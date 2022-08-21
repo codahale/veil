@@ -1,6 +1,7 @@
-use crate::POINT_LEN;
 use crrl::jq255e::{Point, Scalar};
 use rand::{CryptoRng, Rng};
+
+use crate::POINT_LEN;
 
 #[derive(Clone, Copy)]
 pub struct PubKey {
@@ -9,13 +10,21 @@ pub struct PubKey {
 }
 
 impl PubKey {
+    #[must_use]
     pub fn from_point(q: Point) -> PubKey {
         PubKey { q, encoded: q.encode() }
     }
 
     #[must_use]
     pub fn decode(b: impl AsRef<[u8]>) -> Option<PubKey> {
-        Point::decode(b.as_ref()).map(PubKey::from_point)
+        let encoded = <[u8; POINT_LEN]>::try_from(b.as_ref()).ok()?;
+        let q = Point::decode(&encoded)?;
+        Some(PubKey { q, encoded })
+    }
+
+    #[must_use]
+    pub fn random(mut rng: impl CryptoRng + Rng) -> PubKey {
+        PubKey::from_point(Point::hash_to_curve("", &rng.gen::<[u8; 64]>()))
     }
 }
 
@@ -25,6 +34,7 @@ pub struct PrivKey {
 }
 
 impl PrivKey {
+    #[must_use]
     pub fn random(mut rng: impl CryptoRng + Rng) -> PrivKey {
         loop {
             let d = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
@@ -34,6 +44,7 @@ impl PrivKey {
         }
     }
 
+    #[must_use]
     pub fn from_scalar(d: Scalar) -> PrivKey {
         assert_eq!(d.iszero(), 0, "private key scalars must be non-zero");
 
