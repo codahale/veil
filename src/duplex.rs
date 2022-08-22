@@ -21,6 +21,11 @@ pub struct UnkeyedDuplex {
 }
 
 impl UnkeyedDuplex {
+    /// The number of bytes returned by a single application of the permutation.
+    pub const fn squeeze_rate() -> usize {
+        Keccyak128Hash::squeeze_rate()
+    }
+
     /// Create a new [`UnkeyedDuplex`] with the given domain separation string.
     #[must_use]
     pub fn new(domain: &str) -> UnkeyedDuplex {
