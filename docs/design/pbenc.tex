@@ -21,7 +21,7 @@ Initializing a duplex from a passphrase is described in full in Alg.~\ref{alg:ve
         \EndFunction
         \Procedure{InitFromPassphrase}{$P, S, N_T, N_S$}
             \State \Call{Absorb}{\texttt{veil.mres}}\Comment{Initialize an unkeyed duplex.}
-            \State $P_N \gets$\Call{NormalizeNFKC}{$P$}\Comment{Normalize the passphrase.}
+            \State $P_N \gets$\Call{NormalizeNFC}{$P$}\Comment{Normalize the passphrase.}
             \State \Call{Absorb}{$P_N$}\Comment{Absorb all parameters.}
             \State \Call{Absorb}{$S$}
             \State \Call{Absorb}{$N_T$}

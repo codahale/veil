@@ -311,6 +311,6 @@ fn prompt_passphrase(passphrase_file: &Option<PathBuf>) -> Result<Vec<u8>> {
     match passphrase_file {
         Some(p) => Ok(fs::read(p)?),
         None => Ok(rpassword::prompt_password("Enter passphrase: ")
-            .map(|s| s.nfkc().collect::<String>().as_bytes().to_vec())?),
+            .map(|s| s.nfc().collect::<String>().as_bytes().to_vec())?),
     }
 }
