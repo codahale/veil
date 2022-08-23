@@ -89,7 +89,7 @@ fn init(passphrase: &[u8], salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
     pbenc.absorb(salt);
     pbenc.absorb(&[time]);
     pbenc.absorb(&[space]);
-    pbenc.absorb(&[N.try_into().expect("unexpected overflow")]);
+    pbenc.absorb(&u64::try_from(N).expect("unexpected overflow").to_le_bytes());
     pbenc.absorb(&[DELTA.try_into().expect("unexpected overflow")]);
 
     // Convert time and space params into linear terms.
@@ -141,7 +141,7 @@ fn init(passphrase: &[u8], salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
 
 const SALT_LEN: usize = 16;
 const DELTA: usize = 3;
-const N: usize = UnkeyedDuplex::squeeze_rate();
+const N: usize = 1024 * 124;
 
 #[cfg(test)]
 mod tests {
