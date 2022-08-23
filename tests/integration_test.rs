@@ -130,9 +130,9 @@ fn create_private_key(private_key_path: &Path, passphrase_path: &Path) -> Result
         "--passphrase-file",
         passphrase_path,
         "--time",
-        "2",
+        "0",
         "--space",
-        "2",
+        "0",
     )
     .run()?;
 

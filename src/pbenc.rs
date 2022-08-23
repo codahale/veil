@@ -157,7 +157,7 @@ mod tests {
         let passphrase = b"this is a secret";
         let message = b"this is too";
         let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
-        encrypt(&mut rng, passphrase, 2, 6, message, &mut ciphertext);
+        encrypt(&mut rng, passphrase, 0, 0, message, &mut ciphertext);
 
         let plaintext = decrypt(passphrase, &mut ciphertext);
         assert_eq!(Some(message.as_slice()), plaintext, "invalid plaintext");
@@ -170,7 +170,7 @@ mod tests {
         let passphrase = b"this is a secret";
         let message = b"this is too";
         let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
-        encrypt(&mut rng, passphrase, 2, 6, message, &mut ciphertext);
+        encrypt(&mut rng, passphrase, 0, 0, message, &mut ciphertext);
 
         let plaintext = decrypt(b"whoops", &mut ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -183,7 +183,7 @@ mod tests {
         let passphrase = b"this is a secret";
         let message = b"this is too";
         let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
-        encrypt(&mut rng, passphrase, 2, 6, message, &mut ciphertext);
+        encrypt(&mut rng, passphrase, 0, 0, message, &mut ciphertext);
         ciphertext[0] ^= 1;
 
         let plaintext = decrypt(passphrase, &mut ciphertext);
@@ -197,7 +197,7 @@ mod tests {
         let passphrase = b"this is a secret";
         let message = b"this is too";
         let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
-        encrypt(&mut rng, passphrase, 2, 6, message, &mut ciphertext);
+        encrypt(&mut rng, passphrase, 0, 0, message, &mut ciphertext);
         ciphertext[1] ^= 1;
 
         let plaintext = decrypt(passphrase, &mut ciphertext);
@@ -211,7 +211,7 @@ mod tests {
         let passphrase = b"this is a secret";
         let message = b"this is too";
         let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
-        encrypt(&mut rng, passphrase, 2, 6, message, &mut ciphertext);
+        encrypt(&mut rng, passphrase, 0, 0, message, &mut ciphertext);
         ciphertext[9] ^= 1;
 
         let plaintext = decrypt(passphrase, &mut ciphertext);
@@ -225,7 +225,7 @@ mod tests {
         let passphrase = b"this is a secret";
         let message = b"this is too";
         let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
-        encrypt(&mut rng, passphrase, 2, 6, message, &mut ciphertext);
+        encrypt(&mut rng, passphrase, 0, 0, message, &mut ciphertext);
         ciphertext[OVERHEAD - TAG_LEN + 1] ^= 1;
 
         let plaintext = decrypt(passphrase, &mut ciphertext);
@@ -239,7 +239,7 @@ mod tests {
         let passphrase = b"this is a secret";
         let message = b"this is too";
         let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
-        encrypt(&mut rng, passphrase, 2, 6, message, &mut ciphertext);
+        encrypt(&mut rng, passphrase, 0, 0, message, &mut ciphertext);
         ciphertext[message.len() + OVERHEAD - 1] ^= 1;
 
         let plaintext = decrypt(passphrase, &mut ciphertext);
