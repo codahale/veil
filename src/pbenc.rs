@@ -141,7 +141,7 @@ fn init(passphrase: &[u8], salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
 
 const SALT_LEN: usize = 16;
 const DELTA: usize = 3;
-const N: usize = 1024 * 124;
+const N: usize = 1024;
 
 #[cfg(test)]
 mod tests {
