@@ -63,19 +63,19 @@ fn expand(passphrase: &[u8], salt: &[u8], cost: u8) -> KeyedDuplex {
     pbenc.absorb(salt);
     pbenc.absorb(&[cost]);
 
+    // Squeeze a scalar and multiply the base point by it.
+    let q = Point::mulgen(&pbenc.squeeze_scalar());
+
     // Perform 2^cost iterations.
     for i in 0..1u64 << cost {
         // Absorb the counter.
         pbenc.absorb(&i.to_le_bytes());
 
-        // Squeeze a scalar.
-        let d = pbenc.squeeze_scalar();
-
-        // Multiple the base point by the scalar.
-        let q = Point::mulgen(&d);
+        // Squeeze a scalar and multiply the point from the last iteration by it.
+        let q_p = q * pbenc.squeeze_scalar();
 
         // Absorb the point.
-        pbenc.absorb(&q.encode());
+        pbenc.absorb(&q_p.encode());
     }
 
     // Convert the duplex to a keyed duplex.

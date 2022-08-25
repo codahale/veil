@@ -17,11 +17,13 @@ Expanding a passphrase is described in full in Alg.~\ref{alg:veil.pbenc-expand}\
             \State \Call{Absorb}{$P_N$}\Comment{Absorb the passphrase, salt, and cost.}
             \State \Call{Absorb}{$S$}
             \State \Call{Absorb}{$T_{cost}$}
+            \State $d_0 \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a scalar.}
+            \State $Q_0 \gets [d]G$\Comment{Multiply the base point by the scalar.}
             \ForAll{$i \in 0..2^{T_{cost}}$}
                 \State \Call{Absorb}{$i$}\Comment{Absorb the counter.}
-                \State $d \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a scalar.}
-                \State $Q \gets [d]G$\Comment{Multiply the basepoint by the scalar.}
-                \State \Call{Absorb}{$Q$}\Comment{Absorb the point.}
+                \State $d_i \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a scalar.}
+                \State $Q_i \gets [d]Q_0$\Comment{Multiply the first point by the scalar.}
+                \State \Call{Absorb}{$Q_i$}\Comment{Absorb the point.}
             \EndFor
             \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
         \EndProcedure
@@ -85,6 +87,8 @@ operations~\cite{visconti2015}\@.
 Like Makwa, this adds a number-theoretic component, making inversion of this step equivalent to the discrete logarithm
 problem;
 unlike Makwa, this construction affords no escrow or fast path possibilities.
+The scalar multiplication in the work loop is done with a pseudo-randomly generated point, which makes optimization via
+pre-computation impossible.
 
 \textsc{ExpandPassphrase} is not memory-hard, which may afford a well-funded attacker an advantage by using dedicated
 hardware, but in this context the benefits of a simple implementation with a single cost parameter outweigh the benefits
