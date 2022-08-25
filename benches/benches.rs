@@ -101,32 +101,11 @@ fn bench_verify(c: &mut Criterion) {
 
 fn bench_pbenc(c: &mut Criterion) {
     let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-
     let pk = PrivateKey::random(&mut rng);
 
-    let mut pbenc = c.benchmark_group("pbenc");
-
-    for time in [1, 2, 3, 4] {
-        for space in [1, 4, 8, 12] {
-            pbenc.bench_with_input(
-                format!("t={}/s={}", time, space),
-                &(time, space),
-                |b, &(time, space)| {
-                    b.iter(|| {
-                        pk.store(
-                            Cursor::new(vec![]),
-                            &mut rng,
-                            black_box(b"passphrase"),
-                            time,
-                            space,
-                        )
-                    })
-                },
-            );
-        }
-    }
-
-    pbenc.finish();
+    c.bench_function("pbenc", |b| {
+        b.iter(|| pk.store(Cursor::new(vec![]), &mut rng, black_box(b"passphrase"), 1024, 10))
+    });
 }
 
 fn bench_digest(c: &mut Criterion) {

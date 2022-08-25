@@ -17,8 +17,8 @@ cargo build --release --all-features
 cp target/release/veil target/release/veil-control
 
 # create a private key with minimal KDF expansion, using both commands to make sure they work
-./target/release/veil-control private-key /tmp/private-key-control --passphrase-file=README.md --space=0 --time=0
-./target/release/veil-experiment private-key /tmp/private-key-experiment --passphrase-file=README.md --space=0 --time=0
+./target/release/veil-control private-key /tmp/private-key-control --passphrase-file=README.md --m-cost=8 --t-cost=1
+./target/release/veil-experiment private-key /tmp/private-key-experiment --passphrase-file=README.md --m-cost=8 --t-cost=1
 
 PK_CONTROL="$(./target/release/veil-control public-key /tmp/private-key-control --passphrase-file=README.md)"
 PK_EXPERIMENT="$(./target/release/veil-control public-key /tmp/private-key-experiment --passphrase-file=README.md)"

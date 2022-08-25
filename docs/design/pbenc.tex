@@ -2,82 +2,26 @@
 
 \texttt{veil.pbenc} implements a memory-hard authenticated encryption scheme to encrypt private keys at rest.
 
-\subsection{Initialization}\label{subsec:veil.pbenc-init}
-
-Initializing a duplex from a passphrase is described in full in Alg.~\ref{alg:veil.pbenc-init}\@.
-
-\begin{algorithm}[ht]
-    \caption{
-        Initializing a duplex given a passphrase $P$, salt $S$, time parameter $N_T$, space parameter $N_S$, delta
-        constant $D = 3$, and block size constant $N_B = 1 \text{KiB}$.
-    }
-    \begin{algorithmic}
-        \Function{Hash}{$L, R$}
-            \State $c \gets c + 1$
-            \State \Call{Absorb}{$c$}
-            \State \Call{Absorb}{$L$}
-            \State \Call{Absorb}{$R$}
-            \State \textbf{return} \Call{Squeeze}{$N_B$}
-        \EndFunction
-        \Procedure{InitFromPassphrase}{$P, S, N_T, N_S$}
-            \State \Call{Absorb}{\texttt{veil.mres}}\Comment{Initialize an unkeyed duplex.}
-            \State $P_N \gets$\Call{NormalizeNFC}{$P$}\Comment{Normalize the passphrase.}
-            \State \Call{Absorb}{$P_N$}\Comment{Absorb all parameters.}
-            \State \Call{Absorb}{$S$}
-            \State \Call{Absorb}{$N_T$}
-            \State \Call{Absorb}{$N_S$}
-            \State \Call{Absorb}{$N_B$}
-            \State \Call{Absorb}{$D$}
-            \State
-            \State $B \gets [[0 \times N_B] \times N]$\Comment{Initialize an array of $N$ blocks.}
-            \State $c \gets 0$\Comment{Initialize a counter.}
-            \State
-            \State $B[0] \gets $\Call{Hash}{$P_N, S$}\Comment{Expand input into buffer.}
-            \For{$m$ in $1..N_S$}
-                \State $B[m] \gets $\Call{Hash}{$B[m-1], \epsilon$}
-            \EndFor
-            \State
-
-            \For{$t$ in $0..N_T$}
-                \Comment{Mix buffer contents.}
-                \For{$m$ in $0..N_S$}\Comment{Hash last and current blocks.}
-                    \State $B[m] \gets $\Call{Hash}{$B[m-1 \bmod N_S], B[m]$}
-                    \For{$i$ in $0..D$}\Comment{Hash in pseudo-randomly chosen blocks.}
-                        \State $c \gets c + 1$
-                        \State \Call{Absorb}{$c$}
-                        \State \Call{Absorb}{$S$}
-                        \State \Call{Absorb}{$t$}
-                        \State \Call{Absorb}{$m$}
-                        \State \Call{Absorb}{$i$}
-                        \State $I \gets $\Call{Squeeze}{$8$}$ \bmod N_S$
-                        \State $B[m] \gets $\Call{Hash}{$B[m], B[I]$}
-                    \EndFor
-                \EndFor
-            \EndFor
-            \State
-            \State \Call{Absorb}{$B[N_S-1]$}\Comment{Extract output from buffer.}
-            \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
-        \EndProcedure
-    \end{algorithmic}
-    \label{alg:veil.pbenc-init}
-\end{algorithm}
-
 \subsection{Encrypting A Private Key}\label{subsec:veil.pbenc-encrypt}
 
 Encrypting a private key is described in full in Alg.~\ref{alg:veil.pbenc-encrypt}\@.
 
 \begin{algorithm}[ht]
     \caption{
-        Encrypting a private key given a passphrase $P$, time parameter $N_T$, space parameter $N_S$, and
-        private key $d$.
+        Encrypting a private key $d$ given a passphrase $P$, memory cost parameter $M_{cost}$, and time cost parameter
+        $T_{cost}$.
     }
     \begin{algorithmic}
-        \Function{EncryptPrivateKey}{$P, N_T, N_S, d$}
+        \Function{EncryptPrivateKey}{$P, M_{cost}, T_{cost}, d$}
+            \State $P_N \gets$\Call{NormalizeNFC}{$P$}\Comment{Normalize the passphrase.}
             \State $S \rgets \allbits{128}$\Comment{Generate a random salt.}
-            \State \Call{InitFromPassphrase}{$P, S, N_T, N_S$}\Comment{Initialize the duplex.}
+            \State $K \gets $\Call{Argon2id}{\texttt{0x13}, $P_N$, $S$, $M_{cost}$, $T_{cost}$}\Comment{Hash the passphrase.}
+            \State \Call{Absorb}{\texttt{veil.pbenc}}\Comment{Initialize an unkeyed duplex.}
+            \State \Call{Absorb}{$K$}\Comment{Absorb the derived key.}
+            \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
             \State $C \gets$\Call{Encrypt}{$d$}\Comment{Encrypt the private key.}
             \State $T \gets$\Call{Squeeze}{$16$}\Comment{Squeeze an authentication tag.}
-            \State \textbf{return} $N_T || N_S || S || C ||T$
+            \State \textbf{return} $M_{cost} || T_{cost} || S || C || T$
         \EndFunction
     \end{algorithmic}
     \label{alg:veil.pbenc-encrypt}
@@ -89,11 +33,16 @@ Decrypting a private key is described in full in Alg.~\ref{alg:veil.pbenc-decryp
 
 \begin{algorithm}[ht]
     \caption{
-        Decrypt a private key given a passphrase $P$ and ciphertext $C$.
+        Decrypting a private key given a passphrase $P$ and ciphertext $C$.
     }
     \begin{algorithmic}
-        \Function{DecryptPrivateKey}{$P, C=N_T || N_S || S || C ||T$}
-            \State \Call{InitFromPassphrase}{$P, S, N_T, N_S$}\Comment{Initialize the duplex.}
+        \Function{DecryptPrivateKey}{$P, C=M_{cost} || T_{cost} || S || C || T$}
+            \State $P_N \gets$\Call{NormalizeNFC}{$P$}\Comment{Normalize the passphrase.}
+            \State $S \rgets \allbits{128}$\Comment{Generate a random salt.}
+            \State $K \gets $\Call{Argon2id}{\texttt{0x13}, $P_N$, $S$, $M_{cost}$, $T_{cost}$}\Comment{Hash the passphrase.}
+            \State \Call{Absorb}{\texttt{veil.pbenc}}\Comment{Initialize an unkeyed duplex.}
+            \State \Call{Absorb}{$K$}\Comment{Absorb the derived key.}
+            \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
             \State $d' \gets$\Call{Decrypt}{$C$}\Comment{Decrypt the ciphertext.}
             \State $T' \gets$\Call{Squeeze}{$16$}\Comment{Squeeze a counterfactual tag.}
             \If{$T' \checkeq T$}\Comment{Authenticate the ciphertext.}
@@ -108,15 +57,5 @@ Decrypting a private key is described in full in Alg.~\ref{alg:veil.pbenc-decryp
 
 \subsection{Constructive Analysis Of \texttt{veil.pbenc}}\label{subsec:veil.pbenc-analysis}
 
-\texttt{veil.pbenc} is an integration of a memory-hard key derivation function \@(adapted for the cryptographic duplex)
-and a standard Cyclist authenticated encryption scheme.
-
-The \textsc{InitFromPassphrase} procedure of \texttt{veil.pbenc} implements balloon hashing, a memory-hard KDF intended
-for hashing low-entropy passphrases~\cite{boneh2016}.
-Memory-hard functions are a new and active area of cryptographic research, making the evaluation of schemes difficult.
-Balloon hashing was selected for its resilience to timing attacks, its reliance on a single hash primitive, and its
-relatively well-developed security proofs.
-
-The \textsc{EncryptPrivateKey} and \textsc{DecryptPrivateKey} functions use \textsc{InitFromPassphrase} to initialize
-the duplex state, after which they implement a standard Cyclist authenticated encryption scheme, which is IND-CCA2
-secure.
+\texttt{veil.pbenc} integrates Argon2, a memory-hard key derivation function, and a standard Cyclist authenticated
+encryption scheme.
