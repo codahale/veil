@@ -60,13 +60,9 @@ struct PrivateKeyArgs {
     #[clap(value_parser, value_hint = ValueHint::FilePath)]
     output: Output,
 
-    /// The memory cost for key expansion, in KiB.
-    #[clap(action, long, default_value = "32768")]
-    m_cost: u32,
-
-    /// The time cost for key expansion, in iterations.
-    #[clap(action, long, default_value = "50")]
-    t_cost: u32,
+    /// The time cost for key expansion, in logarithmic scale.
+    #[clap(action, long, default_value = "15")]
+    cost: u8,
 
     /// The path to read the passphrase from.
     #[clap(action, long, value_hint = ValueHint::FilePath)]
@@ -78,7 +74,7 @@ impl Runnable for PrivateKeyArgs {
         let mut rng = rand::thread_rng();
         let passphrase = prompt_passphrase(&self.passphrase_file)?;
         let private_key = PrivateKey::random(&mut rng);
-        private_key.store(self.output.lock(), rng, &passphrase, self.m_cost, self.t_cost)?;
+        private_key.store(self.output.lock(), rng, &passphrase, self.cost)?;
         Ok(())
     }
 }

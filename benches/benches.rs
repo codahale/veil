@@ -103,9 +103,13 @@ fn bench_pbenc(c: &mut Criterion) {
     let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
     let pk = PrivateKey::random(&mut rng);
 
-    c.bench_function("pbenc", |b| {
-        b.iter(|| pk.store(Cursor::new(vec![]), &mut rng, black_box(b"passphrase"), 1024, 10))
-    });
+    let mut g = c.benchmark_group("pbenc");
+    for cost in [2, 3, 4] {
+        g.bench_with_input(format!("{}", cost), &cost, |b, &cost| {
+            b.iter(|| pk.store(Cursor::new(vec![]), &mut rng, black_box(b"passphrase"), cost))
+        });
+    }
+    g.finish();
 }
 
 fn bench_digest(c: &mut Criterion) {

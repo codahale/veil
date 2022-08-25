@@ -1,6 +1,33 @@
 \section{Passphrase-Based Encryption}\label{sec:veil.pbenc}
 
-\texttt{veil.pbenc} implements a memory-hard authenticated encryption scheme to encrypt private keys at rest.
+\texttt{veil.pbenc} implements a passphrase-based authenticated encryption scheme to encrypt private keys at rest.
+
+\subsection{Expanding A Passphrase}\label{subsec:veil.pbenc-expand}
+
+Expanding a passphrase is described in full in Alg.~\ref{alg:veil.pbenc-expand}\@.
+
+\begin{algorithm}[ht]
+    \caption{
+        Expanding a passphrase into a keyed duplex given a passphrase $P$, a salt $S$, and a cost parameter $T_{cost}$.
+    }
+    \begin{algorithmic}
+        \Procedure{ExpandPassphrase}{$P, S, T_{cost}$}
+            \State $P_N \gets$\Call{NormalizeNFC}{$P$}\Comment{Normalize the passphrase.}
+            \State \Call{Absorb}{\texttt{veil.pbenc}}\Comment{Initialize an unkeyed duplex.}
+            \State \Call{Absorb}{$P_N$}\Comment{Absorb the passphrase, salt, and cost.}
+            \State \Call{Absorb}{$S$}
+            \State \Call{Absorb}{$T_{cost}$}
+            \ForAll{$i \in 0..2^{T_{cost}}$}
+                \State \Call{Absorb}{$i$}\Comment{Absorb the counter.}
+                \State $d \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a scalar.}
+                \State $Q \gets [d]G$\Comment{Multiply the basepoint by the scalar.}
+                \State \Call{Absorb}{$Q$}\Comment{Absorb the point.}
+            \EndFor
+            \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
+        \EndProcedure
+    \end{algorithmic}
+    \label{alg:veil.pbenc-expand}
+\end{algorithm}
 
 \subsection{Encrypting A Private Key}\label{subsec:veil.pbenc-encrypt}
 
@@ -8,20 +35,15 @@ Encrypting a private key is described in full in Alg.~\ref{alg:veil.pbenc-encryp
 
 \begin{algorithm}[ht]
     \caption{
-        Encrypting a private key $d$ given a passphrase $P$, memory cost parameter $M_{cost}$, and time cost parameter
-        $T_{cost}$.
+        Encrypting a private key $d$ given a passphrase $P$ and cost parameter $T_{cost}$.
     }
     \begin{algorithmic}
-        \Function{EncryptPrivateKey}{$P, M_{cost}, T_{cost}, d$}
-            \State $P_N \gets$\Call{NormalizeNFC}{$P$}\Comment{Normalize the passphrase.}
+        \Function{EncryptPrivateKey}{$P, T_{cost}, d$}
             \State $S \rgets \allbits{128}$\Comment{Generate a random salt.}
-            \State $K \gets $\Call{Argon2id}{\texttt{0x13}, $P_N$, $S$, $M_{cost}$, $T_{cost}$}\Comment{Hash the passphrase.}
-            \State \Call{Absorb}{\texttt{veil.pbenc}}\Comment{Initialize an unkeyed duplex.}
-            \State \Call{Absorb}{$K$}\Comment{Absorb the derived key.}
-            \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
+            \State \Call{ExpandPassphrase}{$P, S, T_{cost}$}\Comment{Expand the passphrase and salt.}
             \State $C \gets$\Call{Encrypt}{$d$}\Comment{Encrypt the private key.}
             \State $T \gets$\Call{Squeeze}{$16$}\Comment{Squeeze an authentication tag.}
-            \State \textbf{return} $M_{cost} || T_{cost} || S || C || T$
+            \State \textbf{return} $T_{cost} || S || C || T$
         \EndFunction
     \end{algorithmic}
     \label{alg:veil.pbenc-encrypt}
@@ -36,13 +58,8 @@ Decrypting a private key is described in full in Alg.~\ref{alg:veil.pbenc-decryp
         Decrypting a private key given a passphrase $P$ and ciphertext $C$.
     }
     \begin{algorithmic}
-        \Function{DecryptPrivateKey}{$P, C=M_{cost} || T_{cost} || S || C || T$}
-            \State $P_N \gets$\Call{NormalizeNFC}{$P$}\Comment{Normalize the passphrase.}
-            \State $S \rgets \allbits{128}$\Comment{Generate a random salt.}
-            \State $K \gets $\Call{Argon2id}{\texttt{0x13}, $P_N$, $S$, $M_{cost}$, $T_{cost}$}\Comment{Hash the passphrase.}
-            \State \Call{Absorb}{\texttt{veil.pbenc}}\Comment{Initialize an unkeyed duplex.}
-            \State \Call{Absorb}{$K$}\Comment{Absorb the derived key.}
-            \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
+        \Function{DecryptPrivateKey}{$P, C=T_{cost} || S || C || T$}
+            \State \Call{ExpandPassphrase}{$P, S, T_{cost}$}\Comment{Expand the passphrase and salt.}
             \State $d' \gets$\Call{Decrypt}{$C$}\Comment{Decrypt the ciphertext.}
             \State $T' \gets$\Call{Squeeze}{$16$}\Comment{Squeeze a counterfactual tag.}
             \If{$T' \checkeq T$}\Comment{Authenticate the ciphertext.}
@@ -57,5 +74,23 @@ Decrypting a private key is described in full in Alg.~\ref{alg:veil.pbenc-decryp
 
 \subsection{Constructive Analysis Of \texttt{veil.pbenc}}\label{subsec:veil.pbenc-analysis}
 
-\texttt{veil.pbenc} integrates Argon2, a memory-hard key derivation function, and a standard Cyclist authenticated
-encryption scheme.
+The \textsc{ExpandPassphrase} procedure implements a novel PBKDF2-style strictly sequential function inspired by
+Makwa~\cite{rfc2898, pornin2015}\@.
+In addition to absorbing a counter value, each step squeezes a scalar from the duplex state, multiplies the base point
+by that scalar, and absorbs the resulting point.
+Like PBKDF2, this uses an iterative hash as a CPU-intensive function and has a single cost parameters which is easily
+understood;
+unlike PBKDF2, the use of a duplex instead of an HMAC eliminates the possibility of cacheable
+operations~\cite{visconti2015}\@.
+Like Makwa, this adds a number-theoretic component, making inversion of this step equivalent to the discrete logarithm
+problem;
+unlike Makwa, this construction affords no escrow or fast path possibilities.
+
+\textsc{ExpandPassphrase} is not memory-hard, which may afford a well-funded attacker an advantage by using dedicated
+hardware, but in this context the benefits of a simple implementation with a single cost parameter outweigh the benefits
+of memory-hardness.
+Given that \texttt{veil.pbenc} operations are infrequent and user-local (unlike e.g.\ password verification), a defender
+can simply increase the cost parameter to make attacks infeasible.
+
+The remainder of \texttt{veil.pbenc} is a standard Cyclist authenticated encryption scheme.
+The duplex state depends on the random salt value and the resulting construction is IND-CCA2 secure.

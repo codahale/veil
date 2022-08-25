@@ -44,11 +44,10 @@ impl PrivateKey {
         mut writer: impl Write,
         rng: impl Rng + CryptoRng,
         passphrase: &[u8],
-        m_cost: u32,
-        t_cost: u32,
+        cost: u8,
     ) -> io::Result<usize> {
         let mut enc_key = [0u8; SCALAR_LEN + pbenc::OVERHEAD];
-        pbenc::encrypt(rng, passphrase, m_cost, t_cost, &self.0.d.encode32(), &mut enc_key);
+        pbenc::encrypt(rng, passphrase, cost, &self.0.d.encode32(), &mut enc_key);
         writer.write_all(&enc_key)?;
         Ok(enc_key.len())
     }

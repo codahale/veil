@@ -1,45 +1,35 @@
-//! Passphrase-based encryption with Argon2id.
+//! Passphrase-based encryption.
 
 use std::mem;
 
-use argon2::{Algorithm, Argon2, Params, Version};
+use crrl::jq255e::Point;
 use rand::{CryptoRng, Rng};
 
-use crate::duplex::{Absorb, UnkeyedDuplex, TAG_LEN};
+use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex, TAG_LEN};
 
 /// The number of bytes encryption adds to a plaintext.
-pub const OVERHEAD: usize = mem::size_of::<u32>() + mem::size_of::<u32>() + SALT_LEN + TAG_LEN;
+pub const OVERHEAD: usize = mem::size_of::<u8>() + SALT_LEN + TAG_LEN;
 
 /// Encrypt the given plaintext using the given passphrase.
 pub fn encrypt(
     mut rng: impl Rng + CryptoRng,
     passphrase: &[u8],
-    m_cost: u32,
-    t_cost: u32,
+    cost: u8,
     plaintext: &[u8],
     ciphertext: &mut [u8],
 ) {
     debug_assert_eq!(ciphertext.len(), plaintext.len() + OVERHEAD);
 
     // Split up the output buffer.
-    let (out_m_cost, out_t_cost) = ciphertext.split_at_mut(mem::size_of::<u32>());
-    let (out_t_cost, out_salt) = out_t_cost.split_at_mut(mem::size_of::<u32>());
+    let (out_cost, out_salt) = ciphertext.split_at_mut(mem::size_of::<u8>());
     let (out_salt, out_ciphertext) = out_salt.split_at_mut(SALT_LEN);
 
-    // Encode the time and space parameters.
-    out_m_cost.copy_from_slice(&m_cost.to_le_bytes());
-    out_t_cost.copy_from_slice(&t_cost.to_le_bytes());
-
-    // Generate a random salt.
+    // Encode the cost and generate a random salt.
+    out_cost[0] = cost;
     rng.fill_bytes(out_salt);
 
-    // Hash the passphrase with Argon2id.
-    let key = argon2id(passphrase, out_salt, m_cost, t_cost);
-
-    // Initialize an unkeyed duplex and absorb the key.
-    let mut pbenc = UnkeyedDuplex::new("veil.pbenc");
-    pbenc.absorb(&key);
-    let mut pbenc = pbenc.into_keyed();
+    // Expand the passphrase and salt into a keyed duplex.
+    let mut pbenc = expand(passphrase, out_salt, cost);
 
     // Encrypt the plaintext.
     out_ciphertext[..plaintext.len()].copy_from_slice(plaintext);
@@ -54,35 +44,45 @@ pub fn decrypt<'a>(passphrase: &[u8], in_out: &'a mut [u8]) -> Option<&'a [u8]> 
     }
 
     // Decode the parameters.
-    let (m_cost, ciphertext) = in_out.split_at_mut(mem::size_of::<u32>());
-    let (t_cost, ciphertext) = ciphertext.split_at_mut(mem::size_of::<u32>());
-    let (salt, ciphertext) = ciphertext.split_at_mut(SALT_LEN);
+    let (cost, salt) = in_out.split_at_mut(mem::size_of::<u8>());
+    let (salt, ciphertext) = salt.split_at_mut(SALT_LEN);
 
-    // Hash the passphrase with Argon2id.
-    let m_cost = u32::from_le_bytes(m_cost.try_into().expect("invalid int len"));
-    let t_cost = u32::from_le_bytes(t_cost.try_into().expect("invalid int len"));
-    let key = argon2id(passphrase, salt, m_cost, t_cost);
-
-    // Initialize an unkeyed duplex and absorb the key.
-    let mut pbenc = UnkeyedDuplex::new("veil.pbenc");
-    pbenc.absorb(&key);
-    let mut pbenc = pbenc.into_keyed();
+    // Expand the passphrase and salt into a keyed duplex.
+    let mut pbenc = expand(passphrase, salt, cost[0]);
 
     // Decrypt the ciphertext.
     pbenc.unseal_mut(ciphertext)
 }
 
-fn argon2id(passphrase: &[u8], salt: &[u8], m_cost: u32, t_cost: u32) -> [u8; KEY_LEN] {
-    let params = Params::new(m_cost, t_cost, 1, Some(KEY_LEN)).expect("invalid Argon2id params");
-    let kdf = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+fn expand(passphrase: &[u8], salt: &[u8], cost: u8) -> KeyedDuplex {
+    // Initialize an unkeyed duplex.
+    let mut pbenc = UnkeyedDuplex::new("veil.pbenc");
 
-    let mut key = [0u8; KEY_LEN];
-    kdf.hash_password_into(passphrase, salt, &mut key).expect("error hashing passphrase");
-    key
+    // Absorb the passphrase, salt, and cost factor.
+    pbenc.absorb(passphrase);
+    pbenc.absorb(salt);
+    pbenc.absorb(&[cost]);
+
+    // Perform 2^cost iterations.
+    for i in 0..1u64 << cost {
+        // Absorb the counter.
+        pbenc.absorb(&i.to_le_bytes());
+
+        // Squeeze a scalar.
+        let d = pbenc.squeeze_scalar();
+
+        // Multiple the base point by the scalar.
+        let q = Point::mulgen(&d);
+
+        // Absorb the point.
+        pbenc.absorb(&q.encode());
+    }
+
+    // Convert the duplex to a keyed duplex.
+    pbenc.into_keyed()
 }
 
 const SALT_LEN: usize = 16;
-const KEY_LEN: usize = 64;
 
 #[cfg(test)]
 mod tests {
@@ -98,7 +98,7 @@ mod tests {
         let passphrase = b"this is a secret";
         let message = b"this is too";
         let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
-        encrypt(&mut rng, passphrase, 8, 1, message, &mut ciphertext);
+        encrypt(&mut rng, passphrase, 0, message, &mut ciphertext);
 
         let plaintext = decrypt(passphrase, &mut ciphertext);
         assert_eq!(Some(message.as_slice()), plaintext, "invalid plaintext");
@@ -111,35 +111,21 @@ mod tests {
         let passphrase = b"this is a secret";
         let message = b"this is too";
         let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
-        encrypt(&mut rng, passphrase, 8, 1, message, &mut ciphertext);
+        encrypt(&mut rng, passphrase, 0, message, &mut ciphertext);
 
         let plaintext = decrypt(b"whoops", &mut ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
     }
 
     #[test]
-    fn modified_m_cost() {
+    fn modified_cost() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let passphrase = b"this is a secret";
         let message = b"this is too";
         let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
-        encrypt(&mut rng, passphrase, 8, 1, message, &mut ciphertext);
+        encrypt(&mut rng, passphrase, 0, message, &mut ciphertext);
         ciphertext[0] ^= 1;
-
-        let plaintext = decrypt(passphrase, &mut ciphertext);
-        assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
-    }
-
-    #[test]
-    fn modified_t_cost() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-
-        let passphrase = b"this is a secret";
-        let message = b"this is too";
-        let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
-        encrypt(&mut rng, passphrase, 8, 1, message, &mut ciphertext);
-        ciphertext[4] ^= 7;
 
         let plaintext = decrypt(passphrase, &mut ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -152,8 +138,8 @@ mod tests {
         let passphrase = b"this is a secret";
         let message = b"this is too";
         let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
-        encrypt(&mut rng, passphrase, 8, 1, message, &mut ciphertext);
-        ciphertext[9] ^= 1;
+        encrypt(&mut rng, passphrase, 0, message, &mut ciphertext);
+        ciphertext[2] ^= 1;
 
         let plaintext = decrypt(passphrase, &mut ciphertext);
         assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
@@ -166,7 +152,7 @@ mod tests {
         let passphrase = b"this is a secret";
         let message = b"this is too";
         let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
-        encrypt(&mut rng, passphrase, 8, 1, message, &mut ciphertext);
+        encrypt(&mut rng, passphrase, 0, message, &mut ciphertext);
         ciphertext[OVERHEAD - TAG_LEN + 1] ^= 1;
 
         let plaintext = decrypt(passphrase, &mut ciphertext);
@@ -180,7 +166,7 @@ mod tests {
         let passphrase = b"this is a secret";
         let message = b"this is too";
         let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
-        encrypt(&mut rng, passphrase, 8, 1, message, &mut ciphertext);
+        encrypt(&mut rng, passphrase, 0, message, &mut ciphertext);
         ciphertext[message.len() + OVERHEAD - 1] ^= 1;
 
         let plaintext = decrypt(passphrase, &mut ciphertext);
