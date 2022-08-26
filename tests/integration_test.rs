@@ -129,8 +129,10 @@ fn create_private_key(private_key_path: &Path, passphrase_path: &Path) -> Result
         private_key_path,
         "--passphrase-file",
         passphrase_path,
-        "--cost",
-        "0",
+        "--time",
+        "2",
+        "--space",
+        "2",
     )
     .run()?;
 
