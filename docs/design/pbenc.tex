@@ -4,44 +4,53 @@
 
 \subsection{Initialization}\label{subsec:veil.pbenc-init}
 
-Initializing a duplex from a passphrase is described in full in Alg.~\ref{alg:veil.pbenc-init}\@.
+Initializing a duplex from a passphrase is described in full in Alg.~\ref{alg:veil.pbenc-hash} and
+Alg.~\ref{alg:veil.pbenc-init}\@.
 
-\begin{algorithm}[ht]
+\begin{algorithm}
+    \caption{
+        Producing a hashed block given a counter $C$, a sequence of input blocks $B_0..B_n$, and an output length $N$.
+    }
+    \begin{algorithmic}
+        \Function{Hash}{$C, B_0..B_n, N$}
+            \State \Call{Absorb}{\texttt{veil.pbenc.iter}}\Comment{Initialize an unkeyed duplex.}
+            \State \Call{Absorb}{$c$}\Comment{Absorb the counter.}
+            \State $C \gets C + 1$\Comment{Increment the counter.}
+            \ForAll{$B_i \in \{B_0..B_n\}$}
+                \State \Call{Absorb}{$B_i$}\Comment{Absorb each piece of data.}
+            \EndFor
+            \State \textbf{return} \Call{Squeeze}{$N$}\Comment{Squeeze $N$ bytes of output.}
+        \EndFunction
+    \end{algorithmic}
+    \label{alg:veil.pbenc-hash}
+\end{algorithm}
+
+\begin{algorithm}
     \caption{
         Initializing a duplex given a passphrase $P$, salt $S$, time parameter $N_T$, space parameter $N_S$, delta
         constant $D = 3$, and block size constant $N_B = 1024$.
     }
     \begin{algorithmic}
-        \Function{Hash}{$B_0..B_n, N$}
-            \State $c \gets c + 1$
-            \State \Call{Absorb}{\texttt{veil.pbenc.iter}}\Comment{Initialize an unkeyed duplex.}
-            \State \Call{Absorb}{$c$}
-            \ForAll{$B_i \in \{B_0..B_n\}$}
-                \State \Call{Absorb}{$B_i$}
-            \EndFor
-            \State \textbf{return} \Call{Squeeze}{$N$}
-        \EndFunction
         \Procedure{InitFromPassphrase}{$P, S, N_T, N_S$}
-            \State $P_N \gets$\Call{NormalizeNFC}{$P$}\Comment{Normalize the passphrase.}
-            \State
-            \State $c \gets 0$\Comment{Initialize a counter.}
+            \State $C \gets 0$\Comment{Initialize a counter.}
             \State $B \gets [[\texttt{0x00} \times N_B] \times N]$\Comment{Initialize an array of $N$ blocks.}
-            \State $B[0] \gets $\Call{Hash}{$P_N, S, N_B$}\Comment{Expand input into buffer.}
-            \For{$m$ in $1..N_S$}
-                \State $B[m] \gets $\Call{Hash}{$B[m-1], N_B$}
+            \Statex
+            \State $B[0] \gets $\Call{Hash}{$C, P, S, N_B$}\Comment{Expand input into buffer.}
+            \For{$m \in 1..N_S$}
+                \State $B[m] \gets $\Call{Hash}{$C, B[m-1], N_B$}\Comment{Fill remainder of buffer with hash chain.}
             \EndFor
-            \State
-            \For{$t$ in $0..N_T$}
-                \Comment{Mix buffer contents.}
-                \For{$m$ in $0..N_S$}\Comment{Hash last and current blocks.}
-                    \State $B[m] \gets $\Call{Hash}{$B[m-1 \bmod N_S], B[m], N_B$}
-                    \For{$i$ in $0..D$}\Comment{Hash in pseudo-randomly chosen blocks.}
-                        \State $I \gets $\Call{Hash}{$S, t, m, i, 8$}$ \bmod N_S$
-                        \State $B[m] \gets $\Call{Hash}{$B[m], B[I], N_B$}
+            \Statex
+            \For{$t \in 0..N_T$}\Comment{Mix buffer contents.}
+                \For{$m \in 0..N_S$}
+                    \State $m_{prev} \gets m-1 \bmod N_S$
+                    \State $B[m] \gets $\Call{Hash}{$C, B[m_{prev}], B[m], N_B$}\Comment{Hash previous and current blocks.}
+                    \For{$i \in 0..D$}
+                        \State $r \gets $\Call{Hash}{$C, S, t, m, i, 8$}$ \bmod N_S$\Comment{Hash loop indexes.}
+                        \State $B[m] \gets $\Call{Hash}{$C, B[m], B[r], N_B$}\Comment{Hash random and current blocks.}
                     \EndFor
                 \EndFor
             \EndFor
-            \State
+            \Statex
             \State \Call{Absorb}{\texttt{veil.pbenc}}\Comment{Initialize an unkeyed duplex.}
             \State \Call{Absorb}{$B[N_S-1]$}\Comment{Extract output from buffer.}
             \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
@@ -54,7 +63,7 @@ Initializing a duplex from a passphrase is described in full in Alg.~\ref{alg:ve
 
 Encrypting a private key is described in full in Alg.~\ref{alg:veil.pbenc-encrypt}\@.
 
-\begin{algorithm}[ht]
+\begin{algorithm}
     \caption{
         Encrypting a private key given a passphrase $P$, time parameter $N_T$, space parameter $N_S$, and
         private key $d$.
@@ -75,7 +84,7 @@ Encrypting a private key is described in full in Alg.~\ref{alg:veil.pbenc-encryp
 
 Decrypting a private key is described in full in Alg.~\ref{alg:veil.pbenc-decrypt}\@.
 
-\begin{algorithm}[ht]
+\begin{algorithm}
     \caption{
         Decrypt a private key given a passphrase $P$ and ciphertext $C$.
     }
@@ -84,8 +93,9 @@ Decrypting a private key is described in full in Alg.~\ref{alg:veil.pbenc-decryp
             \State \Call{InitFromPassphrase}{$P, S, N_T, N_S$}\Comment{Initialize the duplex.}
             \State $d' \gets$\Call{Decrypt}{$C$}\Comment{Decrypt the ciphertext.}
             \State $T' \gets$\Call{Squeeze}{$16$}\Comment{Squeeze a counterfactual tag.}
-            \If{$T' \checkeq T$}\Comment{Authenticate the ciphertext.}
-            \State \textbf{return} $d'$
+            \If{$T' \checkeq T$}
+                \Comment{Authenticate the ciphertext.}
+                \State \textbf{return} $d'$
             \Else
                 \State \textbf{return} $\bot$
             \EndIf
