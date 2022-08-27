@@ -61,17 +61,20 @@ pub fn decrypt<'a>(passphrase: &[u8], in_out: &'a mut [u8]) -> Option<&'a [u8]> 
     pbenc.unseal_mut(ciphertext)
 }
 
-macro_rules! hash_counter {
-    ($ctr:ident, $out:expr, $($block:expr),*) => {
-        let mut h = UnkeyedDuplex::new("veil.pbenc.iter");
-        h.absorb(&$ctr.to_le_bytes());
-        $ctr += 1;
-        $(h.absorb($block);)*
-        h.squeeze_mut($out);
-    };
-}
-
 fn init(passphrase: &[u8], salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
+    // A macro for the common hash operations. This is a macro rather than a function so it can
+    // accept both immutable references to blocks in the buffer as well as a mutable reference to a
+    // block in the same buffer for output.
+    macro_rules! hash {
+        ($ctr:ident, $out:expr, $($block:expr),*) => {
+            let mut h = UnkeyedDuplex::new("veil.pbenc.iter");
+            h.absorb(&$ctr.to_le_bytes());
+            $ctr += 1;
+            $(h.absorb($block);)*
+            h.squeeze_mut($out);
+        };
+    }
+
     // Convert time and space params into linear terms.
     let time = 1usize << time;
     let space = 1usize << space;
@@ -82,9 +85,9 @@ fn init(passphrase: &[u8], salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
     let mut buf = vec![[0u8; N]; space];
 
     // Step 1: Expand input into buffer.
-    hash_counter!(ctr, &mut buf[0], passphrase, salt);
+    hash!(ctr, &mut buf[0], passphrase, salt);
     for m in 1..space {
-        hash_counter!(ctr, &mut buf[m], &buf[m - 1]);
+        hash!(ctr, &mut buf[m], &buf[m - 1]);
     }
 
     // Step 2: Mix buffer contents.
@@ -92,13 +95,13 @@ fn init(passphrase: &[u8], salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
         for m in 0..space {
             // Step 2a: Hash last and current blocks.
             let prev = (m + (space - 1)) % space; // wrap 0 to last block
-            hash_counter!(ctr, &mut buf[m], &buf[prev], &buf[m]);
+            hash!(ctr, &mut buf[m], &buf[prev], &buf[m]);
 
             // Step 2b: Hash in pseudo-randomly chosen blocks.
             for i in 0..DELTA {
                 // Hash the salt and the loop indexes as 64-bit integers.
                 let mut idx_block = [0u8; mem::size_of::<u64>()];
-                hash_counter!(
+                hash!(
                     ctr,
                     &mut idx_block,
                     salt,
@@ -112,7 +115,7 @@ fn init(passphrase: &[u8], salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
                     .expect("unexpected overflow");
 
                 // Hash the pseudo-randomly selected block.
-                hash_counter!(ctr, &mut buf[m], &buf[idx]);
+                hash!(ctr, &mut buf[m], &buf[idx]);
             }
         }
     }
