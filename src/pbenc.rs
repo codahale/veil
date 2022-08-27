@@ -21,23 +21,23 @@ pub fn encrypt(
     debug_assert_eq!(ciphertext.len(), plaintext.len() + OVERHEAD);
 
     // Split up the output buffer.
-    let (out_time, out_space) = ciphertext.split_at_mut(mem::size_of::<u8>());
-    let (out_space, out_salt) = out_space.split_at_mut(mem::size_of::<u8>());
-    let (out_salt, out_ciphertext) = out_salt.split_at_mut(SALT_LEN);
+    let (ct_time, ct_space) = ciphertext.split_at_mut(mem::size_of::<u8>());
+    let (ct_space, salt) = ct_space.split_at_mut(mem::size_of::<u8>());
+    let (salt, ciphertext) = salt.split_at_mut(SALT_LEN);
 
     // Encode the time and space parameters.
-    out_time[0] = time;
-    out_space[0] = space;
+    ct_time[0] = time;
+    ct_space[0] = space;
 
     // Generate a random salt.
-    rng.fill_bytes(out_salt);
+    rng.fill_bytes(salt);
 
     // Perform the balloon hashing.
-    let mut pbenc = init(passphrase, out_salt, time, space);
+    let mut pbenc = init(passphrase, salt, time, space);
 
     // Encrypt the plaintext.
-    out_ciphertext[..plaintext.len()].copy_from_slice(plaintext);
-    pbenc.seal_mut(out_ciphertext);
+    ciphertext[..plaintext.len()].copy_from_slice(plaintext);
+    pbenc.seal_mut(ciphertext);
 }
 
 /// Decrypt the given ciphertext using the given passphrase.
@@ -47,15 +47,13 @@ pub fn decrypt<'a>(passphrase: &[u8], in_out: &'a mut [u8]) -> Option<&'a [u8]> 
         return None;
     }
 
-    // Decode the parameters.
-    let (time, ciphertext) = in_out.split_at_mut(1);
-    let time = time[0];
-    let (space, ciphertext) = ciphertext.split_at_mut(1);
-    let space = space[0];
+    // Split up the input buffer.
+    let (time, space) = in_out.split_at_mut(mem::size_of::<u8>());
+    let (space, salt) = space.split_at_mut(mem::size_of::<u8>());
+    let (salt, ciphertext) = salt.split_at_mut(SALT_LEN);
 
     // Perform the balloon hashing.
-    let (salt, ciphertext) = ciphertext.split_at_mut(SALT_LEN);
-    let mut pbenc = init(passphrase, salt, time, space);
+    let mut pbenc = init(passphrase, salt, time[0], space[0]);
 
     // Decrypt the ciphertext.
     pbenc.unseal_mut(ciphertext)
@@ -80,7 +78,7 @@ fn init(passphrase: &[u8], salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
     let space = 1usize << space;
     let space64 = u64::try_from(space).expect("unexpected overflow");
 
-    // Allocate buffers.
+    // Allocate buffer and initialize counter.
     let mut ctr = 0u64;
     let mut buf = vec![[0u8; N]; space];
 
@@ -122,7 +120,7 @@ fn init(passphrase: &[u8], salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
 
     // Step 3: Extract key from buffer.
     let mut pbenc = UnkeyedDuplex::new("veil.pbenc");
-    pbenc.absorb(&buf[buf.len() - 1]);
+    pbenc.absorb(buf.last().expect("empty buffer"));
     pbenc.into_keyed()
 }
 
