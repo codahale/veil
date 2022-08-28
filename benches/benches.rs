@@ -106,8 +106,8 @@ fn bench_pbenc(c: &mut Criterion) {
 
     let mut pbenc = c.benchmark_group("pbenc");
 
-    for time in [1, 2, 3, 4] {
-        for space in [1, 4, 8, 12] {
+    for time in [1, 2] {
+        for space in [1, 4] {
             pbenc.bench_with_input(
                 format!("t={}/s={}", time, space),
                 &(time, space),
