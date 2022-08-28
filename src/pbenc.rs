@@ -64,8 +64,8 @@ fn init(passphrase: &[u8], salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
     // accept both immutable references to blocks in the buffer as well as a mutable reference to a
     // block in the same buffer for output.
     macro_rules! hash {
-        ($ctr:ident, $out:expr, $($block:expr),*) => {
-            let mut h = UnkeyedDuplex::new("veil.pbenc.iter");
+        ($h:ident, $ctr:ident, $out:expr, $($block:expr),*) => {
+            let mut h = $h.clone();
             h.absorb(&$ctr.to_le_bytes());
             $ctr += 1;
             $(h.absorb($block);)*
@@ -73,15 +73,16 @@ fn init(passphrase: &[u8], salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
         };
     }
 
-    // Allocate buffer and initialize counter.
+    // Allocate buffer, initialize counter and default duplex state.
     let mut ctr = 0u64;
     let mut buf = vec![[0u8; N]; 1usize << space];
     let buf_len = u64::try_from(buf.len()).expect("unexpected overflow");
+    let h = UnkeyedDuplex::new("veil.pbenc.iter");
 
     // Step 1: Expand input into buffer.
-    hash!(ctr, &mut buf[0], passphrase, salt);
+    hash!(h, ctr, &mut buf[0], passphrase, salt);
     for m in 1..buf.len() {
-        hash!(ctr, &mut buf[m], &buf[m - 1]);
+        hash!(h, ctr, &mut buf[m], &buf[m - 1]);
     }
 
     // Step 2: Mix buffer contents.
@@ -89,13 +90,14 @@ fn init(passphrase: &[u8], salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
         for m in 0..buf.len() {
             // Step 2a: Hash last and current blocks.
             let prev = (m + (buf.len() - 1)) % buf.len(); // wrap 0 to last block
-            hash!(ctr, &mut buf[m], &buf[prev], &buf[m]);
+            hash!(h, ctr, &mut buf[m], &buf[prev], &buf[m]);
 
             // Step 2b: Hash in pseudo-randomly chosen blocks.
             for i in 0..DELTA {
                 // Hash the salt and the loop indexes as 64-bit integers.
                 let mut idx_block = [0u8; mem::size_of::<u64>()];
                 hash!(
+                    h,
                     ctr,
                     &mut idx_block,
                     salt,
@@ -109,7 +111,7 @@ fn init(passphrase: &[u8], salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
                 let idx = usize::try_from(idx).expect("unexpected overflow");
 
                 // Hash the pseudo-randomly selected block.
-                hash!(ctr, &mut buf[m], &buf[idx]);
+                hash!(h, ctr, &mut buf[m], &buf[idx]);
             }
         }
     }
