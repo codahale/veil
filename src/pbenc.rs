@@ -73,26 +73,22 @@ fn init(passphrase: &[u8], salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
         };
     }
 
-    // Convert time and space params into linear terms.
-    let time = 1usize << time;
-    let space = 1usize << space;
-    let space64 = u64::try_from(space).expect("unexpected overflow");
-
     // Allocate buffer and initialize counter.
     let mut ctr = 0u64;
-    let mut buf = vec![[0u8; N]; space];
+    let mut buf = vec![[0u8; N]; 1usize << space];
+    let buf_len = u64::try_from(buf.len()).expect("unexpected overflow");
 
     // Step 1: Expand input into buffer.
     hash!(ctr, &mut buf[0], passphrase, salt);
-    for m in 1..space {
+    for m in 1..buf.len() {
         hash!(ctr, &mut buf[m], &buf[m - 1]);
     }
 
     // Step 2: Mix buffer contents.
-    for t in 0..time {
-        for m in 0..space {
+    for t in 0..1u64 << time {
+        for m in 0..buf.len() {
             // Step 2a: Hash last and current blocks.
-            let prev = (m + (space - 1)) % space; // wrap 0 to last block
+            let prev = (m + (buf.len() - 1)) % buf.len(); // wrap 0 to last block
             hash!(ctr, &mut buf[m], &buf[prev], &buf[m]);
 
             // Step 2b: Hash in pseudo-randomly chosen blocks.
@@ -103,14 +99,14 @@ fn init(passphrase: &[u8], salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
                     ctr,
                     &mut idx_block,
                     salt,
-                    &u64::try_from(t).expect("unexpected overflow").to_le_bytes(),
+                    &t.to_le_bytes(),
                     &u64::try_from(m).expect("unexpected overflow").to_le_bytes(),
-                    &u64::try_from(i).expect("unexpected overflow").to_le_bytes()
+                    &i.to_le_bytes()
                 );
 
                 // Map the PRF output to a block index.
-                let idx = usize::try_from(u64::from_le_bytes(idx_block) % space64)
-                    .expect("unexpected overflow");
+                let idx = u64::from_le_bytes(idx_block) % buf_len;
+                let idx = usize::try_from(idx).expect("unexpected overflow");
 
                 // Hash the pseudo-randomly selected block.
                 hash!(ctr, &mut buf[m], &buf[idx]);
@@ -120,12 +116,12 @@ fn init(passphrase: &[u8], salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
 
     // Step 3: Extract key from buffer.
     let mut pbenc = UnkeyedDuplex::new("veil.pbenc");
-    pbenc.absorb(buf.last().expect("empty buffer"));
+    pbenc.absorb(&buf[buf.len() - 1]);
     pbenc.into_keyed()
 }
 
 const SALT_LEN: usize = 16;
-const DELTA: usize = 3;
+const DELTA: u64 = 3;
 const N: usize = 1024;
 
 #[cfg(test)]
