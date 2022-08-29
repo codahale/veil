@@ -61,11 +61,11 @@ struct PrivateKeyArgs {
     output: Output,
 
     /// The time parameter for encryption, logarithmic scale.
-    #[clap(action, long, default_value = "3")]
+    #[clap(action, long, default_value = "6")]
     time: u8,
 
     /// The space parameter for encryption, logarithmic scale..
-    #[clap(action, long, default_value = "14")]
+    #[clap(action, long, default_value = "12")]
     space: u8,
 
     /// The path to read the passphrase from
