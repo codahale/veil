@@ -67,7 +67,7 @@ impl PartialEq for Digest {
     }
 }
 
-const DIGEST_LEN: usize = 64;
+const DIGEST_LEN: usize = 32;
 
 #[cfg(test)]
 mod tests {
@@ -109,12 +109,12 @@ mod tests {
     fn encoding() {
         let sig = Digest([69u8; DIGEST_LEN]);
         assert_eq!(
-            "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC",
+            "5fQPsn8hoaVddFG26cWQ5QFdqxWtUPNaZ9zH2E6LYzFn",
             sig.to_string(),
-            "invalid encoded signature"
+            "invalid encoded digest"
         );
 
-        let decoded = "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC".parse::<Digest>();
+        let decoded = "5fQPsn8hoaVddFG26cWQ5QFdqxWtUPNaZ9zH2E6LYzFn".parse::<Digest>();
         assert_eq!(Ok(sig), decoded, "error parsing signature");
 
         assert_eq!(
@@ -123,7 +123,7 @@ mod tests {
                 index: 4,
             })),
             "woot woot".parse::<Digest>(),
-            "parsed invalid signature"
+            "parsed invalid digest"
         );
     }
 }
