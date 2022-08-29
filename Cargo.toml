@@ -12,6 +12,7 @@ default = ["cli"]
 cli = ["anyhow", "clap", "clap_complete", "clio", "mimalloc", "rpassword", "unicode-normalization"]
 
 [dependencies]
+argon2 = { version = "0.4.1", default-features = false, features = ["parallel"] }
 bs58 = "0.4.0"
 constant_time_eq = "0.2.4"
 crrl = "0.1.0"

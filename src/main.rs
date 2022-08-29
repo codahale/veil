@@ -60,13 +60,17 @@ struct PrivateKeyArgs {
     #[clap(value_parser, value_hint = ValueHint::FilePath)]
     output: Output,
 
-    /// The time parameter for encryption, logarithmic scale.
-    #[clap(action, long, default_value = "6")]
-    time: u8,
+    /// The Argon2id memory cost for encryption.
+    #[clap(action, long, default_value = "131072")]
+    m_cost: u32,
 
-    /// The space parameter for encryption, logarithmic scale..
-    #[clap(action, long, default_value = "12")]
-    space: u8,
+    /// The Argon2id time cost for encryption.
+    #[clap(action, long, default_value = "20")]
+    t_cost: u32,
+
+    /// The Argon2id parallelism cost for encryption.
+    #[clap(action, long, default_value = "2")]
+    p_cost: u32,
 
     /// The path to read the passphrase from
     #[clap(action, long, value_hint = ValueHint::FilePath)]
@@ -78,7 +82,14 @@ impl Runnable for PrivateKeyArgs {
         let mut rng = rand::thread_rng();
         let passphrase = prompt_passphrase(&self.passphrase_file)?;
         let private_key = PrivateKey::random(&mut rng);
-        private_key.store(self.output.lock(), rng, &passphrase, self.time, self.space)?;
+        private_key.store(
+            self.output.lock(),
+            rng,
+            &passphrase,
+            self.m_cost,
+            self.t_cost,
+            self.p_cost,
+        )?;
         Ok(())
     }
 }
