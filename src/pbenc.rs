@@ -67,7 +67,7 @@ fn init(passphrase: &[u8], salt: &[u8], time: u8, space: u8) -> KeyedDuplex {
         ($h:ident, $ctr:ident, $out:expr, $($block:expr),*) => {
             let mut h = $h.clone();
             h.absorb(&$ctr.to_le_bytes());
-            $ctr += 1;
+            $ctr = $ctr.wrapping_add(1);
             $(h.absorb($block);)*
             h.squeeze_mut($out);
         };
