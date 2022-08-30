@@ -269,7 +269,7 @@ mod tests {
         let ctx_len = a
             .encrypt(
                 &mut rng,
-                &mut Cursor::new(message),
+                Cursor::new(message),
                 &mut dst,
                 &[b.public_key()],
                 Some(20),
@@ -296,7 +296,7 @@ mod tests {
         let ctx_len = a
             .encrypt(
                 &mut rng,
-                &mut Cursor::new(message),
+                Cursor::new(message),
                 &mut dst,
                 &[b.public_key()],
                 Some(20),
@@ -306,7 +306,7 @@ mod tests {
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         assert!(matches!(
-            b.decrypt(&mut Cursor::new(dst.into_inner()), io::sink(), &b.public_key()),
+            b.decrypt(Cursor::new(dst.into_inner()), io::sink(), &b.public_key()),
             Err(DecryptError::InvalidCiphertext)
         ));
     }
@@ -322,7 +322,7 @@ mod tests {
         let ctx_len = a
             .encrypt(
                 &mut rng,
-                &mut Cursor::new(message),
+                Cursor::new(message),
                 &mut dst,
                 &[a.public_key()],
                 Some(20),
@@ -332,7 +332,7 @@ mod tests {
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
         assert!(matches!(
-            b.decrypt(&mut Cursor::new(dst.into_inner()), io::sink(), &a.public_key()),
+            b.decrypt(Cursor::new(dst.into_inner()), io::sink(), &a.public_key()),
             Err(DecryptError::InvalidCiphertext)
         ));
     }
@@ -348,7 +348,7 @@ mod tests {
         let ctx_len = a
             .encrypt(
                 &mut rng,
-                &mut Cursor::new(message),
+                Cursor::new(message),
                 &mut dst,
                 &[b.public_key()],
                 Some(20),
@@ -361,7 +361,7 @@ mod tests {
         ciphertext[200] ^= 1;
 
         assert!(matches!(
-            b.decrypt(&mut Cursor::new(ciphertext), io::sink(), &a.public_key()),
+            b.decrypt(Cursor::new(ciphertext), io::sink(), &a.public_key()),
             Err(DecryptError::InvalidCiphertext)
         ));
     }
@@ -372,8 +372,8 @@ mod tests {
         let key = PrivateKey::random(&mut rng);
         let message = b"this is a thingy";
 
-        let sig = key.sign(&mut rng, &mut Cursor::new(message)).expect("error signing");
+        let sig = key.sign(&mut rng, Cursor::new(message)).expect("error signing");
 
-        key.public_key().verify(&mut Cursor::new(message), &sig).expect("error verifying");
+        key.public_key().verify(Cursor::new(message), &sig).expect("error verifying");
     }
 }

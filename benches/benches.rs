@@ -20,8 +20,8 @@ fn bench_encrypt(c: &mut Criterion) {
             b.iter(|| {
                 pk_a.encrypt(
                     &mut rng,
-                    &mut io::repeat(0).take(n),
-                    &mut io::sink(),
+                    io::repeat(0).take(n),
+                    io::sink(),
                     &[pk_b.public_key()],
                     black_box(None),
                     black_box(None),
@@ -44,7 +44,7 @@ fn bench_decrypt(c: &mut Criterion) {
         let mut ciphertext = Cursor::new(Vec::new());
         pk_a.encrypt(
             &mut rng,
-            &mut io::repeat(0).take(n),
+            io::repeat(0).take(n),
             &mut ciphertext,
             &[pk_b.public_key()],
             black_box(None),
@@ -56,12 +56,8 @@ fn bench_decrypt(c: &mut Criterion) {
         decrypt.throughput(Throughput::Bytes(n));
         decrypt.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, _| {
             b.iter(|| {
-                pk_b.decrypt(
-                    &mut Cursor::new(ciphertext.clone()),
-                    &mut io::sink(),
-                    &pk_a.public_key(),
-                )
-                .unwrap();
+                pk_b.decrypt(Cursor::new(ciphertext.clone()), io::sink(), &pk_a.public_key())
+                    .unwrap();
             });
         });
     }
@@ -77,7 +73,7 @@ fn bench_sign(c: &mut Criterion) {
     for n in [0, KB, 8 * KB, 32 * KB, 64 * KB, 128 * KB] {
         sign.throughput(Throughput::Bytes(n));
         sign.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &n| {
-            b.iter(|| pk_a.sign(&mut rng, &mut io::repeat(0).take(n)).unwrap());
+            b.iter(|| pk_a.sign(&mut rng, io::repeat(0).take(n)).unwrap());
         });
     }
     sign.finish();
@@ -90,10 +86,10 @@ fn bench_verify(c: &mut Criterion) {
 
     let mut verify = c.benchmark_group("verify");
     for n in [0, KB, 8 * KB, 32 * KB, 64 * KB, 128 * KB] {
-        let sig = pk_a.sign(&mut rng, &mut io::repeat(0).take(n)).unwrap();
+        let sig = pk_a.sign(&mut rng, io::repeat(0).take(n)).unwrap();
         verify.throughput(Throughput::Bytes(n));
         verify.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &n| {
-            b.iter(|| pk_a.public_key().verify(&mut io::repeat(0).take(n), &sig).unwrap());
+            b.iter(|| pk_a.public_key().verify(io::repeat(0).take(n), &sig).unwrap());
         });
     }
     verify.finish();
@@ -135,7 +131,7 @@ fn bench_digest(c: &mut Criterion) {
     for n in [0, KB, 8 * KB, 32 * KB, 64 * KB, 128 * KB] {
         digest.throughput(Throughput::Bytes(n));
         digest.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &n| {
-            b.iter(|| Digest::new(&[] as &[&str], &mut io::repeat(0).take(n)).unwrap());
+            b.iter(|| Digest::new(&[] as &[&str], io::repeat(0).take(n)).unwrap());
         });
     }
     digest.finish();

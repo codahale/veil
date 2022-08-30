@@ -77,9 +77,9 @@ mod tests {
 
     #[test]
     fn round_trip() {
-        let a = Digest::new(&["one", "two"], &mut Cursor::new(b"this is an example"))
+        let a = Digest::new(&["one", "two"], Cursor::new(b"this is an example"))
             .expect("error hashing");
-        let b = Digest::new(&["one", "two"], &mut Cursor::new(b"this is an example"))
+        let b = Digest::new(&["one", "two"], Cursor::new(b"this is an example"))
             .expect("error hashing");
 
         assert_eq!(a, b, "inconsistent digests");
@@ -87,9 +87,9 @@ mod tests {
 
     #[test]
     fn different_metadata() {
-        let a = Digest::new(&["one", "two"], &mut Cursor::new(b"this is an example"))
+        let a = Digest::new(&["one", "two"], Cursor::new(b"this is an example"))
             .expect("error hashing");
-        let b = Digest::new(&["two", "one"], &mut Cursor::new(b"this is an example"))
+        let b = Digest::new(&["two", "one"], Cursor::new(b"this is an example"))
             .expect("error hashing");
 
         assert_ne!(a, b, "collision on metadata");
@@ -97,9 +97,9 @@ mod tests {
 
     #[test]
     fn different_messages() {
-        let a = Digest::new(&["one", "two"], &mut Cursor::new(b"this is an example"))
+        let a = Digest::new(&["one", "two"], Cursor::new(b"this is an example"))
             .expect("error hashing");
-        let b = Digest::new(&["one", "two"], &mut Cursor::new(b"this is another example"))
+        let b = Digest::new(&["one", "two"], Cursor::new(b"this is another example"))
             .expect("error hashing");
 
         assert_ne!(a, b, "collision on message");

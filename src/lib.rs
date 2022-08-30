@@ -32,7 +32,7 @@
 //! let mut ciphertext = Cursor::new(Vec::new());
 //! alice_priv.encrypt(
 //!   rand::thread_rng(),
-//!   &mut Cursor::new("this is a secret message"),
+//!   Cursor::new("this is a secret message"),
 //!   &mut ciphertext,
 //!   &[bea_pub],
 //!   Some(20),
@@ -42,7 +42,7 @@
 //! // Bea decrypts the message.
 //! let mut plaintext = Cursor::new(Vec::new());
 //! bea_priv.decrypt(
-//!   &mut Cursor::new(ciphertext.into_inner()),
+//!   Cursor::new(ciphertext.into_inner()),
 //!   &mut plaintext,
 //!   &alice_pub,
 //! )?;

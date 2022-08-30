@@ -156,8 +156,8 @@ impl Runnable for EncryptArgs {
         let private_key = decrypt_private_key(&self.passphrase_file, &self.private_key)?;
         private_key.encrypt(
             rand::thread_rng(),
-            &mut self.plaintext.lock(),
-            &mut self.ciphertext.lock(),
+            self.plaintext.lock(),
+            self.ciphertext.lock(),
             &self.receivers,
             self.fakes,
             self.padding,
@@ -193,11 +193,7 @@ struct DecryptArgs {
 impl Runnable for DecryptArgs {
     fn run(mut self) -> Result<()> {
         let private_key = decrypt_private_key(&self.passphrase_file, &self.private_key)?;
-        private_key.decrypt(
-            &mut self.ciphertext.lock(),
-            &mut self.plaintext.lock(),
-            &self.sender,
-        )?;
+        private_key.decrypt(self.ciphertext.lock(), self.plaintext.lock(), &self.sender)?;
         Ok(())
     }
 }
@@ -225,7 +221,7 @@ struct SignArgs {
 impl Runnable for SignArgs {
     fn run(mut self) -> Result<()> {
         let private_key = decrypt_private_key(&self.passphrase_file, &self.private_key)?;
-        let sig = private_key.sign(rand::thread_rng(), &mut self.message.lock())?;
+        let sig = private_key.sign(rand::thread_rng(), self.message.lock())?;
         write!(self.output.lock(), "{}", sig)?;
         Ok(())
     }
@@ -249,7 +245,7 @@ struct VerifyArgs {
 
 impl Runnable for VerifyArgs {
     fn run(mut self) -> Result<()> {
-        self.public_key.verify(&mut self.message.lock(), &self.signature)?;
+        self.public_key.verify(self.message.lock(), &self.signature)?;
         Ok(())
     }
 }
@@ -276,7 +272,7 @@ struct DigestArgs {
 
 impl Runnable for DigestArgs {
     fn run(mut self) -> Result<()> {
-        let digest = Digest::new(&self.metadata, &mut self.message.lock())?;
+        let digest = Digest::new(&self.metadata, self.message.lock())?;
         if let Some(check) = self.check {
             if check == digest {
                 Ok(())
