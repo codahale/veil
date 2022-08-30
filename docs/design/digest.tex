@@ -15,7 +15,7 @@ Creating a message digest is described in full in Alg.~\ref{alg:veil.digest}\@.
                 \State \Call{Absorb}{$V_i$}\Comment{Absorb metadata strings in order.}
             \EndFor
             \State \Call{Absorb}{$M$}\Comment{Absorb message.}
-            \State $D \gets $\Call{Squeeze}{$64$}\Comment{Squeeze a 64-byte digest.}
+            \State $D \gets $\Call{Squeeze}{$32$}\Comment{Squeeze a 32-byte digest.}
             \State \textbf{return} $D$
         \EndFunction
     \end{algorithmic}

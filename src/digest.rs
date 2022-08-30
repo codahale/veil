@@ -29,17 +29,17 @@ impl Digest {
         // Absorb the reader contents.
         digest.absorb_reader(reader)?;
 
-        // Squeeze 64 bytes as a digest.
+        // Squeeze 32 bytes as a digest.
         Ok(Digest(digest.squeeze()))
     }
 
-    /// Create a digest from a 64-byte slice.
+    /// Create a digest from a 32-byte slice.
     #[must_use]
     pub fn decode(b: impl AsRef<[u8]>) -> Option<Digest> {
         Some(Digest(b.as_ref().try_into().ok()?))
     }
 
-    /// Encode the digest as a 64-byte array.
+    /// Encode the digest as a 32-byte array.
     #[must_use]
     pub const fn encode(&self) -> [u8; DIGEST_LEN] {
         self.0
