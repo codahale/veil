@@ -16,7 +16,7 @@ argon2 = { version = "0.4.1", default-features = false, features = ["parallel"] 
 bs58 = "0.4.0"
 constant_time_eq = "0.2.4"
 crrl = "0.1.0"
-cyclist = { version = "0.3.1", default-features = false, features = ["keccyak"] }
+cyclist = { version = "0.3.2", default-features = false, features = ["keccyak"] }
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 thiserror = "1.0.33"
 
