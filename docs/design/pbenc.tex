@@ -1,6 +1,7 @@
 \section{Passphrase-Based Encryption}\label{sec:veil.pbenc}
 
-\texttt{veil.pbenc} implements a memory-hard authenticated encryption scheme to encrypt private keys at rest.
+\texttt{veil.pbenc} implements a memory-hard authenticated encryption scheme to encrypt private keys
+at rest.
 
 \subsection{Encrypting A Private Key}\label{subsec:veil.pbenc-encrypt}
 
@@ -53,7 +54,7 @@ Decrypting a private key is described in full in Alg.~\ref{alg:veil.pbenc-decryp
 
 \subsection{Constructive Analysis Of \texttt{veil.pbenc}}\label{subsec:veil.pbenc-analysis}
 
-\texttt{veil.pbenc} integrates Argon2~\cite{rfc9106}, a memory-hard key derivation function, and a standard Cyclist
-authenticated encryption scheme.
-Argon2 increases the cost for an attacker to mount a brute-force or dictionary attack using highly parallel hardware
-\@(e.g.\ GPUs, ASICs) by increasing the per-core memory requirements for attempts.
+\texttt{veil.pbenc} integrates Argon2~\cite{rfc9106}, a memory-hard key derivation function, and a
+standard Cyclist authenticated encryption scheme.
+Argon2 increases the cost for an attacker to mount a brute-force or dictionary attack using highly
+parallel hardware \@(e.g.\ GPUs, ASICs) by increasing the per-core memory requirements for attempts.

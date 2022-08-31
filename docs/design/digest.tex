@@ -24,8 +24,8 @@ Creating a message digest is described in full in Alg.~\ref{alg:veil.digest}\@.
 
 \subsection{Creating A Message Authentication Code}\label{subsec:veil.digest-mac}
 
-By passing a symmetric key as a metadata string, \texttt{veil.digest} can be adapted to produce message authentication
-codes (see Alg.~\ref{alg:veil.digest-mac}).
+By passing a symmetric key as a metadata string, \texttt{veil.digest} can be adapted to produce
+message authentication codes (see Alg.~\ref{alg:veil.digest-mac}).
 
 \begin{algorithm}[h]
     \caption{Creating a message authentication code with key $K$, metadata strings $V$, and message
@@ -41,13 +41,14 @@ codes (see Alg.~\ref{alg:veil.digest-mac}).
 
 \subsection{Preimage Security and Collision Resistance}\label{subsec:veil.digest-preimage}
 
-The duplex is indistinguishable from a random oracle given that the underlying permutation is indistinguishable from a
-random permutation~\cite[Sec. 8.5]{bertoni2011sponge}\@.
-If Keccak-\emph{p} is strong, an attacker has negligible advantage in finding first or second preimages.
+The duplex is indistinguishable from a random oracle given that the underlying permutation is
+indistinguishable from a random permutation~\cite[Sec. 8.5]{bertoni2011sponge}\@.
+If Keccak-\emph{p} is strong, an attacker has negligible advantage in finding first or second
+preimages.
 
 \subsection{sUF-CMA Security}\label{subsec:veil.digest-suf-cma}
 
-Similarly, the security of a duplex as a MAC reduces to the strength of the
-permutation~\cite[Sec. 8.6]{bertoni2011sponge}\@.
-An attack which forges a message for a given key and MAC would imply Cyclist's \textsc{Squeeze} operation is not sUF-CMA
-secure.
+Similarly, the security of a duplex as a MAC reduces to the strength of the permutation~\cite[Sec.
+    8.6]{bertoni2011sponge}\@.
+An attack which forges a message for a given key and MAC would imply Cyclist's \textsc{Squeeze}
+operation is not sUF-CMA secure.

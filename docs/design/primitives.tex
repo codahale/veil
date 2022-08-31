@@ -3,30 +3,34 @@
 In the interests of cryptographic minimalism, Veil uses just two distinct cryptographic primitives:
 
 \begin{itemize}
-    \item Keccyak-128~\cite{daemen2020,bertoni2018} for confidentiality, authentication, and integrity.
+    \item Keccyak-128~\cite{daemen2020,bertoni2018} for confidentiality, authentication, and
+          integrity.
     \item jq255e for key agreement and authenticity~\cite{pornin2022}\@.
 \end{itemize}
 
 \subsection{Keccyak-128}\label{subsec:keccyak}
 
-Keccyak-128 is the adaptation of the Cyclist duplex construction from Xoodyak~\cite{daemen2020} to the
-Keccak-\emph{p}[1600,12] permutation instead of Xoodoo (thus ``Keccyak'').
+Keccyak-128 is the adaptation of the Cyclist duplex construction from Xoodyak~\cite{daemen2020} to
+the Keccak-\emph{p}[1600,12] permutation instead of Xoodoo (thus ``Keccyak'').
 
-Cyclist is a permutation-based cryptographic duplex, a cryptographic primitive that provides symmetric-key
-confidentiality, integrity, and authentication via a single object~\cite{daemen2020}\@.
-Duplexes offer a way to replace complex, ad-hoc constructions combining encryption algorithms, cipher modes,
-AEADs, MACs, and hash algorithms using a single primitive~\cite{daemen2020, bertoni2011duplex}\@.
-Duplexes have security properties which reduce to the properties of the cryptographic sponge, which themselves reduce to
-the strength of the underlying permutation~\cite{bertoni2008}\@.
+Cyclist is a permutation-based cryptographic duplex, a cryptographic primitive that provides
+symmetric-key confidentiality, integrity, and authentication via a single
+object~\cite{daemen2020}\@.
+Duplexes offer a way to replace complex, ad-hoc constructions combining encryption algorithms,
+cipher modes, AEADs, MACs, and hash algorithms using a single primitive~\cite{daemen2020,
+    bertoni2011duplex}\@.
+Duplexes have security properties which reduce to the properties of the cryptographic sponge, which
+themselves reduce to the strength of the underlying permutation~\cite{bertoni2008}\@.
 
-The Keccak-\emph{p}[1600,12] permutation is the basis of the KangarooTwelve hash algorithm~\cite{bertoni2018} and allows
-for much higher throughput in software than the Xoodoo permutation at the expense of requiring a larger state.
-It has a 1600-bit width, like Keccak-\emph{f}[1600] (the basis of SHA-3)\@, but with a reduced number of rounds for
-speed.
-Xoodyak's Cyclist parameters of $R_\text{hash}=b-256$, $R_\text{kin}=b-32$, $R_\text{kout}=b-192$, and
-$\ell_\text{ratchet}=16$ are adapted for the larger permutation width of $b=1600$.
-The resulting construction targets a 128-bit security level and is $\sim$4x faster than SHA-256, $\sim$5x faster
-than ChaCha20Poly1305, and $\sim$7.5x faster than AES-128-GCM in software.
+The Keccak-\emph{p}[1600,12] permutation is the basis of the KangarooTwelve hash
+algorithm~\cite{bertoni2018} and allows for much higher throughput in software than the Xoodoo
+permutation at the expense of requiring a larger state.
+It has a 1600-bit width, like Keccak-\emph{f}[1600] (the basis of SHA-3)\@, but with a reduced
+number of rounds for speed.
+Xoodyak's Cyclist parameters of $R_\text{hash}=b-256$, $R_\text{kin}=b-32$, $R_\text{kout}=b-192$,
+and $\ell_\text{ratchet}=16$ are adapted for the larger permutation width of $b=1600$.
+The resulting construction targets a 128-bit security level and is $\sim$4x faster than SHA-256,
+$\sim$5x faster than ChaCha20Poly1305, and $\sim$7.5x faster than AES-128-GCM in software.
 
 Veil's security assumes that Cyclist's \textsc{Encrypt} operation is IND-CPA secure, its
 \textsc{Squeeze} operation is sUF-CMA secure, and its
@@ -34,11 +38,12 @@ Veil's security assumes that Cyclist's \textsc{Encrypt} operation is IND-CPA sec
 
 \subsection{jq255e}\label{subsec:jq255e}
 
-jq255e is a double-odd elliptic curve selected for efficiency and simplicity~\cite{pornin2020do,pornin2022}\@.
+jq255e is a double-odd elliptic curve selected for efficiency and
+simplicity~\cite{pornin2020do,pornin2022}\@.
 It provides a prime-order group, has non-malleable encodings, and has no co-factor concerns.
 This allows for the use of a wide variety of cryptographic constructions built on group operations.
-It targets a 128-bit security level, lends itself to constant-time implementations, and can run in constrained
-environments.
+It targets a 128-bit security level, lends itself to constant-time implementations, and can run in
+constrained environments.
 
-Veil's security assumes that the Gap Discrete Logarithm and Gap Diffie-Hellman problems are hard relative to
-jq255e.
+Veil's security assumes that the Gap Discrete Logarithm and Gap Diffie-Hellman problems are hard
+relative to jq255e.

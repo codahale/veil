@@ -65,45 +65,47 @@ Verifying a signature is described in full in Alg.~\ref{alg:veil.schnorr-verify}
 
 \subsection{Constructive Analysis Of \texttt{veil.schnorr}}\label{subsec:veil.schnorr-analysis}
 
-The Schnorr signature scheme is the application of the Fiat-Shamir transform to the Schnorr identification scheme.
+The Schnorr signature scheme is the application of the Fiat-Shamir transform to the Schnorr
+identification scheme.
 
-Unlike Construction 13.12 of~\textcite[p. 482]{katz2020}, \texttt{veil.schnorr} transmits the commitment point $I$ as
-part of the signature and the verifier calculates $I'$ vs transmitting the challenge scalar $r$ and calculating $r'$.
-In this way, \texttt{veil.schnorr} is closer to EdDSA~\cite{brendel2021} or the Schnorr variant proposed by
-Hamburg~\cite{hamburg2017}.
+Unlike Construction 13.12 of~\textcite[p. 482]{katz2020}, \texttt{veil.schnorr} transmits the
+commitment point $I$ as part of the signature and the verifier calculates $I'$ vs transmitting the
+challenge scalar $r$ and calculating $r'$.
+In this way, \texttt{veil.schnorr} is closer to EdDSA~\cite{brendel2021} or the Schnorr variant
+proposed by Hamburg~\cite{hamburg2017}.
 In addition, this construction allows for the use of variable-time optimizations during signature
 verification~\cite{pornin2020schnorr}.
 
 \subsection{UF-CMA Security}\label{subsec:veil.schnorr-uf-cma}
 
-Per Theorem 13.10 of~\textcite[p. 478]{katz2020}, this construction is UF-CMA secure if the Schnorr identification
-scheme is secure and the hash function is secure:
+Per Theorem 13.10 of~\textcite[p. 478]{katz2020}, this construction is UF-CMA secure if the Schnorr
+identification scheme is secure and the hash function is secure:
 
 \begin{displayquote}
-    Let $\Pi$ be an identification scheme, and let $\Pi'$ be the signature scheme that results by applying the
-    Fiat-Shamir transform to it.
+    Let $\Pi$ be an identification scheme, and let $\Pi'$ be the signature scheme that results by
+    applying the Fiat-Shamir transform to it.
     If $\Pi$ is secure and $H$ is modeled as a random oracle, then $\Pi'$ is secure.
 \end{displayquote}
 
-Per Theorem 13.11 of~\textcite[p. 481]{katz2020}, the security of the Schnorr identification scheme is conditioned on
-the hardness of the discrete logarithm problem:
+Per Theorem 13.11 of~\textcite[p. 481]{katz2020}, the security of the Schnorr identification scheme
+is conditioned on the hardness of the discrete logarithm problem:
 
 \begin{displayquote}
-    If the discrete-logarithm problem is hard relative to $\mathcal{G}$, then the Schnorr identification scheme is
-    secure.
+    If the discrete-logarithm problem is hard relative to $\mathcal{G}$, then the Schnorr
+    identification scheme is secure.
 \end{displayquote}
 
-Per Sec 5.10 of~\textcite{bertoni2011sponge}, Cyclist is a suitable random oracle if the underlying permutation is
-indistinguishable from a random permutation.
-Thus, \texttt{veil.schnorr} is UF-CMA if the discrete-logarithm problem is hard relative to P-256 and Keccak-\emph{p} is
-indistinguishable from a random permutation.
+Per Sec 5.10 of~\textcite{bertoni2011sponge}, Cyclist is a suitable random oracle if the underlying
+permutation is indistinguishable from a random permutation.
+Thus, \texttt{veil.schnorr} is UF-CMA if the discrete-logarithm problem is hard relative to jq255e
+and Keccak-\emph{p} is indistinguishable from a random permutation.
 
 \subsection{sUF-CMA Security}\label{subsec:veil.schnorr-suf-cma}
 
-Some Schnorr/EdDSA implementations (e.g.\ Ed25519) suffer from malleability issues, allowing for multiple valid
-signatures for a given signer and message~\cite{brendel2021}.
-\textcite{chalkias2020} describe a strict verification function for Ed25519 which achieves sUF-CMA security in addition
-to strong binding:
+Some Schnorr/EdDSA implementations (e.g.\ Ed25519) suffer from malleability issues, allowing for
+multiple valid signatures for a given signer and message~\cite{brendel2021}.
+\textcite{chalkias2020} describe a strict verification function for Ed25519 which achieves sUF-CMA
+security in addition to strong binding:
 
 \begin{displayquote}
     \begin{enumerate}
@@ -115,31 +117,34 @@ to strong binding:
     \end{enumerate}
 \end{displayquote}
 
-Rejecting $S \geq L$ makes the scheme sUF-CMA secure, and rejecting small order $A$ values makes the scheme strongly
-binding.
-\texttt{veil.schnorr}'s use of canonical point and scalar encoding routines obviate the need for these checks.
-Likewise, P-256 is a prime order group, which obviates the need for cofactoring in verification.
+Rejecting $S \geq L$ makes the scheme sUF-CMA secure, and rejecting small order $A$ values makes the
+scheme strongly binding.
+\texttt{veil.schnorr}'s use of canonical point and scalar encoding routines obviate the need for
+these checks.
+Likewise, jq255e is a prime order group, which obviates the need for cofactoring in verification.
 
-When implemented with a prime order group and canonical encoding routines, the Schnorr signature scheme is strongly
-unforgeable under chosen message attack (sUF-CMA) in the random oracle model and even with practical cryptographic hash
-functions~\cite{pointcheval2000,neven2009}.
+When implemented with a prime order group and canonical encoding routines, the Schnorr signature
+scheme is strongly unforgeable under chosen message attack (sUF-CMA) in the random oracle model and
+even with practical cryptographic hash functions~\cite{pointcheval2000,neven2009}.
 
 \subsection{Key Privacy}\label{subsec:veil.schnorr-key-privacy}
 
-The EdDSA variant (i.e.\ $S=(I,s)$) is used over the traditional Schnorr construction (i.e.\ $S=(r,s)$) to enable the
-variable-time computation of $I'=[s]G - [r]Q$, which provides a \textasciitilde30\% performance improvement.
-That construction, however, allows for the recovery of the signing public key given a signature and a message: given the
-commitment point $I$, one can calculate $Q=-[r^{-1}](I - [s]G)$.
+The EdDSA variant (i.e.\ $S=(I,s)$) is used over the traditional Schnorr construction (i.e.\
+$S=(r,s)$) to enable the variable-time computation of $I'=[s]G - [r]Q$, which provides a
+\textasciitilde30\% performance improvement.
+That construction, however, allows for the recovery of the signing public key given a signature and
+a message: given the commitment point $I$, one can calculate $Q=-[r^{-1}](I - [s]G)$.
 
 For Veil, this behavior is not desirable.
-A global passive adversary should not be able to discover the identity of a signer from a signed message.
+A global passive adversary should not be able to discover the identity of a signer from a signed
+message.
 
-To eliminate this possibility, \texttt{veil.schnorr} encrypts both components of the signature with a duplex keyed with
-the signer's public key in addition to the message.
-An attack which recovers the plaintext of either signature component in the absence of the public key would imply that
-Cyclist is not IND-CPA\@.
+To eliminate this possibility, \texttt{veil.schnorr} encrypts both components of the signature with
+a duplex keyed with the signer's public key in addition to the message.
+An attack which recovers the plaintext of either signature component in the absence of the public
+key would imply that Cyclist is not IND-CPA\@.
 
 \subsection{Indistinguishability From Random Noise}\label{subsec:veil.schnorr-indistinguishability}
 
-Given that both signature components are encrypted with Cyclist, an attack which distinguishes between a
-\texttt{veil.schnorr} and random noise would also imply that Cyclist is not IND-CPA\@.
+Given that both signature components are encrypted with Cyclist, an attack which distinguishes
+between a \texttt{veil.schnorr} and random noise would also imply that Cyclist is not IND-CPA\@.

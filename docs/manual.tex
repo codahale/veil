@@ -27,8 +27,8 @@
 \pdfbookmark[1]{Title}{title}
 \maketitle
 \begin{abstract}
-    Veil is a public-key cryptosystem that provides confidentiality, authenticity, and integrity services for
-    messages of arbitrary sizes and multiple receivers.
+    Veil is a public-key cryptosystem that provides confidentiality, authenticity, and integrity
+    services for messages of arbitrary sizes and multiple receivers.
     Veil is implemented as a command line tool \texttt{veil}\@.
     This document describes its feature set and usage.
 \end{abstract}
@@ -48,15 +48,16 @@ To install Veil, check out this repository and build it yourself:
     cargo install
     \end{verbatim}
 
-Because this is a cryptosystem designed by one person with no formal training and has not been audited, it will
-never be packaged conveniently.
-Cryptographic software is primarily used in high-risk environments where strong assurances of correctness,
-confidentiality, integrity, etc.\ are required, and \texttt{veil} does not provide those assurances.
-It's more of an art installation than a practical tool.
+Because this is a cryptosystem designed by one person with no formal training and has not been
+audited, it will never be packaged conveniently.
+Cryptographic software is primarily used in high-risk environments where strong assurances of
+correctness, confidentiality, integrity, etc.\ are required, and \texttt{veil} does not provide
+those assurances. It's more of an art installation than a practical tool.
 
 \section{Shell Completion}\label{sec:shell-completion}
 
-\texttt{veil} can generate its own shell completion scripts for Bash, Elvish, Fish, Powershell, and Zsh:
+\texttt{veil} can generate its own shell completion scripts for Bash, Elvish, Fish, Powershell, and
+Zsh:
 
 \begin{verbatim}
     veil complete zsh /usr/local/share/zsh/site-functions/
@@ -99,16 +100,16 @@ To encrypt a message, you need your private key, the receivers' public keys, and
         --fakes 18 --padding 1234
     \end{verbatim}
 
-This will create a file \texttt{message.txt.veil} which the owners of the two public keys can decrypt if they have
-your public key.
+This will create a file \texttt{message.txt.veil} which the owners of the two public keys can
+decrypt if they have your public key.
 It adds 18 fake receivers, so neither receiver really knows how many people you sent the message to.
-It also adds 1234 bytes of random padding, so someone monitoring your communications won't know how long the message
-really is.
+It also adds 1234 bytes of random padding, so someone monitoring your communications won't know how
+long the message really is.
 
 \section{Decrypting A Message}\label{sec:decrypting-a-message}
 
-To decrypt a message, you'll need the key path of the public key the message was encrypted for, the encrypted
-message, and the sender's public key:
+To decrypt a message, you'll need the key path of the public key the message was encrypted for, the
+encrypted message, and the sender's public key:
 
 \begin{verbatim}
     veil decrypt ./my-private-key reply.txt.veil reply.txt \
@@ -117,8 +118,8 @@ message, and the sender's public key:
 
 This will decrypt and verify the message.
 If successful, you'll know that the owner of the public key encrypted that exact message for you.
-Otherwise, the message may not have been encrypted for you, it may not have been encrypted by that sender, or the
-encrypted message may have been tampered with.
+Otherwise, the message may not have been encrypted for you, it may not have been encrypted by that
+sender, or the encrypted message may have been tampered with.
 
 \section{Signing A Message}\label{sec:signing-a-message}
 
@@ -130,12 +131,13 @@ To sign a message, you'll just need the message:
     2sXLDBeTwHuECPp7QjWKdLYB3M9oLkju...
     \end{verbatim}
 
-You can then share \texttt{announcement.txt} and the signature and people will be able to verify that the message is
-from you and has not been modified.
+You can then share \texttt{announcement.txt} and the signature and people will be able to verify
+that the message is from you and has not been modified.
 
 \section{Verifying A Message}\label{sec:verifying-a-message}
 
-To verify a signature of a message, you'll need the signer's public key, the message, and the signature:
+To verify a signature of a message, you'll need the signer's public key, the message, and the
+signature:
 
 \begin{verbatim}
     veil verify TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa \
@@ -143,8 +145,8 @@ To verify a signature of a message, you'll need the signer's public key, the mes
         2sXLDBeTwHuECPp7QjWKdLYB3M9oLkju...
     \end{verbatim}
 
-If the signature is from the given public key and the message hasn't been altered, \texttt{veil} will exit with a
-status of \texttt{0}\@.
+If the signature is from the given public key and the message hasn't been altered, \texttt{veil}
+will exit with a status of \texttt{0}\@.
 
 \section{Creating Message Digests}\label{sec:creating-message-digests}
 
@@ -158,7 +160,8 @@ To create a digest of a message, you'll just need the message:
 
 \subsection{Including Metadata}\label{subsec:including-metadata}
 
-The \texttt{digest} command accepts optional metadata strings which are included in the calculation of the digest:
+The \texttt{digest} command accepts optional metadata strings which are included in the calculation
+of the digest:
 
 \begin{verbatim}
     $ veil digest announcement.txt \

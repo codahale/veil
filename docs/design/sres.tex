@@ -1,9 +1,9 @@
 \section{Encrypted Headers}\label{sec:veil.sres}
 
-\texttt{veil.sres} implements a single-receiver, deniable signcryption scheme which Veil uses to encrypt message
-headers.
-It integrates an ephemeral ECDH KEM, a Cyclist DEM, and a designated-verifier Schnorr signature scheme to provide
-multi-user insider security.
+\texttt{veil.sres} implements a single-receiver, deniable signcryption scheme which Veil uses to
+encrypt message headers.
+It integrates an ephemeral ECDH KEM, a Cyclist DEM, and a designated-verifier Schnorr signature
+scheme to provide multi-user insider security.
 
 \subsection{Encrypting A Header}\label{subsec:veil.sres-encrypt}
 
@@ -90,34 +90,35 @@ Decrypting a header is described in full in Alg.~\ref{alg:veil.sres-decrypt}\@.
 
 \subsection{Constructive Analysis Of \texttt{veil.sres}}\label{subsec:veil.sres-analysis}
 
-\texttt{veil.sres} is an integration of two well-known constructions: an ECIES-style hybrid public key encryption scheme
-and a designated-verifier Schnorr signature scheme.
+\texttt{veil.sres} is an integration of two well-known constructions: an ECIES-style hybrid public
+key encryption scheme and a designated-verifier Schnorr signature scheme.
 
-The initial portion of \texttt{veil.sres} is equivalent to ECIES (see Construction 12.23 of~\cite[p. 435]{katz2020}),
-\@(with the commitment point $I$ as an addition to the ciphertext, and the challenge scalar $r$ serving as the
-authentication tag for the data encapsulation mechanism) and is IND-CCA2 secure (see Corollary 12.14
-of~\cite[p. 436]{katz2020}).
+The initial portion of \texttt{veil.sres} is equivalent to ECIES (see Construction 12.23 of~\cite[p.
+    435]{katz2020}), \@(with the commitment point $I$ as an addition to the ciphertext, and the
+challenge scalar $r$ serving as the authentication tag for the data encapsulation mechanism) and is
+IND-CCA2 secure (see Corollary 12.14 of~\cite[p. 436]{katz2020}).
 
-The latter portion of \texttt{veil.sres} is a designated-verifier Schnorr signature scheme which adapts an EdDSA-style
-Schnorr signature scheme by multiplying the proof scalar $s$ by the receiver's public key $Q_R$ to produce a
-designated-verifier point $X$~\cite{steinfeld2004}.
-The EdDSA-style Schnorr signature is sUF-CMA secure when implemented in a prime order
-group and a cryptographic hash function~\cite{brendel2021, chalkias2020, pointcheval2000, neven2009}
-(see also Sec.~\ref{sec:veil.schnorr})\@.
+The latter portion of \texttt{veil.sres} is a designated-verifier Schnorr signature scheme which
+adapts an EdDSA-style Schnorr signature scheme by multiplying the proof scalar $s$ by the receiver's
+public key $Q_R$ to produce a designated-verifier point $X$~\cite{steinfeld2004}.
+The EdDSA-style Schnorr signature is sUF-CMA secure when implemented in a prime order group and a
+cryptographic hash function~\cite{brendel2021, chalkias2020, pointcheval2000, neven2009} (see also
+Sec.~\ref{sec:veil.schnorr})\@.
 
 \subsection{Multi-User Confidentiality}\label{subsec:veil.sres-conf}
 
 One of the two main goals of the \texttt{veil.sres} is confidentiality in the multi-user setting
-(see Sec.~\ref{subsec:sec-conf}), or the inability of an adversary $\Adversary$ to learn information about plaintexts.
+(see Sec.~\ref{subsec:sec-conf}), or the inability of an adversary $\Adversary$ to learn information
+about plaintexts.
 
 \subsubsection{Outsider Confidentiality}
 
-First, we evaluate the confidentiality of \texttt{veil.sres} in the multi-user outsider setting
-(see Sec.~\ref{subsubsec:sec-conf-outsider}), in which the adversary $\Adversary$ knows the public keys of all users but
-none of their private keys~\cite[p. 44]{baek2010}\@.
+First, we evaluate the confidentiality of \texttt{veil.sres} in the multi-user outsider setting (see
+Sec.~\ref{subsubsec:sec-conf-outsider}), in which the adversary $\Adversary$ knows the public keys
+of all users but none of their private keys~\cite[p. 44]{baek2010}\@.
 
-The classic multi-user attack on the generic Encrypt-Then-Sign ($\EtS$) construction sees $\Adversary$ strip the
-signature $\sigma$ from the challenge ciphertext
+The classic multi-user attack on the generic Encrypt-Then-Sign ($\EtS$) construction sees
+$\Adversary$ strip the signature $\sigma$ from the challenge ciphertext
 \[
     C=(c,\sigma,Q_S,Q_R)
 \]
@@ -129,81 +130,87 @@ to produce an attacker ciphertext
 \[
     C'=(c,\sigma',Q_{\Adversary},Q_R)
 \]
-at which point $\Adversary$ can trick the receiver into decrypting the result and giving $\Adversary$ to the
-randomly-chosen plaintext $m_0 \lor m_1$~\cite[p. 40]{an2010}.
-This attack is not possible with \texttt{veil.sres}\@, as the sender's public key is strongly bound during
-encryption (see Alg.~\ref{alg:veil.sres-encrypt}, Line~\ref{alg:veil.sres-encrypt-bind-sender}) and decryption
-(see Alg.~\ref{alg:veil.sres-decrypt}, Line~\ref{alg:veil.sres-decrypt-bind-sender}).
+at which point $\Adversary$ can trick the receiver into decrypting the result and giving
+$\Adversary$ to the randomly-chosen plaintext $m_0 \lor m_1$~\cite[p. 40]{an2010}.
+This attack is not possible with \texttt{veil.sres}\@, as the sender's public key is strongly bound
+during encryption (see Alg.~\ref{alg:veil.sres-encrypt},
+Line~\ref{alg:veil.sres-encrypt-bind-sender}) and decryption (see Alg.~\ref{alg:veil.sres-decrypt},
+Line~\ref{alg:veil.sres-decrypt-bind-sender}).
 
-$\Adversary$ is unable to forge valid signatures for existing ciphertexts, limiting them to passive attacks.
-A passive attack on any of the three components of \texttt{veil.sres} ciphertexts--$C$, $S_0$, $S_1$--would only be
-possible if Cyclist is not IND-CPA secure.
+$\Adversary$ is unable to forge valid signatures for existing ciphertexts, limiting them to passive
+attacks. A passive attack on any of the three components of \texttt{veil.sres} ciphertexts--$C$,
+$S_0$, $S_1$--would only be possible if Cyclist is not IND-CPA secure.
 
 Therefore, \texttt{veil.sres} provides confidentiality in the multi-user outsider setting.
 
 \subsubsection{Insider Confidentiality}
 
-Next, we evaluate the confidentiality of \texttt{veil.sres} in the multi-user insider setting
-(see Sec.~\ref{subsubsec:sec-conf-insider}), in which the adversary $\Adversary$ knows the sender's private key in
-addition to the public keys of both users~\cite[p. 45--46]{baek2010}\@.
+Next, we evaluate the confidentiality of \texttt{veil.sres} in the multi-user insider setting (see
+Sec.~\ref{subsubsec:sec-conf-insider}), in which the adversary $\Adversary$ knows the sender's
+private key in addition to the public keys of both users~\cite[p. 45--46]{baek2010}\@.
 
-$\Adversary$ cannot decrypt the message by themselves, as they do not know either $d_E$ or $d_R$ and cannot calculate
-the ECDH shared secret $[d_E]Q_R=[d_R]Q_E=[d_E{d_R}G]$.
+$\Adversary$ cannot decrypt the message by themselves, as they do not know either $d_E$ or $d_R$ and
+cannot calculate the ECDH shared secret $[d_E]Q_R=[d_R]Q_E=[d_E{d_R}G]$.
 
-$\Adversary$ also cannot trick the receiver into decrypting an equivalent message by replacing the signature, despite
-$\Adversary\text{'s}$ ability to use $d_S$ to create new signatures.
-In order to generate a valid signature on a ciphertext $c'$ (e.g.\ $c'=c||1$), $\Adversary$ would have to squeeze a
-valid challenge scalar $r'$ from the duplex state (see Alg.~\ref{alg:veil.sres-encrypt},
-Line~\ref{alg:veil.sres-encrypt-challenge}).
-Unlike the signature hash function in the generic $\EtS$ composition, however, the duplex state is cryptographically
-dependent on values $\Adversary$ does not know, specifically the ECDH shared secret $[d_E]Q_S$ \@(via the
-\textsc{Absorb} operation) and the plaintext $P$ (via the \textsc{Encrypt} operation).
+$\Adversary$ also cannot trick the receiver into decrypting an equivalent message by replacing the
+signature, despite $\Adversary\text{'s}$ ability to use $d_S$ to create new signatures.
+In order to generate a valid signature on a ciphertext $c'$ (e.g.\ $c'=c||1$), $\Adversary$ would
+have to squeeze a valid challenge scalar $r'$ from the duplex state (see
+Alg.~\ref{alg:veil.sres-encrypt}, Line~\ref{alg:veil.sres-encrypt-challenge}).
+Unlike the signature hash function in the generic $\EtS$ composition, however, the duplex state is
+cryptographically dependent on values $\Adversary$ does not know, specifically the ECDH shared
+secret $[d_E]Q_S$ \@(via the \textsc{Absorb} operation) and the plaintext $P$ (via the
+\textsc{Encrypt} operation).
 
 Therefore, \texttt{veil.sres} provides confidentiality in the multi-user insider setting.
 
 \subsection{Multi-User Authenticity}\label{subsec:veil.sres-auth}
 
 The second of the two main goals of the \texttt{veil.sres} is authenticity in the multi-user setting
-(see Sec.~\ref{subsec:sec-auth}), or the inability of an adversary $\Adversary$ to forge valid ciphertexts.
+(see Sec.~\ref{subsec:sec-auth}), or the inability of an adversary $\Adversary$ to forge valid
+ciphertexts.
 
 \subsubsection{Outsider Authenticity}
 
-First, we evaluate the authenticity of \texttt{veil.sres} in the multi-user outsider setting
-(see Sec.~\ref{subsubsec:sec-auth-outsider}), in which the adversary $\Adversary$ knows the public keys of all users but
-none of their private keys~\cite[p. 47]{baek2010}\@.
+First, we evaluate the authenticity of \texttt{veil.sres} in the multi-user outsider setting (see
+Sec.~\ref{subsubsec:sec-auth-outsider}), in which the adversary $\Adversary$ knows the public keys
+of all users but none of their private keys~\cite[p. 47]{baek2010}\@.
 
-Because the Schnorr signature scheme is sUF-CMA secure, it is infeasible for $\Adversary$ to forge a signature for a new
-message or modify an existing signature for an existing message.
+Because the Schnorr signature scheme is sUF-CMA secure, it is infeasible for $\Adversary$ to forge a
+signature for a new message or modify an existing signature for an existing message.
 Therefore, \texttt{veil.sres} provides authenticity in the multi-user outsider setting.
 
 \subsubsection{Insider Authenticity}
 
-Next, we evaluate the authenticity of \texttt{veil.sres} in the multi-user insider setting
-(see Sec.~\ref{subsubsec:sec-auth-insider}), in which the adversary $\Adversary$ knows the receiver's private key in
-addition to the public keys of both users~\cite[p. 48]{baek2010}\@.
+Next, we evaluate the authenticity of \texttt{veil.sres} in the multi-user insider setting (see
+Sec.~\ref{subsubsec:sec-auth-insider}), in which the adversary $\Adversary$ knows the receiver's
+private key in addition to the public keys of both users~\cite[p. 48]{baek2010}\@.
 
-Again, the Schnorr signature scheme is sUF-CMA secure and the signature is created using the signer's private key.
-The receiver (or $\Adversary$ in possession of the receiver's private key) cannot forge signatures for new messages.
-Therefore, \texttt{veil.sres} provides authenticity in the multi-user insider setting.
+Again, the Schnorr signature scheme is sUF-CMA secure and the signature is created using the
+signer's private key.
+The receiver (or $\Adversary$ in possession of the receiver's private key) cannot forge signatures
+for new messages. Therefore, \texttt{veil.sres} provides authenticity in the multi-user insider
+setting.
 
 \subsection{Limited Deniability}\label{subsec:veil.sres-deniability}
 
-\texttt{veil.sres}{'s} use of a designated-verifier Schnorr scheme provides limited deniability for senders
-(see Sec.~\ref{subsec:security-deniability}).
-Without revealing $d_R$, the receiver cannot prove the authenticity of a message \@(including the identity of its
-sender) to a third party.
+\texttt{veil.sres}{'s} use of a designated-verifier Schnorr scheme provides limited deniability for
+senders (see Sec.~\ref{subsec:security-deniability}).
+Without revealing $d_R$, the receiver cannot prove the authenticity of a message \@(including the
+identity of its sender) to a third party.
 
 \subsection{Indistinguishability From Random Noise}\label{subsec:veil.sres-indistinguishability}
 
-All of the components of a \texttt{veil.sres} ciphertext--$C$, $S_0$, and $S_1$--are Cyclist ciphertexts.
-An adversary in the outsider setting \@(i.e.\ knowing only public keys) is unable to calculate any of the key material
-used to produce the ciphertexts;
+All of the components of a \texttt{veil.sres} ciphertext--$C$, $S_0$, and $S_1$--are Cyclist
+ciphertexts.
+An adversary in the outsider setting \@(i.e.\ knowing only public keys) is unable to calculate any
+of the key material used to produce the ciphertexts;
 a distinguishing attack is infeasible if Cyclist is IND-CPA secure.
 
 \subsection{Re-use Of Ephemeral Keys}\label{subsec:veil.sres-re-using-ephemeral-keys}
 
-The re-use of an ephemeral key pair $(d_E, Q_E)$ across multiple ciphertexts does not impair the confidentiality of the
-scheme provided $(N, Q_R)$ pairs are not re-used~\cite{bellare2003}\@.
-An adversary who compromises a retained ephemeral private key would be able to decrypt all messages the sender encrypted
-using that ephemeral key, thus the forward sender security is bounded by the sender's retention of the ephemeral private
-key.
+The re-use of an ephemeral key pair $(d_E, Q_E)$ across multiple ciphertexts does not impair the
+confidentiality of the scheme provided $(N, Q_R)$ pairs are not re-used~\cite{bellare2003}\@.
+An adversary who compromises a retained ephemeral private key would be able to decrypt all messages
+the sender encrypted using that ephemeral key, thus the forward sender security is bounded by the
+sender's retention of the ephemeral private key.
