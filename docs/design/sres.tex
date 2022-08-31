@@ -10,46 +10,41 @@ multi-user insider security.
 Encrypting a header is described in full in Alg.~\ref{alg:veil.sres-encrypt}\@.
 
 \begin{algorithm}[!htp]
-    \caption{
-        Encrypting a header with sender's key pair $(d_S, Q_S)$, ephemeral key pair $(d_E, Q_E)$, receiver's public key
-        $Q_R$, nonce $N$, and plaintext $P$.
-    }
+    \caption{Encrypting a header with sender's key pair $(d_S, Q_S)$, ephemeral key pair
+        $(d_E, Q_E)$, receiver's public key $Q_R$, nonce $N$, and plaintext $P$.}
     \begin{algorithmic}[1]
         \Function{EncryptHeader}{$(d_S, Q_S), (d_E, Q_E), Q_R, N, P$}
-            \State \Call{Absorb}{\texttt{veil.sres}}\Comment{Initialize an unkeyed duplex.}
-
-            \State \Call{Absorb}{$Q_S$}\label{alg:veil.sres-encrypt-bind-sender}\Comment{Absorb the sender's public key.}
-            \State \Call{Absorb}{$Q_R$}\Comment{Absorb the receiver's public key.}
-            \State \Call{Absorb}{$N$}\Comment{Absorb the nonce.}
-            \State \Call{Absorb}{$d_S[Q_R]$}\Comment{Absorb the static ECDH shared secret.}
-            \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
-            \State
-
-            \State $C_0 \gets$ \Call{Encrypt}{$Q_E$}\Comment{Encrypt the ephemeral public key.}
-            \State \Call{Absorb}{$d_E[Q_R]$}\Comment{Absorb the ephemeral ECDH shared secret.}
-            \State $C_1 \gets$ \Call{Encrypt}{$P$}\Comment{Encrypt the plaintext.}
-
-            \State
-            \Clone \Comment{Clone the duplex's state.}
-            \State \Call{Absorb}{$d_S$}\Comment{Absorb the sender's private key.}
-            \State $v \rgets \allbits{512}$\Comment{Generate a random value.}
-            \State \Call{Absorb}{$v$}\Comment{Absorb the random value.}
-            \State $k \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a commitment scalar.}
-            \State \textbf{yield} $k$
-            \End
-            \State
-            \State $I \gets [k]G$\Comment{Calculate the commitment point.}
-            \State $S_0 \gets$ \Call{Encrypt}{$I$}\Comment{Encrypt the commitment point.}
-            \State
-            \State $r \gets$ \Call{Squeeze}{$64$} $\modl$
-            \label{alg:veil.sres-encrypt-challenge}
-            \Comment{Squeeze a challenge scalar.}
-            \State $s \gets d_S{r}+k$\Comment{Calculate the proof scalar.}
-            \State
-            \State $X \gets [s]Q_R$\Comment{Calculate the proof point.}
-            \State $S_1 \gets$ \Call{Encrypt}{$X$}\Comment{Encrypt the proof point.}
-            \State
-            \State \textbf{return} $C_0||C_1||S_0||S_1$
+        \State \Call{Absorb}{\texttt{veil.sres}}\Comment{Initialize an unkeyed duplex.}
+        \State \Call{Absorb}{$Q_S$}\label{alg:veil.sres-encrypt-bind-sender}\Comment{Absorb the sender's public key.}
+        \State \Call{Absorb}{$Q_R$}\Comment{Absorb the receiver's public key.}
+        \State \Call{Absorb}{$N$}\Comment{Absorb the nonce.}
+        \State \Call{Absorb}{$d_S[Q_R]$}\Comment{Absorb the static ECDH shared secret.}
+        \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
+        \State
+        \State $C_0 \gets$ \Call{Encrypt}{$Q_E$}\Comment{Encrypt the ephemeral public key.}
+        \State \Call{Absorb}{$d_E[Q_R]$}\Comment{Absorb the ephemeral ECDH shared secret.}
+        \State $C_1 \gets$ \Call{Encrypt}{$P$}\Comment{Encrypt the plaintext.}
+        \State
+        \Clone \Comment{Clone the duplex's state.}
+        \State \Call{Absorb}{$d_S$}\Comment{Absorb the sender's private key.}
+        \State $v \rgets \allbits{512}$\Comment{Generate a random value.}
+        \State \Call{Absorb}{$v$}\Comment{Absorb the random value.}
+        \State $k \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a commitment scalar.}
+        \State \textbf{yield} $k$
+        \End
+        \State
+        \State $I \gets [k]G$\Comment{Calculate the commitment point.}
+        \State $S_0 \gets$ \Call{Encrypt}{$I$}\Comment{Encrypt the commitment point.}
+        \State
+        \State $r \gets$ \Call{Squeeze}{$64$} $\modl$
+        \label{alg:veil.sres-encrypt-challenge}
+        \Comment{Squeeze a challenge scalar.}
+        \State $s \gets d_S{r}+k$\Comment{Calculate the proof scalar.}
+        \State
+        \State $X \gets [s]Q_R$\Comment{Calculate the proof point.}
+        \State $S_1 \gets$ \Call{Encrypt}{$X$}\Comment{Encrypt the proof point.}
+        \State
+        \State \textbf{return} $C_0||C_1||S_0||S_1$
         \EndFunction
     \end{algorithmic}
     \label{alg:veil.sres-encrypt}
@@ -60,36 +55,34 @@ Encrypting a header is described in full in Alg.~\ref{alg:veil.sres-encrypt}\@.
 Decrypting a header is described in full in Alg.~\ref{alg:veil.sres-decrypt}\@.
 
 \begin{algorithm}[!htp]
-    \caption{
-        Decrypting a header with receiver's key pair $(d_R, Q_R)$, sender's public key $Q_S$, nonce $N$, and ciphertext
-        $C_0||C_1||S_0||S_1$.
-    }
+    \caption{Decrypting a header with receiver's key pair $(d_R, Q_R)$, sender's public key $Q_S$,
+        nonce $N$, and ciphertext $C_0||C_1||S_0||S_1$.}
     \begin{algorithmic}[1]
         \Function{DecryptHeader}{$(d_R, Q_R), Q_S, N, C_0||C_1||S_0||S_1$}
-            \State \Call{Absorb}{\texttt{veil.sres}}\Comment{Initialize an unkeyed duplex.}
-            \State \Call{Absorb}{$Q_S$}\label{alg:veil.sres-decrypt-bind-sender}\Comment{Absorb the sender's public key.}
-            \State \Call{Absorb}{$Q_R$}\Comment{Absorb the receiver's public key.}
-            \State \Call{Absorb}{$N$}\Comment{Absorb the nonce.}
-            \State
-            \State \Call{Absorb}{$d_R[Q_S]$}\Comment{Absorb the static ECDH shared secret.}
-            \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
-            \State
-            \State ${Q_E}' \gets$ \Call{Decrypt}{$C_0$}\Comment{Decrypt the ephemeral public key.}
-            \State \Call{Absorb}{$d_R[{Q_E}']$}\Comment{Absorb the ephemeral ECDH shared secret.}
-            \State $P' \gets$ \Call{Decrypt}{$C_1$}\Comment{Decrypt the plaintext.}
-            \State
-            \State $I \gets$ \Call{Decrypt}{$S_0$}\Comment{Decrypt the commitment point.}
-            \State $r' \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a challenge scalar.}
-            \State
-            \State $X \gets$ \Call{Decrypt}{$S_1$}\Comment{Decrypt the proof point.}
-            \State $X' \gets [d_R](I + [r']Q_S)$\Comment{Re-calculate the proof point.}
-            \State
-            \If{$X' \checkeq X$}
-                \Comment{Ensure the ciphertext is authentic.}
-                \State \textbf{return} ${Q_E}', P'$
-            \Else
-                \State \textbf{return} $\bot$
-            \EndIf
+        \State \Call{Absorb}{\texttt{veil.sres}}\Comment{Initialize an unkeyed duplex.}
+        \State \Call{Absorb}{$Q_S$}\label{alg:veil.sres-decrypt-bind-sender}\Comment{Absorb the sender's public key.}
+        \State \Call{Absorb}{$Q_R$}\Comment{Absorb the receiver's public key.}
+        \State \Call{Absorb}{$N$}\Comment{Absorb the nonce.}
+        \State
+        \State \Call{Absorb}{$d_R[Q_S]$}\Comment{Absorb the static ECDH shared secret.}
+        \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
+        \State
+        \State ${Q_E}' \gets$ \Call{Decrypt}{$C_0$}\Comment{Decrypt the ephemeral public key.}
+        \State \Call{Absorb}{$d_R[{Q_E}']$}\Comment{Absorb the ephemeral ECDH shared secret.}
+        \State $P' \gets$ \Call{Decrypt}{$C_1$}\Comment{Decrypt the plaintext.}
+        \State
+        \State $I \gets$ \Call{Decrypt}{$S_0$}\Comment{Decrypt the commitment point.}
+        \State $r' \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a challenge scalar.}
+        \State
+        \State $X \gets$ \Call{Decrypt}{$S_1$}\Comment{Decrypt the proof point.}
+        \State $X' \gets [d_R](I + [r']Q_S)$\Comment{Re-calculate the proof point.}
+        \State
+        \If{$X' \checkeq X$}
+        \Comment{Ensure the ciphertext is authentic.}
+        \State \textbf{return} ${Q_E}', P'$
+        \Else
+        \State \textbf{return} $\bot$
+        \EndIf
         \EndFunction
     \end{algorithmic}
     \label{alg:veil.sres-decrypt}

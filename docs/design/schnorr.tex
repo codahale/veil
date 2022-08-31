@@ -7,33 +7,31 @@
 Signing a message is described in full in Alg.~\ref{alg:veil.schnorr-sign}.
 
 \begin{algorithm}[!htp]
-    \caption{
-        Signing a message $M$ with a key pair $(d, Q)$.
-    }
+    \caption{Signing a message $M$ with a key pair $(d, Q)$.}
     \begin{algorithmic}
         \Function{Sign}{$(d_S, Q_S), M$}
-            \State \Call{Absorb}{\texttt{veil.schnorr}}\Comment{Initialize an unkeyed duplex.}
-            \State \Call{Absorb}{$Q$}\Comment{Absorb the signer's public key.}
-            \State \Call{Absorb}{$M$}\Comment{Absorb the message.}
-            \State
-            \Clone \Comment{Clone the duplex's state.}
-            \State \Call{Absorb}{$d$}\Comment{Absorb the sender's private key.}
-            \State $v \rgets \allbits{512}$\Comment{Generate a random value.}
-            \State \Call{Absorb}{$v$}\Comment{Absorb the random value.}
-            \State $k \gets$ \Call{Squeeze}{$64$} $\modl$
-            \State \textbf{yield} $k$\Comment{Yield a hedged commitment scalar.}
-            \End
-            \State
-            \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
-            \State
-            \State $I \gets [k]G$\Comment{Calculate the commitment point.}
-            \State $S_0 \gets $ \Call{Encrypt}{$I$}\Comment{Encrypt the commitment point.}
-            \State
-            \State $r \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a challenge scalar.}
-            \State $s \gets dr + k$\Comment{Calculate the proof scalar.}
-            \State $S_1 \gets $ \Call{Encrypt}{$s$}\Comment{Encrypt the proof scalar.}
-            \State
-            \State \textbf{return} $S=S_0 || S_1$
+        \State \Call{Absorb}{\texttt{veil.schnorr}}\Comment{Initialize an unkeyed duplex.}
+        \State \Call{Absorb}{$Q$}\Comment{Absorb the signer's public key.}
+        \State \Call{Absorb}{$M$}\Comment{Absorb the message.}
+        \State
+        \Clone \Comment{Clone the duplex's state.}
+        \State \Call{Absorb}{$d$}\Comment{Absorb the sender's private key.}
+        \State $v \rgets \allbits{512}$\Comment{Generate a random value.}
+        \State \Call{Absorb}{$v$}\Comment{Absorb the random value.}
+        \State $k \gets$ \Call{Squeeze}{$64$} $\modl$
+        \State \textbf{yield} $k$\Comment{Yield a hedged commitment scalar.}
+        \End
+        \State
+        \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
+        \State
+        \State $I \gets [k]G$\Comment{Calculate the commitment point.}
+        \State $S_0 \gets $ \Call{Encrypt}{$I$}\Comment{Encrypt the commitment point.}
+        \State
+        \State $r \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a challenge scalar.}
+        \State $s \gets dr + k$\Comment{Calculate the proof scalar.}
+        \State $S_1 \gets $ \Call{Encrypt}{$s$}\Comment{Encrypt the proof scalar.}
+        \State
+        \State \textbf{return} $S=S_0 || S_1$
         \EndFunction
     \end{algorithmic}
     \label{alg:veil.schnorr-sign}
@@ -44,24 +42,22 @@ Signing a message is described in full in Alg.~\ref{alg:veil.schnorr-sign}.
 Verifying a signature is described in full in Alg.~\ref{alg:veil.schnorr-verify}.
 
 \begin{algorithm}[!htp]
-    \caption{
-        Verifying a signature $S$ with a message $M$ and a public key $Q$.
-    }
+    \caption{Verifying a signature $S$ with a message $M$ and a public key $Q$.}
     \begin{algorithmic}
         \Function{Verify}{$Q, M, S=S_0||S_1$}
-            \State \Call{Absorb}{\texttt{veil.schnorr}}\Comment{Initialize an unkeyed duplex.}
-            \State \Call{Absorb}{$Q$}\Comment{Absorb the signer's public key.}
-            \State \Call{Absorb}{$M$}\Comment{Absorb the message.}
-            \State
-            \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
-            \State
-            \State $I \gets $ \Call{Decrypt}{$S_0$}\Comment{Decrypt the commitment point.}
-            \State $r \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a challenge scalar.}
-            \State
-            \State $s \gets $ \Call{Decrypt}{$S_1$}\Comment{Decrypt the proof scalar.}
-            \State $I' \gets [s]G - [r]Q$\Comment{Calculate the counterfactual commitment point.}
-            \State
-            \State \textbf{return} $I' \checkeq I$\Comment{The signature is valid if both points are equal.}
+        \State \Call{Absorb}{\texttt{veil.schnorr}}\Comment{Initialize an unkeyed duplex.}
+        \State \Call{Absorb}{$Q$}\Comment{Absorb the signer's public key.}
+        \State \Call{Absorb}{$M$}\Comment{Absorb the message.}
+        \State
+        \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
+        \State
+        \State $I \gets $ \Call{Decrypt}{$S_0$}\Comment{Decrypt the commitment point.}
+        \State $r \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a challenge scalar.}
+        \State
+        \State $s \gets $ \Call{Decrypt}{$S_1$}\Comment{Decrypt the proof scalar.}
+        \State $I' \gets [s]G - [r]Q$\Comment{Calculate the counterfactual commitment point.}
+        \State
+        \State \textbf{return} $I' \checkeq I$\Comment{The signature is valid if both points are equal.}
         \EndFunction
     \end{algorithmic}
     \label{alg:veil.schnorr-verify}
@@ -131,7 +127,7 @@ functions~\cite{pointcheval2000,neven2009}.
 \subsection{Key Privacy}\label{subsec:veil.schnorr-key-privacy}
 
 The EdDSA variant (i.e.\ $S=(I,s)$) is used over the traditional Schnorr construction (i.e.\ $S=(r,s)$) to enable the
-variable-time computation of $I'=[s]G - [r]Q$, which provides a ~30\% performance improvement.
+variable-time computation of $I'=[s]G - [r]Q$, which provides a \textasciitilde30\% performance improvement.
 That construction, however, allows for the recovery of the signing public key given a signature and a message: given the
 commitment point $I$, one can calculate $Q=-[r^{-1}](I - [s]G)$.
 

@@ -45,39 +45,38 @@
 \algdef{SE}[CLONE]{Clone}{End}{\textbf{with clone do}}[0]{\algorithmicend}%
 
 \begin{document}
-    \clearpage
-    \phantomsection
-    \pdfbookmark[1]{Title}{title}
-    \maketitle
-    \begin{abstract}
-        Veil is a public-key cryptosystem that provides confidentiality, authenticity, and integrity services for
-        messages of arbitrary sizes and multiple receivers.
-        This document describes its cryptographic constructions, their security properties, and how they are combined to
-        implement Veil's feature set.
-    \end{abstract}
+\clearpage
+\phantomsection
+\pdfbookmark[1]{Title}{title}
+\maketitle
+\begin{abstract}
+    Veil is a public-key cryptosystem that provides confidentiality, authenticity, and integrity services for
+    messages of arbitrary sizes and multiple receivers.
+    This document describes its cryptographic constructions, their security properties, and how they are combined to
+    implement Veil's feature set.
+\end{abstract}
 
-    \clearpage
-    \phantomsection
-    \pdfbookmark[1]{\contentsname}{contents}
-    \tableofcontents
+\clearpage
+\phantomsection
+\pdfbookmark[1]{\contentsname}{contents}
+\tableofcontents
 
-    \clearpage
-    \phantomsection
-    \pdfbookmark[2]{Algorithms}{algorithms}
-    \listofalgorithms
+\clearpage
+\phantomsection
+\pdfbookmark[2]{Algorithms}{algorithms}
+\listofalgorithms
 
-    \include{design/motivation}
-    \include{design/security}
-    \include{design/primitives}
-    \include{design/techniques}
-    \include{design/schnorr}
-    \include{design/sres}
-    \include{design/mres}
-    \include{design/pbenc}
-    \include{design/digest}
+\include{design/motivation}
+\include{design/security}
+\include{design/primitives}
+\include{design/techniques}
+\include{design/schnorr}
+\include{design/sres}
+\include{design/mres}
+\include{design/pbenc}
+\include{design/digest}
 
+\section{References}\label{sec:references}
 
-    \section{References}\label{sec:references}
-
-    \printbibliography
+\printbibliography
 \end{document}

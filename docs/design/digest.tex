@@ -10,13 +10,13 @@ Creating a message digest is described in full in Alg.~\ref{alg:veil.digest}\@.
     \caption{Creating a message digest with metadata strings $V$ and message $M$.}
     \begin{algorithmic}
         \Function{Digest}{$V,M$}
-            \State \Call{Absorb}{\texttt{veil.digest}}\Comment{Initialize an unkeyed duplex.}
-            \ForAll{$V_i \in V$}
-                \State \Call{Absorb}{$V_i$}\Comment{Absorb metadata strings in order.}
-            \EndFor
-            \State \Call{Absorb}{$M$}\Comment{Absorb message.}
-            \State $D \gets $\Call{Squeeze}{$32$}\Comment{Squeeze a 32-byte digest.}
-            \State \textbf{return} $D$
+        \State \Call{Absorb}{\texttt{veil.digest}}\Comment{Initialize an unkeyed duplex.}
+        \ForAll{$V_i \in V$}
+        \State \Call{Absorb}{$V_i$}\Comment{Absorb metadata strings in order.}
+        \EndFor
+        \State \Call{Absorb}{$M$}\Comment{Absorb message.}
+        \State $D \gets $\Call{Squeeze}{$32$}\Comment{Squeeze a 32-byte digest.}
+        \State \textbf{return} $D$
         \EndFunction
     \end{algorithmic}
     \label{alg:veil.digest}
@@ -28,11 +28,12 @@ By passing a symmetric key as a metadata string, \texttt{veil.digest} can be ada
 codes (see Alg.~\ref{alg:veil.digest-mac}).
 
 \begin{algorithm}[h]
-    \caption{Creating a message authentication code with key $K$, metadata strings $V$, and message $M$.}
+    \caption{Creating a message authentication code with key $K$, metadata strings $V$, and message
+        $M$.}
     \begin{algorithmic}
         \Function{Mac}{$K,V,M$}
-            \State $T \gets $\Call{Digest}{$K || V$, $M$}\Comment{Include the key as metadata.}
-            \State \textbf{return} $T$
+        \State $T \gets $\Call{Digest}{$K || V$, $M$}\Comment{Include the key as metadata.}
+        \State \textbf{return} $T$
         \EndFunction
     \end{algorithmic}
     \label{alg:veil.digest-mac}

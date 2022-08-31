@@ -10,12 +10,12 @@ To model real-world possibilities, we assume $\Adversary$ has three capabilities
 
 \begin{enumerate}
     \item $\Adversary$ can create their own key pairs.
-    Veil does not have a centralized certificate authority and creating new key pairs is intentionally trivial.
+          Veil does not have a centralized certificate authority and creating new key pairs is intentionally trivial.
     \item $\Adversary$ can trick the sender into encrypting arbitrary plaintexts with arbitrary public keys.
-    This allows us to model real-world flaws such as servers which return encrypted error messages with client-provided
-    data~\cite{yu2004}\@.
+          This allows us to model real-world flaws such as servers which return encrypted error messages with client-provided
+          data~\cite{yu2004}\@.
     \item $\Adversary$ can trick the receiver into decrypting arbitrary ciphertexts from arbitrary senders.
-    This allows us to model real-world flaws such as padding oracles~\cite{rizzo2010practical}\@.
+          This allows us to model real-world flaws such as padding oracles~\cite{rizzo2010practical}\@.
 \end{enumerate}
 
 Given these capabilities, $\Adversary$ can mount an attack in two different settings: the outsider setting and the
@@ -27,8 +27,8 @@ In the multi-user outsider model, we assume $\Adversary$ knows the public keys o
 keys~\cite[p. 44]{baek2010}\@.
 
 The multi-user outsider model is useful in evaluating the strength of a scheme against adversaries who have access to
-some aspect of the sender and receiver's interaction with messages \@(e.g.\ a padding oracle) but who have not compromised
-the private keys of either.
+some aspect of the sender and receiver's interaction with messages \@(e.g.\ a padding oracle) but who have not
+compromised the private keys of either.
 
 \subsubsection{Insider Confidentiality}\label{subsubsec:sec-conf-insider}
 

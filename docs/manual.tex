@@ -22,81 +22,76 @@
 \date{\today}
 
 \begin{document}
-    \clearpage
-    \phantomsection
-    \pdfbookmark[1]{Title}{title}
-    \maketitle
-    \begin{abstract}
-        Veil is a public-key cryptosystem that provides confidentiality, authenticity, and integrity services for
-        messages of arbitrary sizes and multiple receivers.
-        Veil is implemented as a command line tool \texttt{veil}\@.
-        This document describes its feature set and usage.
-    \end{abstract}
+\clearpage
+\phantomsection
+\pdfbookmark[1]{Title}{title}
+\maketitle
+\begin{abstract}
+    Veil is a public-key cryptosystem that provides confidentiality, authenticity, and integrity services for
+    messages of arbitrary sizes and multiple receivers.
+    Veil is implemented as a command line tool \texttt{veil}\@.
+    This document describes its feature set and usage.
+\end{abstract}
 
-    \clearpage
-    \phantomsection
-    \pdfbookmark[1]{\contentsname}{contents}
-    \tableofcontents
-    \clearpage
+\clearpage
+\phantomsection
+\pdfbookmark[1]{\contentsname}{contents}
+\tableofcontents
+\clearpage
 
+\section{Installation}\label{sec:installation}
 
-    \section{Installation}\label{sec:installation}
+To install Veil, check out this repository and build it yourself:
 
-    To install Veil, check out this repository and build it yourself:
-
-    \begin{verbatim}
+\begin{verbatim}
     git clone https://github.com/codahale/veil
     cargo install
     \end{verbatim}
 
-    Because this is a cryptosystem designed by one person with no formal training and has not been audited, it will
-    never be packaged conveniently.
-    Cryptographic software is primarily used in high-risk environments where strong assurances of correctness,
-    confidentiality, integrity, etc.\ are required, and \texttt{veil} does not provide those assurances.
-    It's more of an art installation than a practical tool.
+Because this is a cryptosystem designed by one person with no formal training and has not been audited, it will
+never be packaged conveniently.
+Cryptographic software is primarily used in high-risk environments where strong assurances of correctness,
+confidentiality, integrity, etc.\ are required, and \texttt{veil} does not provide those assurances.
+It's more of an art installation than a practical tool.
 
+\section{Shell Completion}\label{sec:shell-completion}
 
-    \section{Shell Completion}\label{sec:shell-completion}
+\texttt{veil} can generate its own shell completion scripts for Bash, Elvish, Fish, Powershell, and Zsh:
 
-    \texttt{veil} can generate its own shell completion scripts for Bash, Elvish, Fish, Powershell, and Zsh:
-
-    \begin{verbatim}
+\begin{verbatim}
     veil complete zsh /usr/local/share/zsh/site-functions/
     \end{verbatim}
 
+\section{Creating A Private Key}\label{sec:creating-a-private-key}
 
-    \section{Creating A Private Key}\label{sec:creating-a-private-key}
+To create a private key, use the \texttt{private-key} command:
 
-    To create a private key, use the \texttt{private-key} command:
-
-    \begin{verbatim}
+\begin{verbatim}
     veil private-key ./my-private-key
     \end{verbatim}
 
-    You'll be prompted for a passphrase, and \texttt{veil} will write the encrypted private key to
-    \texttt{./my-private-key}\@.
-    That's it.
-    There's no user IDs, no key signing, no key servers, no banging on the keyboard to generate entropy.
+You'll be prompted for a passphrase, and \texttt{veil} will write the encrypted private key to
+\texttt{./my-private-key}\@.
+That's it.
+There's no user IDs, no key signing, no key servers, no banging on the keyboard to generate entropy.
 
+\section{Generating A Public Key}\label{sec:generating-a-public-key}
 
-    \section{Generating A Public Key}\label{sec:generating-a-public-key}
+Now that you have a private key, you also have a public key to share with others:
 
-    Now that you have a private key, you also have a public key to share with others:
-
-    \begin{verbatim}
+\begin{verbatim}
     $ veil public-key ./my-private-key
 
     TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa
     \end{verbatim}
 
-    You can then give this public key to people, so they can send you encrypted messages.
+You can then give this public key to people, so they can send you encrypted messages.
 
+\section{Encrypting A Message}\label{sec:encrypting-a-message}
 
-    \section{Encrypting A Message}\label{sec:encrypting-a-message}
+To encrypt a message, you need your private key, the receivers' public keys, and the message:
 
-    To encrypt a message, you need your private key, the receivers' public keys, and the message:
-
-    \begin{verbatim}
+\begin{verbatim}
     veil encrypt ./my-private-key \
         message.txt message.txt.veil \
         TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa \
@@ -104,72 +99,68 @@
         --fakes 18 --padding 1234
     \end{verbatim}
 
-    This will create a file \texttt{message.txt.veil} which the owners of the two public keys can decrypt if they have
-    your public key.
-    It adds 18 fake receivers, so neither receiver really knows how many people you sent the message to.
-    It also adds 1234 bytes of random padding, so someone monitoring your communications won't know how long the message
-    really is.
+This will create a file \texttt{message.txt.veil} which the owners of the two public keys can decrypt if they have
+your public key.
+It adds 18 fake receivers, so neither receiver really knows how many people you sent the message to.
+It also adds 1234 bytes of random padding, so someone monitoring your communications won't know how long the message
+really is.
 
+\section{Decrypting A Message}\label{sec:decrypting-a-message}
 
-    \section{Decrypting A Message}\label{sec:decrypting-a-message}
+To decrypt a message, you'll need the key path of the public key the message was encrypted for, the encrypted
+message, and the sender's public key:
 
-    To decrypt a message, you'll need the key path of the public key the message was encrypted for, the encrypted
-    message, and the sender's public key:
-
-    \begin{verbatim}
+\begin{verbatim}
     veil decrypt ./my-private-key reply.txt.veil reply.txt \
         TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa
     \end{verbatim}
 
-    This will decrypt and verify the message.
-    If successful, you'll know that the owner of the public key encrypted that exact message for you.
-    Otherwise, the message may not have been encrypted for you, it may not have been encrypted by that sender, or the
-    encrypted message may have been tampered with.
+This will decrypt and verify the message.
+If successful, you'll know that the owner of the public key encrypted that exact message for you.
+Otherwise, the message may not have been encrypted for you, it may not have been encrypted by that sender, or the
+encrypted message may have been tampered with.
 
+\section{Signing A Message}\label{sec:signing-a-message}
 
-    \section{Signing A Message}\label{sec:signing-a-message}
+To sign a message, you'll just need the message:
 
-    To sign a message, you'll just need the message:
-
-    \begin{verbatim}
+\begin{verbatim}
     $ veil sign ./my-private-key announcement.txt
 
     2sXLDBeTwHuECPp7QjWKdLYB3M9oLkju...
     \end{verbatim}
 
-    You can then share \texttt{announcement.txt} and the signature and people will be able to verify that the message is
-    from you and has not been modified.
+You can then share \texttt{announcement.txt} and the signature and people will be able to verify that the message is
+from you and has not been modified.
 
+\section{Verifying A Message}\label{sec:verifying-a-message}
 
-    \section{Verifying A Message}\label{sec:verifying-a-message}
+To verify a signature of a message, you'll need the signer's public key, the message, and the signature:
 
-    To verify a signature of a message, you'll need the signer's public key, the message, and the signature:
-
-    \begin{verbatim}
+\begin{verbatim}
     veil verify TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa \
         announcement.txt \
         2sXLDBeTwHuECPp7QjWKdLYB3M9oLkju...
     \end{verbatim}
 
-    If the signature is from the given public key and the message hasn't been altered, \texttt{veil} will exit with a
-    status of \texttt{0}\@.
+If the signature is from the given public key and the message hasn't been altered, \texttt{veil} will exit with a
+status of \texttt{0}\@.
 
+\section{Creating Message Digests}\label{sec:creating-message-digests}
 
-    \section{Creating Message Digests}\label{sec:creating-message-digests}
+To create a digest of a message, you'll just need the message:
 
-    To create a digest of a message, you'll just need the message:
-
-    \begin{verbatim}
+\begin{verbatim}
     $ veil digest announcement.txt
 
     5fQPsn8hoaVddFG26cWQ5QFdqxWtUPNaZ9zH2E6LYzFn
     \end{verbatim}
 
-    \subsection{Including Metadata}\label{subsec:including-metadata}
+\subsection{Including Metadata}\label{subsec:including-metadata}
 
-    The \texttt{digest} command accepts optional metadata strings which are included in the calculation of the digest:
+The \texttt{digest} command accepts optional metadata strings which are included in the calculation of the digest:
 
-    \begin{verbatim}
+\begin{verbatim}
     $ veil digest announcement.txt \
           --metadata 'announcement.txt' \
           --metadata 'made-with-veil'
@@ -177,11 +168,11 @@
     F8s5aLxQJbGiEhWacUAe4nDCHVSEwycDavYFqe2TyND1
     \end{verbatim}
 
-    \subsection{Message Authentication Codes}\label{subsec:message-authentication-codes}
+\subsection{Message Authentication Codes}\label{subsec:message-authentication-codes}
 
-    To create a MAC using a shared key, include the shared key as metadata:
+To create a MAC using a shared key, include the shared key as metadata:
 
-    \begin{verbatim}
+\begin{verbatim}
     $ veil digest announcement.txt \
           --metadata 'our special secret'
 

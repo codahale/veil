@@ -7,58 +7,56 @@
 Encrypting a message is described in full in Alg.~\ref{alg:veil.mres-encrypt}\@.
 
 \begin{algorithm}[ht]
-    \caption{
-        Encrypting a message with sender's key pair $(d_S, Q_S)$, receiver public keys $Q_{R^0}..Q_{R^n}$, padding
-        length $N_P$, and plaintext $P$.
-    }
+    \caption{Encrypting a message with sender's key pair $(d_S, Q_S)$, receiver public keys
+    $Q_{R^0}..Q_{R^n}$, padding length $N_P$, and plaintext $P$.}
     \begin{algorithmic}
         \Function{EncryptMessage}{$(d_S, Q_S), Q_{R^0}..Q_{R^n}, N_P, P$}
-            \State \Call{Absorb}{\texttt{veil.mres}}\Comment{Initialize an unkeyed duplex.}
-            \State \Call{Absorb}{$Q_S$}\label{alg:veil.mres-encrypt-bind-sender}\Comment{Absorb the sender's public key.}
-            \State
-            \Clone \Comment{Clone the duplex's state.}
-            \State \Call{Absorb}{$d_S$}\Comment{Absorb the sender's private key.}
-            \State $v \rgets \allbits{512}$\Comment{Generate a random value.}
-            \State \Call{Absorb}{$v$}\Comment{Absorb the random value.}
-            \State $k \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a commitment scalar.}
-            \State $d_E \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze an ephemeral private key.}
-            \State $Q_E = [d_E]G$\Comment{Calculate the ephemeral public key.}
-            \State $K \gets$ \Call{Squeeze}{$32$}\Comment{Squeeze a data encryption key.}
-            \State $N \gets$ \Call{Squeeze}{$16$}\Comment{Squeeze a nonce.}
-            \State \textbf{yield} $(k, d_E, Q_E, K)$
-            \End
-            \State
-            \State $C \gets N$\Comment{Write the nonce.}
-            \State \Call{Absorb}{$N$}\Comment{Absorb the nonce.}
-            \State
-            \State $H = K||N_Q||N_P$\Comment{Encode the DEK and params in a header.}
-            \ForAll{$Q_{R^i} \in \{Q_{R^0}..Q_{R^n}\}$}
-                \Comment{Encrypt the header for each receiver.}
-                \State $N \gets$\Call{Squeeze}{$16$}
-                \State $H \gets $\Call{EncryptHeader}{$(d_S, Q_S), (d_E, Q_E), Q_{R^i}, H, N$}
-                \State \Call{Absorb}{$H$}
-                \State $C \gets C||H$
-            \EndFor
-            \State
-            \State $y \rgets \allbits{N_P}$\Comment{Generate random padding.}
-            \State \Call{Absorb}{$y$}\Comment{Absorb padding.}
-            \State $C \gets C||y$\Comment{Append padding to ciphertext.}
-            \State
-            \State \Call{Absorb}{$K$}\Comment{Absorb the DEK.}
-            \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
-            \State
-            \ForAll{32-KiB blocks $p \in P$}
-                \State $C \gets C||$\Call{Encrypt}{$p$}\Comment{Encrypt and tag each block.}
-                \State $C \gets C||$\Call{Squeeze}{$16$}
-            \EndFor
-            \State
-            \State $I \gets [k]G$\Comment{Calculate and encrypt the commitment point.}
-            \State $C \gets C||$\Call{Encrypt}{$I$}
-            \State
-            \State $r \gets$ \Call{Squeeze}{$64$} $\modl$\label{alg:veil.mres-encrypt-challenge}\Comment{Squeeze a challenge scalar.}
-            \State $s \gets {d_S}r + k$\Comment{Calculate and encrypt the proof scalar.}
-            \State $C \gets C||$\Call{Encrypt}{$s$}
-            \State \textbf{return} $C$
+        \State \Call{Absorb}{\texttt{veil.mres}}\Comment{Initialize an unkeyed duplex.}
+        \State \Call{Absorb}{$Q_S$}\label{alg:veil.mres-encrypt-bind-sender}\Comment{Absorb the sender's public key.}
+        \State
+        \Clone \Comment{Clone the duplex's state.}
+        \State \Call{Absorb}{$d_S$}\Comment{Absorb the sender's private key.}
+        \State $v \rgets \allbits{512}$\Comment{Generate a random value.}
+        \State \Call{Absorb}{$v$}\Comment{Absorb the random value.}
+        \State $k \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a commitment scalar.}
+        \State $d_E \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze an ephemeral private key.}
+        \State $Q_E = [d_E]G$\Comment{Calculate the ephemeral public key.}
+        \State $K \gets$ \Call{Squeeze}{$32$}\Comment{Squeeze a data encryption key.}
+        \State $N \gets$ \Call{Squeeze}{$16$}\Comment{Squeeze a nonce.}
+        \State \textbf{yield} $(k, d_E, Q_E, K)$
+        \End
+        \State
+        \State $C \gets N$\Comment{Write the nonce.}
+        \State \Call{Absorb}{$N$}\Comment{Absorb the nonce.}
+        \State
+        \State $H = K||N_Q||N_P$\Comment{Encode the DEK and params in a header.}
+        \ForAll{$Q_{R^i} \in \{Q_{R^0}..Q_{R^n}\}$}
+        \Comment{Encrypt the header for each receiver.}
+        \State $N \gets$\Call{Squeeze}{$16$}
+        \State $H \gets $\Call{EncryptHeader}{$(d_S, Q_S), (d_E, Q_E), Q_{R^i}, H, N$}
+        \State \Call{Absorb}{$H$}
+        \State $C \gets C||H$
+        \EndFor
+        \State
+        \State $y \rgets \allbits{N_P}$\Comment{Generate random padding.}
+        \State \Call{Absorb}{$y$}\Comment{Absorb padding.}
+        \State $C \gets C||y$\Comment{Append padding to ciphertext.}
+        \State
+        \State \Call{Absorb}{$K$}\Comment{Absorb the DEK.}
+        \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
+        \State
+        \ForAll{32-KiB blocks $p \in P$}
+        \State $C \gets C||$\Call{Encrypt}{$p$}\Comment{Encrypt and tag each block.}
+        \State $C \gets C||$\Call{Squeeze}{$16$}
+        \EndFor
+        \State
+        \State $I \gets [k]G$\Comment{Calculate and encrypt the commitment point.}
+        \State $C \gets C||$\Call{Encrypt}{$I$}
+        \State
+        \State $r \gets$ \Call{Squeeze}{$64$} $\modl$\label{alg:veil.mres-encrypt-challenge}\Comment{Squeeze a challenge scalar.}
+        \State $s \gets {d_S}r + k$\Comment{Calculate and encrypt the proof scalar.}
+        \State $C \gets C||$\Call{Encrypt}{$s$}
+        \State \textbf{return} $C$
         \EndFunction
     \end{algorithmic}
     \label{alg:veil.mres-encrypt}
@@ -69,54 +67,53 @@ Encrypting a message is described in full in Alg.~\ref{alg:veil.mres-encrypt}\@.
 Decrypting a signature is described in full in Alg.~\ref{alg:veil.mres-decrypt}\@.
 
 \begin{algorithm}[ht]
-    \caption{
-        Decrypting a message with receiver's key pair $(d_R, Q_R)$, sender's public key $Q_S$, and ciphertext $C$.
-    }
+    \caption{Decrypting a message with receiver's key pair $(d_R, Q_R)$, sender's public key $Q_S$,
+        and ciphertext $C$.}
     \begin{algorithmic}
         \Function{DecryptMessage}{$(d_R, Q_R), Q_S, C$}
-            \State \Call{Absorb}{\texttt{veil.mres}}\Comment{Initialize an unkeyed duplex.}
-            \State \Call{Absorb}{$Q_S$}\label{alg:veil.mres-decrypt-bind-sender}\Comment{Absorb the sender's public key.}
-            \State
-            \State \Call{Absorb}{$C[0..16]$}\Comment{Absorb the nonce.}
-            \State
-            \ForAll{possible encrypted headers $h \in C$}
-                \State $N \gets$\Call{Squeeze}{$16$}
-                \State $x \gets $ \Call{DecryptHeader}{$(d_R, Q_R), Q_S, h, N$}
-                \If{$x \not= \bot$}
-                    \State $Q_E, K || N_Q || N_P \gets x$
-                    \State \textbf{break}
-                \EndIf
-                \State \Call{Absorb}{$h$}
-            \EndFor
-            \State
-            \State \Call{Absorb}{$C[16+N_Q..16+N_Q+N_P]$}\Comment{Absorb padding.}
-            \State $C \gets C[{16+N_Q+N_P}..]$\Comment{Skip to the message beginning.}
-            \State
-            \State \Call{Absorb}{$K$}\Comment{Absorb the DEK.}
-            \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
-            \State
-            \State $P' = \epsilon$\Comment{Initialize a buffer for the plaintext.}
-            \ForAll{32KiB+16 blocks $c||t \in C$}
-                \State $P' \gets P'||$\Call{Decrypt}{$c$}
-                \If{\Call{Squeeze}{$16$} $ \not= t$}
-                    \Comment{Check each block's tag.}
-                    \State \textbf{return} $\bot$
-                \EndIf
-            \EndFor
-            \State
-            \State $S_0||S_1 \gets C$
-            \State $I \gets $ \Call{Decrypt}{$S_0$}\Comment{Decrypt the commitment point.}
-            \State $r \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a challenge scalar.}
-            \State
-            \State $s \gets $ \Call{Decrypt}{$S_1$}\Comment{Decrypt the proof scalar.}
-            \State $I' \gets [s]G - [r]Q_E$\Comment{Calculate the counterfactual commitment point.}
-            \State
-            \If{$I' \checkeq I$}
-                \Comment{Verify the signature.}
-                \State \textbf{return} $P'$ \Comment{Return the plaintext.}
-            \Else
-                \State \textbf{return} $\bot$
-            \EndIf
+        \State \Call{Absorb}{\texttt{veil.mres}}\Comment{Initialize an unkeyed duplex.}
+        \State \Call{Absorb}{$Q_S$}\label{alg:veil.mres-decrypt-bind-sender}\Comment{Absorb the sender's public key.}
+        \State
+        \State \Call{Absorb}{$C[0..16]$}\Comment{Absorb the nonce.}
+        \State
+        \ForAll{possible encrypted headers $h \in C$}
+        \State $N \gets$\Call{Squeeze}{$16$}
+        \State $x \gets $ \Call{DecryptHeader}{$(d_R, Q_R), Q_S, h, N$}
+        \If{$x \not= \bot$}
+        \State $Q_E, K || N_Q || N_P \gets x$
+        \State \textbf{break}
+        \EndIf
+        \State \Call{Absorb}{$h$}
+        \EndFor
+        \State
+        \State \Call{Absorb}{$C[16+N_Q..16+N_Q+N_P]$}\Comment{Absorb padding.}
+        \State $C \gets C[{16+N_Q+N_P}..]$\Comment{Skip to the message beginning.}
+        \State
+        \State \Call{Absorb}{$K$}\Comment{Absorb the DEK.}
+        \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
+        \State
+        \State $P' = \epsilon$\Comment{Initialize a buffer for the plaintext.}
+        \ForAll{32KiB+16 blocks $c||t \in C$}
+        \State $P' \gets P'||$\Call{Decrypt}{$c$}
+        \If{\Call{Squeeze}{$16$} $ \not= t$}
+        \Comment{Check each block's tag.}
+        \State \textbf{return} $\bot$
+        \EndIf
+        \EndFor
+        \State
+        \State $S_0||S_1 \gets C$
+        \State $I \gets $ \Call{Decrypt}{$S_0$}\Comment{Decrypt the commitment point.}
+        \State $r \gets$ \Call{Squeeze}{$64$} $\modl$\Comment{Squeeze a challenge scalar.}
+        \State
+        \State $s \gets $ \Call{Decrypt}{$S_1$}\Comment{Decrypt the proof scalar.}
+        \State $I' \gets [s]G - [r]Q_E$\Comment{Calculate the counterfactual commitment point.}
+        \State
+        \If{$I' \checkeq I$}
+        \Comment{Verify the signature.}
+        \State \textbf{return} $P'$ \Comment{Return the plaintext.}
+        \Else
+        \State \textbf{return} $\bot$
+        \EndIf
         \EndFunction
     \end{algorithmic}
     \label{alg:veil.mres-decrypt}
