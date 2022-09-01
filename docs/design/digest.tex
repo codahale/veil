@@ -6,7 +6,7 @@ Veil can create message digests given a set of metadata and a message.
 
 Creating a message digest is described in full in Alg.~\ref{alg:veil.digest}\@.
 
-\begin{algorithm}[h]
+\begin{algorithm}
     \caption{Creating a message digest with metadata strings $V$ and message $M$.}
     \begin{algorithmic}
         \Function{Digest}{$V,M$}
@@ -27,7 +27,7 @@ Creating a message digest is described in full in Alg.~\ref{alg:veil.digest}\@.
 By passing a symmetric key as a metadata string, \texttt{veil.digest} can be adapted to produce
 message authentication codes (see Alg.~\ref{alg:veil.digest-mac}).
 
-\begin{algorithm}[h]
+\begin{algorithm}
     \caption{Creating a message authentication code with key $K$, metadata strings $V$, and message
         $M$.}
     \begin{algorithmic}

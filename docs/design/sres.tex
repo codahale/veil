@@ -9,7 +9,7 @@ scheme to provide multi-user insider security.
 
 Encrypting a header is described in full in Alg.~\ref{alg:veil.sres-encrypt}\@.
 
-\begin{algorithm}[!htp]
+\begin{algorithm}
     \caption{Encrypting a header with sender's key pair $(d_S, Q_S)$, ephemeral key pair
         $(d_E, Q_E)$, receiver's public key $Q_R$, nonce $N$, and plaintext $P$.}
     \begin{algorithmic}[1]
@@ -54,7 +54,7 @@ Encrypting a header is described in full in Alg.~\ref{alg:veil.sres-encrypt}\@.
 
 Decrypting a header is described in full in Alg.~\ref{alg:veil.sres-decrypt}\@.
 
-\begin{algorithm}[!htp]
+\begin{algorithm}
     \caption{Decrypting a header with receiver's key pair $(d_R, Q_R)$, sender's public key $Q_S$,
         nonce $N$, and ciphertext $C_0||C_1||S_0||S_1$.}
     \begin{algorithmic}[1]

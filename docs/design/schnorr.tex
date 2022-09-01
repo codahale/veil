@@ -6,7 +6,7 @@
 
 Signing a message is described in full in Alg.~\ref{alg:veil.schnorr-sign}.
 
-\begin{algorithm}[!htp]
+\begin{algorithm}
     \caption{Signing a message $M$ with a key pair $(d, Q)$.}
     \begin{algorithmic}
         \Function{Sign}{$(d_S, Q_S), M$}
@@ -41,7 +41,7 @@ Signing a message is described in full in Alg.~\ref{alg:veil.schnorr-sign}.
 
 Verifying a signature is described in full in Alg.~\ref{alg:veil.schnorr-verify}.
 
-\begin{algorithm}[!htp]
+\begin{algorithm}
     \caption{Verifying a signature $S$ with a message $M$ and a public key $Q$.}
     \begin{algorithmic}
         \Function{Verify}{$Q, M, S=S_0||S_1$}

@@ -10,7 +10,7 @@ All Veil constructions begin in the unkeyed mode by absorbing a constant domain 
 To convert from an unkeyed duplex to a keyed duplex, a 512-bit key is derived from the unkeyed
 duplex's state and used to initialize a keyed duplex:
 
-\begin{algorithm}[ht]
+\begin{algorithm}
     \caption{Converting an unkeyed Cyclist duplex to a keyed duplex.}
     \begin{algorithmic}
         \State \Call{Absorb}{\texttt{example.domain}}\Comment{Initialize an unkeyed duplex.}
@@ -43,7 +43,7 @@ for the DEM from the KEM output.
 In contrast, the same construction using Cyclist would be the following three operations, in order
 (\ref{alg:hpke}):
 
-\begin{algorithm}[ht]
+\begin{algorithm}
     \caption{HPKE in Cyclist.}
     \begin{algorithmic}[1]
         \State \Call{Cyclist}{$[d_E]Q_R$, $\epsilon$, $\epsilon$}\label{alg:hpke:key}
@@ -91,7 +91,7 @@ The clone duplex is used to produce the ephemeral value or values for the scheme
 For example, the following operations would be performed on the cloned duplex
 (\ref{alg:hedged-ephemeral}):
 
-\begin{algorithm}[ht]
+\begin{algorithm}
     \caption{Hedged ephemeral generation with Cyclist.}
     \begin{algorithmic}[0]
         \Clone \Comment{Clone the duplex's state.}

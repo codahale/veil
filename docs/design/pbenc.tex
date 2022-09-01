@@ -7,7 +7,7 @@ at rest.
 
 Encrypting a private key is described in full in Alg.~\ref{alg:veil.pbenc-encrypt}\@.
 
-\begin{algorithm}[ht]
+\begin{algorithm}
     \caption{Encrypting a private key $d$ given a passphrase $P$, memory cost parameter $C_M$, time
         cost parameter $C_T$, and parallelism cost parameter $C_P$.}
     \begin{algorithmic}
@@ -30,7 +30,7 @@ Encrypting a private key is described in full in Alg.~\ref{alg:veil.pbenc-encryp
 
 Decrypting a private key is described in full in Alg.~\ref{alg:veil.pbenc-decrypt}\@.
 
-\begin{algorithm}[ht]
+\begin{algorithm}
     \caption{Decrypting a private key given a passphrase $P$ and ciphertext $C$.}
     \begin{algorithmic}
         \Function{DecryptPrivateKey}{$P, C=C_M || C_T || C_P || S || C || T$}
