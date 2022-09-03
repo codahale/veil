@@ -91,13 +91,13 @@ pub trait Squeeze {
         b
     }
 
-    /// Squeeze 64 bytes from the duplex and map them to a [`Scalar`].
+    /// Squeeze 32 bytes from the duplex and map them to a [`Scalar`].
     #[must_use]
     fn squeeze_scalar(&mut self) -> Scalar {
-        Scalar::decode_reduce(&self.squeeze::<64>())
+        Scalar::decode_reduce(&self.squeeze::<32>())
     }
 
-    /// Squeeze 64 bytes from the duplex and map them to a [`PrivKey`].
+    /// Squeeze 32 bytes from the duplex and map them to a [`PrivKey`].
     #[must_use]
     fn squeeze_private_key(&mut self) -> PrivKey {
         PrivKey::from_scalar(self.squeeze_scalar())
