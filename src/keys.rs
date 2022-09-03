@@ -51,7 +51,7 @@ impl PrivKey {
     #[must_use]
     pub fn random(mut rng: impl CryptoRng + Rng) -> PrivKey {
         loop {
-            let d = Scalar::decode_reduce(&rng.gen::<[u8; 64]>());
+            let d = Scalar::decode_reduce(&rng.gen::<[u8; 32]>());
             if d.iszero() == 0 {
                 return PrivKey::from_scalar(d);
             }
