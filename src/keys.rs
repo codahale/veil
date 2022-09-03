@@ -10,7 +10,10 @@ pub const POINT_LEN: usize = 32;
 /// A public key, including its canonical encoded form.
 #[derive(Clone, Copy)]
 pub struct PubKey {
+    /// The decoded point.
     pub q: Point,
+
+    /// The point's canonical encoded form.
     pub encoded: [u8; POINT_LEN],
 }
 
@@ -26,6 +29,8 @@ impl PubKey {
     /// Generates a random public key for which no private key is known.
     #[must_use]
     pub fn random(mut rng: impl CryptoRng + Rng) -> PubKey {
+        // It would be nice if this didn't hash what is already uniform data, but since we're using
+        // Argon2id for pbenc we already have Blake2 as a dependency.
         let q = Point::hash_to_curve("", &rng.gen::<[u8; 64]>());
         let encoded = q.encode();
         PubKey { q, encoded }
@@ -34,7 +39,10 @@ impl PubKey {
 
 /// A private key, including its public key.
 pub struct PrivKey {
+    /// The decoded scalar; always non-zero.
     pub d: Scalar,
+
+    /// The corresponding [`PubKey`] for the private key; always derived from `d`.
     pub pub_key: PubKey,
 }
 
