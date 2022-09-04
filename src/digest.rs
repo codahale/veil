@@ -7,12 +7,12 @@ use constant_time_eq::constant_time_eq_n;
 use crate::duplex::{Absorb, Squeeze, UnkeyedDuplex};
 use crate::ParseDigestError;
 
-/// The digest of a set of metadata and a message.
+/// The digest of a sequence of metadata values and a message.
 #[derive(Clone, Copy, Debug, Eq)]
 pub struct Digest([u8; DIGEST_LEN]);
 
 impl Digest {
-    /// Create a digest from a set of metadata strings and a reader.
+    /// Create a digest from a sequence of metadata values and a reader.
     ///
     /// # Errors
     ///
