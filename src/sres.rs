@@ -145,11 +145,12 @@ pub fn decrypt<'a>(
 /// Calculate the ECDH shared secret, deterministically substituting `(Q ^ d)` if the peer public
 /// key is the neutral point.
 #[must_use]
+#[allow(clippy::as_conversions)]
 fn ecdh(a: &PrivKey, b: &PubKey) -> [u8; POINT_LEN] {
     // Pornin's algorithm for safe, constant-time ECDH.
     let mut zz_ab = (a.d * b.q).encode();
     let zz_aa = a.d.encode32();
-    let non_contributory = u8::try_from(b.q.isneutral()).expect("unexpected overflow");
+    let non_contributory = b.q.isneutral() as u8;
     for i in 0..POINT_LEN {
         zz_ab[i] ^= non_contributory & (zz_ab[i] ^ zz_aa[i]);
     }
