@@ -53,7 +53,7 @@ Encrypting a message is described in full in Alg.~\ref{alg:veil.mres-encrypt}\@.
         \State $I \gets [k]G$\Comment{Calculate and encrypt the commitment point.}
         \State $C \gets C||$\Call{Encrypt}{$I$}
         \State
-        \State $r \gets$ \Call{Squeeze}{$32$} $\modl$\label{alg:veil.mres-encrypt-challenge}\Comment{Squeeze a challenge scalar.}
+        \State $r \gets$ \Call{Squeeze}{$16$} $\modl$\label{alg:veil.mres-encrypt-challenge}\Comment{Squeeze a short challenge scalar.}
         \State $s \gets {d_S}r + k$\Comment{Calculate and encrypt the proof scalar.}
         \State $C \gets C||$\Call{Encrypt}{$s$}
         \State \textbf{return} $C$
@@ -102,10 +102,10 @@ Decrypting a signature is described in full in Alg.~\ref{alg:veil.mres-decrypt}\
         \State
         \State $S_0||S_1 \gets C$
         \State $I \gets $ \Call{Decrypt}{$S_0$}\Comment{Decrypt the commitment point.}
-        \State $r \gets$ \Call{Squeeze}{$32$} $\modl$\Comment{Squeeze a challenge scalar.}
+        \State $r' \gets$ \Call{Squeeze}{$16$} $\modl$\Comment{Squeeze a short challenge scalar.}
         \State
         \State $s \gets $ \Call{Decrypt}{$S_1$}\Comment{Decrypt the proof scalar.}
-        \State $I' \gets [s]G - [r]Q_E$\Comment{Calculate the counterfactual commitment point.}
+        \State $I' \gets [s]G - [r']Q_E$\Comment{Calculate the counterfactual commitment point.}
         \State
         \If{$I' \checkeq I$}
         \Comment{Verify the signature.}
@@ -136,6 +136,10 @@ The latter portion of \texttt{veil.mres} is an EdDSA-style Schnorr signature sch
 The EdDSA-style Schnorr signature is sUF-CMA secure when implemented in a prime order group and a
 cryptographic hash function~\cite{brendel2021, chalkias2020, pointcheval2000, neven2009} \@(see also
 Sec.~\ref{sec:veil.schnorr})\@.
+Short challenge scalars are used which allow for faster verification with no loss in
+security~\cite{pornin2022}.
+In addition, this construction allows for the use of variable-time optimizations during signature
+verification~\cite{pornin2020schnorr}.
 
 \subsection{Multi-User Confidentiality}\label{subsec:veil.mres-conf}
 
