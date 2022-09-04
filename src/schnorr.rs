@@ -109,7 +109,7 @@ pub fn sign_duplex(
     duplex.encrypt_mut(sig_i);
 
     // Squeeze a challenge scalar.
-    let r = duplex.squeeze_scalar();
+    let r = Scalar::from_u128(u128::from_le_bytes(duplex.squeeze()));
 
     // Calculate, encode, and encrypt the proof scalar.
     let s = (signer.d * r) + k;
@@ -131,7 +131,7 @@ pub fn verify_duplex(duplex: &mut KeyedDuplex, signer: &PubKey, sig: &Signature)
     duplex.decrypt_mut(i);
 
     // Re-derive the challenge scalar.
-    let r_p = duplex.squeeze_scalar();
+    let r_p = u128::from_le_bytes(duplex.squeeze());
 
     // Decrypt and decode the proof scalar.
     duplex.decrypt_mut(s);
@@ -143,7 +143,7 @@ pub fn verify_duplex(duplex: &mut KeyedDuplex, signer: &PubKey, sig: &Signature)
     // Return true iff I and s are well-formed and I == [s]G - [r']Q. Here we compare the encoded
     // form of I' with the encoded form of I from the signature. This is faster, as encoding a point
     // is faster than decoding a point.
-    ((-signer.q).mul_add_mulgen_vartime(&r_p, &s).encode().as_slice() == i).then_some(())
+    ((-signer.q).mul128_add_mulgen_vartime(r_p, &s).encode().as_slice() == i).then_some(())
 }
 
 #[cfg(test)]
