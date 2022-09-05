@@ -18,7 +18,7 @@ constant_time_eq = "0.2.4"
 crrl = "0.2.0"
 cyclist = { version = "0.3.2", default-features = false, features = ["keccyak"] }
 rand = { version = "0.8.5", features = ["min_const_gen"] }
-thiserror = "1.0.33"
+thiserror = "1.0.34"
 
 # cli-only deps
 anyhow = { version = "1.0.64", optional = true }
