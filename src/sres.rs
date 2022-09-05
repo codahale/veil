@@ -1,5 +1,6 @@
 //! An insider-secure hybrid signcryption implementation.
 
+use constant_time_eq::constant_time_eq;
 use crrl::jq255e::Point;
 use rand::{CryptoRng, Rng};
 
@@ -139,7 +140,7 @@ pub fn decrypt<'a>(
 
     // Return the ephemeral public key and plaintext iff the canonical encoding of the re-calculated
     // proof point matches the encoding of the decrypted proof point.
-    (x == x_p.encode().as_slice()).then_some((ephemeral, ciphertext))
+    constant_time_eq(x, x_p.encode().as_slice()).then_some((ephemeral, ciphertext))
 }
 
 /// Calculate the ECDH shared secret, deterministically substituting `(Q ^ d)` if the peer public
