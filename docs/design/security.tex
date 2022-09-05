@@ -3,11 +3,10 @@
 \subsection{Multi-User Confidentiality}\label{subsec:sec-conf}
 
 To evaluate the confidentiality of a scheme, we consider an adversary $\Adversary$ attempting to
-attack a sender and receiver~\cite[p. 44]{baek2010}\@.
-$\Adversary$ creates two equal-length messages $(m_0, m_1)$, the sender selects one at random and
-encrypts it, and $\Adversary$ guesses which of the two has been encrypted without tricking the
-receiver into decrypting it for them.
-To model real-world possibilities, we assume $\Adversary$ has three capabilities:
+attack a sender and receiver~\cite[p. 44]{baek2010}\@. $\Adversary$ creates two equal-length
+messages $(m_0, m_1)$, the sender selects one at random and encrypts it, and $\Adversary$ guesses
+which of the two has been encrypted without tricking the receiver into decrypting it for them. To
+model real-world possibilities, we assume $\Adversary$ has three capabilities:
 
 \begin{enumerate}
     \item $\Adversary$ can create their own key pairs. Veil does not have a centralized certificate
@@ -43,16 +42,15 @@ who have compromised a user.
 \paragraph{Forward Sender Security}
 
 A scheme which provides confidentiality in the multi-user insider setting is called \emph{forward
-    sender secure} because an adversary who compromises a sender cannot read messages that sender has
-previously encrypted~\cite{canetti2003}\@.
+    sender secure} because an adversary who compromises a sender cannot read messages that sender
+has previously encrypted~\cite{canetti2003}\@.
 
 \subsection{Multi-User Authenticity}\label{subsec:sec-auth}
 
 To evaluate the authenticity of a scheme, we consider an adversary $\Adversary$ attempting to attack
-a sender and receiver~\cite[p. 47]{baek2010}\@.
-$\Adversary$ attempts to forge a ciphertext which the receiver will decrypt but which the sender
-never encrypted. To model real-world possibilities, we again assume $\Adversary$ has three
-capabilities:
+a sender and receiver~\cite[p. 47]{baek2010}\@. $\Adversary$ attempts to forge a ciphertext which
+the receiver will decrypt but which the sender never encrypted. To model real-world possibilities,
+we again assume $\Adversary$ has three capabilities:
 
 \begin{enumerate}
     \item $\Adversary$ can create their own key pairs.
@@ -80,25 +78,25 @@ to the public keys of both users~\cite[p. 48]{baek2010}\@.
 \paragraph{Key Compromise Impersonation}
 
 A scheme which provides authenticity in the multi-user insider setting effectively resists \emph{key
-    compromise impersonation}, in which $\Adversary$, given knowledge of a receiver's private key, can
-forge messages to that receiver from arbitrary senders~\cite{strangio2006}\@.
-The classic example is authenticated Diffie-Hellman (e.g.\ RFC 9180~\cite{rfc9180, alwen2021}), in
-which the static Diffie-Hellman shared secret point $K=[d_S]Q_R$ is used to encrypt a message and
-its equivalent $K'=[d_R]Q_S$ is used to decrypt it.
-An attacker in possession of the receiver's private key $d_R$ and the sender's public key $Q_S$ can
-simply encrypt the message using $K'=[d_R]Q_S$ without ever having knowledge of $d_S$.
-Digital signatures are a critical element of schemes which provide insider authenticity, as they
-give receivers a way to verify the authenticity of a message using authenticators they \@(or an
-adversary with their private key) could never construct themselves.
+    compromise impersonation}, in which $\Adversary$, given knowledge of a receiver's private key,
+can forge messages to that receiver from arbitrary senders~\cite{strangio2006}\@. The classic
+example is authenticated Diffie-Hellman (e.g.\ RFC 9180~\cite{rfc9180, alwen2021}), in which the
+static Diffie-Hellman shared secret point $K=[d_S]Q_R$ is used to encrypt a message and its
+equivalent $K'=[d_R]Q_S$ is used to decrypt it. An attacker in possession of the receiver's
+private key $d_R$ and the sender's public key $Q_S$ can simply encrypt the message using
+$K'=[d_R]Q_S$ without ever having knowledge of $d_S$. Digital signatures are a critical element
+of schemes which provide insider authenticity, as they give receivers a way to verify the
+authenticity of a message using authenticators they \@(or an adversary with their private key)
+could never construct themselves.
 
 \subsection{Insider vs. Outsider Security}\label{subsec:security-insider-vs-outsider}
 
 The multi-receiver setting motivates a focus on insider security over the traditional emphasis on
 outsider security (contra~\cite[p. 26]{an2010}\cite[p. 46]{baek2010}; see~\cite{badertscher2018}).
 Given a probability of an individual key compromise $P$, a multi-user system of $N$ users has an
-overall $1-(1-P)^N$ probability of at least one key being compromised.
-A system with an exponentially increasing likelihood of losing all confidentiality and authenticity
-properties is not acceptable.
+overall $1-(1-P)^N$ probability of at least one key being compromised. A system with an
+exponentially increasing likelihood of losing all confidentiality and authenticity properties is not
+acceptable.
 
 \subsection{Indistinguishable From Random Noise}\label{subsec:security-indistinguishable}
 
@@ -106,13 +104,12 @@ Indistinguishability from random noise is a critical property for censorship-res
 communication~\cite{bernstein2013}\@:
 
 \begin{displayquote}
-    Censorship-circumvention tools are in an arms race against censors.
-    The censors study all traffic passing into and out of their controlled sphere, and try to
-    disable censorship-circumvention tools without completely shutting down the Internet.
-    Tools aim to shape their traffic patterns to match unblocked programs, so that simple traffic
-    profiling cannot identify the tools within a reasonable number of traces;
-    the censors respond by deploying firewalls with increasingly sophisticated deep-packet
-    inspection.
+    Censorship-circumvention tools are in an arms race against censors. The censors study all
+    traffic passing into and out of their controlled sphere, and try to disable
+    censorship-circumvention tools without completely shutting down the Internet. Tools aim to shape
+    their traffic patterns to match unblocked programs, so that simple traffic profiling cannot
+    identify the tools within a reasonable number of traces; the censors respond by deploying
+    firewalls with increasingly sophisticated deep-packet inspection.
 
     Cryptography hides patterns in user data but does not evade censorship if the censor can
     recognize patterns in the cryptography itself.
@@ -121,10 +118,9 @@ communication~\cite{bernstein2013}\@:
 \subsection{Limited Deniability}\label{subsec:security-deniability}
 
 The inability of a receiver (or an adversary in possession of a receiver's private key) to prove the
-authenticity of a message to a third party is critical for privacy.
-Other privacy-sensitive protocols achieve this by forfeiting insider authenticity or authenticity
-altogether~\cite{borisov2004}\@.
-Veil achieves a limited version of deniability: a receiver can only prove the authenticity of a
-message to a third party by revealing their own private key.
-This deters a dishonest receiver from selectively leaking messages and requires all-or-nothing
-disclosure from an adversary who compromises an honest receiver.
+authenticity of a message to a third party is critical for privacy. Other privacy-sensitive
+protocols achieve this by forfeiting insider authenticity or authenticity
+altogether~\cite{borisov2004}\@. Veil achieves a limited version of deniability: a receiver can only
+prove the authenticity of a message to a third party by revealing their own private key. This deters
+a dishonest receiver from selectively leaking messages and requires all-or-nothing disclosure from
+an adversary who compromises an honest receiver.

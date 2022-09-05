@@ -28,9 +28,8 @@
 \maketitle
 \begin{abstract}
     Veil is a public-key cryptosystem that provides confidentiality, authenticity, and integrity
-    services for messages of arbitrary sizes and multiple receivers.
-    Veil is implemented as a command line tool \texttt{veil}\@.
-    This document describes its feature set and usage.
+    services for messages of arbitrary sizes and multiple receivers. Veil is implemented as a
+    command line tool \texttt{veil}\@. This document describes its feature set and usage.
 \end{abstract}
 
 \clearpage
@@ -49,10 +48,10 @@ To install Veil, check out this repository and build it yourself:
     \end{verbatim}
 
 Because this is a cryptosystem designed by one person with no formal training and has not been
-audited, it will never be packaged conveniently.
-Cryptographic software is primarily used in high-risk environments where strong assurances of
-correctness, confidentiality, integrity, etc.\ are required, and \texttt{veil} does not provide
-those assurances. It's more of an art installation than a practical tool.
+audited, it will never be packaged conveniently. Cryptographic software is primarily used in
+high-risk environments where strong assurances of correctness, confidentiality, integrity, etc.\ are
+required, and \texttt{veil} does not provide those assurances. It's more of an art installation than
+a practical tool.
 
 \section{Shell Completion}\label{sec:shell-completion}
 
@@ -72,9 +71,8 @@ To create a private key, use the \texttt{private-key} command:
     \end{verbatim}
 
 You'll be prompted for a passphrase, and \texttt{veil} will write the encrypted private key to
-\texttt{./my-private-key}\@.
-That's it.
-There's no user IDs, no key signing, no key servers, no banging on the keyboard to generate entropy.
+\texttt{./my-private-key}\@. That's it. There's no user IDs, no key signing, no key servers, no
+banging on the keyboard to generate entropy.
 
 \section{Generating A Public Key}\label{sec:generating-a-public-key}
 
@@ -101,10 +99,9 @@ To encrypt a message, you need your private key, the receivers' public keys, and
     \end{verbatim}
 
 This will create a file \texttt{message.txt.veil} which the owners of the two public keys can
-decrypt if they have your public key.
-It adds 18 fake receivers, so neither receiver really knows how many people you sent the message to.
-It also adds 1234 bytes of random padding, so someone monitoring your communications won't know how
-long the message really is.
+decrypt if they have your public key. It adds 18 fake receivers, so neither receiver really knows
+how many people you sent the message to. It also adds 1234 bytes of random padding, so someone
+monitoring your communications won't know how long the message really is.
 
 \section{Decrypting A Message}\label{sec:decrypting-a-message}
 
@@ -116,10 +113,10 @@ encrypted message, and the sender's public key:
         TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa
     \end{verbatim}
 
-This will decrypt and verify the message.
-If successful, you'll know that the owner of the public key encrypted that exact message for you.
-Otherwise, the message may not have been encrypted for you, it may not have been encrypted by that
-sender, or the encrypted message may have been tampered with.
+This will decrypt and verify the message. If successful, you'll know that the owner of the public
+key encrypted that exact message for you. Otherwise, the message may not have been encrypted for
+you, it may not have been encrypted by that sender, or the encrypted message may have been tampered
+with.
 
 \section{Signing A Message}\label{sec:signing-a-message}
 
