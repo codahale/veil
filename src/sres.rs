@@ -140,7 +140,7 @@ pub fn decrypt<'a>(
 
     // Return the ephemeral public key and plaintext iff the canonical encoding of the re-calculated
     // proof point matches the encoding of the decrypted proof point.
-    constant_time_eq(x, x_p.encode().as_slice()).then_some((ephemeral, ciphertext))
+    constant_time_eq(x, &x_p.encode()).then_some((ephemeral, ciphertext))
 }
 
 /// Calculate the ECDH shared secret, deterministically substituting `(Q ^ d)` if the peer public
