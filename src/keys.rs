@@ -47,15 +47,18 @@ pub struct PrivKey {
 }
 
 impl PrivKey {
-    /// Decodes the given slice as a private key, if possible.
+    /// Decodes the given slice as a canonically encoded private key, if possible.
     #[must_use]
     pub fn decode(b: impl AsRef<[u8]>) -> Option<PrivKey> {
         let (d, ok) = Scalar::decode32(b.as_ref());
-        let ok = ok & !d.iszero();
-        (ok != 0).then(|| {
-            let q = Point::mulgen(&d);
-            PrivKey { d, pub_key: PubKey { q, encoded: q.encode() } }
-        })
+        ((ok & !d.iszero()) != 0).then(|| PrivKey::from_scalar(d))
+    }
+
+    /// Decodes the given slice as a private key, if possible.
+    #[must_use]
+    pub fn decode_reduce(b: impl AsRef<[u8]>) -> Option<PrivKey> {
+        let d = Scalar::decode_reduce(b.as_ref());
+        (d.iszero() == 0).then(|| PrivKey::from_scalar(d))
     }
 
     /// Generates a random private key.
@@ -69,11 +72,8 @@ impl PrivKey {
         }
     }
 
-    /// Creates a new private key from the given non-zero scalar.
     #[must_use]
-    pub fn from_scalar(d: Scalar) -> PrivKey {
-        assert_eq!(d.iszero(), 0, "private key scalars must be non-zero");
-
+    fn from_scalar(d: Scalar) -> PrivKey {
         let q = Point::mulgen(&d);
         PrivKey { d, pub_key: PubKey { q, encoded: q.encode() } }
     }

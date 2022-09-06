@@ -100,7 +100,8 @@ pub trait Squeeze {
     /// Squeeze 32 bytes from the duplex and map them to a [`PrivKey`].
     #[must_use]
     fn squeeze_private_key(&mut self) -> PrivKey {
-        PrivKey::from_scalar(self.squeeze_scalar())
+        PrivKey::decode_reduce(self.squeeze::<SCALAR_LEN>())
+            .expect("unexpected invalid private key")
     }
 }
 
