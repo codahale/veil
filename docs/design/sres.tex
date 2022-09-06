@@ -18,7 +18,7 @@ Encrypting a header is described in full in Alg.~\ref{alg:veil.sres-encrypt}\@.
         \State \Call{Absorb}{$Q_R$}\Comment{Absorb the receiver's public key.}
         \State \Call{Absorb}{$N$}\Comment{Absorb the nonce.}
         \State \Call{Absorb}{$d_S[Q_R]$}\Comment{Absorb the static ECDH shared secret.}
-        \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
+        \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.} % chktex 36
         \State
         \State $C_0 \gets$ \Call{Encrypt}{$Q_E$}\Comment{Encrypt the ephemeral public key.}
         \State \Call{Absorb}{$d_E[Q_R]$}\Comment{Absorb the ephemeral ECDH shared secret.}
@@ -35,8 +35,7 @@ Encrypting a header is described in full in Alg.~\ref{alg:veil.sres-encrypt}\@.
         \State $I \gets [k]G$\Comment{Calculate the commitment point.}
         \State $S_0 \gets$ \Call{Encrypt}{$I$}\Comment{Encrypt the commitment point.}
         \State
-        \State $r \gets$ \Call{Squeeze}{$32$} $\modl$
-        \label{alg:veil.sres-encrypt-challenge}
+        \State $r \gets$ \Call{Squeeze}{$32$} $\modl$\label{alg:veil.sres-encrypt-challenge}
         \Comment{Squeeze a challenge scalar.}
         \State $s \gets d_S{r}+k$\Comment{Calculate the proof scalar.}
         \State
@@ -45,8 +44,7 @@ Encrypting a header is described in full in Alg.~\ref{alg:veil.sres-encrypt}\@.
         \State
         \State \textbf{return} $C_0||C_1||S_0||S_1$
         \EndFunction
-    \end{algorithmic}
-    \label{alg:veil.sres-encrypt}
+    \end{algorithmic}\label{alg:veil.sres-encrypt}
 \end{algorithm}
 
 \subsection{Decrypting A Header}\label{subsec:veil.sres-decrypt}
@@ -64,7 +62,7 @@ Decrypting a header is described in full in Alg.~\ref{alg:veil.sres-decrypt}\@.
         \State \Call{Absorb}{$N$}\Comment{Absorb the nonce.}
         \State
         \State \Call{Absorb}{$d_R[Q_S]$}\Comment{Absorb the static ECDH shared secret.}
-        \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
+        \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.} % chktex 36
         \State
         \State ${Q_E}' \gets$ \Call{Decrypt}{$C_0$}\Comment{Decrypt the ephemeral public key.}
         \State \Call{Absorb}{$d_R[{Q_E}']$}\Comment{Absorb the ephemeral ECDH shared secret.}
@@ -83,8 +81,7 @@ Decrypting a header is described in full in Alg.~\ref{alg:veil.sres-decrypt}\@.
         \State \textbf{return} $\bot$
         \EndIf
         \EndFunction
-    \end{algorithmic}
-    \label{alg:veil.sres-decrypt}
+    \end{algorithmic}\label{alg:veil.sres-decrypt}
 \end{algorithm}
 
 \subsection{Constructive Analysis Of \texttt{veil.sres}}\label{subsec:veil.sres-analysis}

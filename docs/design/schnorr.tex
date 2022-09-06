@@ -22,7 +22,7 @@ Signing a message is described in full in Alg.~\ref{alg:veil.schnorr-sign}.
         \State \textbf{yield} $k$\Comment{Yield a hedged commitment scalar.}
         \End
         \State
-        \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
+        \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.} % chktex 36
         \State
         \State $I \gets [k]G$\Comment{Calculate the commitment point.}
         \State $S_0 \gets $ \Call{Encrypt}{$I$}\Comment{Encrypt the commitment point.}
@@ -33,8 +33,7 @@ Signing a message is described in full in Alg.~\ref{alg:veil.schnorr-sign}.
         \State
         \State \textbf{return} $S=S_0 || S_1$
         \EndFunction
-    \end{algorithmic}
-    \label{alg:veil.schnorr-sign}
+    \end{algorithmic}\label{alg:veil.schnorr-sign}
 \end{algorithm}
 
 \subsection{Verifying A Signature}\label{subsec:veil.schnorr-verify}
@@ -49,7 +48,7 @@ Verifying a signature is described in full in Alg.~\ref{alg:veil.schnorr-verify}
         \State \Call{Absorb}{$Q$}\Comment{Absorb the signer's public key.}
         \State \Call{Absorb}{$M$}\Comment{Absorb the message.}
         \State
-        \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
+        \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.} % chktex 36
         \State
         \State $I \gets $ \Call{Decrypt}{$S_0$}\Comment{Decrypt the commitment point.}
         \State $r' \gets$ \Call{Squeeze}{$16$} $\modl$\Comment{Squeeze a short challenge scalar.}
@@ -59,8 +58,7 @@ Verifying a signature is described in full in Alg.~\ref{alg:veil.schnorr-verify}
         \State
         \State \textbf{return} $I' \checkeq I$\Comment{The signature is valid if both points are equal.}
         \EndFunction
-    \end{algorithmic}
-    \label{alg:veil.schnorr-verify}
+    \end{algorithmic}\label{alg:veil.schnorr-verify}
 \end{algorithm}
 
 \subsection{Constructive Analysis Of \texttt{veil.schnorr}}\label{subsec:veil.schnorr-analysis}

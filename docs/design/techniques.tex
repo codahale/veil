@@ -17,8 +17,7 @@ from the unkeyed duplex's state and used to initialize a keyed duplex:
         \State $K \gets $ \Call{SqueezeKey}{$64$}\Comment{Squeeze a 512-bit key.}
         \State \Call{Cyclist}{$K$, $\epsilon$, $\epsilon$}\Comment{Initialize a keyed duplex.}
         \State $C \gets $ \Call{Encrypt}{$P$}\Comment{Use the keyed duplex.}
-    \end{algorithmic}
-    \label{alg:duplex-convert}
+    \end{algorithmic}\label{alg:duplex-convert}
 \end{algorithm}
 
 The unkeyed duplex is used as a kind of key derivation function, with the lower absorb rate of
@@ -47,8 +46,7 @@ In contrast, the same construction using Cyclist would be the following three op
         \State \Call{Cyclist}{$[d_E]Q_R$, $\epsilon$, $\epsilon$}\label{alg:hpke:key}
         \State $C \gets $ \Call{Encrypt}{$P$}\label{alg:hpke:encrypt}
         \State $T \gets $ \Call{Squeeze}{$16$}\label{alg:hpke:tag}
-    \end{algorithmic}
-    \label{alg:hpke}
+    \end{algorithmic}\label{alg:hpke}
 \end{algorithm}
 
 The duplex is keyed with the shared secret point (line~\ref{alg:hpke:key}), used to encrypt the
@@ -97,8 +95,7 @@ For example, the following operations would be performed on the cloned duplex
         \State $x \gets$ \Call{Squeeze}{$32$} $\modl$\Comment{Squeeze a hedged ephemeral scalar.}
         \State \textbf{yield} $x$\Comment{Return $x$ to the outer context.}
         \End \Comment{Destroy the cloned duplex's state.}
-    \end{algorithmic}
-    \label{alg:hedged-ephemeral}
+    \end{algorithmic}\label{alg:hedged-ephemeral}
 \end{algorithm}
 
 The ephemeral scalar $x$ is returned to the context of the original construction and the cloned

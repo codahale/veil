@@ -15,15 +15,14 @@ Encrypting a private key is described in full in Alg.~\ref{alg:veil.pbenc-encryp
         \State \Call{Absorb}{\texttt{veil.pbenc}}\Comment{Initialize an unkeyed duplex.}
         \State $P_N \gets$\Call{NormalizeNFC}{$P$}\Comment{Normalize the passphrase.}
         \State $S \rgets \allbits{128}$\Comment{Generate a random salt.}
-        \State $K \gets $\Call{Argon2id}{\texttt{0x13}, $P_N, S, C_M, C_T, C_P, 64$}\Comment{Hash the passphrase.}
+        \State $K \gets $\Call{Argon2id}{\texttt{0x13}, $P_N, S, C_M, C_T, C_P, 64$}\Comment{Hash the passphrase.} % chktex 29
         \State \Call{Absorb}{$K$}\Comment{Absorb the derived key.}
-        \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
+        \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.} % chktex 36
         \State $C \gets$\Call{Encrypt}{$d$}\Comment{Encrypt the private key.}
         \State $T \gets$\Call{Squeeze}{$16$}\Comment{Squeeze an authentication tag.}
         \State \textbf{return} $C_M || C_T || C_P || S || C || T$
         \EndFunction
-    \end{algorithmic}
-    \label{alg:veil.pbenc-encrypt}
+    \end{algorithmic}\label{alg:veil.pbenc-encrypt}
 \end{algorithm}
 
 \subsection{Decrypting A Private key}\label{subsec:veil.pbenc-decrypt}
@@ -37,9 +36,9 @@ Decrypting a private key is described in full in Alg.~\ref{alg:veil.pbenc-decryp
         \State \Call{Absorb}{\texttt{veil.pbenc}}\Comment{Initialize an unkeyed duplex.}
         \State $P_N \gets$\Call{NormalizeNFC}{$P$}\Comment{Normalize the passphrase.}
         \State $S \rgets \allbits{128}$\Comment{Generate a random salt.}
-        \State $K \gets $\Call{Argon2id}{\texttt{0x13}, $P_N, S, C_M, C_T, C_P, 64$}\Comment{Hash the passphrase.}
+        \State $K \gets $\Call{Argon2id}{\texttt{0x13}, $P_N, S, C_M, C_T, C_P, 64$}\Comment{Hash the passphrase.} % chktex 29 
         \State \Call{Absorb}{$K$}\Comment{Absorb the derived key.}
-        \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
+        \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.} % chktex 36
         \State $d' \gets$\Call{Decrypt}{$C$}\Comment{Decrypt the ciphertext.}
         \State $T' \gets$\Call{Squeeze}{$16$}\Comment{Squeeze a counterfactual tag.}
         \If{$T' \checkeq T$}\Comment{Authenticate the ciphertext.}
@@ -48,8 +47,7 @@ Decrypting a private key is described in full in Alg.~\ref{alg:veil.pbenc-decryp
         \State \textbf{return} $\bot$
         \EndIf
         \EndFunction
-    \end{algorithmic}
-    \label{alg:veil.pbenc-decrypt}
+    \end{algorithmic}\label{alg:veil.pbenc-decrypt}
 \end{algorithm}
 
 \subsection{Constructive Analysis Of \texttt{veil.pbenc}}\label{subsec:veil.pbenc-analysis}

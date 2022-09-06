@@ -43,7 +43,7 @@ Encrypting a message is described in full in Alg.~\ref{alg:veil.mres-encrypt}\@.
         \State $C \gets C||y$\Comment{Append padding to ciphertext.}
         \State
         \State \Call{Absorb}{$K$}\Comment{Absorb the DEK.}
-        \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
+        \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.} % chktex 36
         \State
         \ForAll{32-KiB blocks $p \in P$}
         \State $C \gets C||$\Call{Encrypt}{$p$}\Comment{Encrypt and tag each block.}
@@ -58,8 +58,7 @@ Encrypting a message is described in full in Alg.~\ref{alg:veil.mres-encrypt}\@.
         \State $C \gets C||$\Call{Encrypt}{$s$}
         \State \textbf{return} $C$
         \EndFunction
-    \end{algorithmic}
-    \label{alg:veil.mres-encrypt}
+    \end{algorithmic}\label{alg:veil.mres-encrypt}
 \end{algorithm}
 
 \subsection{Decrypting A Message}\label{subsec:veil.mres-decrypt}
@@ -89,7 +88,7 @@ Decrypting a signature is described in full in Alg.~\ref{alg:veil.mres-decrypt}\
         \State $C \gets C[{16+N_Q+N_P}..]$\Comment{Skip to the message beginning.}
         \State
         \State \Call{Absorb}{$K$}\Comment{Absorb the DEK.}
-        \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.}
+        \State \Call{Cyclist}{\textsc{SqueezeKey}($64$), $\epsilon$, $\epsilon$}\Comment{Convert to a keyed duplex.} % chktex 36
         \State
         \State $P' = \epsilon$\Comment{Initialize a buffer for the plaintext.}
         \ForAll{32KiB+16 blocks $c||t \in C$}
@@ -111,11 +110,10 @@ Decrypting a signature is described in full in Alg.~\ref{alg:veil.mres-decrypt}\
         \Comment{Verify the signature.}
         \State \textbf{return} $P'$ \Comment{Return the plaintext.}
         \Else
-        \State \textbf{return} $\bot$
+        \State\ \textbf{return}\ \bot
         \EndIf
         \EndFunction
-    \end{algorithmic}
-    \label{alg:veil.mres-decrypt}
+    \end{algorithmic}\label{alg:veil.mres-decrypt}
 \end{algorithm}
 
 \subsection{Constructive Analysis Of \texttt{veil.mres}}\label{subsec:veil.mres-analysis}
