@@ -5,7 +5,6 @@ use std::io::{Read, Write};
 use std::str::FromStr;
 use std::{fmt, io, iter};
 
-use crrl::jq255e::Scalar;
 use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
 
@@ -18,11 +17,6 @@ use crate::{
 pub struct PrivateKey(PrivKey);
 
 impl PrivateKey {
-    #[must_use]
-    fn from_scalar(d: Scalar) -> PrivateKey {
-        PrivateKey(PrivKey::from_scalar(d))
-    }
-
     /// Creates a randomly generated private key.
     #[must_use]
     pub fn random(rng: impl Rng + CryptoRng) -> PrivateKey {
@@ -78,11 +72,8 @@ impl PrivateKey {
 
         // Decrypt the ciphertext and use the plaintext as the private key.
         pbenc::decrypt(passphrase, &mut b)
-            .and_then(|b| {
-                let (d, ok) = Scalar::decode32(b);
-                (ok != 0).then_some(d)
-            })
-            .map(PrivateKey::from_scalar)
+            .and_then(PrivKey::decode)
+            .map(PrivateKey)
             .ok_or(DecryptError::InvalidCiphertext)
     }
 

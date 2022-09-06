@@ -47,6 +47,18 @@ pub struct PrivKey {
 }
 
 impl PrivKey {
+    /// Decodes the given slice as a private key, if possible.
+    #[must_use]
+    pub fn decode(b: impl AsRef<[u8]>) -> Option<PrivKey> {
+        let (d, ok) = Scalar::decode32(b.as_ref());
+        dbg!(ok, !d.iszero());
+        let ok = ok & !d.iszero();
+        (ok != 0).then(|| {
+            let q = Point::mulgen(&d);
+            PrivKey { d, pub_key: PubKey { q, encoded: q.encode() } }
+        })
+    }
+
     /// Generates a random private key.
     #[must_use]
     pub fn random(mut rng: impl CryptoRng + Rng) -> PrivKey {
