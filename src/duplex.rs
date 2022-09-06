@@ -9,7 +9,7 @@ use cyclist::Cyclist;
 use rand::{CryptoRng, Rng};
 
 use crate::blockio::ReadBlock;
-use crate::keys::PrivKey;
+use crate::keys::{PrivKey, SCALAR_LEN};
 
 /// The length of an authentication tag in bytes.
 pub const TAG_LEN: usize = Keccyak128Keyed::tag_len();
@@ -94,7 +94,7 @@ pub trait Squeeze {
     /// Squeeze 32 bytes from the duplex and map them to a [`Scalar`].
     #[must_use]
     fn squeeze_scalar(&mut self) -> Scalar {
-        Scalar::decode_reduce(&self.squeeze::<32>())
+        Scalar::decode_reduce(&self.squeeze::<SCALAR_LEN>())
     }
 
     /// Squeeze 32 bytes from the duplex and map them to a [`PrivKey`].
