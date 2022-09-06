@@ -51,7 +51,6 @@ impl PrivKey {
     #[must_use]
     pub fn decode(b: impl AsRef<[u8]>) -> Option<PrivKey> {
         let (d, ok) = Scalar::decode32(b.as_ref());
-        dbg!(ok, !d.iszero());
         let ok = ok & !d.iszero();
         (ok != 0).then(|| {
             let q = Point::mulgen(&d);
