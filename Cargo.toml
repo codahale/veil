@@ -9,14 +9,27 @@ description = "Stupid crypto tricks."
 
 [features]
 default = ["cli"]
-cli = ["anyhow", "clap", "clap_complete", "clio", "mimalloc", "rpassword", "unicode-normalization"]
+cli = [
+    "anyhow",
+    "clap",
+    "clap_complete",
+    "clio",
+    "mimalloc",
+    "rpassword",
+    "shell-words",
+    "unicode-normalization",
+]
 
 [dependencies]
-argon2 = { version = "0.4.1", default-features = false, features = ["parallel"] }
+argon2 = { version = "0.4.1", default-features = false, features = [
+    "parallel",
+] }
 bs58 = "0.4.0"
 constant_time_eq = "0.2.4"
 crrl = "0.2.0"
-cyclist = { version = "0.3.3", default-features = false, features = ["keccyak"] }
+cyclist = { version = "0.3.3", default-features = false, features = [
+    "keccyak",
+] }
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 thiserror = "1.0.34"
 
@@ -27,6 +40,7 @@ clap_complete = { version = "3.2.4", optional = true }
 clio = { version = "0.2.3", features = ["clap-parse"], optional = true }
 mimalloc = { version = "0.1.29", optional = true }
 rpassword = { version = "7.0.0", optional = true }
+shell-words = { version = "1.1.0", optional = true }
 unicode-normalization = { version = "0.1.21", optional = true }
 
 [dev-dependencies]

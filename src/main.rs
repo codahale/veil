@@ -1,6 +1,7 @@
 use std::fs;
 use std::fs::File;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use anyhow::{anyhow, Result};
 use clap::{AppSettings, IntoApp, Parser, Subcommand, ValueHint};
@@ -72,15 +73,14 @@ struct PrivateKeyArgs {
     #[clap(action, long, default_value = "2")]
     p_cost: u32,
 
-    /// The path to read the passphrase from
-    #[clap(action, long, value_hint = ValueHint::FilePath)]
-    passphrase_file: Option<PathBuf>,
+    #[clap(flatten)]
+    passphrase_input: PassphraseInput,
 }
 
 impl Runnable for PrivateKeyArgs {
     fn run(mut self) -> Result<()> {
         let mut rng = rand::thread_rng();
-        let passphrase = prompt_passphrase(&self.passphrase_file)?;
+        let passphrase = self.passphrase_input.read_passphrase()?;
         let private_key = PrivateKey::random(&mut rng);
         private_key.store(
             self.output.lock(),
@@ -105,14 +105,13 @@ struct PublicKeyArgs {
     #[clap(value_parser, value_hint = ValueHint::FilePath, default_value = "-")]
     output: Output,
 
-    /// The path to read the passphrase from.
-    #[clap(action, long, value_hint = ValueHint::FilePath)]
-    passphrase_file: Option<PathBuf>,
+    #[clap(flatten)]
+    passphrase_input: PassphraseInput,
 }
 
 impl Runnable for PublicKeyArgs {
     fn run(mut self) -> Result<()> {
-        let private_key = decrypt_private_key(&self.passphrase_file, &self.private_key)?;
+        let private_key = decrypt_private_key(&self.passphrase_input, &self.private_key)?;
         let public_key = private_key.public_key();
         write!(self.output.lock(), "{}", public_key)?;
         Ok(())
@@ -146,14 +145,13 @@ struct EncryptArgs {
     #[clap(action, long)]
     padding: Option<usize>,
 
-    /// The path to read the passphrase from.
-    #[clap(action, long, value_hint = ValueHint::FilePath)]
-    passphrase_file: Option<PathBuf>,
+    #[clap(flatten)]
+    passphrase_input: PassphraseInput,
 }
 
 impl Runnable for EncryptArgs {
     fn run(mut self) -> Result<()> {
-        let private_key = decrypt_private_key(&self.passphrase_file, &self.private_key)?;
+        let private_key = decrypt_private_key(&self.passphrase_input, &self.private_key)?;
         private_key.encrypt(
             rand::thread_rng(),
             self.plaintext.lock(),
@@ -185,14 +183,13 @@ struct DecryptArgs {
     #[clap(action)]
     sender: PublicKey,
 
-    /// The path to read the passphrase from.
-    #[clap(action, long, value_hint = ValueHint::FilePath)]
-    passphrase_file: Option<PathBuf>,
+    #[clap(flatten)]
+    passphrase_input: PassphraseInput,
 }
 
 impl Runnable for DecryptArgs {
     fn run(mut self) -> Result<()> {
-        let private_key = decrypt_private_key(&self.passphrase_file, &self.private_key)?;
+        let private_key = decrypt_private_key(&self.passphrase_input, &self.private_key)?;
         private_key.decrypt(self.ciphertext.lock(), self.plaintext.lock(), &self.sender)?;
         Ok(())
     }
@@ -213,14 +210,13 @@ struct SignArgs {
     #[clap(value_parser, value_hint = ValueHint::FilePath, default_value = "-")]
     output: Output,
 
-    /// The path to read the passphrase from.
-    #[clap(action, long, value_hint = ValueHint::FilePath)]
-    passphrase_file: Option<PathBuf>,
+    #[clap(flatten)]
+    passphrase_input: PassphraseInput,
 }
 
 impl Runnable for SignArgs {
     fn run(mut self) -> Result<()> {
-        let private_key = decrypt_private_key(&self.passphrase_file, &self.private_key)?;
+        let private_key = decrypt_private_key(&self.passphrase_input, &self.private_key)?;
         let sig = private_key.sign(rand::thread_rng(), self.message.lock())?;
         write!(self.output.lock(), "{}", sig)?;
         Ok(())
@@ -307,17 +303,63 @@ impl Runnable for CompleteArgs {
     }
 }
 
-fn decrypt_private_key(passphrase_file: &Option<PathBuf>, path: &Path) -> Result<PrivateKey> {
-    let passphrase = prompt_passphrase(passphrase_file)?;
+#[derive(Debug, Parser)]
+struct PassphraseInput {
+    /// Read the passphrase from the console via an interactive prompt.
+    #[clap(
+        long = "passphrase-prompt",
+        default_value = "true",
+        value_parser,
+        conflicts_with = "file",
+        conflicts_with = "command"
+    )]
+    prompt: bool,
+
+    /// Use the given file's contents as the passphrase.
+    #[clap(
+        long = "passphrase-file",
+        value_parser,
+        conflicts_with = "prompt",
+        conflicts_with = "command",
+        value_hint = ValueHint::DirPath
+    )]
+    file: Option<PathBuf>,
+
+    /// Use the output of the given command as the passphrase.
+    #[clap(
+        long = "passphrase-command",
+        value_parser,
+        conflicts_with = "prompt",
+        conflicts_with = "file"
+    )]
+    command: Option<String>,
+}
+
+impl PassphraseInput {
+    fn read_passphrase(&self) -> Result<Vec<u8>> {
+        match (self.prompt, &self.file, &self.command) {
+            (true, None, None) => rpassword::prompt_password("Enter passphrase: ")
+                .map(|s| s.nfc().collect::<String>().as_bytes().to_vec())
+                .map_err(anyhow::Error::new),
+            (_, Some(file), None) => fs::read(file).map_err(anyhow::Error::new),
+            (_, None, Some(command)) => {
+                let mut tokens = shell_words::split(command)?.into_iter();
+                if let Some(program) = tokens.next() {
+                    let mut cmd = Command::new(program);
+                    cmd.args(tokens);
+                    Ok(cmd.output()?.stdout)
+                } else {
+                    Err(anyhow!("invalid command: {}", command))
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+}
+
+fn decrypt_private_key(passphrase_input: &PassphraseInput, path: &Path) -> Result<PrivateKey> {
+    let passphrase = passphrase_input.read_passphrase()?;
     let ciphertext = File::open(path)?;
     let pk = PrivateKey::load(ciphertext, &passphrase)?;
     Ok(pk)
-}
-
-fn prompt_passphrase(passphrase_file: &Option<PathBuf>) -> Result<Vec<u8>> {
-    match passphrase_file {
-        Some(p) => Ok(fs::read(p)?),
-        None => Ok(rpassword::prompt_password("Enter passphrase: ")
-            .map(|s| s.nfc().collect::<String>().as_bytes().to_vec())?),
-    }
 }
