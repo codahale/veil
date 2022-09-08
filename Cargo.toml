@@ -64,3 +64,9 @@ lto = "fat"
 
 [profile.dev.package.crrl]
 opt-level = 3
+
+[profile.dev.package.cyclist]
+opt-level = 3
+
+[profile.dev.package.keccak-p]
+opt-level = 3
