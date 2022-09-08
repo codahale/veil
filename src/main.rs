@@ -306,32 +306,20 @@ impl Runnable for CompleteArgs {
 #[derive(Debug, Parser)]
 struct PassphraseInput {
     /// Read the passphrase from the console via an interactive prompt.
-    #[clap(
-        long = "passphrase-prompt",
-        default_value = "true",
-        value_parser,
-        conflicts_with = "file",
-        conflicts_with = "command"
-    )]
+    #[clap(long = "passphrase-prompt", default_value = "true", value_parser, group = "passphrase")]
     prompt: bool,
 
     /// Use the given file's contents as the passphrase.
     #[clap(
         long = "passphrase-file",
         value_parser,
-        conflicts_with = "prompt",
-        conflicts_with = "command",
+        group = "passphrase",
         value_hint = ValueHint::DirPath
     )]
     file: Option<PathBuf>,
 
     /// Use the output of the given command as the passphrase.
-    #[clap(
-        long = "passphrase-command",
-        value_parser,
-        conflicts_with = "prompt",
-        conflicts_with = "file"
-    )]
+    #[clap(long = "passphrase-command", value_parser, group = "passphrase")]
     command: Option<String>,
 }
 
