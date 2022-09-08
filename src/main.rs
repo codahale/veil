@@ -332,13 +332,11 @@ impl PassphraseInput {
             (_, Some(file), None) => fs::read(file).map_err(anyhow::Error::new),
             (_, None, Some(command)) => {
                 let mut tokens = shell_words::split(command)?.into_iter();
-                if let Some(program) = tokens.next() {
-                    let mut cmd = Command::new(program);
-                    cmd.args(tokens);
-                    Ok(cmd.output()?.stdout)
-                } else {
-                    Err(anyhow!("invalid command: {}", command))
-                }
+                let program =
+                    tokens.next().ok_or_else(|| anyhow!("invalid command: {}", command))?;
+                let mut cmd = Command::new(program);
+                cmd.args(tokens);
+                Ok(cmd.output()?.stdout)
             }
             _ => unreachable!(),
         }
