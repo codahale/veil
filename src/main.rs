@@ -350,3 +350,13 @@ impl PassphraseInput {
         Ok(PrivateKey::load(ciphertext, &passphrase)?)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cli_validity() {
+        Opts::command().debug_assert();
+    }
+}
