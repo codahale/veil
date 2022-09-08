@@ -111,7 +111,7 @@ struct PublicKeyArgs {
 
 impl Runnable for PublicKeyArgs {
     fn run(mut self) -> Result<()> {
-        let private_key = decrypt_private_key(&self.passphrase_input, &self.private_key)?;
+        let private_key = self.passphrase_input.decrypt_private_key(&self.private_key)?;
         let public_key = private_key.public_key();
         write!(self.output.lock(), "{}", public_key)?;
         Ok(())
@@ -151,7 +151,7 @@ struct EncryptArgs {
 
 impl Runnable for EncryptArgs {
     fn run(mut self) -> Result<()> {
-        let private_key = decrypt_private_key(&self.passphrase_input, &self.private_key)?;
+        let private_key = self.passphrase_input.decrypt_private_key(&self.private_key)?;
         private_key.encrypt(
             rand::thread_rng(),
             self.plaintext.lock(),
@@ -189,7 +189,7 @@ struct DecryptArgs {
 
 impl Runnable for DecryptArgs {
     fn run(mut self) -> Result<()> {
-        let private_key = decrypt_private_key(&self.passphrase_input, &self.private_key)?;
+        let private_key = self.passphrase_input.decrypt_private_key(&self.private_key)?;
         private_key.decrypt(self.ciphertext.lock(), self.plaintext.lock(), &self.sender)?;
         Ok(())
     }
@@ -216,7 +216,7 @@ struct SignArgs {
 
 impl Runnable for SignArgs {
     fn run(mut self) -> Result<()> {
-        let private_key = decrypt_private_key(&self.passphrase_input, &self.private_key)?;
+        let private_key = self.passphrase_input.decrypt_private_key(&self.private_key)?;
         let sig = private_key.sign(rand::thread_rng(), self.message.lock())?;
         write!(self.output.lock(), "{}", sig)?;
         Ok(())
@@ -355,11 +355,10 @@ impl PassphraseInput {
             _ => unreachable!(),
         }
     }
-}
 
-fn decrypt_private_key(passphrase_input: &PassphraseInput, path: &Path) -> Result<PrivateKey> {
-    let passphrase = passphrase_input.read_passphrase()?;
-    let ciphertext = File::open(path)?;
-    let pk = PrivateKey::load(ciphertext, &passphrase)?;
-    Ok(pk)
+    fn decrypt_private_key(&self, path: &Path) -> Result<PrivateKey> {
+        let passphrase = self.read_passphrase()?;
+        let ciphertext = File::open(path)?;
+        Ok(PrivateKey::load(ciphertext, &passphrase)?)
+    }
 }
