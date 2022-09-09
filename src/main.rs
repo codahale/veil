@@ -1,4 +1,3 @@
-use std::fs;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -305,40 +304,21 @@ impl Runnable for CompleteArgs {
 
 #[derive(Debug, Parser)]
 struct PassphraseInput {
-    /// Read the passphrase from the console via an interactive prompt.
-    #[clap(long = "passphrase-prompt", default_value = "true", value_parser, group = "passphrase")]
-    prompt: bool,
-
-    /// Use the given file's contents as the passphrase.
-    #[clap(
-        long = "passphrase-file",
-        value_parser,
-        group = "passphrase",
-        value_hint = ValueHint::DirPath
-    )]
-    file: Option<PathBuf>,
-
-    /// Use the output of the given command as the passphrase.
-    #[clap(long = "passphrase-command", value_parser, group = "passphrase")]
+    /// Use the STDOUT of the given command as the passphrase.
+    #[clap(long = "passphrase-command", value_parser)]
     command: Option<String>,
 }
 
 impl PassphraseInput {
     fn read_passphrase(&self) -> Result<Vec<u8>> {
-        match (self.prompt, &self.file, &self.command) {
-            (true, None, None) => rpassword::prompt_password("Enter passphrase: ")
+        if let Some(ref command) = self.command {
+            let mut tokens = shell_words::split(command)?.into_iter();
+            let program = tokens.next().ok_or_else(|| anyhow!("invalid command: {}", command))?;
+            Ok(Command::new(program).args(tokens).output()?.stdout)
+        } else {
+            rpassword::prompt_password("Enter passphrase: ")
                 .map(|s| s.nfc().collect::<String>().as_bytes().to_vec())
-                .map_err(anyhow::Error::new),
-            (_, Some(file), None) => fs::read(file).map_err(anyhow::Error::new),
-            (_, None, Some(command)) => {
-                let mut tokens = shell_words::split(command)?.into_iter();
-                let program =
-                    tokens.next().ok_or_else(|| anyhow!("invalid command: {}", command))?;
-                let mut cmd = Command::new(program);
-                cmd.args(tokens);
-                Ok(cmd.output()?.stdout)
-            }
-            _ => unreachable!(),
+                .map_err(anyhow::Error::new)
         }
     }
 

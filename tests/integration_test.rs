@@ -13,32 +13,40 @@ pub fn encrypt_and_decrypt_a_message() {
     let dir = tempfile::tempdir().expect("error creating temp dir");
 
     // Alice picks a passphrase.
-    let passphrase_path_a = &dir.path().join("passphrase-a");
-    fs::write(passphrase_path_a, "excelsior").expect("error writing passphrase file");
+    let alice_passphrase = "excelsior";
 
     // Alice generates a private key.
     let private_key_path_a = &dir.path().join("private-key-a");
-    create_private_key(private_key_path_a, passphrase_path_a).expect("error creating private key");
+    create_private_key(private_key_path_a, alice_passphrase).expect("error creating private key");
 
     // Alice generates a public key.
-    let public_key_a =
-        cmd!(VEIL_PATH, "public-key", private_key_path_a, "--passphrase-file", passphrase_path_a)
-            .read()
-            .expect("error creating public key");
+    let public_key_a = cmd!(
+        VEIL_PATH,
+        "public-key",
+        private_key_path_a,
+        "--passphrase-command",
+        format!("/bin/echo -n '{}'", alice_passphrase),
+    )
+    .read()
+    .expect("error creating public key");
 
     // Bea picks a passphrase.
-    let passphrase_path_b = &dir.path().join("passphrase-b");
-    fs::write(passphrase_path_b, "dingus").expect("error writing passphrase file");
+    let bea_passphrase = "dingus";
 
     // Bea generates a private key.
     let private_key_path_b = &dir.path().join("private-key-b");
-    create_private_key(private_key_path_b, passphrase_path_b).expect("error creating private key");
+    create_private_key(private_key_path_b, bea_passphrase).expect("error creating private key");
 
     // Bea generates a public key.
-    let public_key_b =
-        cmd!(VEIL_PATH, "public-key", private_key_path_b, "--passphrase-file", passphrase_path_b)
-            .read()
-            .expect("error creating public key");
+    let public_key_b = cmd!(
+        VEIL_PATH,
+        "public-key",
+        private_key_path_b,
+        "--passphrase-command",
+        format!("/bin/echo -n '{}'", bea_passphrase),
+    )
+    .read()
+    .expect("error creating public key");
 
     // Alice writes a plaintext message.
     let message_file = &dir.path().join("message");
@@ -57,8 +65,8 @@ pub fn encrypt_and_decrypt_a_message() {
         "20",
         "--padding",
         "1024",
-        "--passphrase-file",
-        passphrase_path_a,
+        "--passphrase-command",
+        format!("/bin/echo -n '{}'", alice_passphrase),
     )
     .run()
     .expect("error encrypting message");
@@ -72,8 +80,8 @@ pub fn encrypt_and_decrypt_a_message() {
         ciphertext_path,
         plaintext_path,
         &public_key_a,
-        "--passphrase-file",
-        passphrase_path_b,
+        "--passphrase-command",
+        format!("/bin/echo -n '{}'", bea_passphrase),
     )
     .run()
     .expect("error decrypting message");
@@ -88,18 +96,22 @@ fn sign_and_verify_message() {
     let dir = tempfile::tempdir().expect("error creating temp dir");
 
     // Alice picks a passphrase.
-    let passphrase_path = &dir.path().join("passphrase-a");
-    fs::write(passphrase_path, "excelsior").expect("error writing passphrase file");
+    let alice_passphrase = "excelsior";
 
     // Alice generates a private key.
     let private_key_path = &dir.path().join("private-key-a");
-    create_private_key(private_key_path, passphrase_path).expect("error creating private key");
+    create_private_key(private_key_path, alice_passphrase).expect("error creating private key");
 
     // Alice generates a public key.
-    let public_key =
-        cmd!(VEIL_PATH, "public-key", private_key_path, "--passphrase-file", passphrase_path)
-            .read()
-            .expect("error creating public key");
+    let public_key = cmd!(
+        VEIL_PATH,
+        "public-key",
+        private_key_path,
+        "--passphrase-command",
+        format!("/bin/echo -n '{}'", alice_passphrase)
+    )
+    .read()
+    .expect("error creating public key");
 
     // Alice writes a plaintext message.
     let message_file = &dir.path().join("message");
@@ -111,8 +123,8 @@ fn sign_and_verify_message() {
         "sign",
         private_key_path,
         message_file,
-        "--passphrase-file",
-        passphrase_path,
+        "--passphrase-command",
+        format!("/bin/echo -n '{}'", alice_passphrase),
     )
     .read()
     .expect("error signing message");
@@ -122,13 +134,13 @@ fn sign_and_verify_message() {
         .expect("error verifying signature");
 }
 
-fn create_private_key(private_key_path: &Path, passphrase_path: &Path) -> Result<()> {
+fn create_private_key(private_key_path: &Path, passphrase: &str) -> Result<()> {
     cmd!(
         VEIL_PATH,
         "private-key",
         private_key_path,
-        "--passphrase-file",
-        passphrase_path,
+        "--passphrase-command",
+        format!("/bin/echo -n '{}'", passphrase),
         "--m-cost",
         "8",
         "--t-cost",
