@@ -150,7 +150,7 @@ pub fn decrypt<'a>(
 fn ecdh(a: &PrivKey, b: &PubKey) -> [u8; POINT_LEN] {
     // Pornin's algorithm for safe, constant-time ECDH.
     let mut zz_ab = (a.d * b.q).encode();
-    let zz_aa = a.d.encode32();
+    let zz_aa = a.d.encode();
     let non_contributory = b.q.isneutral() as u8;
     for i in 0..POINT_LEN {
         zz_ab[i] ^= non_contributory & (zz_ab[i] ^ zz_aa[i]);

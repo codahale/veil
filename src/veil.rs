@@ -46,15 +46,7 @@ impl PrivateKey {
         p_cost: u32,
     ) -> Result<usize, EncryptError> {
         let mut enc_key = [0u8; SCALAR_LEN + pbenc::OVERHEAD];
-        pbenc::encrypt(
-            rng,
-            passphrase,
-            m_cost,
-            t_cost,
-            p_cost,
-            &self.0.d.encode32(),
-            &mut enc_key,
-        )?;
+        pbenc::encrypt(rng, passphrase, m_cost, t_cost, p_cost, &self.0.d.encode(), &mut enc_key)?;
         writer.write_all(&enc_key)?;
         Ok(enc_key.len())
     }

@@ -179,7 +179,7 @@ pub trait Absorb<const BUFFER_LEN: usize>: Clone {
         let mut clone = self.clone();
 
         // Absorb the given secret.
-        clone.absorb(&secret.d.encode32());
+        clone.absorb(&secret.d.encode());
 
         // Absorb a random value.
         clone.absorb(&rng.gen::<[u8; 64]>());

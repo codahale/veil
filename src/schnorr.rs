@@ -113,7 +113,7 @@ pub fn sign_duplex(
 
     // Calculate, encode, and encrypt the proof scalar.
     let s = (signer.d * r) + k;
-    sig_s.copy_from_slice(&s.encode32());
+    sig_s.copy_from_slice(&s.encode());
     duplex.encrypt_mut(sig_s);
 
     // Return the full signature.
