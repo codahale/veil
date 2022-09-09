@@ -103,96 +103,100 @@ mod tests {
     #[test]
     fn round_trip() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let passphrase = rng.gen::<[u8; 32]>();
+        let plaintext = rng.gen::<[u8; 64]>();
 
-        let passphrase = b"this is a secret";
-        let message = b"this is too";
-        let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
-        encrypt(&mut rng, passphrase, 8, 6, 1, message, &mut ciphertext).expect("error encrypting");
+        let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
+        encrypt(&mut rng, &passphrase, 8, 6, 1, &plaintext, &mut ciphertext)
+            .expect("error encrypting");
 
-        let plaintext = decrypt(passphrase, &mut ciphertext);
-        assert_eq!(Some(message.as_slice()), plaintext, "invalid plaintext");
+        assert_eq!(
+            Some(plaintext.as_slice()),
+            decrypt(&passphrase, &mut ciphertext),
+            "invalid plaintext"
+        );
     }
 
     #[test]
     fn wrong_passphrase() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let passphrase = rng.gen::<[u8; 32]>();
+        let plaintext = rng.gen::<[u8; 64]>();
 
-        let passphrase = b"this is a secret";
-        let message = b"this is too";
-        let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
-        encrypt(&mut rng, passphrase, 8, 6, 1, message, &mut ciphertext).expect("error encrypting");
+        let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
+        encrypt(&mut rng, &passphrase, 8, 6, 1, &plaintext, &mut ciphertext)
+            .expect("error encrypting");
 
-        let plaintext = decrypt(b"whoops", &mut ciphertext);
-        assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
+        assert_eq!(None, decrypt(b"whoops", &mut ciphertext), "decrypted an invalid ciphertext");
     }
 
     #[test]
     fn modified_time() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let passphrase = rng.gen::<[u8; 32]>();
+        let plaintext = rng.gen::<[u8; 64]>();
 
-        let passphrase = b"this is a secret";
-        let message = b"this is too";
-        let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
-        encrypt(&mut rng, passphrase, 8, 6, 1, message, &mut ciphertext).expect("error encrypting");
+        let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
+        encrypt(&mut rng, &passphrase, 8, 6, 1, &plaintext, &mut ciphertext)
+            .expect("error encrypting");
         ciphertext[0] ^= 1;
 
-        let plaintext = decrypt(passphrase, &mut ciphertext);
-        assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
+        assert_eq!(None, decrypt(&passphrase, &mut ciphertext), "decrypted an invalid ciphertext");
     }
 
     #[test]
     fn modified_space() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let passphrase = rng.gen::<[u8; 32]>();
+        let plaintext = rng.gen::<[u8; 64]>();
 
-        let passphrase = b"this is a secret";
-        let message = b"this is too";
-        let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
-        encrypt(&mut rng, passphrase, 8, 6, 1, message, &mut ciphertext).expect("error encrypting");
+        let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
+        encrypt(&mut rng, &passphrase, 8, 6, 1, &plaintext, &mut ciphertext)
+            .expect("error encrypting");
         ciphertext[1] ^= 1;
 
-        let plaintext = decrypt(passphrase, &mut ciphertext);
-        assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
+        assert_eq!(None, decrypt(&passphrase, &mut ciphertext), "decrypted an invalid ciphertext");
     }
 
     #[test]
     fn modified_salt() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let passphrase = rng.gen::<[u8; 32]>();
+        let plaintext = rng.gen::<[u8; 64]>();
 
-        let passphrase = b"this is a secret";
-        let message = b"this is too";
-        let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
-        encrypt(&mut rng, passphrase, 8, 6, 1, message, &mut ciphertext).expect("error encrypting");
+        let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
+        encrypt(&mut rng, &passphrase, 8, 6, 1, &plaintext, &mut ciphertext)
+            .expect("error encrypting");
         ciphertext[9] ^= 1;
 
-        let plaintext = decrypt(passphrase, &mut ciphertext);
-        assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
+        assert_eq!(None, decrypt(&passphrase, &mut ciphertext), "decrypted an invalid ciphertext");
     }
 
     #[test]
     fn modified_ciphertext() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let passphrase = rng.gen::<[u8; 32]>();
+        let plaintext = rng.gen::<[u8; 64]>();
 
-        let passphrase = b"this is a secret";
-        let message = b"this is too";
-        let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
-        encrypt(&mut rng, passphrase, 8, 6, 1, message, &mut ciphertext).expect("error encrypting");
+        let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
+        encrypt(&mut rng, &passphrase, 8, 6, 1, &plaintext, &mut ciphertext)
+            .expect("error encrypting");
         ciphertext[OVERHEAD - TAG_LEN + 1] ^= 1;
 
-        let plaintext = decrypt(passphrase, &mut ciphertext);
-        assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
+        assert_eq!(None, decrypt(&passphrase, &mut ciphertext), "decrypted an invalid ciphertext");
     }
 
     #[test]
     fn modified_tag() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let passphrase = rng.gen::<[u8; 32]>();
+        let plaintext = rng.gen::<[u8; 64]>();
 
-        let passphrase = b"this is a secret";
-        let message = b"this is too";
-        let mut ciphertext = vec![0u8; message.len() + OVERHEAD];
-        encrypt(&mut rng, passphrase, 8, 6, 1, message, &mut ciphertext).expect("error encrypting");
-        ciphertext[message.len() + OVERHEAD - 1] ^= 1;
+        let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
+        encrypt(&mut rng, &passphrase, 8, 6, 1, &plaintext, &mut ciphertext)
+            .expect("error encrypting");
+        ciphertext[plaintext.len() + OVERHEAD - 1] ^= 1;
 
-        let plaintext = decrypt(passphrase, &mut ciphertext);
-        assert_eq!(None, plaintext, "decrypted an invalid ciphertext");
+        assert_eq!(None, decrypt(&passphrase, &mut ciphertext), "decrypted an invalid ciphertext");
     }
 }
