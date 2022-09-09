@@ -171,8 +171,8 @@ mod tests {
         let sender = PrivKey::random(&mut rng);
         let receiver = PrivKey::random(&mut rng);
         let ephemeral = PrivKey::random(&mut rng);
-        let plaintext = b"ok this is fun";
-        let nonce = b"this is a nonce";
+        let plaintext = rng.gen::<[u8; 64]>();
+        let nonce = rng.gen::<[u8; NONCE_LEN]>();
 
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
         encrypt(
@@ -180,13 +180,13 @@ mod tests {
             &sender,
             &ephemeral,
             &receiver.pub_key,
-            nonce,
-            plaintext,
+            &nonce,
+            &plaintext,
             &mut ciphertext,
         );
 
         if let Some((ephemeral_q, plaintext_p)) =
-            decrypt(&receiver, &sender.pub_key, nonce, &mut ciphertext)
+            decrypt(&receiver, &sender.pub_key, &nonce, &mut ciphertext)
         {
             assert_eq!(ephemeral.pub_key.encoded, ephemeral_q.encoded);
             assert_eq!(plaintext.as_slice(), plaintext_p);
@@ -202,8 +202,8 @@ mod tests {
         let receiver = PrivKey::random(&mut rng);
         let wrong_receiver = PrivKey::random(&mut rng);
         let ephemeral = PrivKey::random(&mut rng);
-        let plaintext = b"ok this is fun";
-        let nonce = b"this is a nonce";
+        let plaintext = rng.gen::<[u8; 64]>();
+        let nonce = rng.gen::<[u8; NONCE_LEN]>();
 
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
         encrypt(
@@ -211,12 +211,12 @@ mod tests {
             &sender,
             &ephemeral,
             &receiver.pub_key,
-            nonce,
-            plaintext,
+            &nonce,
+            &plaintext,
             &mut ciphertext,
         );
 
-        let plaintext = decrypt(&wrong_receiver, &sender.pub_key, nonce, &mut ciphertext);
+        let plaintext = decrypt(&wrong_receiver, &sender.pub_key, &nonce, &mut ciphertext);
         assert!(plaintext.is_none(), "decrypted an invalid ciphertext");
     }
 
@@ -227,8 +227,8 @@ mod tests {
         let receiver = PrivKey::random(&mut rng);
         let wrong_sender = PrivKey::random(&mut rng);
         let ephemeral = PrivKey::random(&mut rng);
-        let plaintext = b"ok this is fun";
-        let nonce = b"this is a nonce";
+        let plaintext = rng.gen::<[u8; 64]>();
+        let nonce = rng.gen::<[u8; NONCE_LEN]>();
 
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
         encrypt(
@@ -236,12 +236,12 @@ mod tests {
             &sender,
             &ephemeral,
             &receiver.pub_key,
-            nonce,
-            plaintext,
+            &nonce,
+            &plaintext,
             &mut ciphertext,
         );
 
-        let plaintext = decrypt(&receiver, &wrong_sender.pub_key, nonce, &mut ciphertext);
+        let plaintext = decrypt(&receiver, &wrong_sender.pub_key, &nonce, &mut ciphertext);
         assert!(plaintext.is_none(), "decrypted an invalid ciphertext");
     }
 
@@ -251,9 +251,8 @@ mod tests {
         let sender = PrivKey::random(&mut rng);
         let receiver = PrivKey::random(&mut rng);
         let ephemeral = PrivKey::random(&mut rng);
-        let plaintext = b"ok this is fun";
-        let nonce = b"this is a nonce";
-        let wrong_nonce = b"this is NOT a nonce";
+        let plaintext = rng.gen::<[u8; 64]>();
+        let nonce = rng.gen::<[u8; NONCE_LEN]>();
 
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
         encrypt(
@@ -261,12 +260,14 @@ mod tests {
             &sender,
             &ephemeral,
             &receiver.pub_key,
-            nonce,
-            plaintext,
+            &nonce,
+            &plaintext,
             &mut ciphertext,
         );
 
-        let plaintext = decrypt(&receiver, &sender.pub_key, wrong_nonce, &mut ciphertext);
+        let wrong_nonce = rng.gen::<[u8; NONCE_LEN]>();
+
+        let plaintext = decrypt(&receiver, &sender.pub_key, &wrong_nonce, &mut ciphertext);
         assert!(plaintext.is_none(), "decrypted an invalid ciphertext");
     }
 
@@ -276,8 +277,8 @@ mod tests {
         let sender = PrivKey::random(&mut rng);
         let receiver = PrivKey::random(&mut rng);
         let ephemeral = PrivKey::random(&mut rng);
-        let plaintext = b"ok this is fun";
-        let nonce = b"this is a nonce";
+        let plaintext = rng.gen::<[u8; 64]>();
+        let nonce = rng.gen::<[u8; NONCE_LEN]>();
 
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
         encrypt(
@@ -285,8 +286,8 @@ mod tests {
             &sender,
             &ephemeral,
             &receiver.pub_key,
-            nonce,
-            plaintext,
+            &nonce,
+            &plaintext,
             &mut ciphertext,
         );
 
@@ -295,7 +296,7 @@ mod tests {
                 let mut ciphertext = ciphertext.clone();
                 ciphertext[i] ^= 1 << j;
                 assert!(
-                    decrypt(&receiver, &sender.pub_key, nonce, &mut ciphertext).is_none(),
+                    decrypt(&receiver, &sender.pub_key, &nonce, &mut ciphertext).is_none(),
                     "bit flip at byte {}, bit {} produced a valid message",
                     i,
                     j
