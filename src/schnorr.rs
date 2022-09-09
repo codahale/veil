@@ -159,8 +159,8 @@ mod tests {
     fn sign_and_verify() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let signer = PrivKey::random(&mut rng);
+        let message = rng.gen::<[u8; 64]>();
 
-        let message = b"this is a message";
         let sig = sign(&mut rng, &signer, Cursor::new(message)).expect("error signing message");
 
         assert!(
@@ -173,12 +173,12 @@ mod tests {
     fn modified_message() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let signer = PrivKey::random(&mut rng);
-        let message = b"this is a message";
+        let message = rng.gen::<[u8; 64]>();
         let sig = sign(&mut rng, &signer, Cursor::new(message)).expect("error signing");
 
-        let message = b"this is NOT a message";
+        let wrong_message = rng.gen::<[u8; 64]>();
         assert!(matches!(
-            verify(&signer.pub_key, Cursor::new(message), &sig),
+            verify(&signer.pub_key, Cursor::new(wrong_message), &sig),
             Err(VerifyError::InvalidSignature)
         ));
     }
@@ -188,7 +188,7 @@ mod tests {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let signer = PrivKey::random(&mut rng);
         let wrong_signer = PubKey::random(&mut rng);
-        let message = b"this is a message";
+        let message = rng.gen::<[u8; 64]>();
         let sig = sign(&mut rng, &signer, Cursor::new(message)).expect("error signing");
 
         assert!(matches!(
@@ -201,7 +201,7 @@ mod tests {
     fn modified_sig() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let signer = PrivKey::random(&mut rng);
-        let message = b"this is a message";
+        let message = rng.gen::<[u8; 64]>();
         let mut sig = sign(&mut rng, &signer, Cursor::new(message)).expect("error signing");
 
         sig.0[22] ^= 1;
@@ -214,22 +214,23 @@ mod tests {
 
     #[test]
     fn signature_encoding() {
-        let sig = Signature([69u8; SIGNATURE_LEN]);
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let sig = Signature(rng.gen());
         assert_eq!(
-            "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC",
+            "3e5mz8SitqwAWfqmXXYEMjtaarXQ2Tj8DPkgDy3cYJ83H1bLPwycZ5rrgEUzHtvnnmyLtNR6G5sfhgFv3rW5oH6u",
             sig.to_string(),
             "invalid encoded signature"
         );
 
-        let decoded = "2PKwbVQ1YMFEexCmUDyxy8cuwb69VWcvoeodZCLegqof62ro8siurvh9QCnFzdsdTixDC94tCMzH7dMuqL5Gi2CC".parse::<Signature>();
+        let decoded = "3e5mz8SitqwAWfqmXXYEMjtaarXQ2Tj8DPkgDy3cYJ83H1bLPwycZ5rrgEUzHtvnnmyLtNR6G5sfhgFv3rW5oH6u".parse::<Signature>();
         assert_eq!(Ok(sig), decoded, "error parsing signature");
 
         assert_eq!(
             Err(ParseSignatureError::InvalidEncoding(bs58::decode::Error::InvalidCharacter {
-                character: ' ',
+                character: 'l',
                 index: 4,
             })),
-            "woot woot".parse::<Signature>(),
+            "invalid signature".parse::<Signature>(),
             "parsed invalid signature"
         );
     }
