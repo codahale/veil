@@ -34,8 +34,8 @@ impl PrivateKey {
     ///
     /// # Errors
     ///
-    /// If the `m_cost` and `t_cost` parameters are invalid, returns an error with more details.
-    /// Returns any error returned by operations on `writer`.
+    /// If any of the `m_cost`, `t_cost`, or `p_cost` parameters are invalid, returns an error with
+    /// more details. Returns any error returned by operations on `writer`.
     pub fn store(
         &self,
         mut writer: impl Write,
