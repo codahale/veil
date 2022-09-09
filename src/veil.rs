@@ -214,29 +214,24 @@ mod tests {
 
     #[test]
     fn public_key_encoding() {
-        let base = PublicKey(
-            PubKey::decode(&[
-                0x24, 0xb7, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-                0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-                0xff, 0xff, 0xff, 0x7f,
-            ])
-            .expect("unable to decode point"),
-        );
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let pk = PrivateKey::random(&mut rng).public_key();
+
         assert_eq!(
-            "3ULQeLqAKMjxy7rTod4VHF9cXxBgJPGhNwhaKwcSzpcW",
-            base.to_string(),
+            "Beebnk8t9qNYJqhz53ZZJgaaP6nuFRwf4CWow3rB7bD9",
+            pk.to_string(),
             "invalid encoded public key"
         );
 
-        let decoded = "3ULQeLqAKMjxy7rTod4VHF9cXxBgJPGhNwhaKwcSzpcW".parse::<PublicKey>();
-        assert_eq!(Ok(base), decoded, "error parsing public key");
+        let decoded = "Beebnk8t9qNYJqhz53ZZJgaaP6nuFRwf4CWow3rB7bD9".parse::<PublicKey>();
+        assert_eq!(Ok(pk), decoded, "error parsing public key");
 
         assert_eq!(
             Err(ParsePublicKeyError::InvalidEncoding(bs58::decode::Error::InvalidCharacter {
-                character: ' ',
+                character: 'l',
                 index: 4,
             })),
-            "woot woot".parse::<PublicKey>(),
+            "invalid key".parse::<PublicKey>(),
             "decoded invalid public key"
         );
     }
@@ -246,7 +241,7 @@ mod tests {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let a = PrivateKey::random(&mut rng);
         let b = PrivateKey::random(&mut rng);
-        let message = b"this is a thingy";
+        let message = rng.gen::<[u8; 64]>();
 
         let mut dst = Cursor::new(Vec::new());
         let ctx_len = a
@@ -273,7 +268,7 @@ mod tests {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let a = PrivateKey::random(&mut rng);
         let b = PrivateKey::random(&mut rng);
-        let message = b"this is a thingy";
+        let message = rng.gen::<[u8; 64]>();
 
         let mut dst = Cursor::new(Vec::new());
         let ctx_len = a
@@ -299,7 +294,7 @@ mod tests {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let a = PrivateKey::random(&mut rng);
         let b = PrivateKey::random(&mut rng);
-        let message = b"this is a thingy";
+        let message = rng.gen::<[u8; 64]>();
 
         let mut dst = Cursor::new(Vec::new());
         let ctx_len = a
@@ -325,7 +320,7 @@ mod tests {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let a = PrivateKey::random(&mut rng);
         let b = PrivateKey::random(&mut rng);
-        let message = b"this is a thingy";
+        let message = rng.gen::<[u8; 64]>();
 
         let mut dst = Cursor::new(Vec::new());
         let ctx_len = a
@@ -353,7 +348,7 @@ mod tests {
     fn sign_and_verify() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let key = PrivateKey::random(&mut rng);
-        let message = b"this is a thingy";
+        let message = rng.gen::<[u8; 64]>();
 
         let sig = key.sign(&mut rng, Cursor::new(message)).expect("error signing");
 
