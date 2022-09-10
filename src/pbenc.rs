@@ -2,50 +2,42 @@
 
 use std::mem;
 
-use argon2::{Algorithm, Argon2, Params, Version};
 use rand::{CryptoRng, Rng};
 
-use crate::duplex::{Absorb, KeyedDuplex, UnkeyedDuplex, TAG_LEN};
-use crate::EncryptError;
+use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex, TAG_LEN};
 
 /// The number of bytes encryption adds to a plaintext.
-pub const OVERHEAD: usize =
-    mem::size_of::<u32>() + mem::size_of::<u32>() + mem::size_of::<u32>() + SALT_LEN + TAG_LEN;
+pub const OVERHEAD: usize = mem::size_of::<u8>() + mem::size_of::<u8>() + SALT_LEN + TAG_LEN;
 
 /// Encrypt the given plaintext using the given passphrase.
 pub fn encrypt(
     mut rng: impl Rng + CryptoRng,
     passphrase: &[u8],
-    m_cost: u32,
-    t_cost: u32,
-    p_cost: u32,
+    time_cost: u8,
+    memory_cost: u8,
     plaintext: &[u8],
     ciphertext: &mut [u8],
-) -> Result<(), EncryptError> {
+) {
     debug_assert_eq!(ciphertext.len(), plaintext.len() + OVERHEAD);
 
     // Split up the output buffer.
-    let (ct_m_cost, ct_t_cost) = ciphertext.split_at_mut(mem::size_of::<u32>());
-    let (ct_t_cost, ct_p_cost) = ct_t_cost.split_at_mut(mem::size_of::<u32>());
-    let (ct_p_cost, ct_salt) = ct_p_cost.split_at_mut(mem::size_of::<u32>());
-    let (ct_salt, ct_ciphertext) = ct_salt.split_at_mut(SALT_LEN);
+    let (t, m) = ciphertext.split_at_mut(mem::size_of::<u8>());
+    let (m, salt) = m.split_at_mut(mem::size_of::<u8>());
+    let (salt, ciphertext) = salt.split_at_mut(SALT_LEN);
 
-    // Encode the parameters.
-    ct_m_cost.copy_from_slice(&m_cost.to_le_bytes());
-    ct_t_cost.copy_from_slice(&t_cost.to_le_bytes());
-    ct_p_cost.copy_from_slice(&p_cost.to_le_bytes());
+    // Encode the time and memory cost parameters.
+    t[0] = time_cost;
+    m[0] = memory_cost;
 
     // Generate a random salt.
-    rng.fill_bytes(ct_salt);
+    rng.fill_bytes(salt);
 
-    // Use Argon2id to create a keyed duplex.
-    let mut pbenc = kdf(passphrase, ct_salt, m_cost, t_cost, p_cost)?;
+    // Perform the balloon hashing.
+    let mut pbenc = init(passphrase, salt, time_cost, memory_cost);
 
     // Encrypt the plaintext.
-    ct_ciphertext[..plaintext.len()].copy_from_slice(plaintext);
-    pbenc.seal_mut(ct_ciphertext);
-
-    Ok(())
+    ciphertext[..plaintext.len()].copy_from_slice(plaintext);
+    pbenc.seal_mut(ciphertext);
 }
 
 /// Decrypt the given ciphertext using the given passphrase.
@@ -56,42 +48,83 @@ pub fn decrypt<'a>(passphrase: &[u8], in_out: &'a mut [u8]) -> Option<&'a [u8]> 
     }
 
     // Split up the input buffer.
-    let (ct_m_cost, ct_t_cost) = in_out.split_at_mut(mem::size_of::<u32>());
-    let (ct_t_cost, ct_p_cost) = ct_t_cost.split_at_mut(mem::size_of::<u32>());
-    let (ct_p_cost, ct_salt) = ct_p_cost.split_at_mut(mem::size_of::<u32>());
-    let (ct_salt, ct_ciphertext) = ct_salt.split_at_mut(SALT_LEN);
+    let (t, m) = in_out.split_at_mut(mem::size_of::<u8>());
+    let (m, salt) = m.split_at_mut(mem::size_of::<u8>());
+    let (salt, ciphertext) = salt.split_at_mut(SALT_LEN);
 
-    // Decode the parameters.
-    let m_cost = u32::from_le_bytes(ct_m_cost.try_into().expect("invalid int len"));
-    let t_cost = u32::from_le_bytes(ct_t_cost.try_into().expect("invalid int len"));
-    let p_cost = u32::from_le_bytes(ct_p_cost.try_into().expect("invalid int len"));
-
-    // Use Argon2id to create a keyed duplex.
-    let mut pbenc = kdf(passphrase, ct_salt, m_cost, t_cost, p_cost).ok()?;
+    // Perform the balloon hashing.
+    let mut pbenc = init(passphrase, salt, t[0], m[0]);
 
     // Decrypt the ciphertext.
-    pbenc.unseal_mut(ct_ciphertext)
+    pbenc.unseal_mut(ciphertext)
 }
 
-fn kdf(
-    passphrase: &[u8],
-    salt: &[u8],
-    m_cost: u32,
-    t_cost: u32,
-    p_cost: u32,
-) -> Result<KeyedDuplex, argon2::Error> {
-    let params = Params::new(m_cost, t_cost, p_cost, Some(KDF_LEN))?;
-    let argon = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
-    let mut key = [0u8; KDF_LEN];
-    argon.hash_password_into(passphrase, salt, &mut key)?;
+fn init(passphrase: &[u8], salt: &[u8], time_cost: u8, memory_cost: u8) -> KeyedDuplex {
+    // A macro for the common hash operations. This is a macro rather than a function so it can
+    // accept both immutable references to blocks in the buffer as well as a mutable reference to a
+    // block in the same buffer for output.
+    macro_rules! hash {
+        ($h:ident, $ctr:ident, $out:expr, $($block:expr),*) => {
+            let mut h = $h.clone();
+            h.absorb(&$ctr.to_le_bytes());
+            $ctr = $ctr.wrapping_add(1);
+            $(h.absorb($block);)*
+            h.squeeze_mut($out);
+        };
+    }
 
+    // Allocate buffer, initialize counter and default duplex state.
+    let mut ctr = 0u64;
+    let mut buf = vec![[0u8; N]; 1usize << memory_cost];
+    let buf_len = u64::try_from(buf.len()).expect("unexpected overflow");
+    let h = UnkeyedDuplex::new("veil.pbenc.iter");
+
+    // Step 1: Expand input into buffer.
+    hash!(h, ctr, &mut buf[0], passphrase, salt);
+    for m in 1..buf.len() {
+        hash!(h, ctr, &mut buf[m], &buf[m - 1]);
+    }
+
+    // Step 2: Mix buffer contents.
+    for t in 0..1u64 << time_cost {
+        for m in 0..buf.len() {
+            // Step 2a: Hash last and current blocks.
+            let prev = (m + (buf.len() - 1)) % buf.len(); // wrap 0 to last block
+            hash!(h, ctr, &mut buf[m], &buf[prev], &buf[m]);
+
+            // Step 2b: Hash in pseudo-randomly chosen blocks.
+            for i in 0..DELTA {
+                // Hash the salt and the loop indexes as 64-bit integers.
+                let mut idx_block = [0u8; mem::size_of::<u64>()];
+                hash!(
+                    h,
+                    ctr,
+                    &mut idx_block,
+                    salt,
+                    &t.to_le_bytes(),
+                    &u64::try_from(m).expect("unexpected overflow").to_le_bytes(),
+                    &i.to_le_bytes()
+                );
+
+                // Map the PRF output to a block index.
+                let idx = u64::from_le_bytes(idx_block) % buf_len;
+                let idx = usize::try_from(idx).expect("unexpected overflow");
+
+                // Hash the pseudo-randomly selected block.
+                hash!(h, ctr, &mut buf[m], &buf[idx]);
+            }
+        }
+    }
+
+    // Step 3: Extract key from buffer.
     let mut pbenc = UnkeyedDuplex::new("veil.pbenc");
-    pbenc.absorb(&key);
-    Ok(pbenc.into_keyed())
+    pbenc.absorb(&buf[buf.len() - 1]);
+    pbenc.into_keyed()
 }
 
 const SALT_LEN: usize = 16;
-const KDF_LEN: usize = 64;
+const DELTA: u64 = 3;
+const N: usize = 1024;
 
 #[cfg(test)]
 mod tests {
@@ -107,8 +140,7 @@ mod tests {
         let plaintext = rng.gen::<[u8; 64]>();
 
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
-        encrypt(&mut rng, &passphrase, 8, 6, 1, &plaintext, &mut ciphertext)
-            .expect("error encrypting");
+        encrypt(&mut rng, &passphrase, 1, 6, &plaintext, &mut ciphertext);
 
         assert_eq!(
             Some(plaintext.as_slice()),
@@ -124,35 +156,32 @@ mod tests {
         let plaintext = rng.gen::<[u8; 64]>();
 
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
-        encrypt(&mut rng, &passphrase, 8, 6, 1, &plaintext, &mut ciphertext)
-            .expect("error encrypting");
+        encrypt(&mut rng, &passphrase, 1, 6, &plaintext, &mut ciphertext);
 
         assert_eq!(None, decrypt(b"whoops", &mut ciphertext), "decrypted an invalid ciphertext");
     }
 
     #[test]
-    fn modified_time() {
+    fn modified_time_cost() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let passphrase = rng.gen::<[u8; 32]>();
         let plaintext = rng.gen::<[u8; 64]>();
 
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
-        encrypt(&mut rng, &passphrase, 8, 6, 1, &plaintext, &mut ciphertext)
-            .expect("error encrypting");
+        encrypt(&mut rng, &passphrase, 1, 6, &plaintext, &mut ciphertext);
         ciphertext[0] ^= 1;
 
         assert_eq!(None, decrypt(&passphrase, &mut ciphertext), "decrypted an invalid ciphertext");
     }
 
     #[test]
-    fn modified_space() {
+    fn modified_memory_cost() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let passphrase = rng.gen::<[u8; 32]>();
         let plaintext = rng.gen::<[u8; 64]>();
 
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
-        encrypt(&mut rng, &passphrase, 8, 6, 1, &plaintext, &mut ciphertext)
-            .expect("error encrypting");
+        encrypt(&mut rng, &passphrase, 1, 6, &plaintext, &mut ciphertext);
         ciphertext[1] ^= 1;
 
         assert_eq!(None, decrypt(&passphrase, &mut ciphertext), "decrypted an invalid ciphertext");
@@ -165,8 +194,7 @@ mod tests {
         let plaintext = rng.gen::<[u8; 64]>();
 
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
-        encrypt(&mut rng, &passphrase, 8, 6, 1, &plaintext, &mut ciphertext)
-            .expect("error encrypting");
+        encrypt(&mut rng, &passphrase, 1, 6, &plaintext, &mut ciphertext);
         ciphertext[9] ^= 1;
 
         assert_eq!(None, decrypt(&passphrase, &mut ciphertext), "decrypted an invalid ciphertext");
@@ -179,8 +207,7 @@ mod tests {
         let plaintext = rng.gen::<[u8; 64]>();
 
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
-        encrypt(&mut rng, &passphrase, 8, 6, 1, &plaintext, &mut ciphertext)
-            .expect("error encrypting");
+        encrypt(&mut rng, &passphrase, 1, 6, &plaintext, &mut ciphertext);
         ciphertext[OVERHEAD - TAG_LEN + 1] ^= 1;
 
         assert_eq!(None, decrypt(&passphrase, &mut ciphertext), "decrypted an invalid ciphertext");
@@ -193,8 +220,7 @@ mod tests {
         let plaintext = rng.gen::<[u8; 64]>();
 
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
-        encrypt(&mut rng, &passphrase, 8, 6, 1, &plaintext, &mut ciphertext)
-            .expect("error encrypting");
+        encrypt(&mut rng, &passphrase, 1, 6, &plaintext, &mut ciphertext);
         ciphertext[plaintext.len() + OVERHEAD - 1] ^= 1;
 
         assert_eq!(None, decrypt(&passphrase, &mut ciphertext), "decrypted an invalid ciphertext");

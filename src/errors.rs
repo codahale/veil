@@ -2,19 +2,6 @@ use std::io;
 
 use thiserror::Error;
 
-/// An error returned when encrypting a message was unsuccessful.
-#[derive(Debug, Error)]
-pub enum EncryptError {
-    /// Encryption was unsuccessful because the user-provided parameters are invalid.
-    #[error("invalid parameters: {0}")]
-    InvalidParams(#[from] argon2::Error),
-
-    /// Encryption was unsuccessful due to an IO error reading the plaintext or writing the
-    /// ciphertext.
-    #[error("error decrypting: {0}")]
-    IoError(#[from] io::Error),
-}
-
 /// An error returned when decrypting a message was unsuccessful.
 #[derive(Debug, Error)]
 pub enum DecryptError {

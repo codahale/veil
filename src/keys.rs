@@ -29,8 +29,7 @@ impl PubKey {
     /// Generates a random public key for which no private key is known.
     #[must_use]
     pub fn random(mut rng: impl CryptoRng + Rng) -> PubKey {
-        // It would be nice if this didn't hash what is already uniform data, but since we're using
-        // Argon2id for pbenc we already have Blake2 as a dependency.
+        // It would be nice if this didn't hash what is already uniform data.
         let q = Point::hash_to_curve("", &rng.gen::<[u8; 64]>());
         let encoded = q.encode();
         PubKey { q, encoded }

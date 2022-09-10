@@ -141,12 +141,10 @@ fn create_private_key(private_key_path: &Path, passphrase: &str) -> Result<()> {
         private_key_path,
         "--passphrase-command",
         format!("/bin/echo -n '{}'", passphrase),
-        "--m-cost",
-        "8",
-        "--t-cost",
-        "1",
-        "--p-cost",
-        "1"
+        "--time-cost",
+        "0",
+        "--memory-cost",
+        "0",
     )
     .run()?;
 

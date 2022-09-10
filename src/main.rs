@@ -60,17 +60,13 @@ struct PrivateKeyArgs {
     #[clap(value_parser, value_hint = ValueHint::FilePath)]
     output: Output,
 
-    /// The Argon2id memory cost for encryption.
-    #[clap(action, long, default_value = "131072")]
-    m_cost: u32,
+    /// The time cost for encryption (in 2^t iterations).
+    #[clap(action, long, default_value = "8")]
+    time_cost: u8,
 
-    /// The Argon2id time cost for encryption.
-    #[clap(action, long, default_value = "20")]
-    t_cost: u32,
-
-    /// The Argon2id parallelism cost for encryption.
-    #[clap(action, long, default_value = "2")]
-    p_cost: u32,
+    /// The memory cost for encryption (in 2^m KiB).
+    #[clap(action, long, default_value = "8")]
+    memory_cost: u8,
 
     #[clap(flatten)]
     passphrase_input: PassphraseInput,
@@ -85,9 +81,8 @@ impl Runnable for PrivateKeyArgs {
             self.output.lock(),
             rng,
             &passphrase,
-            self.m_cost,
-            self.t_cost,
-            self.p_cost,
+            self.time_cost,
+            self.memory_cost,
         )?;
         Ok(())
     }

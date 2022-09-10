@@ -102,20 +102,19 @@ fn bench_pbenc(c: &mut Criterion) {
 
     let mut pbenc = c.benchmark_group("pbenc");
 
-    for m_cost in [8, 16] {
-        for t_cost in [1, 4] {
+    for time_cost in [0, 4] {
+        for memory_cost in [0, 4] {
             pbenc.bench_with_input(
-                format!("t={}/s={}", m_cost, t_cost),
-                &(m_cost, t_cost),
-                |b, &(m_cost, t_cost)| {
+                format!("t={}/s={}", time_cost, memory_cost),
+                &(time_cost, memory_cost),
+                |b, &(time_cost, memory_cost)| {
                     b.iter(|| {
                         pk.store(
                             Cursor::new(vec![]),
                             &mut rng,
                             black_box(b"passphrase"),
-                            m_cost,
-                            t_cost,
-                            1,
+                            time_cost,
+                            memory_cost,
                         )
                     })
                 },

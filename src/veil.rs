@@ -9,9 +9,7 @@ use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
 
 use crate::keys::{PrivKey, PubKey, POINT_LEN, SCALAR_LEN};
-use crate::{
-    mres, pbenc, schnorr, DecryptError, EncryptError, ParsePublicKeyError, Signature, VerifyError,
-};
+use crate::{mres, pbenc, schnorr, DecryptError, ParsePublicKeyError, Signature, VerifyError};
 
 /// A private key, used to encrypt, decrypt, and sign messages.
 pub struct PrivateKey(PrivKey);
@@ -41,12 +39,11 @@ impl PrivateKey {
         mut writer: impl Write,
         rng: impl Rng + CryptoRng,
         passphrase: &[u8],
-        m_cost: u32,
-        t_cost: u32,
-        p_cost: u32,
-    ) -> Result<usize, EncryptError> {
+        time_cost: u8,
+        memory_cost: u8,
+    ) -> io::Result<usize> {
         let mut enc_key = [0u8; SCALAR_LEN + pbenc::OVERHEAD];
-        pbenc::encrypt(rng, passphrase, m_cost, t_cost, p_cost, &self.0.d.encode(), &mut enc_key)?;
+        pbenc::encrypt(rng, passphrase, time_cost, memory_cost, &self.0.d.encode(), &mut enc_key);
         writer.write_all(&enc_key)?;
         Ok(enc_key.len())
     }
