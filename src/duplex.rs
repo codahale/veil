@@ -213,23 +213,29 @@ impl Absorb<{ Keccyak128Keyed::absorb_rate() * 32 }> for KeyedDuplex {
 mod tests {
     use std::io::Cursor;
 
+    use rand::{RngCore, SeedableRng};
+    use rand_chacha::ChaChaRng;
+
     use super::*;
 
     #[test]
     fn ind_cpa_round_trip() {
-        let plaintext = b"this is an example plaintext";
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let plaintext = rng.gen::<[u8; 64]>();
+        let key = rng.gen::<[u8; 64]>();
+        let associated_data = rng.gen::<[u8; 64]>();
 
         let mut unkeyed = UnkeyedDuplex::new("test");
-        unkeyed.absorb(b"this is a new key");
-        unkeyed.absorb(b"this is some more data");
+        unkeyed.absorb(&key);
+        unkeyed.absorb(&associated_data);
 
         let mut keyed = unkeyed.into_keyed();
         let mut ciphertext = plaintext.to_vec();
         keyed.encrypt_mut(&mut ciphertext);
 
         let mut unkeyed = UnkeyedDuplex::new("test");
-        unkeyed.absorb(b"this is a new key");
-        unkeyed.absorb(b"this is some more data");
+        unkeyed.absorb(&key);
+        unkeyed.absorb(&associated_data);
 
         let mut keyed = unkeyed.into_keyed();
         keyed.decrypt_mut(&mut ciphertext);
@@ -238,11 +244,12 @@ mod tests {
 
     #[test]
     fn ind_cca_round_trip() {
-        let plaintext = b"this is an example plaintext";
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let plaintext = rng.gen::<[u8; 64]>();
 
         let mut duplex = UnkeyedDuplex::new("test").into_keyed();
         let mut ciphertext = vec![0u8; plaintext.len() + TAG_LEN];
-        ciphertext[..plaintext.len()].copy_from_slice(plaintext);
+        ciphertext[..plaintext.len()].copy_from_slice(&plaintext);
         duplex.seal_mut(&mut ciphertext);
 
         let mut duplex = UnkeyedDuplex::new("test").into_keyed();
@@ -251,11 +258,15 @@ mod tests {
 
     #[test]
     fn absorb_blocks() {
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let mut message = vec![0u8; Keccyak128Hash::absorb_rate() * 3 + 8];
+        rng.fill_bytes(&mut message);
+
         let mut one = UnkeyedDuplex::new("ok");
-        one.absorb_reader(Cursor::new(b"this is a message")).expect("error absorbing");
+        one.absorb_reader(Cursor::new(&message)).expect("error absorbing");
 
         let mut two = UnkeyedDuplex::new("ok");
-        two.absorb_reader(Cursor::new(b"this is a message")).expect("error absorbing");
+        two.absorb_reader(Cursor::new(&message)).expect("error absorbing");
 
         assert_eq!(one.squeeze::<4>(), two.squeeze::<4>());
     }
