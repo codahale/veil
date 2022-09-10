@@ -73,33 +73,47 @@ const DIGEST_LEN: usize = 32;
 mod tests {
     use std::io::Cursor;
 
+    use rand::{Rng, SeedableRng};
+    use rand_chacha::ChaChaRng;
+
     use super::*;
 
     #[test]
     fn round_trip() {
-        let a = Digest::new(&["one", "two"], Cursor::new(b"this is an example"))
-            .expect("error hashing");
-        let b = Digest::new(&["one", "two"], Cursor::new(b"this is an example"))
-            .expect("error hashing");
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let message = rng.gen::<[u8; 64]>();
+        let md_one = rng.gen::<[u8; 16]>();
+        let md_two = rng.gen::<[u8; 16]>();
+
+        let a = Digest::new(&[&md_one, &md_two], Cursor::new(&message)).expect("error hashing");
+        let b = Digest::new(&[&md_one, &md_two], Cursor::new(&message)).expect("error hashing");
 
         assert_eq!(a, b, "inconsistent digests");
     }
 
     #[test]
     fn different_metadata() {
-        let a = Digest::new(&["one", "two"], Cursor::new(b"this is an example"))
-            .expect("error hashing");
-        let b = Digest::new(&["two", "one"], Cursor::new(b"this is an example"))
-            .expect("error hashing");
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let message = rng.gen::<[u8; 64]>();
+        let md_one = rng.gen::<[u8; 16]>();
+        let md_two = rng.gen::<[u8; 16]>();
+
+        let a = Digest::new(&[&md_one, &md_two], Cursor::new(&message)).expect("error hashing");
+        let b = Digest::new(&[&md_two, &md_one], Cursor::new(&message)).expect("error hashing");
 
         assert_ne!(a, b, "collision on metadata");
     }
 
     #[test]
     fn different_messages() {
-        let a = Digest::new(&["one", "two"], Cursor::new(b"this is an example"))
-            .expect("error hashing");
-        let b = Digest::new(&["one", "two"], Cursor::new(b"this is another example"))
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let message = rng.gen::<[u8; 64]>();
+        let md_one = rng.gen::<[u8; 16]>();
+        let md_two = rng.gen::<[u8; 16]>();
+        let different_message = rng.gen::<[u8; 64]>();
+
+        let a = Digest::new(&[&md_one, &md_two], Cursor::new(&message)).expect("error hashing");
+        let b = Digest::new(&[&md_one, &md_two], Cursor::new(&different_message))
             .expect("error hashing");
 
         assert_ne!(a, b, "collision on message");
@@ -107,22 +121,24 @@ mod tests {
 
     #[test]
     fn encoding() {
-        let sig = Digest([69u8; DIGEST_LEN]);
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let sig = Digest(rng.gen());
+
         assert_eq!(
-            "5fQPsn8hoaVddFG26cWQ5QFdqxWtUPNaZ9zH2E6LYzFn",
+            "9tKd8hrpibubFKGV6QELAQ9q5if5fWuGH2rfHML4vZyL",
             sig.to_string(),
             "invalid encoded digest"
         );
 
-        let decoded = "5fQPsn8hoaVddFG26cWQ5QFdqxWtUPNaZ9zH2E6LYzFn".parse::<Digest>();
+        let decoded = "9tKd8hrpibubFKGV6QELAQ9q5if5fWuGH2rfHML4vZyL".parse::<Digest>();
         assert_eq!(Ok(sig), decoded, "error parsing signature");
 
         assert_eq!(
             Err(ParseDigestError::InvalidEncoding(bs58::decode::Error::InvalidCharacter {
-                character: ' ',
+                character: 'l',
                 index: 4,
             })),
-            "woot woot".parse::<Digest>(),
+            "invalid digest".parse::<Digest>(),
             "parsed invalid digest"
         );
     }
