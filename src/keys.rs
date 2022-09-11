@@ -49,8 +49,7 @@ impl PrivKey {
     /// Decodes the given slice as a canonically encoded private key, if possible.
     #[must_use]
     pub fn decode(b: impl AsRef<[u8]>) -> Option<PrivKey> {
-        let (d, ok) = Scalar::decode32(b.as_ref());
-        ((ok & !d.iszero()) != 0).then(|| PrivKey::from_scalar(d))
+        Scalar::decode(b.as_ref()).filter(|d| d.iszero() == 0).map(PrivKey::from_scalar)
     }
 
     /// Decodes the given slice as a private key, if possible.
