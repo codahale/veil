@@ -135,10 +135,7 @@ pub fn verify_duplex(duplex: &mut KeyedDuplex, signer: &PubKey, sig: &Signature)
 
     // Decrypt and decode the proof scalar.
     duplex.decrypt_mut(s);
-    let (s, ok) = Scalar::decode32(s);
-    if ok == 0 {
-        return None;
-    }
+    let s = Scalar::decode(s)?;
 
     // Return true iff I and s are well-formed and I == [s]G - [r']Q. Here we compare the encoded
     // form of I' with the encoded form of I from the signature. This is faster, as encoding a point
