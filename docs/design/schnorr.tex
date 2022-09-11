@@ -110,7 +110,8 @@ strong binding:
         \item Reject the signature if $S \not\in \{0,\ldots,L-1\}$.
         \item Reject the signature if the public key $A$ is one of 8 small order points.
         \item Reject the signature if $A$ or $R$ are non-canonical.
-        \item Compute the hash $\text{SHA2}_{512}(R||A||M)$ and reduce it mod $L$ to get a scalar $h$.
+        \item Compute the hash $\text{SHA2}_{512}(R||A||M)$ and reduce it mod $L$ to get a scalar
+              $h$.
         \item Accept if $8(S \cdot B)-8R-8(h \cdot A)=0$.
     \end{enumerate}
 \end{displayquote}
