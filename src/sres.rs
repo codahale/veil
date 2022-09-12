@@ -71,7 +71,7 @@ pub fn encrypt(
     // Squeeze a challenge scalar.
     let r = sres.squeeze_scalar();
 
-    // Calculate and encrypt the designated proof point.
+    // Calculate and encrypt the designated proof point: X = [d_S*r+k]Q_R
     let x = receiver.q * ((sender.d * r) + k);
     out_x.copy_from_slice(&x.encode());
     sres.encrypt_mut(out_x);
@@ -135,7 +135,7 @@ pub fn decrypt<'a>(
     // Decrypt the designated proof point.
     sres.decrypt_mut(x);
 
-    // Re-calculate the proof point.
+    // Re-calculate the proof point: X' = [d_R](I + [r']Q_R)
     let x_p = (i + (sender.q * r_p)) * receiver.d;
 
     // Return the ephemeral public key and plaintext iff the canonical encoding of the re-calculated
