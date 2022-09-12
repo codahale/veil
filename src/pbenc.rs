@@ -62,13 +62,26 @@ pub fn decrypt<'a>(passphrase: &[u8], in_out: &'a mut [u8]) -> Option<&'a [u8]> 
 fn init(passphrase: &[u8], salt: &[u8], time_cost: u8, memory_cost: u8) -> KeyedDuplex {
     // A macro for the common hash operations. This is a macro rather than a function so it can
     // accept both immutable references to blocks in the buffer as well as a mutable reference to a
-    // block in the same buffer for output.
+    // block in the same buffer for output. Accepts a template duplex, a counter variable, an output
+    // block, and a sequence of input blocks.
     macro_rules! hash {
         ($h:ident, $ctr:ident, $out:expr, $($block:expr),*) => {
+            // Clone the template duplex's state, allowing us to avoid the cost of a single
+            // permutation.
             let mut h = $h.clone();
+
+            // Absorb the counter as a Little Endian byte string.
             h.absorb(&$ctr.to_le_bytes());
+
+            // Increment the counter by one.
             $ctr = $ctr.wrapping_add(1);
-            $(h.absorb($block);)*
+
+            // Absorb each block in order.
+            $(
+                h.absorb($block);
+            )*
+
+            // Fill the output with squeezed data.
             h.squeeze_mut($out);
         };
     }
