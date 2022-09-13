@@ -204,6 +204,7 @@ impl PartialEq for PublicKey {
 mod tests {
     use std::io::Cursor;
 
+    use assert_matches::assert_matches;
     use rand::SeedableRng;
     use rand_chacha::ChaChaRng;
 
@@ -280,10 +281,10 @@ mod tests {
             .expect("error encrypting");
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
-        assert!(matches!(
+        assert_matches!(
             b.decrypt(Cursor::new(dst.into_inner()), io::sink(), &b.public_key()),
             Err(DecryptError::InvalidCiphertext)
-        ));
+        );
     }
 
     #[test]
@@ -306,10 +307,10 @@ mod tests {
             .expect("error encrypting");
         assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
 
-        assert!(matches!(
+        assert_matches!(
             b.decrypt(Cursor::new(dst.into_inner()), io::sink(), &a.public_key()),
             Err(DecryptError::InvalidCiphertext)
-        ));
+        );
     }
 
     #[test]
@@ -335,10 +336,10 @@ mod tests {
         let mut ciphertext = dst.into_inner();
         ciphertext[200] ^= 1;
 
-        assert!(matches!(
+        assert_matches!(
             b.decrypt(Cursor::new(ciphertext), io::sink(), &a.public_key()),
             Err(DecryptError::InvalidCiphertext)
-        ));
+        );
     }
 
     #[test]
