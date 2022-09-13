@@ -312,6 +312,7 @@ where
 mod tests {
     use std::io::Cursor;
 
+    use assert_matches::assert_matches;
     use rand::{RngCore, SeedableRng};
     use rand_chacha::ChaChaRng;
 
@@ -370,7 +371,7 @@ mod tests {
 
         let wrong_sender = PubKey::random(&mut rng);
 
-        assert!(matches!(
+        assert_matches!(
             decrypt(
                 Cursor::new(writer.into_inner()),
                 Cursor::new(Vec::new()),
@@ -378,7 +379,7 @@ mod tests {
                 &wrong_sender
             ),
             Err(DecryptError::InvalidCiphertext)
-        ));
+        );
     }
 
     #[test]
@@ -403,7 +404,7 @@ mod tests {
 
         let wrong_receiver = PrivKey::random(&mut rng);
 
-        assert!(matches!(
+        assert_matches!(
             decrypt(
                 Cursor::new(dst.into_inner()),
                 Cursor::new(Vec::new()),
@@ -411,7 +412,7 @@ mod tests {
                 &sender.pub_key
             ),
             Err(DecryptError::InvalidCiphertext)
-        ));
+        );
     }
 
     #[test]
