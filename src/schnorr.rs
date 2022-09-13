@@ -147,6 +147,7 @@ pub fn verify_duplex(duplex: &mut KeyedDuplex, signer: &PubKey, sig: &Signature)
 mod tests {
     use std::io::Cursor;
 
+    use assert_matches::assert_matches;
     use rand::SeedableRng;
     use rand_chacha::ChaChaRng;
 
@@ -174,10 +175,10 @@ mod tests {
         let sig = sign(&mut rng, &signer, Cursor::new(message)).expect("error signing");
 
         let wrong_message = rng.gen::<[u8; 64]>();
-        assert!(matches!(
+        assert_matches!(
             verify(&signer.pub_key, Cursor::new(wrong_message), &sig),
             Err(VerifyError::InvalidSignature)
-        ));
+        );
     }
 
     #[test]
@@ -188,10 +189,10 @@ mod tests {
         let message = rng.gen::<[u8; 64]>();
         let sig = sign(&mut rng, &signer, Cursor::new(message)).expect("error signing");
 
-        assert!(matches!(
+        assert_matches!(
             verify(&wrong_signer, Cursor::new(message), &sig),
             Err(VerifyError::InvalidSignature)
-        ));
+        );
     }
 
     #[test]
@@ -203,10 +204,10 @@ mod tests {
 
         sig.0[22] ^= 1;
 
-        assert!(matches!(
+        assert_matches!(
             verify(&signer.pub_key, Cursor::new(message), &sig),
             Err(VerifyError::InvalidSignature)
-        ));
+        );
     }
 
     #[test]
