@@ -155,25 +155,17 @@ mod tests {
 
     #[test]
     fn sign_and_verify() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let signer = PrivKey::random(&mut rng);
-        let message = rng.gen::<[u8; 64]>();
-
-        let sig = sign(&mut rng, &signer, Cursor::new(message)).expect("error signing message");
-
-        assert!(
-            verify(&signer.pub_key, Cursor::new(message), &sig).is_ok(),
+        let (_, signer, message, sig) = setup();
+        assert_matches!(
+            verify(&signer.pub_key, Cursor::new(message), &sig),
+            Ok(()),
             "should have verified a valid signature"
         );
     }
 
     #[test]
     fn modified_message() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let signer = PrivKey::random(&mut rng);
-        let message = rng.gen::<[u8; 64]>();
-        let sig = sign(&mut rng, &signer, Cursor::new(message)).expect("error signing");
-
+        let (mut rng, signer, _, sig) = setup();
         let wrong_message = rng.gen::<[u8; 64]>();
         assert_matches!(
             verify(&signer.pub_key, Cursor::new(wrong_message), &sig),
@@ -183,12 +175,8 @@ mod tests {
 
     #[test]
     fn wrong_signer() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let signer = PrivKey::random(&mut rng);
+        let (mut rng, _, message, sig) = setup();
         let wrong_signer = PubKey::random(&mut rng);
-        let message = rng.gen::<[u8; 64]>();
-        let sig = sign(&mut rng, &signer, Cursor::new(message)).expect("error signing");
-
         assert_matches!(
             verify(&wrong_signer, Cursor::new(message), &sig),
             Err(VerifyError::InvalidSignature)
@@ -197,13 +185,8 @@ mod tests {
 
     #[test]
     fn modified_sig() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let signer = PrivKey::random(&mut rng);
-        let message = rng.gen::<[u8; 64]>();
-        let mut sig = sign(&mut rng, &signer, Cursor::new(message)).expect("error signing");
-
+        let (_, signer, message, mut sig) = setup();
         sig.0[22] ^= 1;
-
         assert_matches!(
             verify(&signer.pub_key, Cursor::new(message), &sig),
             Err(VerifyError::InvalidSignature)
@@ -212,15 +195,18 @@ mod tests {
 
     #[test]
     fn signature_encoding() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let sig = Signature(rng.gen());
+        let (_, _, _, sig) = setup();
         assert_eq!(
-            "3e5mz8SitqwAWfqmXXYEMjtaarXQ2Tj8DPkgDy3cYJ83H1bLPwycZ5rrgEUzHtvnnmyLtNR6G5sfhgFv3rW5oH6u",
+            "2XCD4jhrHSugpjUXHwcfypdtvpjZFkNdP2J4AZ1Yo46ujMJe89a6XU7XghDTALooyYaCy6C42QjqRcHGFT2NPwQC",
             sig.to_string(),
             "invalid encoded signature"
         );
+    }
 
-        let decoded = "3e5mz8SitqwAWfqmXXYEMjtaarXQ2Tj8DPkgDy3cYJ83H1bLPwycZ5rrgEUzHtvnnmyLtNR6G5sfhgFv3rW5oH6u".parse::<Signature>();
+    #[test]
+    fn signature_decoding() {
+        let (_, _, _, sig) = setup();
+        let decoded = "2XCD4jhrHSugpjUXHwcfypdtvpjZFkNdP2J4AZ1Yo46ujMJe89a6XU7XghDTALooyYaCy6C42QjqRcHGFT2NPwQC".parse::<Signature>();
         assert_eq!(Ok(sig), decoded, "error parsing signature");
 
         assert_eq!(
@@ -231,5 +217,13 @@ mod tests {
             "invalid signature".parse::<Signature>(),
             "parsed invalid signature"
         );
+    }
+
+    fn setup() -> (ChaChaRng, PrivKey, Vec<u8>, Signature) {
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let signer = PrivKey::random(&mut rng);
+        let message = rng.gen::<[u8; 64]>();
+        let sig = sign(&mut rng, &signer, Cursor::new(message)).expect("error signing");
+        (rng, signer, message.to_vec(), sig)
     }
 }
