@@ -12,6 +12,7 @@ use crate::keys::{PrivKey, PubKey, POINT_LEN, SCALAR_LEN};
 use crate::{mres, pbenc, schnorr, DecryptError, ParsePublicKeyError, Signature, VerifyError};
 
 /// A private key, used to encrypt, decrypt, and sign messages.
+#[derive(PartialEq, Eq)]
 pub struct PrivateKey(PrivKey);
 
 impl PrivateKey {
@@ -127,14 +128,6 @@ impl PrivateKey {
     }
 }
 
-impl Eq for PrivateKey {}
-
-impl PartialEq for PrivateKey {
-    fn eq(&self, other: &Self) -> bool {
-        self.public_key() == other.public_key()
-    }
-}
-
 impl Debug for PrivateKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.public_key().fmt(f)
@@ -142,7 +135,7 @@ impl Debug for PrivateKey {
 }
 
 /// A public key, used to verify messages.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct PublicKey(PubKey);
 
 impl PublicKey {
@@ -189,14 +182,6 @@ impl FromStr for PublicKey {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         PublicKey::decode(bs58::decode(s).into_vec()?.as_slice())
             .ok_or(ParsePublicKeyError::InvalidPublicKey)
-    }
-}
-
-impl Eq for PublicKey {}
-
-impl PartialEq for PublicKey {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.encoded == other.0.encoded
     }
 }
 
