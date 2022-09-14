@@ -1,3 +1,5 @@
+use std::fmt::{Debug, Formatter};
+
 use crrl::jq255e::{Point, Scalar};
 use rand::{CryptoRng, Rng};
 
@@ -33,6 +35,20 @@ impl PubKey {
         let q = Point::hash_to_curve("", &rng.gen::<[u8; 64]>());
         let encoded = q.encode();
         PubKey { q, encoded }
+    }
+}
+
+impl Debug for PubKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:02x?}", self.encoded)
+    }
+}
+
+impl Eq for PubKey {}
+
+impl PartialEq for PubKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.encoded == other.encoded
     }
 }
 
@@ -74,5 +90,13 @@ impl PrivKey {
     fn from_scalar(d: Scalar) -> PrivKey {
         let q = Point::mulgen(&d);
         PrivKey { d, pub_key: PubKey { q, encoded: q.encode() } }
+    }
+}
+
+impl Eq for PrivKey {}
+
+impl PartialEq for PrivKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.pub_key == other.pub_key
     }
 }
