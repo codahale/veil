@@ -320,30 +320,12 @@ mod tests {
 
     #[test]
     fn round_trip() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let sender = PrivKey::random(&mut rng);
-        let receiver = PrivKey::random(&mut rng);
-        let plaintext = rng.gen::<[u8; 64]>();
+        let (_, sender, receiver, plaintext, ciphertext) = setup(64);
 
         let mut writer = Cursor::new(Vec::new());
 
-        let ctx_len = encrypt(
-            &mut rng,
-            Cursor::new(plaintext),
-            &mut writer,
-            &sender,
-            &[sender.pub_key, receiver.pub_key],
-            123,
-        )
-        .expect("error encrypting");
-
-        assert_eq!(writer.position(), ctx_len, "returned/observed ciphertext length mismatch");
-
-        let reader = Cursor::new(writer.into_inner());
-        let mut writer = Cursor::new(Vec::new());
-
-        let ptx_len =
-            decrypt(reader, &mut writer, &receiver, &sender.pub_key).expect("error decrypting");
+        let ptx_len = decrypt(Cursor::new(ciphertext), &mut writer, &receiver, &sender.pub_key)
+            .expect("error decrypting");
 
         assert_eq!(writer.position(), ptx_len, "returned/observed plaintext length mismatch");
         assert_eq!(plaintext.to_vec(), writer.into_inner(), "incorrect plaintext");
@@ -351,62 +333,25 @@ mod tests {
 
     #[test]
     fn wrong_sender() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let sender = PrivKey::random(&mut rng);
-        let receiver = PrivKey::random(&mut rng);
-        let plaintext = rng.gen::<[u8; 64]>();
-
-        let mut writer = Cursor::new(Vec::new());
-
-        let ctx_len = encrypt(
-            &mut rng,
-            Cursor::new(plaintext),
-            &mut writer,
-            &sender,
-            &[sender.pub_key, receiver.pub_key],
-            123,
-        )
-        .expect("error encrypting");
-        assert_eq!(writer.position(), ctx_len, "returned/observed ciphertext length mismatch");
+        let (mut rng, _, receiver, _, ciphertext) = setup(64);
 
         let wrong_sender = PubKey::random(&mut rng);
 
         assert_matches!(
-            decrypt(
-                Cursor::new(writer.into_inner()),
-                Cursor::new(Vec::new()),
-                &receiver,
-                &wrong_sender
-            ),
+            decrypt(Cursor::new(ciphertext), Cursor::new(Vec::new()), &receiver, &wrong_sender),
             Err(DecryptError::InvalidCiphertext)
         );
     }
 
     #[test]
     fn wrong_receiver() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let sender = PrivKey::random(&mut rng);
-        let receiver = PrivKey::random(&mut rng);
-        let message = rng.gen::<[u8; 64]>();
-
-        let mut dst = Cursor::new(Vec::new());
-
-        let ctx_len = encrypt(
-            &mut rng,
-            Cursor::new(message),
-            &mut dst,
-            &sender,
-            &[sender.pub_key, receiver.pub_key],
-            123,
-        )
-        .expect("error encrypting");
-        assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
+        let (mut rng, sender, _, _, ciphertext) = setup(64);
 
         let wrong_receiver = PrivKey::random(&mut rng);
 
         assert_matches!(
             decrypt(
-                Cursor::new(dst.into_inner()),
+                Cursor::new(ciphertext),
                 Cursor::new(Vec::new()),
                 &wrong_receiver,
                 &sender.pub_key
@@ -417,31 +362,11 @@ mod tests {
 
     #[test]
     fn multi_block_message() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let sender = PrivKey::random(&mut rng);
-        let receiver = PrivKey::random(&mut rng);
-        let mut plaintext = [0u8; 65 * 1024];
-        rng.fill_bytes(&mut plaintext);
+        let (_, sender, receiver, plaintext, ciphertext) = setup(65 * 1024);
 
         let mut writer = Cursor::new(Vec::new());
-
-        let ctx_len = encrypt(
-            &mut rng,
-            Cursor::new(plaintext),
-            &mut writer,
-            &sender,
-            &[sender.pub_key, receiver.pub_key],
-            123,
-        )
-        .expect("error encrypting");
-
-        assert_eq!(writer.position(), ctx_len, "returned/observed ciphertext length mismatch");
-
-        let reader = Cursor::new(writer.into_inner());
-        let mut writer = Cursor::new(Vec::new());
-
-        let ptx_len =
-            decrypt(reader, &mut writer, &receiver, &sender.pub_key).expect("error decrypting");
+        let ptx_len = decrypt(Cursor::new(ciphertext), &mut writer, &receiver, &sender.pub_key)
+            .expect("error decrypting");
 
         assert_eq!(writer.position(), ptx_len, "returned/observed plaintext length mismatch");
         assert_eq!(plaintext.to_vec(), writer.into_inner(), "incorrect plaintext");
@@ -449,30 +374,10 @@ mod tests {
 
     #[test]
     fn split_sig() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let sender = PrivKey::random(&mut rng);
-        let receiver = PrivKey::random(&mut rng);
-        let mut plaintext = [0u8; 32 * 1024 - 37];
-        rng.fill_bytes(&mut plaintext);
+        let (_, sender, receiver, plaintext, ciphertext) = setup(32 * 1024 - 37);
 
         let mut writer = Cursor::new(Vec::new());
-
-        let ctx_len = encrypt(
-            &mut rng,
-            Cursor::new(plaintext),
-            &mut writer,
-            &sender,
-            &[sender.pub_key, receiver.pub_key],
-            123,
-        )
-        .expect("error encrypting");
-
-        assert_eq!(writer.position(), ctx_len, "returned/observed ciphertext length mismatch");
-
-        let mut reader = Cursor::new(writer.into_inner());
-        let mut writer = Cursor::new(Vec::new());
-
-        let ptx_len = decrypt(&mut reader, &mut writer, &receiver, &sender.pub_key)
+        let ptx_len = decrypt(Cursor::new(ciphertext), &mut writer, &receiver, &sender.pub_key)
             .expect("error decrypting");
 
         assert_eq!(writer.position(), ptx_len, "returned/observed plaintext length mismatch");
@@ -481,24 +386,7 @@ mod tests {
 
     #[test]
     fn flip_every_bit() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let sender = PrivKey::random(&mut rng);
-        let receiver = PrivKey::random(&mut rng);
-        let plaintext = rng.gen::<[u8; 16]>();
-
-        let mut writer = Cursor::new(Vec::new());
-
-        encrypt(
-            &mut rng,
-            Cursor::new(plaintext),
-            &mut writer,
-            &sender,
-            &[sender.pub_key, receiver.pub_key],
-            123,
-        )
-        .expect("error encrypting");
-
-        let ciphertext = writer.into_inner();
+        let (_, sender, receiver, _, ciphertext) = setup(16);
 
         for i in 0..ciphertext.len() {
             for j in 0u8..8 {
@@ -513,5 +401,32 @@ mod tests {
                 };
             }
         }
+    }
+
+    fn setup(n: usize) -> (ChaChaRng, PrivKey, PrivKey, Vec<u8>, Vec<u8>) {
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let sender = PrivKey::random(&mut rng);
+        let receiver = PrivKey::random(&mut rng);
+        let mut plaintext = vec![0u8; n];
+        rng.fill_bytes(&mut plaintext);
+        let mut ciphertext = Vec::with_capacity(plaintext.len());
+
+        let ctx_len = encrypt(
+            &mut rng,
+            Cursor::new(&plaintext),
+            Cursor::new(&mut ciphertext),
+            &sender,
+            &[sender.pub_key, receiver.pub_key],
+            123,
+        )
+        .expect("error encrypting");
+
+        assert_eq!(
+            u64::try_from(ciphertext.len()).expect("unexpected overflow"),
+            ctx_len,
+            "returned/observed ciphertext length mismatch"
+        );
+
+        (rng, sender, receiver, plaintext, ciphertext)
     }
 }
