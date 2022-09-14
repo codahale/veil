@@ -167,129 +167,41 @@ mod tests {
 
     #[test]
     fn round_trip() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let sender = PrivKey::random(&mut rng);
-        let receiver = PrivKey::random(&mut rng);
-        let ephemeral = PrivKey::random(&mut rng);
-        let plaintext = rng.gen::<[u8; 64]>();
-        let nonce = rng.gen::<[u8; NONCE_LEN]>();
+        let (_, sender, receiver, ephemeral, plaintext, nonce, mut ciphertext) = setup();
 
-        let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
-        encrypt(
-            &mut rng,
-            &sender,
-            &ephemeral,
-            &receiver.pub_key,
-            &nonce,
-            &plaintext,
-            &mut ciphertext,
-        );
-
-        if let Some((ephemeral_q, plaintext_p)) =
+        assert_eq!(
+            Some((ephemeral.pub_key, plaintext.as_slice())),
             decrypt(&receiver, &sender.pub_key, &nonce, &mut ciphertext)
-        {
-            assert_eq!(ephemeral.pub_key.encoded, ephemeral_q.encoded);
-            assert_eq!(plaintext.as_slice(), plaintext_p);
-        } else {
-            unreachable!("invalid plaintext")
-        }
+        );
     }
 
     #[test]
     fn wrong_receiver() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let sender = PrivKey::random(&mut rng);
-        let receiver = PrivKey::random(&mut rng);
+        let (mut rng, sender, _, _, _, nonce, mut ciphertext) = setup();
+
         let wrong_receiver = PrivKey::random(&mut rng);
-        let ephemeral = PrivKey::random(&mut rng);
-        let plaintext = rng.gen::<[u8; 64]>();
-        let nonce = rng.gen::<[u8; NONCE_LEN]>();
-
-        let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
-        encrypt(
-            &mut rng,
-            &sender,
-            &ephemeral,
-            &receiver.pub_key,
-            &nonce,
-            &plaintext,
-            &mut ciphertext,
-        );
-
-        let plaintext = decrypt(&wrong_receiver, &sender.pub_key, &nonce, &mut ciphertext);
-        assert!(plaintext.is_none(), "decrypted an invalid ciphertext");
+        assert_eq!(None, decrypt(&wrong_receiver, &sender.pub_key, &nonce, &mut ciphertext));
     }
 
     #[test]
     fn wrong_sender() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let sender = PrivKey::random(&mut rng);
-        let receiver = PrivKey::random(&mut rng);
+        let (mut rng, _, receiver, _, _, nonce, mut ciphertext) = setup();
+
         let wrong_sender = PrivKey::random(&mut rng);
-        let ephemeral = PrivKey::random(&mut rng);
-        let plaintext = rng.gen::<[u8; 64]>();
-        let nonce = rng.gen::<[u8; NONCE_LEN]>();
-
-        let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
-        encrypt(
-            &mut rng,
-            &sender,
-            &ephemeral,
-            &receiver.pub_key,
-            &nonce,
-            &plaintext,
-            &mut ciphertext,
-        );
-
-        let plaintext = decrypt(&receiver, &wrong_sender.pub_key, &nonce, &mut ciphertext);
-        assert!(plaintext.is_none(), "decrypted an invalid ciphertext");
+        assert_eq!(None, decrypt(&receiver, &wrong_sender.pub_key, &nonce, &mut ciphertext));
     }
 
     #[test]
     fn wrong_nonce() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let sender = PrivKey::random(&mut rng);
-        let receiver = PrivKey::random(&mut rng);
-        let ephemeral = PrivKey::random(&mut rng);
-        let plaintext = rng.gen::<[u8; 64]>();
-        let nonce = rng.gen::<[u8; NONCE_LEN]>();
-
-        let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
-        encrypt(
-            &mut rng,
-            &sender,
-            &ephemeral,
-            &receiver.pub_key,
-            &nonce,
-            &plaintext,
-            &mut ciphertext,
-        );
+        let (mut rng, sender, receiver, _, _, _, mut ciphertext) = setup();
 
         let wrong_nonce = rng.gen::<[u8; NONCE_LEN]>();
-
-        let plaintext = decrypt(&receiver, &sender.pub_key, &wrong_nonce, &mut ciphertext);
-        assert!(plaintext.is_none(), "decrypted an invalid ciphertext");
+        assert_eq!(None, decrypt(&receiver, &sender.pub_key, &wrong_nonce, &mut ciphertext));
     }
 
     #[test]
     fn flip_every_bit() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let sender = PrivKey::random(&mut rng);
-        let receiver = PrivKey::random(&mut rng);
-        let ephemeral = PrivKey::random(&mut rng);
-        let plaintext = rng.gen::<[u8; 64]>();
-        let nonce = rng.gen::<[u8; NONCE_LEN]>();
-
-        let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
-        encrypt(
-            &mut rng,
-            &sender,
-            &ephemeral,
-            &receiver.pub_key,
-            &nonce,
-            &plaintext,
-            &mut ciphertext,
-        );
+        let (_, sender, receiver, _, _, nonce, ciphertext) = setup();
 
         for i in 0..ciphertext.len() {
             for j in 0u8..8 {
@@ -303,5 +215,28 @@ mod tests {
                 );
             }
         }
+    }
+
+    fn setup() -> (ChaChaRng, PrivKey, PrivKey, PrivKey, [u8; 64], [u8; NONCE_LEN], Vec<u8>) {
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
+        let sender = PrivKey::random(&mut rng);
+        let receiver = PrivKey::random(&mut rng);
+        let ephemeral = PrivKey::random(&mut rng);
+        let plaintext = rng.gen::<[u8; 64]>();
+        let nonce = rng.gen::<[u8; NONCE_LEN]>();
+
+        let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
+        encrypt(
+            &mut rng,
+            &sender,
+            &ephemeral,
+            &receiver.pub_key,
+            &nonce,
+            &plaintext,
+            &mut ciphertext,
+        );
+
+        (rng, sender, receiver, ephemeral, plaintext, nonce, ciphertext)
     }
 }
