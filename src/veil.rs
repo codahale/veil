@@ -190,7 +190,7 @@ mod tests {
     use std::io::Cursor;
 
     use assert_matches::assert_matches;
-    use rand::SeedableRng;
+    use rand::{RngCore, SeedableRng};
     use rand_chacha::ChaChaRng;
 
     use super::*;
@@ -221,106 +221,40 @@ mod tests {
 
     #[test]
     fn round_trip() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let a = PrivateKey::random(&mut rng);
-        let b = PrivateKey::random(&mut rng);
-        let message = rng.gen::<[u8; 64]>();
-
+        let (_, a, b, plaintext, ciphertext) = setup(64);
         let mut dst = Cursor::new(Vec::new());
-        let ctx_len = a
-            .encrypt(
-                &mut rng,
-                Cursor::new(message),
-                &mut dst,
-                &[b.public_key()],
-                Some(20),
-                Some(123),
-            )
-            .expect("error encrypting");
-        assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
-
-        let mut src = Cursor::new(dst.into_inner());
-        let mut dst = Cursor::new(Vec::new());
-        let ptx_len = b.decrypt(&mut src, &mut dst, &a.public_key()).expect("error decrypting");
+        let ptx_len = b
+            .decrypt(Cursor::new(ciphertext), &mut dst, &a.public_key())
+            .expect("error decrypting");
         assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
-        assert_eq!(message.to_vec(), dst.into_inner(), "incorrect plaintext");
+        assert_eq!(plaintext.to_vec(), dst.into_inner(), "incorrect plaintext");
     }
 
     #[test]
-    fn wrong_sender_key() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let a = PrivateKey::random(&mut rng);
-        let b = PrivateKey::random(&mut rng);
-        let message = rng.gen::<[u8; 64]>();
-
-        let mut dst = Cursor::new(Vec::new());
-        let ctx_len = a
-            .encrypt(
-                &mut rng,
-                Cursor::new(message),
-                &mut dst,
-                &[b.public_key()],
-                Some(20),
-                Some(123),
-            )
-            .expect("error encrypting");
-        assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
-
+    fn wrong_sender() {
+        let (mut rng, _, b, _, ciphertext) = setup(64);
+        let c = PrivateKey::random(&mut rng);
         assert_matches!(
-            b.decrypt(Cursor::new(dst.into_inner()), io::sink(), &b.public_key()),
+            b.decrypt(Cursor::new(ciphertext), io::sink(), &c.public_key()),
             Err(DecryptError::InvalidCiphertext)
         );
     }
 
     #[test]
     fn wrong_receiver() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let a = PrivateKey::random(&mut rng);
-        let b = PrivateKey::random(&mut rng);
-        let message = rng.gen::<[u8; 64]>();
-
-        let mut dst = Cursor::new(Vec::new());
-        let ctx_len = a
-            .encrypt(
-                &mut rng,
-                Cursor::new(message),
-                &mut dst,
-                &[a.public_key()],
-                Some(20),
-                Some(123),
-            )
-            .expect("error encrypting");
-        assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
+        let (mut rng, a, _, _, ciphertext) = setup(64);
+        let c = PrivateKey::random(&mut rng);
 
         assert_matches!(
-            b.decrypt(Cursor::new(dst.into_inner()), io::sink(), &a.public_key()),
+            c.decrypt(Cursor::new(ciphertext), io::sink(), &a.public_key()),
             Err(DecryptError::InvalidCiphertext)
         );
     }
 
     #[test]
     fn modified_ciphertext() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let a = PrivateKey::random(&mut rng);
-        let b = PrivateKey::random(&mut rng);
-        let message = rng.gen::<[u8; 64]>();
-
-        let mut dst = Cursor::new(Vec::new());
-        let ctx_len = a
-            .encrypt(
-                &mut rng,
-                Cursor::new(message),
-                &mut dst,
-                &[b.public_key()],
-                Some(20),
-                Some(123),
-            )
-            .expect("error encrypting");
-        assert_eq!(dst.position(), ctx_len, "returned/observed ciphertext length mismatch");
-
-        let mut ciphertext = dst.into_inner();
+        let (_, a, b, _, mut ciphertext) = setup(64);
         ciphertext[200] ^= 1;
-
         assert_matches!(
             b.decrypt(Cursor::new(ciphertext), io::sink(), &a.public_key()),
             Err(DecryptError::InvalidCiphertext)
@@ -336,5 +270,35 @@ mod tests {
         let sig = key.sign(&mut rng, Cursor::new(message)).expect("error signing");
 
         key.public_key().verify(Cursor::new(message), &sig).expect("error verifying");
+    }
+
+    fn setup(n: usize) -> (rand_chacha::ChaCha20Rng, PrivateKey, PrivateKey, Vec<u8>, Vec<u8>) {
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+
+        let a = PrivateKey::random(&mut rng);
+        let b = PrivateKey::random(&mut rng);
+
+        let mut plaintext = vec![0u8; n];
+        rng.fill_bytes(&mut plaintext);
+
+        let mut ciphertext = Vec::with_capacity(plaintext.len());
+
+        let ctx_len = a
+            .encrypt(
+                &mut rng,
+                Cursor::new(&plaintext),
+                Cursor::new(&mut ciphertext),
+                &[b.public_key()],
+                Some(20),
+                Some(123),
+            )
+            .expect("error encrypting");
+        assert_eq!(
+            u64::try_from(ciphertext.len()).expect("unexpected overflow"),
+            ctx_len,
+            "returned/observed ciphertext length mismatch"
+        );
+
+        (rng, a, b, plaintext, ciphertext)
     }
 }
