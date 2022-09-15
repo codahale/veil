@@ -43,6 +43,7 @@ harness = false
 
 [[bin]]
 name = "veil"
+path = "src/cli.rs"
 required-features = ["cli"]
 
 [profile.release]
