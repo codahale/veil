@@ -4,7 +4,7 @@ use std::io;
 use std::io::{Read, Write};
 
 use crrl::jq255e::Scalar;
-use cyclist::keccyak::{Keccyak128Hash, Keccyak128Keyed};
+use cyclist::keccyak::{KeccyakMinHash, KeccyakMinKeyed};
 use cyclist::Cyclist;
 use rand::{CryptoRng, Rng};
 
@@ -12,12 +12,12 @@ use crate::blockio::ReadBlock;
 use crate::keys::{PrivKey, SCALAR_LEN};
 
 /// The length of an authentication tag in bytes.
-pub const TAG_LEN: usize = Keccyak128Keyed::tag_len();
+pub const TAG_LEN: usize = KeccyakMinKeyed::tag_len();
 
 /// An unkeyed cryptographic duplex.
 #[derive(Clone)]
 pub struct UnkeyedDuplex {
-    state: Keccyak128Hash,
+    state: KeccyakMinHash,
 }
 
 impl UnkeyedDuplex {
@@ -25,7 +25,7 @@ impl UnkeyedDuplex {
     #[must_use]
     pub fn new(domain: &str) -> UnkeyedDuplex {
         // Initialize an empty hash.
-        let mut state = Keccyak128Hash::default();
+        let mut state = KeccyakMinHash::default();
 
         // Absorb the domain separation string.
         state.absorb(domain.as_bytes());
@@ -41,14 +41,14 @@ impl UnkeyedDuplex {
         let mut key = [0u8; KEY_LEN];
         self.state.squeeze_key_mut(&mut key);
 
-        KeyedDuplex { state: Keccyak128Keyed::new(&key, None, None) }
+        KeyedDuplex { state: KeccyakMinKeyed::new(&key, None, None) }
     }
 }
 
 /// A keyed cryptographic duplex.
 #[derive(Clone)]
 pub struct KeyedDuplex {
-    state: Keccyak128Keyed,
+    state: KeccyakMinKeyed,
 }
 
 impl KeyedDuplex {
@@ -189,7 +189,7 @@ pub trait Absorb<const BUFFER_LEN: usize>: Clone {
     }
 }
 
-impl Absorb<{ Keccyak128Hash::absorb_rate() * 32 }> for UnkeyedDuplex {
+impl Absorb<{ KeccyakMinHash::absorb_rate() * 32 }> for UnkeyedDuplex {
     fn absorb(&mut self, data: &[u8]) {
         self.state.absorb(data);
     }
@@ -199,7 +199,7 @@ impl Absorb<{ Keccyak128Hash::absorb_rate() * 32 }> for UnkeyedDuplex {
     }
 }
 
-impl Absorb<{ Keccyak128Keyed::absorb_rate() * 32 }> for KeyedDuplex {
+impl Absorb<{ KeccyakMinKeyed::absorb_rate() * 32 }> for KeyedDuplex {
     fn absorb(&mut self, data: &[u8]) {
         self.state.absorb(data);
     }
@@ -259,7 +259,7 @@ mod tests {
     #[test]
     fn absorb_blocks() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let mut message = vec![0u8; Keccyak128Hash::absorb_rate() * 3 + 8];
+        let mut message = vec![0u8; KeccyakMinHash::absorb_rate() * 3 + 8];
         rng.fill_bytes(&mut message);
 
         let mut one = UnkeyedDuplex::new("ok");
