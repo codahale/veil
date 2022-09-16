@@ -301,9 +301,9 @@ dependencies = [
 
 [[package]]
 name = "cyclist"
-version = "0.3.3"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcc9e5534bcd718fe189b3720c3b21a221f6402a80b6f6f34a35bcdda81598d7"
+checksum = "a74f01170d4c12659fa3765edd3d008c210c26033d34d222baa5ac8aebaf46c3"
 dependencies = [
  "byteorder",
  "constant_time_eq",
@@ -441,9 +441,9 @@ dependencies = [
 
 [[package]]
 name = "keccak-p"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1d595980f95da31712a83ace6eba8fc47715c8f1e9671a5e5973be270ff83cc"
+checksum = "c71cf9f5b5fc97b0354925d0553306d165bb19a2899c3a9c18d378f23991e0da"
 
 [[package]]
 name = "lazy_static"
