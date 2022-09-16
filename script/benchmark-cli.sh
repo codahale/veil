@@ -21,7 +21,7 @@ cp target/release/veil target/release/veil-control
 ./target/release/veil-experiment private-key /tmp/private-key-experiment --passphrase-command='echo -n secret' --time-cost=0 --memory-cost=0
 
 PK_CONTROL="$(./target/release/veil-control public-key /tmp/private-key-control --passphrase-command='echo -n secret')"
-PK_EXPERIMENT="$(./target/release/veil-control public-key /tmp/private-key-experiment --passphrase-command='echo -n secret')"
+PK_EXPERIMENT="$(./target/release/veil-experiment public-key /tmp/private-key-experiment --passphrase-command='echo -n secret')"
 SIZE=${SIZE:-"$((1024 * 1024 * 1024))"} # 1 GiB file
 
 case $1 in
