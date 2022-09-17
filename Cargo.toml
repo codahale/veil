@@ -21,7 +21,7 @@ thiserror = "1.0.35"
 
 # cli-only deps
 anyhow = { version = "1.0.65", optional = true }
-clap = { version = "3.2.21", features = ["derive"], optional = true }
+clap = { version = "3.2.22", features = ["derive"], optional = true }
 clap_complete = { version = "3.2.5", optional = true }
 clio = { version = "0.2.3", features = ["clap-parse"], optional = true }
 mimalloc = { version = "0.1.29", optional = true }
