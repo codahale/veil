@@ -6,13 +6,9 @@ use anyhow::{anyhow, Result};
 use clap::{AppSettings, IntoApp, Parser, Subcommand, ValueHint};
 use clap_complete::{generate_to, Shell};
 use clio::{Input, Output};
-use mimalloc::MiMalloc;
 use unicode_normalization::UnicodeNormalization;
 
 use veil::{Digest, PrivateKey, PublicKey, Signature};
-
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
 
 fn main() -> Result<()> {
     let opts = Opts::parse();
