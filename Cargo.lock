@@ -167,16 +167,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "clio"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c850d26e67812ca0adb581c77e4ad1fd0a27ea3a8f8205fddfe7d5f52b783788"
-dependencies = [
- "clap",
- "libc",
-]
-
-[[package]]
 name = "constant_time_eq"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -895,7 +885,6 @@ dependencies = [
  "bs58",
  "clap",
  "clap_complete",
- "clio",
  "constant_time_eq",
  "criterion",
  "crrl",

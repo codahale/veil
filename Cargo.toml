@@ -9,7 +9,7 @@ description = "Stupid crypto tricks."
 
 [features]
 default = ["cli"]
-cli = ["anyhow", "clap", "clap_complete", "clio", "rpassword", "shell-words", "unicode-normalization"]
+cli = ["anyhow", "clap", "clap_complete", "rpassword", "shell-words", "unicode-normalization"]
 
 [dependencies]
 bs58 = "0.4.0"
@@ -23,7 +23,6 @@ thiserror = "1.0.35"
 anyhow = { version = "1.0.65", optional = true }
 clap = { version = "3.2.22", features = ["derive"], optional = true }
 clap_complete = { version = "3.2.5", optional = true }
-clio = { version = "0.2.3", features = ["clap-parse"], optional = true }
 rpassword = { version = "7.0.0", optional = true }
 shell-words = { version = "1.1.0", optional = true }
 unicode-normalization = { version = "0.1.22", optional = true }

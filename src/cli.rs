@@ -1,11 +1,11 @@
 use std::fs::File;
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{anyhow, Result};
 use clap::{AppSettings, IntoApp, Parser, Subcommand, ValueHint};
 use clap_complete::{generate_to, Shell};
-use clio::{Input, Output};
 use unicode_normalization::UnicodeNormalization;
 
 use veil::{Digest, PrivateKey, PublicKey, Signature};
@@ -54,7 +54,7 @@ enum Cmd {
 struct PrivateKeyArgs {
     /// The path to the encrypted private key file or '-' for stdout.
     #[clap(value_parser, value_hint = ValueHint::FilePath)]
-    output: Output,
+    output: PathBuf,
 
     /// The time cost for encryption (in 2^t iterations).
     #[clap(value_parser, long, default_value = "8")]
@@ -69,12 +69,12 @@ struct PrivateKeyArgs {
 }
 
 impl Runnable for PrivateKeyArgs {
-    fn run(mut self) -> Result<()> {
+    fn run(self) -> Result<()> {
         let mut rng = rand::thread_rng();
         let passphrase = self.passphrase_input.read_passphrase()?;
         let private_key = PrivateKey::random(&mut rng);
         private_key.store(
-            self.output.lock(),
+            open_output(&self.output)?,
             rng,
             &passphrase,
             self.time_cost,
@@ -93,17 +93,17 @@ struct PublicKeyArgs {
 
     /// The path to the public key file or '-' for stdout.
     #[clap(value_parser, value_hint = ValueHint::FilePath, default_value = "-")]
-    output: Output,
+    output: PathBuf,
 
     #[clap(flatten)]
     passphrase_input: PassphraseInput,
 }
 
 impl Runnable for PublicKeyArgs {
-    fn run(mut self) -> Result<()> {
+    fn run(self) -> Result<()> {
         let private_key = self.passphrase_input.decrypt_private_key(&self.private_key)?;
         let public_key = private_key.public_key();
-        write!(self.output.lock(), "{}", public_key)?;
+        write!(open_output(&self.output)?, "{}", public_key)?;
         Ok(())
     }
 }
@@ -117,11 +117,11 @@ struct EncryptArgs {
 
     /// The path to the input file or '-' for stdin.
     #[clap(value_parser, value_hint = ValueHint::FilePath)]
-    plaintext: Input,
+    plaintext: PathBuf,
 
     /// The path to the output file or '-' for stdout.
     #[clap(value_parser, value_hint = ValueHint::FilePath)]
-    ciphertext: Output,
+    ciphertext: PathBuf,
 
     /// The receivers' public keys.
     #[clap(value_parser, required = true)]
@@ -140,12 +140,12 @@ struct EncryptArgs {
 }
 
 impl Runnable for EncryptArgs {
-    fn run(mut self) -> Result<()> {
+    fn run(self) -> Result<()> {
         let private_key = self.passphrase_input.decrypt_private_key(&self.private_key)?;
         private_key.encrypt(
             rand::thread_rng(),
-            self.plaintext.lock(),
-            self.ciphertext.lock(),
+            open_input(&self.plaintext)?,
+            open_output(&self.ciphertext)?,
             &self.receivers,
             self.fakes,
             self.padding,
@@ -163,11 +163,11 @@ struct DecryptArgs {
 
     /// The path to the input file or '-' for stdin.
     #[clap(value_parser, value_hint = ValueHint::FilePath)]
-    ciphertext: Input,
+    ciphertext: PathBuf,
 
     /// The path to the output file or '-' for stdout.
     #[clap(value_parser, value_hint = ValueHint::FilePath)]
-    plaintext: Output,
+    plaintext: PathBuf,
 
     /// The sender's public key.
     #[clap(value_parser)]
@@ -178,9 +178,13 @@ struct DecryptArgs {
 }
 
 impl Runnable for DecryptArgs {
-    fn run(mut self) -> Result<()> {
+    fn run(self) -> Result<()> {
         let private_key = self.passphrase_input.decrypt_private_key(&self.private_key)?;
-        private_key.decrypt(self.ciphertext.lock(), self.plaintext.lock(), &self.sender)?;
+        private_key.decrypt(
+            open_input(&self.ciphertext)?,
+            open_output(&self.plaintext)?,
+            &self.sender,
+        )?;
         Ok(())
     }
 }
@@ -194,21 +198,21 @@ struct SignArgs {
 
     /// The path to the message file or '-' for stdin.
     #[clap(value_parser, value_hint = ValueHint::FilePath)]
-    message: Input,
+    message: PathBuf,
 
     /// The path to the signature file or '-' for stdout.
     #[clap(value_parser, value_hint = ValueHint::FilePath, default_value = "-")]
-    output: Output,
+    output: PathBuf,
 
     #[clap(flatten)]
     passphrase_input: PassphraseInput,
 }
 
 impl Runnable for SignArgs {
-    fn run(mut self) -> Result<()> {
+    fn run(self) -> Result<()> {
         let private_key = self.passphrase_input.decrypt_private_key(&self.private_key)?;
-        let sig = private_key.sign(rand::thread_rng(), self.message.lock())?;
-        write!(self.output.lock(), "{}", sig)?;
+        let sig = private_key.sign(rand::thread_rng(), open_input(&self.message)?)?;
+        write!(open_output(&self.output)?, "{}", sig)?;
         Ok(())
     }
 }
@@ -222,7 +226,7 @@ struct VerifyArgs {
 
     /// The path to the message file or '-' for stdin.
     #[clap(value_parser, value_hint = ValueHint::FilePath)]
-    message: Input,
+    message: PathBuf,
 
     /// The signature of the message.
     #[clap(action)]
@@ -230,8 +234,8 @@ struct VerifyArgs {
 }
 
 impl Runnable for VerifyArgs {
-    fn run(mut self) -> Result<()> {
-        self.public_key.verify(self.message.lock(), &self.signature)?;
+    fn run(self) -> Result<()> {
+        self.public_key.verify(open_input(&self.message)?, &self.signature)?;
         Ok(())
     }
 }
@@ -249,16 +253,16 @@ struct DigestArgs {
 
     /// The path to the message file or '-' for stdin.
     #[clap(value_parser, value_hint = ValueHint::FilePath)]
-    message: Input,
+    message: PathBuf,
 
     /// The path to the digest file or '-' for stdout.
     #[clap(value_parser, value_hint = ValueHint::FilePath, default_value = "-")]
-    output: Output,
+    output: PathBuf,
 }
 
 impl Runnable for DigestArgs {
-    fn run(mut self) -> Result<()> {
-        let digest = Digest::new(&self.metadata, self.message.lock())?;
+    fn run(self) -> Result<()> {
+        let digest = Digest::new(&self.metadata, open_input(&self.message)?)?;
         if let Some(check) = self.check {
             if check == digest {
                 Ok(())
@@ -266,7 +270,7 @@ impl Runnable for DigestArgs {
                 Err(anyhow!("digest mismatch"))
             }
         } else {
-            write!(self.output.lock(), "{}", digest)?;
+            write!(open_output(&self.output)?, "{}", digest)?;
             Ok(())
         }
     }
@@ -317,6 +321,22 @@ impl PassphraseInput {
         let passphrase = self.read_passphrase()?;
         let ciphertext = File::open(path)?;
         Ok(PrivateKey::load(ciphertext, &passphrase)?)
+    }
+}
+
+fn open_input(path: &Path) -> Result<Box<dyn Read>> {
+    if path.as_os_str() == "-" {
+        Ok(Box::new(io::stdin().lock()))
+    } else {
+        Ok(Box::new(File::open(path)?))
+    }
+}
+
+fn open_output(path: &Path) -> Result<Box<dyn Write>> {
+    if path.as_os_str() == "-" {
+        Ok(Box::new(io::stdout().lock()))
+    } else {
+        Ok(Box::new(File::create(path)?))
     }
 }
 
