@@ -901,6 +901,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "assert_matches",
+ "atty",
  "bs58",
  "clap 4.0.0-rc.1",
  "clap_complete",

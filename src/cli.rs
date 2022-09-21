@@ -3,7 +3,7 @@ use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use clap::{CommandFactory, Parser, Subcommand, ValueHint};
 use clap_complete::{generate_to, Shell};
 use unicode_normalization::UnicodeNormalization;
@@ -80,7 +80,7 @@ impl Runnable for PrivateKeyArgs {
         let passphrase = self.passphrase_input.read_passphrase()?;
         let private_key = PrivateKey::random(&mut rng);
         private_key.store(
-            open_output(&self.output)?,
+            open_output(&self.output, true)?,
             rng,
             &passphrase,
             self.time_cost,
@@ -109,7 +109,7 @@ impl Runnable for PublicKeyArgs {
     fn run(self) -> Result<()> {
         let private_key = self.passphrase_input.decrypt_private_key(&self.private_key)?;
         let public_key = private_key.public_key();
-        write!(open_output(&self.output)?, "{}", public_key)?;
+        write!(open_output(&self.output, false)?, "{}", public_key)?;
         Ok(())
     }
 }
@@ -151,7 +151,7 @@ impl Runnable for EncryptArgs {
         private_key.encrypt(
             rand::thread_rng(),
             open_input(&self.plaintext)?,
-            open_output(&self.ciphertext)?,
+            open_output(&self.ciphertext, true)?,
             &self.receivers,
             self.fakes,
             self.padding,
@@ -188,7 +188,7 @@ impl Runnable for DecryptArgs {
         let private_key = self.passphrase_input.decrypt_private_key(&self.private_key)?;
         private_key.decrypt(
             open_input(&self.ciphertext)?,
-            open_output(&self.plaintext)?,
+            open_output(&self.plaintext, true)?,
             &self.sender,
         )?;
         Ok(())
@@ -218,7 +218,7 @@ impl Runnable for SignArgs {
     fn run(self) -> Result<()> {
         let private_key = self.passphrase_input.decrypt_private_key(&self.private_key)?;
         let sig = private_key.sign(rand::thread_rng(), open_input(&self.message)?)?;
-        write!(open_output(&self.output)?, "{}", sig)?;
+        write!(open_output(&self.output, false)?, "{}", sig)?;
         Ok(())
     }
 }
@@ -276,7 +276,7 @@ impl Runnable for DigestArgs {
                 Err(anyhow!("digest mismatch"))
             }
         } else {
-            write!(open_output(&self.output)?, "{}", digest)?;
+            write!(open_output(&self.output, false)?, "{}", digest)?;
             Ok(())
         }
     }
@@ -332,14 +332,20 @@ impl PassphraseInput {
 
 fn open_input(path: &Path) -> Result<Box<dyn Read>> {
     if path.as_os_str() == "-" {
+        if atty::is(atty::Stream::Stdin) {
+            bail!("stdin is a tty");
+        }
         Ok(Box::new(io::stdin().lock()))
     } else {
         Ok(Box::new(File::open(path)?))
     }
 }
 
-fn open_output(path: &Path) -> Result<Box<dyn Write>> {
+fn open_output(path: &Path, binary: bool) -> Result<Box<dyn Write>> {
     if path.as_os_str() == "-" {
+        if binary && atty::is(atty::Stream::Stdout) {
+            bail!("stdout is a tty");
+        }
         Ok(Box::new(io::stdout().lock()))
     } else {
         Ok(Box::new(File::create(path)?))
