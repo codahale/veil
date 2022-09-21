@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{anyhow, Result};
-use clap::{AppSettings, IntoApp, Parser, Subcommand, ValueHint};
+use clap::{CommandFactory, Parser, Subcommand, ValueHint};
 use clap_complete::{generate_to, Shell};
 use unicode_normalization::UnicodeNormalization;
 
@@ -25,8 +25,7 @@ fn main() -> Result<()> {
 }
 
 #[derive(Debug, Parser)]
-#[clap(author, version, about)]
-#[clap(subcommand_required(true))]
+#[command(author, version, about, subcommand_required(true))]
 struct Opts {
     #[clap(subcommand)]
     cmd: Cmd,
@@ -37,15 +36,22 @@ trait Runnable {
 }
 
 #[derive(Debug, Subcommand)]
-#[clap(setting = AppSettings::DeriveDisplayOrder)]
 enum Cmd {
+    #[command(display_order(1))]
     PrivateKey(PrivateKeyArgs),
+    #[command(display_order(2))]
     PublicKey(PublicKeyArgs),
+    #[command(display_order(3))]
     Encrypt(EncryptArgs),
+    #[command(display_order(4))]
     Decrypt(DecryptArgs),
+    #[command(display_order(5))]
     Sign(SignArgs),
+    #[command(display_order(6))]
     Verify(VerifyArgs),
+    #[command(display_order(7))]
     Digest(DigestArgs),
+    #[command(display_order(8))]
     Complete(CompleteArgs),
 }
 
@@ -53,18 +59,18 @@ enum Cmd {
 #[derive(Debug, Parser)]
 struct PrivateKeyArgs {
     /// The path to the encrypted private key file or '-' for stdout.
-    #[clap(value_parser, value_hint = ValueHint::FilePath)]
+    #[arg(value_hint = ValueHint::FilePath)]
     output: PathBuf,
 
     /// The time cost for encryption (in 2^t iterations).
-    #[clap(value_parser, long, default_value = "8")]
+    #[arg(long, default_value = "8")]
     time_cost: u8,
 
     /// The memory cost for encryption (in 2^m KiB).
-    #[clap(value_parser, long, default_value = "8")]
+    #[arg(long, default_value = "8")]
     memory_cost: u8,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     passphrase_input: PassphraseInput,
 }
 
@@ -88,14 +94,14 @@ impl Runnable for PrivateKeyArgs {
 #[derive(Debug, Parser)]
 struct PublicKeyArgs {
     /// The path of the encrypted private key.
-    #[clap(value_parser, value_hint = ValueHint::FilePath)]
+    #[arg(value_hint = ValueHint::FilePath)]
     private_key: PathBuf,
 
     /// The path to the public key file or '-' for stdout.
-    #[clap(value_parser, value_hint = ValueHint::FilePath, default_value = "-")]
+    #[arg(value_hint = ValueHint::FilePath, default_value = "-")]
     output: PathBuf,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     passphrase_input: PassphraseInput,
 }
 
@@ -112,30 +118,30 @@ impl Runnable for PublicKeyArgs {
 #[derive(Debug, Parser)]
 struct EncryptArgs {
     /// The path of the encrypted private key.
-    #[clap(value_parser, value_hint = ValueHint::FilePath)]
+    #[arg(value_hint = ValueHint::FilePath)]
     private_key: PathBuf,
 
     /// The path to the input file or '-' for stdin.
-    #[clap(value_parser, value_hint = ValueHint::FilePath)]
+    #[arg(value_hint = ValueHint::FilePath)]
     plaintext: PathBuf,
 
     /// The path to the output file or '-' for stdout.
-    #[clap(value_parser, value_hint = ValueHint::FilePath)]
+    #[arg(value_hint = ValueHint::FilePath)]
     ciphertext: PathBuf,
 
     /// The receivers' public keys.
-    #[clap(value_parser, required = true)]
+    #[arg(required = true)]
     receivers: Vec<PublicKey>,
 
     /// Add fake receivers.
-    #[clap(value_parser, long)]
+    #[arg(long)]
     fakes: Option<usize>,
 
     /// Add random bytes of padding.
-    #[clap(value_parser, long)]
+    #[arg(long)]
     padding: Option<usize>,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     passphrase_input: PassphraseInput,
 }
 
@@ -158,22 +164,22 @@ impl Runnable for EncryptArgs {
 #[derive(Debug, Parser)]
 struct DecryptArgs {
     /// The path of the encrypted private key.
-    #[clap(value_parser, value_hint = ValueHint::FilePath)]
+    #[arg(value_hint = ValueHint::FilePath)]
     private_key: PathBuf,
 
     /// The path to the input file or '-' for stdin.
-    #[clap(value_parser, value_hint = ValueHint::FilePath)]
+    #[arg(value_hint = ValueHint::FilePath)]
     ciphertext: PathBuf,
 
     /// The path to the output file or '-' for stdout.
-    #[clap(value_parser, value_hint = ValueHint::FilePath)]
+    #[arg(value_hint = ValueHint::FilePath)]
     plaintext: PathBuf,
 
     /// The sender's public key.
-    #[clap(value_parser)]
+    #[arg()]
     sender: PublicKey,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     passphrase_input: PassphraseInput,
 }
 
@@ -193,18 +199,18 @@ impl Runnable for DecryptArgs {
 #[derive(Debug, Parser)]
 struct SignArgs {
     /// The path of the encrypted private key.
-    #[clap(value_parser, value_hint = ValueHint::FilePath)]
+    #[arg(value_hint = ValueHint::FilePath)]
     private_key: PathBuf,
 
     /// The path to the message file or '-' for stdin.
-    #[clap(value_parser, value_hint = ValueHint::FilePath)]
+    #[arg(value_hint = ValueHint::FilePath)]
     message: PathBuf,
 
     /// The path to the signature file or '-' for stdout.
-    #[clap(value_parser, value_hint = ValueHint::FilePath, default_value = "-")]
+    #[arg(value_hint = ValueHint::FilePath, default_value = "-")]
     output: PathBuf,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     passphrase_input: PassphraseInput,
 }
 
@@ -221,15 +227,15 @@ impl Runnable for SignArgs {
 #[derive(Debug, Parser)]
 struct VerifyArgs {
     /// The signer's public key.
-    #[clap(value_parser)]
+    #[arg()]
     public_key: PublicKey,
 
     /// The path to the message file or '-' for stdin.
-    #[clap(value_parser, value_hint = ValueHint::FilePath)]
+    #[arg(value_hint = ValueHint::FilePath)]
     message: PathBuf,
 
     /// The signature of the message.
-    #[clap(action)]
+    #[arg()]
     signature: Signature,
 }
 
@@ -244,19 +250,19 @@ impl Runnable for VerifyArgs {
 #[derive(Debug, Parser)]
 struct DigestArgs {
     /// Associated metadata to be included in the digest.
-    #[clap(value_parser, long, short)]
+    #[arg(long, short)]
     metadata: Vec<String>,
 
     /// Compare the computed digest to a given digest.
-    #[clap(value_parser, long, value_name = "DIGEST")]
+    #[arg(long, value_name = "DIGEST")]
     check: Option<Digest>,
 
     /// The path to the message file or '-' for stdin.
-    #[clap(value_parser, value_hint = ValueHint::FilePath)]
+    #[arg(value_hint = ValueHint::FilePath)]
     message: PathBuf,
 
     /// The path to the digest file or '-' for stdout.
-    #[clap(value_parser, value_hint = ValueHint::FilePath, default_value = "-")]
+    #[arg(value_hint = ValueHint::FilePath, default_value = "-")]
     output: PathBuf,
 }
 
@@ -281,11 +287,11 @@ impl Runnable for DigestArgs {
 #[clap(hide(true))]
 struct CompleteArgs {
     /// The type of shell completion script to generate: bash, elvish, fish, powershell, or zsh.
-    #[clap(value_parser)]
+    #[arg()]
     shell: Shell,
 
     /// Output directory for shell completion scripts.
-    #[clap(value_parser, value_hint = ValueHint::DirPath)]
+    #[arg(value_hint = ValueHint::DirPath)]
     output: PathBuf,
 }
 
@@ -300,7 +306,7 @@ impl Runnable for CompleteArgs {
 #[derive(Debug, Parser)]
 struct PassphraseInput {
     /// Use the STDOUT of the given command as the passphrase.
-    #[clap(value_parser, long = "passphrase-command")]
+    #[arg(long = "passphrase-command")]
     command: Option<String>,
 }
 
