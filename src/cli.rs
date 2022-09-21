@@ -25,7 +25,7 @@ fn main() -> Result<()> {
 }
 
 #[derive(Debug, Parser)]
-#[command(author, version, about, subcommand_required(true))]
+#[command(author, version, about)]
 struct Opts {
     #[clap(subcommand)]
     cmd: Cmd,
