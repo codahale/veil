@@ -132,9 +132,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.0.0-rc.1"
+version = "4.0.0-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b01032b244c348ae40c5d99113438c95ee7343cd303bb361fc06dcb4c1d93e8"
+checksum = "04d5891a0b7bbd946e91a79c350b5475764d7d7eda9c71141059a9d2ab0853e5"
 dependencies = [
  "atty",
  "bitflags",
@@ -151,7 +151,7 @@ version = "4.0.0-rc.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f00c7ed9ef8826baf070d8f477714b0d9219f8d15744d1b5267cc8a89a1f0286"
 dependencies = [
- "clap 4.0.0-rc.1",
+ "clap 4.0.0-rc.2",
 ]
 
 [[package]]
@@ -903,7 +903,7 @@ dependencies = [
  "assert_matches",
  "atty",
  "bs58",
- "clap 4.0.0-rc.1",
+ "clap 4.0.0-rc.2",
  "clap_complete",
  "constant_time_eq",
  "criterion",
