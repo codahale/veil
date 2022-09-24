@@ -307,7 +307,7 @@ struct PassphraseInput {
     /// Read the passphrase from the given file descriptor.
     #[arg(long)]
     #[cfg(unix)]
-    passphrase_fd: Option<i32>,
+    passphrase_fd: Option<std::os::unix::prelude::RawFd>,
 }
 
 impl PassphraseInput {
@@ -323,10 +323,10 @@ impl PassphraseInput {
 
     #[cfg(unix)]
     fn read_from_fd(fd: i32) -> Result<Vec<u8>> {
-        use std::os::unix::prelude::{FromRawFd, RawFd};
+        use std::os::unix::prelude::FromRawFd;
 
         let mut out = Vec::new();
-        unsafe { File::from_raw_fd(RawFd::from_raw_fd(fd)) }.read_to_end(&mut out)?;
+        unsafe { File::from_raw_fd(fd) }.read_to_end(&mut out)?;
         Ok(out)
     }
 
