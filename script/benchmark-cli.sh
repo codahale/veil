@@ -17,40 +17,40 @@ cargo build --release --all-features
 cp target/release/veil target/release/veil-control
 
 # create a private key with minimal KDF expansion, using both commands to make sure they work
-./target/release/veil-control private-key /tmp/private-key-control --passphrase-command='echo -n secret' --time-cost=0 --memory-cost=0
-./target/release/veil-experiment private-key /tmp/private-key-experiment --passphrase-command='echo -n secret' --time-cost=0 --memory-cost=0
+./target/release/veil-control private-key /tmp/private-key-control --passphrase-fd=3 --time-cost=0 --memory-cost=0 3< <(echo -n secret)
+./target/release/veil-experiment private-key /tmp/private-key-experiment --passphrase-fd=3 --time-cost=0 --memory-cost=0 3< <(echo -n secret)
 
-PK_CONTROL="$(./target/release/veil-control public-key /tmp/private-key-control --passphrase-command='echo -n secret')"
-PK_EXPERIMENT="$(./target/release/veil-experiment public-key /tmp/private-key-experiment --passphrase-command='echo -n secret')"
+PK_CONTROL="$(./target/release/veil-control public-key /tmp/private-key-control --passphrase-fd=3 3< <(echo -n secret))"
+PK_EXPERIMENT="$(./target/release/veil-experiment public-key /tmp/private-key-experiment --passphrase-fd=3  3< <(echo -n secret))"
 SIZE=${SIZE:-"$((1024 * 1024 * 1024))"} # 1 GiB file
 
 case $1 in
 "encrypt")
   # benchmark encrypting a file for 10 receivers
-  hyperfine --warmup 10 -S /bin/sh \
-    -n control "head -c $SIZE /dev/zero | ./target/release/veil-control encrypt --passphrase-command='echo -n secret' /tmp/private-key-control - /dev/null $PK_CONTROL --fakes 9" \
-    -n experimental "head -c $SIZE /dev/zero | ./target/release/veil-experiment encrypt --passphrase-command='echo -n secret' /tmp/private-key-experiment - /dev/null $PK_EXPERIMENT --fakes 9" \
+  hyperfine --warmup 10 -S /bin/bash \
+    -n control "head -c $SIZE /dev/zero | ./target/release/veil-control encrypt --passphrase-fd=3 /tmp/private-key-control - /dev/null $PK_CONTROL --fakes 9 3< <(echo -n secret)" \
+    -n experimental "head -c $SIZE /dev/zero | ./target/release/veil-experiment encrypt --passphrase-fd=3 /tmp/private-key-experiment - /dev/null $PK_EXPERIMENT --fakes 9 3< <(echo -n secret)" \
     ;
   ;;
 "sign")
   # benchmark signing a file
-  hyperfine --warmup 10 -S /bin/sh \
-    -n control "head -c $SIZE /dev/zero | ./target/release/veil-control sign --passphrase-command='echo -n secret' /tmp/private-key-control - /dev/null" \
-    -n experimental "head -c $SIZE /dev/zero | ./target/release/veil-experiment sign --passphrase-command='echo -n secret' /tmp/private-key-experiment - /dev/null" \
+  hyperfine --warmup 10 -S /bin/bash \
+    -n control "head -c $SIZE /dev/zero | ./target/release/veil-control sign --passphrase-fd=3 /tmp/private-key-control - /dev/null 3< <(echo -n secret)" \
+    -n experimental "head -c $SIZE /dev/zero | ./target/release/veil-experiment sign --passphrase-fd=3 /tmp/private-key-experiment - /dev/null 3< <(echo -n secret)" \
     ;
   ;;
 "verify")
   # benchmark verifying a signature
-  SIG_CONTROL=$(head -c "$SIZE" /dev/zero | ./target/release/veil-control sign --passphrase-command='echo -n secret' /tmp/private-key-control -)
-  SIG_EXPERIMENT=$(head -c "$SIZE" /dev/zero | ./target/release/veil-experiment sign --passphrase-command='echo -n secret' /tmp/private-key-experiment -)
-  hyperfine --warmup 10 -S /bin/sh \
+  SIG_CONTROL=$(head -c "$SIZE" /dev/zero | ./target/release/veil-control sign --passphrase-fd=3 /tmp/private-key-control - 3< <(echo -n secret))
+  SIG_EXPERIMENT=$(head -c "$SIZE" /dev/zero | ./target/release/veil-experiment sign --passphrase-fd=3 /tmp/private-key-experiment - 3< <(echo -n secret))
+  hyperfine --warmup 10 -S /bin/bash \
     -n control "head -c $SIZE /dev/zero | ./target/release/veil-control verify $PK_CONTROL - $SIG_CONTROL" \
     -n experimental "head -c $SIZE /dev/zero | ./target/release/veil-experiment verify $PK_EXPERIMENT - $SIG_EXPERIMENT" \
     ;
   ;;
 "digest")
   # benchmark hashing a file
-  hyperfine --warmup 10 -S /bin/sh \
+  hyperfine --warmup 10 -S /bin/bash \
     -n control "head -c $SIZE /dev/zero | ./target/release/veil-control digest - /dev/null" \
     -n experimental "head -c $SIZE /dev/zero | ./target/release/veil-experiment digest - /dev/null" \
     ;

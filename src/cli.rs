@@ -1,7 +1,6 @@
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use anyhow::{anyhow, bail, Result};
 use clap::{CommandFactory, Parser, Subcommand, ValueHint};
@@ -305,22 +304,36 @@ impl Runnable for CompleteArgs {
 
 #[derive(Debug, Parser)]
 struct PassphraseInput {
-    /// Use the STDOUT of the given command as the passphrase.
-    #[arg(long = "passphrase-command")]
-    command: Option<String>,
+    /// Read the passphrase from the given file descriptor.
+    #[arg(long)]
+    #[cfg(unix)]
+    passphrase_fd: Option<i32>,
 }
 
 impl PassphraseInput {
     fn read_passphrase(&self) -> Result<Vec<u8>> {
-        if let Some(ref command) = self.command {
-            let mut tokens = shell_words::split(command)?.into_iter();
-            let program = tokens.next().ok_or_else(|| anyhow!("invalid command: {}", command))?;
-            Ok(Command::new(program).args(tokens).output()?.stdout)
-        } else {
-            rpassword::prompt_password("Enter passphrase: ")
-                .map(|s| s.nfc().collect::<String>().as_bytes().to_vec())
-                .map_err(anyhow::Error::new)
+        if cfg!(unix) {
+            if let Some(fd) = self.passphrase_fd {
+                return Self::read_from_fd(fd);
+            }
         }
+
+        self.prompt_for_passphrase()
+    }
+
+    #[cfg(unix)]
+    fn read_from_fd(fd: i32) -> Result<Vec<u8>> {
+        use std::os::unix::prelude::{FromRawFd, RawFd};
+
+        let mut out = Vec::new();
+        unsafe { File::from_raw_fd(RawFd::from_raw_fd(fd)) }.read_to_end(&mut out)?;
+        Ok(out)
+    }
+
+    fn prompt_for_passphrase(&self) -> Result<Vec<u8>> {
+        rpassword::prompt_password("Enter passphrase: ")
+            .map(|s| s.nfc().collect::<String>().as_bytes().to_vec())
+            .map_err(anyhow::Error::new)
     }
 
     fn decrypt_private_key(&self, path: &Path) -> Result<PrivateKey> {
