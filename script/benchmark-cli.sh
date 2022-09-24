@@ -7,13 +7,13 @@ rm -f target/release/veil-experiment
 rm -f target/release/veil-control
 
 # build the current state as release
-cargo build --release --all-features
+cargo build --release
 cp target/release/veil target/release/veil-experiment
 
 # stash the current state and build the last commit as release
 git stash
 
-cargo build --release --all-features
+cargo build --release
 cp target/release/veil target/release/veil-control
 
 # create a private key with minimal KDF expansion, using both commands to make sure they work

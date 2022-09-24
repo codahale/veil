@@ -1,4 +1,3 @@
-#![cfg(feature = "cli")]
 #![cfg(unix)]
 
 use std::fs;
