@@ -21,7 +21,7 @@ SHA2-256, SHA2-384, SHA2-512, SHA2-224. For public key encryption, it's supporte
 Diffie-Hellman, and ECDH, all with different parameters. For digital signatures, it's supported RSA,
 DSA, ElGamal, ECDSA, and EdDSA, again, all with different parameters.
 
-As Adam Langley  said regarding TLS [[Lan16]](#lan16):
+As Adam Langley said regarding TLS [[Lan16]](#lan16):
 
 > Cryptographic agility is a huge cost. Implementing and supporting multiple algorithms means more
 code. More code begets more bugs. More things in general means less academic focus on any one thing,
@@ -29,8 +29,8 @@ and less testing and code-review per thing. Any increase in the number of option
 combinations and a higher chance for a bad interaction to arise.
 
 At best, each of these algorithms represents a geometrically increasing burden on implementors,
-analysts, and users. At worst, they represent a catastrophic risk to the security of the
-system [[Ngu04]](#ngu04) [[BSW21]](#bsw21).
+analysts, and users. At worst, they represent a catastrophic risk to the security of the system
+[[Ngu04]](#ngu04) [[BSW21]](#bsw21).
 
 A modern system would use a limited number of cryptographic primitives and use a single instance of
 each.
@@ -42,7 +42,7 @@ oracle ([[AR10]](#ar10), p. 41):
 
 > In the StE scheme, the adversary `A` can easily break the sUF-CMA security in the outsider model.
 It can ask the encryption oracle to signcrypt a message `m` for `R'` and get `C=(Encrypt(pk_R',
-m||σ),ID_S,ID_R')` where `σ=Sign(pk_S, m)`.  Then, it can recover `m||σ` using `sk_R'` and forge the
+m||σ),ID_S,ID_R')` where `σ=Sign(pk_S, m)`. Then, it can recover `m||σ` using `sk_R'` and forge the
 signcryption ciphertext `C=(Encrypt(pk_R, m||σ),ID_S,ID_R)`.
 
 This may seem like an academic distinction, but this attack is trivial to mount. If you send your
@@ -74,8 +74,8 @@ Passive Adversary, which monitors all traffic on all links of a network. For an 
 advantaged network position (e.g. a totalitarian state), looking for cryptographically-protected
 messages is trivial given the metadata they often expose. Even privacy features like GnuPG's
 `--hidden-recipients` still produce encrypted messages which are trivially identifiable as encrypted
-messages, because PGP messages consist of packets with explicitly identifiable metadata.In
-addition to being secure, privacy-enhancing technologies must be undetectable.
+messages, because PGP messages consist of packets with explicitly identifiable metadata.In addition
+to being secure, privacy-enhancing technologies must be undetectable.
 
 Bernstein summarized this dilemma [[BHKL13]](#bhkl13):
 
@@ -178,8 +178,8 @@ acceptable.
 
 ### Indistinguishable From Random Noise
 
-Indistinguishability from random noise is a critical property for censorship-resistant
-communication [[BHKL13]](#bhkl13):
+Indistinguishability from random noise is a critical property for censorship-resistant communication
+[[BHKL13]](#bhkl13):
 
 > Censorship-circumvention tools are in an arms race against censors. The censors study all traffic
 passing into and out of their controlled sphere, and try to disable censorship-circumvention tools
@@ -393,7 +393,7 @@ identification scheme.
 
 Unlike Construction 13.12 of [[KL20]](#kl20) (p. 482), `veil.schnorr` transmits the commitment point
 `I` as part of the signature and the verifier calculates `I'` vs transmitting the challenge scalar
-`r` and calculating `r'`. In this way, `veil.schnorr` is closer to EdDSA [[BCJZ21]](#bcjz21)  or the
+`r` and calculating `r'`. In this way, `veil.schnorr` is closer to EdDSA [[BCJZ21]](#bcjz21) or the
 Schnorr variant proposed by Hamburg [[Ham17]](#ham17). Short challenge scalars are used which allow
 for faster verification with no loss in security [[Por22]](#por22). In addition, this construction
 allows for the use of variable-time optimizations during signature verification
@@ -470,7 +470,7 @@ Schnorr signature scheme to provide multi-user insider security with limited den
 
 ### Encrypting A Header
 
-Encrypting a header requires a sender's private key `d_S`,  an ephemeral private key `d_E`, the
+Encrypting a header requires a sender's private key `d_S`, an ephemeral private key `d_E`, the
 receiver's public key `Q_R`, a nonce `N`, and a plaintext `P`.
 
 ```text
@@ -525,9 +525,9 @@ function DecryptHeader(d_R, Q_S, N, C_0 || C_1 || S_0 || S_1):
 encryption scheme and a designated-verifier Schnorr signature scheme.
 
 The initial portion of `veil.sres` is equivalent to ECIES (see Construction 12.23 of
-[[KL20]](#kl20), p.  435), (with the commitment point `I` as an addition to the ciphertext, and
-the challenge scalar `r` serving as the authentication tag for the data encapsulation mechanism) and
-is IND-CCA2 secure (see Corollary 12.14 of [[KL20]](#kl20), p. 436).
+[[KL20]](#kl20), p. 435), (with the commitment point `I` as an addition to the ciphertext, and the
+challenge scalar `r` serving as the authentication tag for the data encapsulation mechanism) and is
+IND-CCA2 secure (see Corollary 12.14 of [[KL20]](#kl20), p. 436).
 
 The latter portion of `veil.sres` is a designated-verifier Schnorr signature scheme which adapts an
 EdDSA-style Schnorr signature scheme by multiplying the proof scalar `s` by the receiver's public
@@ -555,20 +555,20 @@ receiver into decrypting the result and giving `A` the randomly-chosen plaintext
 [[AR10]](#ar10). This attack is not possible with `veil.sres`, as the sender's public key is
 strongly bound during encryption and decryption.
 
-`A` is unable to forge valid signatures for existing ciphertexts, limiting them to passive
-attacks. A passive attack on any of the three components of `veil.sres` ciphertexts--`C`,
-`S_0`, `S_1`--would only be possible if Cyclist is not IND-CPA secure.
+`A` is unable to forge valid signatures for existing ciphertexts, limiting them to passive attacks.
+A passive attack on any of the three components of `veil.sres` ciphertexts--`C`, `S_0`, `S_1`--would
+only be possible if Cyclist is not IND-CPA secure.
 
 Therefore, `veil.sres` provides confidentiality in the multi-user outsider setting.
 
 #### Insider Confidentiality Of Headers
 
-Next, we evaluate the confidentiality of `veil.sres` in the multi-user insider setting (see
-[Insider Confidentiality](#insider-confidentiality), in which the adversary `A` knows the sender's
-private key in addition to the public keys of both users ([[BS10]](#bs10), p. 45-46).
+Next, we evaluate the confidentiality of `veil.sres` in the multi-user insider setting (see [Insider
+Confidentiality](#insider-confidentiality), in which the adversary `A` knows the sender's private
+key in addition to the public keys of both users ([[BS10]](#bs10), p. 45-46).
 
-`A` cannot decrypt the message by themselves, as they do not know either `d_E` or `d_R` and
-cannot calculate the ECDH shared secret `[d_E]Q_R=[d_R]Q_E=[d_E{d_R}G]`.
+`A` cannot decrypt the message by themselves, as they do not know either `d_E` or `d_R` and cannot
+calculate the ECDH shared secret `[d_E]Q_R=[d_R]Q_E=[d_E{d_R}G]`.
 
 `A` also cannot trick the receiver into decrypting an equivalent message by replacing the signature,
 despite `A`'s ability to use `d_S` to create new signatures. In order to generate a valid signature
@@ -598,9 +598,9 @@ signature for a new message or modify an existing signature for an existing mess
 
 #### Insider Authenticity Of Headers
 
-Next, we evaluate the authenticity of `veil.sres` in the multi-user insider setting (see
-[Insider Authenticity](#insider-authenticity)), in which the adversary `A` knows the receiver's
-private key in addition to the public keys of both users  ([[BS10]](#bs10), p. 48).
+Next, we evaluate the authenticity of `veil.sres` in the multi-user insider setting (see [Insider
+Authenticity](#insider-authenticity)), in which the adversary `A` knows the receiver's private key
+in addition to the public keys of both users ([[BS10]](#bs10), p. 48).
 
 Again, the Schnorr signature scheme is sUF-CMA secure and the signature is created using the
 signer's private key. The receiver (or `A` in possession of the receiver's private key) cannot forge
@@ -738,7 +738,7 @@ secure.
 The latter portion of `veil.mres` is an EdDSA-style Schnorr signature scheme. The EdDSA-style
 Schnorr signature is sUF-CMA secure when implemented in a prime order group and a cryptographic hash
 function [[BCJZ21]](#bcjz21) [[CGN20]](#cgn20) [[PS00]](#ps00) [[NSW09]](#nsw09) (see also
-[`veil.schnor`](#digital-signatures)).  Short challenge scalars are used which allow for faster
+[`veil.schnor`](#digital-signatures)). Short challenge scalars are used which allow for faster
 verification with no loss in security [[Por22]](#por22). In addition, this construction allows for
 the use of variable-time optimizations during signature verification [[Por20+1]](#por201).
 
@@ -780,10 +780,10 @@ message by themselves, as they do not know either `d_E` or any `d_R` and cannot 
 cannot trick the receiver into decrypting an equivalent message by replacing the signature, despite
 `A`~'s ability to use `d_S` to create new headers. In order to generate a valid signature on a
 ciphertext `c'` (e.g. `c'=c||1`), `A` would have to squeeze a valid challenge scalar `r'` from the
-duplex state.  Unlike the signature hash function in the generic EtS composition, however, the
-duplex state is cryptographically dependent on a value `A` does not know, specifically the data
-encryption key `K` (via the `Absorb` operation) and the plaintext blocks `p_{0..n}` (via the
-`Encrypt` operation).
+duplex state. Unlike the signature hash function in the generic EtS composition, however, the duplex
+state is cryptographically dependent on a value `A` does not know, specifically the data encryption
+key `K` (via the `Absorb` operation) and the plaintext blocks `p_{0..n}` (via the `Encrypt`
+operation).
 
 Therefore, `veil.mres` provides confidentiality in the multi-user insider setting.
 
@@ -824,9 +824,9 @@ Deniability](#limited-deniability)), therefore `veil.mres` does as well.
 
 ### Indistinguishability Of Messages From Random Noise
 
-`veil.mres` ciphertexts are indistinguishable from random noise. All components of an
-`veil.mres` ciphertext are Cyclist ciphertexts; a successful distinguishing attack on them
-would require Cyclist to not be IND-CPA secure.
+`veil.mres` ciphertexts are indistinguishable from random noise. All components of an `veil.mres`
+ciphertext are Cyclist ciphertexts; a successful distinguishing attack on them would require Cyclist
+to not be IND-CPA secure.
 
 ### Partial Decryption
 
@@ -939,8 +939,8 @@ is IND-CCA2 secure.
 ### ABHKLR21
 
 Joël Alwen, Bruno Blanchet, Eduard Hauck, Eike Kiltz, Benjamin Lipp, and Doreen Riepel. 2021.
-Analysing the HPKE standard.  In Annual International Conference on the Theory and Applications of
-Cryptographic Techniques, Springer, 87–116.  <https://eprint.iacr.org/2020/1499.pdf>
+Analysing the HPKE standard. In Annual International Conference on the Theory and Applications of
+Cryptographic Techniques, Springer, 87–116. <https://eprint.iacr.org/2020/1499.pdf>
 
 ### AR10
 
