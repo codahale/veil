@@ -1,5 +1,0 @@
-CmdLine
-{
-    -n 1  # command terminated with space, competes with latexindent
-    -n 46 # paren brackets don't play well with algorithmic
-}
