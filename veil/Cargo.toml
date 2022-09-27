@@ -13,7 +13,7 @@ constant_time_eq = "0.2.4"
 crrl = "0.3.0"
 cyclist = { version = "0.4.0", default-features = false, features = ["keccyak"] }
 rand = { version = "0.8.5", features = ["min_const_gen"] }
-thiserror = "1.0.36"
+thiserror = "1.0.37"
 
 [dev-dependencies]
 assert_matches = "1.5.0"
