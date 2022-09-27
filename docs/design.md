@@ -41,9 +41,9 @@ PGP messages use a Sign-Then-Encrypt (StE) construction, which is insecure given
 oracle ([[AR10]](#ar10), p. 41):
 
 > In the StE scheme, the adversary `A` can easily break the sUF-CMA security in the outsider model.
-It can ask the encryption oracle to signcrypt a message `m` for `R'` and get `C=(Encrypt(pk_R',
-m||σ),ID_S,ID_R')` where `σ=Sign(pk_S, m)`. Then, it can recover `m||σ` using `sk_R'` and forge the
-signcryption ciphertext `C=(Encrypt(pk_R, m||σ),ID_S,ID_R)`.
+It can ask the encryption oracle to signcrypt a message `m` for `R'` and get
+`C=(Encrypt(pk_R',m||σ),ID_S,ID_R')` where `σ=Sign(pk_S,m)`. Then, it can recover `m||σ` using
+`sk_R'` and forge the signcryption ciphertext `C=(Encrypt(pk_R,m||σ),ID_S,ID_R)`.
 
 This may seem like an academic distinction, but this attack is trivial to mount. If you send your
 boss an angry resignation letter signed and encrypted with PGP, your boss can re-transmit that to
@@ -89,10 +89,10 @@ A modern system would produce messages without recognizable metadata or patterns
 ### Multi-User Confidentiality
 
 To evaluate the confidentiality of a scheme, we consider an adversary `A` attempting to attack a
-sender and receiver ([[BS10]](#bs10), p. 44). `A` creates two equal-length messages `(m_0, m_1)`,
-the sender selects one at random and encrypts it, and `A` guesses which of the two has been
-encrypted without tricking the receiver into decrypting it for them. To model real-world
-possibilities, we assume `A` has three capabilities:
+sender and receiver ([[BS10]](#bs10), p. 44). `A` creates two equal-length messages `(m_0,m_1)`, the
+sender selects one at random and encrypts it, and `A` guesses which of the two has been encrypted
+without tricking the receiver into decrypting it for them. To model real-world possibilities, we
+assume `A` has three capabilities:
 
 1. `A` can create their own key pairs. Veil does not have a centralized certificate authority and
    creating new key pairs is intentionally trivial.
@@ -172,7 +172,7 @@ using authenticators they (or an adversary with their private key) could never c
 The multi-receiver setting motivates a focus on insider security over the traditional emphasis on
 outsider security (contra [[AR10]](#ar10) p. 26, [[BS10]](#bs10) p. 46; see [[BBM18]](#bbm18)).
 Given a probability of an individual key compromise `P`, a multi-user system of `N` users has an
-overall `1-{(1-P)}^N` probability of at least one key being compromised. A system with an
+overall `1-((1-P)^N)` probability of at least one key being compromised. A system with an
 exponentially increasing likelihood of losing all confidentiality and authenticity properties is not
 acceptable.
 
@@ -290,7 +290,7 @@ function HPKE(d_E, Q_R, p):
   Cyclist([d_E]Q_R, ϵ, ϵ) // Initialize a keyed duplex with the shared secret.
   c ← Encrypt(p)          // Encrypt the plaintext.
   t ← Squeeze(16)         // Squeeze an authentication tag.
-  return c || t           // Return ciphertext and tag.
+  return c||t             // Return ciphertext and tag.
 ```
 
 The duplex is keyed with the shared secret point, used to encrypt the plaintext, and finally used to
@@ -365,16 +365,16 @@ function Sign(d, m):
   r ← Squeeze(16)                 // Squeeze a short challenge scalar.
   s ← d×️r + k                     // Calculate the proof scalar.
   S_1 ← Encrypt(s)                // Encrypt the proof scalar.
-  return S_0 || S_1               // Return the commitment point and proof scalar.
+  return S_0||S_1                 // Return the commitment point and proof scalar.
 ```
 
 ### Verifying A Signature
 
 Verifying a signature requires a signer's public key `Q`, a message `m`, and a signature
-`S_0 || S_1`.
+`S_0||S_1`.
 
 ```text
-function Verify(Q, m, S_0 || S_1):
+function Verify(Q, m, S_0||S_1):
   Absorb("veil.schnorr")          // Initialize an unkeyed duplex.
   Absorb(Q)                       // Absorb the signer's public key.
   Absorb(m)                       // Absorb the message.
@@ -444,10 +444,10 @@ even with practical cryptographic hash functions [[PS00]](#ps00) [[NSW09]](#nsw0
 ### Key Privacy
 
 The EdDSA variant (i.e. `S=(I,s)` ) is used over the traditional Schnorr construction (i.e.
-`S=(r,s)`) to enable the variable-time computation of `I'=[s]G - [r]Q`, which provides a ~30%
+`S=(r,s)`) to enable the variable-time computation of `I'=[s]G-[r]Q`, which provides a ~30%
 performance improvement. That construction, however, allows for the recovery of the signing public
 key given a signature and a message: given the commitment point `I`, one can calculate
-`Q=-[r^-1](I - [s]G)`.
+`Q=-[r^-1](I-[s]G)`.
 
 For Veil, this behavior is not desirable. A global passive adversary should not be able to discover
 the identity of a signer from a signed message.
@@ -491,16 +491,16 @@ function EncryptHeader(d_S, d_E, Q_R, N, P):
   s ← d_S✕r + k                   // Calculate the proof scalar.
   X ← [s]Q_R                      // Calculate the proof point.
   S_1 ← Encrypt(X)                // Encrypt the proof point.
-  return C_0 || C_1 || S_0 || S_1
+  return C_0||C_1||S_0|| S_1
 ```
 
 ### Decrypting A Header
 
 Decrypting a header requires a receiver's private key `d_R`, the sender's public key `Q_R`, a nonce
-`N`, and a ciphertext `C_0 || C_1 || S_0 || S_1`.
+`N`, and a ciphertext `C_0||C_1||S_0||S_1`.
 
 ```text
-function DecryptHeader(d_R, Q_S, N, C_0 || C_1 || S_0 || S_1):
+function DecryptHeader(d_R, Q_S, N, C_0||C_1||S_0||S_1):
   Absorb("veil.sres")             // Initialize an unkeyed duplex.
   Absorb(Q_S)                     // Absorb the sender's public key.
   Absorb([d_R]G)                  // Absorb the receiver's public key.
@@ -622,8 +622,8 @@ is IND-CPA secure.
 
 ### Re-use Of Ephemeral Keys
 
-The re-use of an ephemeral key pair `(d_E, Q_E)` across multiple ciphertexts does not impair the
-confidentiality of the scheme provided `(N, Q_R)` pairs are not re-used [[BBS03]](#bbs03). An
+The re-use of an ephemeral key pair `(d_E,Q_E)` across multiple ciphertexts does not impair the
+confidentiality of the scheme provided `(N,Q_R)` pairs are not re-used [[BBS03]](#bbs03). An
 adversary who compromises a retained ephemeral private key would be able to decrypt all messages the
 sender encrypted using that ephemeral key, thus the forward sender security is bounded by the
 sender's retention of the ephemeral private key.
@@ -634,11 +634,11 @@ sender's retention of the ephemeral private key.
 
 ### Encrypting A Message
 
-Encrypting a message requires a sender's private key `d_S`, receiver public keys `Q_R0…Q_Rn`,
+Encrypting a message requires a sender's private key `d_S`, receiver public keys `[Q_R_0,…,Q_R_n]`,
 padding length `N_P`, and plaintext `P`.
 
 ```text
-function EncryptMessage(d_S, Q_R0…Q_Rn, N_P, P):
+function EncryptMessage(d_S, [Q_R_0,…,Q_R_n], N_P, P):
   Absorb("veil.mres")                 // Initialize an unkeyed duplex.
   Absorb([d_S]G)                      // Absorb the sender's public key.
   k ← Hedge(d_S, Squeeze(32) mod q)   // Hedge a commitment scalar.
@@ -647,30 +647,30 @@ function EncryptMessage(d_S, Q_R0…Q_Rn, N_P, P):
   N ← Hedge(d_S, Squeeze(16))         // Hedge a nonce.
   C ← N                               // Write the nonce.
   Absorb(N)                           // Absorb the nonce.
-  H ← K || N_Q || N_P                 // Encode the DEK and params in a header.
+  H ← K||N_Q||N_P                     // Encode the DEK and params in a header.
 
-  for Q_R_i in Q_R_0…Q_R_n:           // Encrypt the header for each receiver.
+  for Q_R_i in [Q_R_0,…,Q_R_n]:       // Encrypt the header for each receiver.
     N_i ← Squeeze(16)
     E_i ← EncryptHeader(d_S, d_E, Q_R_i, H, N_i)
     Absorb(E_i)
-    C ← C || E_i
+    C ← C||E_i
 
   y ← Rand(N_P)                       // Generate random padding.
   Absorb(y)                           // Absorb padding.
-  C ← C || y                          // Append padding to ciphertext.
+  C ← C||y                            // Append padding to ciphertext.
 
   Absorb(K)                           // Absorb the DEK.
   Cyclist(SqueezeKey(64), ϵ, ϵ)       // Convert to a keyed duplex.
 
   for 32KiB blocks p in P:            // Encrypt and tag each block.
-    C ← C || Encrypt(p)
-    C ← C || Squeeze(16)
+    C ← C||Encrypt(p)
+    C ← C||Squeeze(16)
 
   I ← [k]G                            // Calculate the commitment point.
-  C ← C || Encrypt(I)                 // Encrypt the commitment point.
+  C ← C||Encrypt(I)                   // Encrypt the commitment point.
   r ← Squeeze(16)                     // Squeeze a short challenge scalar.
   s ← d_E×️r + k                       // Calculate the proof scalar.
-  C ← C || Encrypt(s)                 // Encrypt the proof scalar.
+  C ← C||Encrypt(s)                   // Encrypt the proof scalar.
 
   return C
 ```
@@ -689,13 +689,13 @@ function DecryptMessage(d_R, Q_S, C):
 
   (i, N_Q) ← (0, ∞)                 // Go through ciphertext looking for a decryptable header.
   while i < N_Q:
-  for each possible encrypted header E_i in C[16..]:
+  for each possible encrypted header E_i in C:
     N_i ← Squeeze(16)
-    (E_i, C) ← C[..HEADER_LEN] || C[HEADER_LEN..]
+    (E_i, C) ← C[..HEADER_LEN]||C[HEADER_LEN..]
     Absorb(E_i)
     x ← DecryptHeader(d_R, Q_S, N_i, E_i)
     if x ≠ ⊥:
-      (Q_E, K || N_Q || N_P) ← x    // Once we decrypt a header, process the remaining headers.
+      (Q_E, K||N_Q||N_P) ← x        // Once we decrypt a header, process the remaining headers.
 
   Absorb(C[..N_P])                  // Absorb the padding.
   C ← C[N_P..]                      // Skip to the message beginning.
@@ -704,14 +704,14 @@ function DecryptMessage(d_R, Q_S, C):
   Cyclist(SqueezeKey(64), ϵ, ϵ)     // Convert to a keyed duplex.
 
   P ← ϵ
-  for 32KiB blocks c_i || t_i in C: // Decrypt each block, checking tags.
+  for 32KiB blocks c_i||t_i in C:   // Decrypt each block, checking tags.
     p_i ← Decrypt(c_i)
     t_i' ← Squeeze(16)
     if t_i ≠ t_i':
       return ⊥
-    P ← P || p_i
+    P ← P||p_i
 
-  S_0 || S_1 ← C                    // Split the last 64 bytes of the message.
+  S_0||S_1 ← C                      // Split the last 64 bytes of the message.
   I ← Decrypt(S_0)                  // Decrypt the commitment point.
   r' ← Squeeze(16)                  // Squeeze a counterfactual challenge scalar.
   s ← Decrypt(S_1)                  // Decrypt the proof scalar.
@@ -900,12 +900,12 @@ function EncryptPrivateKey(P, N_T, N_S, d):
   InitFromPassphrase(P, S, N_T, N_S) // Initialize the duplex.
   C ← Encrypt(d) // Encrypt the private key.
   T ← Squeeze(16) // Squeeze an authentication tag.
-  return N_T || N_S || S || C || T
+  return N_T||N_S||S||C||T
 ```
 
 ### Decrypting A Private Key
 
-Decrypting a private key requires a passphrase `P` and ciphertext `C=N_T || N_S || S || C || T`.
+Decrypting a private key requires a passphrase `P` and ciphertext `C=N_T||N_S||S||C||T`.
 
 ```text
 function DecryptPrivateKey(P, N_T, N_S, d):
