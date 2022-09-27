@@ -5,6 +5,18 @@ services for messages of arbitrary sizes and multiple receivers. This document d
 cryptographic constructions, their security properties, and how they are combined to implement
 Veil's feature set.
 
+## Contents
+
+* [Motivation](#motivation)
+* [Security Model And Notions](#security-model-and-notions)
+* [Cryptographic Primitives](#cryptographic-primitives)
+* [Construction Techniques](#construction-techniques)
+* [Digital Signatures](#digital-signatures)
+* [Encrypted Headers](#encrypted-headers)
+* [Encrypted Messages](#encrypted-messages)
+* [Passphrase-based Encryption](#passphrase-based-encryption)
+* [References](#references)
+
 ## Motivation
 
 Veil is a clean-slate effort to build a secure, asynchronous, PGP-like messaging cryptosystem using
@@ -847,7 +859,7 @@ without the user's awareness. The first three blocks of a message, for example, 
 MALLORY $100`, `GIVE HER YOUR CAR`, `DO WHAT SHE SAYS`, while the last block might read `JUST
 KIDDING`.
 
-## Passphrase-based Encryption
+## Passphrase-Based Encryption
 
 `veil.pbenc` implements a memory-hard authenticated encryption scheme to encrypt private keys at
 rest.
