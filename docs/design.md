@@ -230,9 +230,9 @@ larger state. Xoodyak's Cyclist parameters of `R_hash=b-256`, `R_kin=b-32`, `R_k
 targets a 128-bit security level and is ~4x faster than SHA-256, ~5x faster than ChaCha20Poly1305,
 and ~7.5x faster than AES-128-GCM in software.
 
-Veil's security assumes that Cyclist's `Encrypt` operation is IND-CPA secure, its `Squeeze`
-operation is sUF-CMA secure, and its `Encrypt`/`Squeeze`-based authenticated encryption construction
-is IND-CCA2 secure.
+Veil's security assumes that Keccak-_p_\[1600,10\] is indistinguishable from a random permutation,
+Cyclist's `Encrypt` operation is IND-CPA secure, its `Squeeze` operation is sUF-CMA secure, and its
+`Encrypt`/`Squeeze`-based authenticated encryption construction is IND-CCA2 secure.
 
 ### jq255e
 
