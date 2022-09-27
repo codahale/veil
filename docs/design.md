@@ -943,32 +943,73 @@ Joël Alwen, Bruno Blanchet, Eduard Hauck, Eike Kiltz, Benjamin Lipp, and Doreen
 Analysing the HPKE standard. In Annual International Conference on the Theory and Applications of
 Cryptographic Techniques, Springer, 87–116. <https://eprint.iacr.org/2020/1499.pdf>
 
-### AR10
-
-Jee Hea An and Tal Rabin. 2010. Security for Signcryption: The Two-User Model. In Practical
-Signcryption. Springer, 21–42.
-
 ### AOTZ20
 
 Diego F Aranha, Claudio Orlandi, Akira Takahashi, and Greg Zaverucha. 2020. Security of hedged
 Fiat–Shamir signatures under fault attacks. In Annual International Conference on the Theory and
 Applications of Cryptographic Techniques, Springer, 644–674. <https://eprint.iacr.org/2019/956.pdf>
 
-### Lan16
+### AR10
 
-Adam Langley. 2016. Cryptographic Agility. <https://www.imperialviolet.org/2016/05/16/agility.html>
+Jee Hea An and Tal Rabin. 2010. Security for Signcryption: The Two-User Model. In Practical
+Signcryption. Springer, 21–42.
 
-### Ngu04
+### Aum19
 
-Phong Q Nguyen. 2004. Can we trust cryptographic software? Cryptographic flaws in GNU Privacy Guard
-v1.2.3. In International Conference on the Theory and Applications of Cryptographic Techniques,
-Springer, 555–570. <https://link.springer.com/content/pdf/10.1007%252F978-3-540-24676-3_33.pdf>
+Jean-Philippe Aumasson. 2019. Too Much Crypto. (2019). <https://eprint.iacr.org/2019/1492>
 
-### BSW21
+### BBKS07
 
-Jenny Blessing, Michael A. Specter, and Daniel J. Weitzner. 2021. You Really Shouldn’t Roll Your Own
-Crypto: An Empirical Study of Vulnerabilities in Cryptographic Libraries. CoRR abs/2107.04940,
-(2021). <https://arxiv.org/abs/2107.04940>
+Mihir Bellare, Alexandra Boldyreva, Kaoru Kurosawa, and Jessica Staddon. 2007. Multi-recipient
+encryption schemes: Efficient constructions and their security. IEEE Transactions on Information
+Theory 53, 11 (2007), 3927–3943. <https://faculty.cc.gatech.edu/~aboldyre/papers/bbks.pdf>
+
+### BBM18
+
+Christian Badertscher, Fabio Banfi, and Ueli Maurer. 2018. A Constructive Perspective on
+Signcryption Security. In IACR Cryptol. ePrint Arch. <https://ia.cr/2018/050>
+
+### BBS03
+
+Mihir Bellare, Alexandra Boldyreva, and Jessica Staddon. 2003. Randomness re-use in multi-recipient
+encryption schemes. In International Workshop on Public Key Cryptography, Springer, 85–99.
+<https://www.iacr.org/archive/pkc2003/25670085/25670085.pdf>
+
+### BCGS16
+
+Dan Boneh, Henry Corrigan-Gibbs, and Stuart Schechter. 2016. Balloon hashing: A memory-hard function
+providing provable protection against sequential attacks. In International Conference on the Theory
+and Application of Cryptology and Information Security, Springer, 220–248.
+<https://eprint.iacr.org/2016/027.pdf>
+
+### BCJZ21
+
+Jacqueline Brendel, Cas Cremers, Dennis Jackson, and Mang Zhao. 2021. The Provable Security of
+Ed25519: Theory and Practice. In 2021 IEEE Symposium on Security and Privacy (SP), 1659–1676.
+<https://eprint.iacr.org/2020/823.pdf>
+
+### BDPV08
+
+Guido Bertoni, Joan Daemen, Michaël Peeters, and Gilles Van Assche. 2008. On the Indifferentiability
+of the Sponge Construction. In Advances in Cryptology – EUROCRYPT 2008, Springer Berlin Heidelberg,
+Berlin, Heidelberg, 181–197. <https://keccak.team/files/SpongeIndifferentiability.pdf>
+
+### BDPV11
+
+Guido Bertoni, Joan Daemen, Michaël Peeters, and Gilles Van Assche. 2011. Duplexing the sponge:
+single-pass authenticated encryption and other applications. In International Workshop on Selected
+Areas in Cryptography, Springer, 320–337. <https://keccak.team/files/SpongeDuplex.pdf>
+
+### BDPV11+1
+
+Guido Bertoni, Joan Daemen, Michaël Peeters, and Gilles Van Assche. 2011. Cryptographic sponge
+functions. In SHA-3 competition (round 3). <https://keccak.team/files/CSF-0.1.pdf>
+
+### BDPVVV18
+
+Guido Bertoni, Joan Daemen, Michaël Peeters, Gilles Van Assche, Ronny Van Keer, and Benoı̂t Viguier.
+2018. KangarooTwelve: Fast Hashing Based on Keccak-p. In International Conference on Applied
+Cryptography and Network Security, Springer, 400–418. <https://eprint.iacr.org/2016/770.pdf>
 
 ### BGB04
 
@@ -988,16 +1029,17 @@ conference on Computer & communications security, 967–980.
 Joonsang Baek and Ron Steinfeld. 2010. Security for signcryption: the multi-user model. In Practical
 Signcryption. Springer, 43–53.
 
-### YHR04
+### BSW21
 
-Tom Yu, Sam Hartman, and Kenneth Raeburn. 2004. The Perils of Unauthenticated Encryption: Kerberos
-Version 4. In NDSS, 4–4. <https://web.mit.edu/tlyu/papers/krb4peril-ndss04.pdf>
+Jenny Blessing, Michael A. Specter, and Daniel J. Weitzner. 2021. You Really Shouldn’t Roll Your Own
+Crypto: An Empirical Study of Vulnerabilities in Cryptographic Libraries. CoRR abs/2107.04940,
+(2021). <https://arxiv.org/abs/2107.04940>
 
-### RD10
+### CGN20
 
-Juliano Rizzo and Thai Duong. 2010. Practical padding oracle attacks. In 4th USENIX Workshop on
-Offensive Technologies (WOOT 10).
-<https://www.usenix.org/legacy/event/woot10/tech/full_papers/Rizzo.pdf>
+Konstantinos Chalkias, François Garillot, and Valeria Nikolaenko. 2020. Taming the many EdDSAs. In
+International Conference on Research in Security Standardisation, Springer, 67–90.
+<https://eprint.iacr.org/2020/1244.pdf>
 
 ### CHK03
 
@@ -1005,16 +1047,55 @@ Ran Canetti, Shai Halevi, and Jonathan Katz. 2003. A forward-secure public-key e
 International Conference on the Theory and Applications of Cryptographic Techniques, Springer,
 255–271. <https://eprint.iacr.org/2003/083.pdf>
 
-### Str06
+### DHPVV20
 
-Maurizio Adriano Strangio. 2006. On the resilience of key agreement protocols to key compromise
-impersonation. In European Public Key Infrastructure Workshop, Springer, 233–247.
-<https://eprint.iacr.org/2006/252.pdf>
+Joan Daemen, Seth Hoffert, Michaël Peeters, Gilles Van Assche, and Ronny Van Keer. 2020. Xoodyak, a
+lightweight cryptographic scheme. IACR Transactions on Symmetric Cryptology 2020, S1 (June 2020),
+60–87.
+<https://csrc.nist.gov/CSRC/media/Projects/lightweight-cryptography/documents/round-2/spec-doc-rnd2/Xoodyak-spec-round2.pdf>
 
-### RFC9180
+### HRRV15
 
-R. Barnes, K. Bhargavan, B. Lipp, and C. Wood. 2022. Hybrid Public Key Encryption.
-<http://www.rfc-editor.org/rfc/rfc9180.html>
+Viet Tung Hoang, Reza Reyhanitabar, Phillip Rogaway, and Damian Vizár. 2015. Online
+authenticated-encryption and its nonce-reuse misuse-resistance. In Annual Cryptology Conference,
+Springer, 493–517. <https://eprint.iacr.org/2015/189.pdf>
+
+### Ham17
+
+Mike Hamburg. 2017. The STROBE protocol framework. <https://eprint.iacr.org/2017/003.pdf>
+
+### KL20
+
+Jonathan Katz and Yehuda Lindell. 2020. Introduction to Modern Cryptography. Chapman.
+DOI:<https://doi.org/10.1201/9781351133036>
+
+### Kur02
+
+Kaoru Kurosawa. 2002. Multi-recipient public-key encryption with shortened ciphertext. In
+International Workshop on Public Key Cryptography, Springer, 48–63.
+<https://eprint.iacr.org/2001/071>
+
+### Lan16
+
+Adam Langley. 2016. Cryptographic Agility. <https://www.imperialviolet.org/2016/05/16/agility.html>
+
+### NSW09
+
+Gregory Neven, Nigel P Smart, and Bogdan Warinschi. 2009. Hash function requirements for Schnorr
+signatures. Journal of Mathematical Cryptology 3, 1 (2009), 69–87.
+<http://www.neven.org/papers/schnorr.pdf>
+
+### Ngu04
+
+Phong Q Nguyen. 2004. Can we trust cryptographic software? Cryptographic flaws in GNU Privacy Guard
+v1.2.3. In International Conference on the Theory and Applications of Cryptographic Techniques,
+Springer, 555–570. <https://link.springer.com/content/pdf/10.1007%252F978-3-540-24676-3_33.pdf>
+
+### PS00
+
+David Pointcheval and Jacques Stern. 2000. Security arguments for digital signatures and blind
+signatures. Journal of Cryptology 13, 3 (2000), 361–396.
+<https://www.di.ens.fr/david.pointcheval/Documents/Papers/2000_joc.pdf>
 
 ### Por20
 
@@ -1029,121 +1110,40 @@ Signature Verification. <https://eprint.iacr.org/2020/454>
 
 Thomas Pornin. 2022. Double-Odd Jacobi Quartic. <https://eprint.iacr.org/2022/1052>
 
-### DHPVV20
+### RD10
 
-Joan Daemen, Seth Hoffert, Michaël Peeters, Gilles Van Assche, and Ronny Van Keer. 2020. Xoodyak, a
-lightweight cryptographic scheme. IACR Transactions on Symmetric Cryptology 2020, S1 (June 2020),
-60–87.
-<https://csrc.nist.gov/CSRC/media/Projects/lightweight-cryptography/documents/round-2/spec-doc-rnd2/Xoodyak-spec-round2.pdf>
-
-### Aum19
-
-Jean-Philippe Aumasson. 2019. Too Much Crypto. (2019). <https://eprint.iacr.org/2019/1492>
-
-### BBM18
-
-Christian Badertscher, Fabio Banfi, and Ueli Maurer. 2018. A Constructive Perspective on
-Signcryption Security. In IACR Cryptol. ePrint Arch. <https://ia.cr/2018/050>
-
-### BBKS07
-
-Mihir Bellare, Alexandra Boldyreva, Kaoru Kurosawa, and Jessica Staddon. 2007. Multi-recipient
-encryption schemes: Efficient constructions and their security. IEEE Transactions on Information
-Theory 53, 11 (2007), 3927–3943. <https://faculty.cc.gatech.edu/~aboldyre/papers/bbks.pdf>
-
-### BBS03
-
-Mihir Bellare, Alexandra Boldyreva, and Jessica Staddon. 2003. Randomness re-use in multi-recipient
-encryption schemes. In International Workshop on Public Key Cryptography, Springer, 85–99.
-<https://www.iacr.org/archive/pkc2003/25670085/25670085.pdf>
-
-### BDPV11
-
-Guido Bertoni, Joan Daemen, Michaël Peeters, and Gilles Van Assche. 2011. Duplexing the sponge:
-single-pass authenticated encryption and other applications. In International Workshop on Selected
-Areas in Cryptography, Springer, 320–337. <https://keccak.team/files/SpongeDuplex.pdf>
-
-### BDPVVV18
-
-Guido Bertoni, Joan Daemen, Michaël Peeters, Gilles Van Assche, Ronny Van Keer, and Benoı̂t Viguier.
-2018. KangarooTwelve: Fast Hashing Based on Keccak-p. In International Conference on Applied
-Cryptography and Network Security, Springer, 400–418. <https://eprint.iacr.org/2016/770.pdf>
-
-### BDPV08
-
-Guido Bertoni, Joan Daemen, Michaël Peeters, and Gilles Van Assche. 2008. On the Indifferentiability
-of the Sponge Construction. In Advances in Cryptology – EUROCRYPT 2008, Springer Berlin Heidelberg,
-Berlin, Heidelberg, 181–197. <https://keccak.team/files/SpongeIndifferentiability.pdf>
-
-### BDPV11+1
-
-Guido Bertoni, Joan Daemen, Michaël Peeters, and Gilles Van Assche. 2011. Cryptographic sponge
-functions. In SHA-3 competition (round 3). <https://keccak.team/files/CSF-0.1.pdf>
-
-### RFC9106
-
-A. Biryukov, D. Dinu, D. Khovratovich, and S. Josefsson. 2021. Argon2 Memory-Hard Function for
-Password Hashing and Proof-of-Work Applications. <http://www.rfc-editor.org/rfc/rfc9106.html>
-
-### BCGS16
-
-Dan Boneh, Henry Corrigan-Gibbs, and Stuart Schechter. 2016. Balloon hashing: A memory-hard function
-providing provable protection against sequential attacks. In International Conference on the Theory
-and Application of Cryptology and Information Security, Springer, 220–248.
-<https://eprint.iacr.org/2016/027.pdf>
-
-### BCJZ21
-
-Jacqueline Brendel, Cas Cremers, Dennis Jackson, and Mang Zhao. 2021. The Provable Security of
-Ed25519: Theory and Practice. In 2021 IEEE Symposium on Security and Privacy (SP), 1659–1676.
-<https://eprint.iacr.org/2020/823.pdf>
+Juliano Rizzo and Thai Duong. 2010. Practical padding oracle attacks. In 4th USENIX Workshop on
+Offensive Technologies (WOOT 10).
+<https://www.usenix.org/legacy/event/woot10/tech/full_papers/Rizzo.pdf>
 
 ### RFC4880
 
 J. Callas, L. Donnerhacke, H. Finney, D. Shaw, and R. Thayer. 2007. OpenPGP Message Format.
 <http://www.rfc-editor.org/rfc/rfc4880.html>
 
-### CGN20
+### RFC9106
 
-Konstantinos Chalkias, François Garillot, and Valeria Nikolaenko. 2020. Taming the many EdDSAs. In
-International Conference on Research in Security Standardisation, Springer, 67–90.
-<https://eprint.iacr.org/2020/1244.pdf>
+A. Biryukov, D. Dinu, D. Khovratovich, and S. Josefsson. 2021. Argon2 Memory-Hard Function for
+Password Hashing and Proof-of-Work Applications. <http://www.rfc-editor.org/rfc/rfc9106.html>
 
-### Ham17
+### RFC9180
 
-Mike Hamburg. 2017. The STROBE protocol framework. <https://eprint.iacr.org/2017/003.pdf>
-
-### HRRV15
-
-Viet Tung Hoang, Reza Reyhanitabar, Phillip Rogaway, and Damian Vizár. 2015. Online
-authenticated-encryption and its nonce-reuse misuse-resistance. In Annual Cryptology Conference,
-Springer, 493–517. <https://eprint.iacr.org/2015/189.pdf>
-
-### KL20
-
-Jonathan Katz and Yehuda Lindell. 2020. Introduction to Modern Cryptography. Chapman.
-DOI:<https://doi.org/10.1201/9781351133036>
-
-### Kur02
-
-Kaoru Kurosawa. 2002. Multi-recipient public-key encryption with shortened ciphertext. In
-International Workshop on Public Key Cryptography, Springer, 48–63.
-<https://eprint.iacr.org/2001/071>
-
-### NSW09
-
-Gregory Neven, Nigel P Smart, and Bogdan Warinschi. 2009. Hash function requirements for Schnorr
-signatures. Journal of Mathematical Cryptology 3, 1 (2009), 69–87.
-<http://www.neven.org/papers/schnorr.pdf>
-
-### PS00
-
-David Pointcheval and Jacques Stern. 2000. Security arguments for digital signatures and blind
-signatures. Journal of Cryptology 13, 3 (2000), 361–396.
-<https://www.di.ens.fr/david.pointcheval/Documents/Papers/2000_joc.pdf>
+R. Barnes, K. Bhargavan, B. Lipp, and C. Wood. 2022. Hybrid Public Key Encryption.
+<http://www.rfc-editor.org/rfc/rfc9180.html>
 
 ### SWP04
 
 Ron Steinfeld, Huaxiong Wang, and Josef Pieprzyk. 2004. Efficient extension of standard Schnorr/RSA
 signatures into universal designated-verifier signatures. In International Workshop on Public Key
 Cryptography, Springer, 86–100. <https://www.iacr.org/archive/pkc2004/29470087/29470087.pdf>
+
+### Str06
+
+Maurizio Adriano Strangio. 2006. On the resilience of key agreement protocols to key compromise
+impersonation. In European Public Key Infrastructure Workshop, Springer, 233–247.
+<https://eprint.iacr.org/2006/252.pdf>
+
+### YHR04
+
+Tom Yu, Sam Hartman, and Kenneth Raeburn. 2004. The Perils of Unauthenticated Encryption: Kerberos
+Version 4. In NDSS, 4–4. <https://web.mit.edu/tlyu/papers/krb4peril-ndss04.pdf>
