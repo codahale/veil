@@ -14,7 +14,7 @@ Veil's feature set.
 * [Digital Signatures](#digital-signatures)
 * [Encrypted Headers](#encrypted-headers)
 * [Encrypted Messages](#encrypted-messages)
-* [Passphrase-based Encryption](#passphrase-based-encryption)
+* [Passphrase-Based Encryption](#passphrase-based-encryption)
 * [References](#references)
 
 ## Motivation
