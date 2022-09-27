@@ -24,4 +24,4 @@ tempfile = "3.3.0"
 
 [[bin]]
 name = "veil"
-path = "src/main.rs"
+path = "src/cli.rs"
