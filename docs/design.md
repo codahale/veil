@@ -460,7 +460,8 @@ not IND-CPA.
 ### Indistinguishability From Random Noise
 
 Given that both signature components are encrypted with Cyclist, an attack which distinguishes
-between a `veil.schnorr` and random noise would also imply that Cyclist is not IND-CPA.
+between a `veil.schnorr` and random noise would also imply that Keccak-_p_\[1600,10\] is
+distinguishable from a random permutation.
 
 ## Encrypted Headers
 
@@ -617,8 +618,8 @@ prove the authenticity of a message (including the identity of its sender) to a 
 
 All of the components of a `veil.sres` ciphertext--`C`, `S_0`, and `S_1`--are Cyclist ciphertexts.
 An adversary in the outsider setting (i.e. knowing only public keys) is unable to calculate any of
-the key material used to produce the ciphertexts; a distinguishing attack is infeasible if Cyclist
-is IND-CPA secure.
+the key material used to produce the ciphertexts; a distinguishing attack would imply that
+Keccak-_p_\[1600,10\] is distinguishable from a random permutation.
 
 ### Re-use Of Ephemeral Keys
 
@@ -825,8 +826,8 @@ Deniability](#limited-deniability)), therefore `veil.mres` does as well.
 ### Indistinguishability Of Messages From Random Noise
 
 `veil.mres` ciphertexts are indistinguishable from random noise. All components of an `veil.mres`
-ciphertext are Cyclist ciphertexts; a successful distinguishing attack on them would require Cyclist
-to not be IND-CPA secure.
+ciphertext are Cyclist ciphertexts; a successful distinguishing attack on them would imply that
+Keccak-_p_\[1600,10\] is distinguishable from a random permutation.
 
 ### Partial Decryption
 
