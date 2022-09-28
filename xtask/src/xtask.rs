@@ -25,6 +25,10 @@ enum Command {
         /// Don't use git to stash and restore changes.
         #[arg(long)]
         no_stash: bool,
+
+        /// The input size to benchmark, in MiB.
+        #[arg(long, default_value = "1024")]
+        size: u64,
     },
 }
 
@@ -44,7 +48,7 @@ fn main() -> Result<()> {
 
     match xtask.cmd.unwrap_or(Command::CI) {
         Command::CI => ci(&sh),
-        Command::Benchmark { target, no_stash } => benchmark(&sh, target, no_stash),
+        Command::Benchmark { target, no_stash, size } => benchmark(&sh, target, no_stash, size),
     }
 }
 
@@ -57,7 +61,10 @@ fn ci(sh: &Shell) -> Result<()> {
     Ok(())
 }
 
-fn benchmark(sh: &Shell, target: BenchmarkTarget, no_stash: bool) -> Result<()> {
+fn benchmark(sh: &Shell, target: BenchmarkTarget, no_stash: bool, size: u64) -> Result<()> {
+    // Convert size to bytes.
+    let size = format!("{}", size * 1024 * 1024);
+
     // remove the old versions, if any
     cmd!(sh, "rm -f target/release/veil-experiment").run()?;
     cmd!(sh, "rm -f target/release/veil-control").run()?;
@@ -77,8 +84,6 @@ fn benchmark(sh: &Shell, target: BenchmarkTarget, no_stash: bool) -> Result<()> 
     cmd!(sh, "bash -c './target/release/veil-control private-key /tmp/private-key-control --passphrase-fd=3 --time-cost=0 --memory-cost=0 3< <(echo -n 'secret')'").run()?;
     cmd!(sh, "bash -c './target/release/veil-experiment private-key /tmp/private-key-experiment --passphrase-fd=3 --time-cost=0 --memory-cost=0 3< <(echo -n secret)'").run()?;
 
-    const SIZE: usize = 1024 * 1024 * 1024;
-    let size = format!("{SIZE}");
     let pk_control = cmd!(sh, "bash -c './target/release/veil-control public-key /tmp/private-key-control --passphrase-fd=3 3< <(echo -n secret)'").read()?;
     let pk_experiment = cmd!(sh, "bash -c './target/release/veil-experiment public-key /tmp/private-key-experiment --passphrase-fd=3 3< <(echo -n secret)'").read()?;
 
@@ -89,8 +94,8 @@ fn benchmark(sh: &Shell, target: BenchmarkTarget, no_stash: bool) -> Result<()> 
             cmd!(sh, "hyperfine --warmup 10 -S /bin/bash -n control {control} -n experimental {experiment}").run()?;
         }
         BenchmarkTarget::Sign => {
-            let control = format!("head -c {SIZE} /dev/zero | ./target/release/veil-control sign --passphrase-fd=3 /tmp/private-key-control - /dev/null 3< <(echo -n secret)");
-            let experiment = format!("head -c {SIZE} /dev/zero | ./target/release/veil-experiment sign --passphrase-fd=3 /tmp/private-key-experiment - /dev/null 3< <(echo -n secret)");
+            let control = format!("head -c {size} /dev/zero | ./target/release/veil-control sign --passphrase-fd=3 /tmp/private-key-control - /dev/null 3< <(echo -n secret)");
+            let experiment = format!("head -c {size} /dev/zero | ./target/release/veil-experiment sign --passphrase-fd=3 /tmp/private-key-experiment - /dev/null 3< <(echo -n secret)");
             cmd!(sh, "hyperfine --warmup 10 -S /bin/bash -n control {control} -n experimental {experiment}").run()?;
         }
         BenchmarkTarget::Verify => {
@@ -99,8 +104,8 @@ fn benchmark(sh: &Shell, target: BenchmarkTarget, no_stash: bool) -> Result<()> 
             let experiment_sig = format!("head -c {size} /dev/zero | ./target/release/veil-experiment sign --passphrase-fd=3 /tmp/private-key-experiment - 3< <(echo -n secret)");
             let experiment_sig = cmd!(sh, "bash -c {experiment_sig}").read()?;
 
-            let control = format!("head -c {SIZE} /dev/zero | ./target/release/veil-control verify {pk_control} - {control_sig}");
-            let experiment = format!("head -c {SIZE} /dev/zero | ./target/release/veil-experiment verify {pk_experiment} - {experiment_sig}");
+            let control = format!("head -c {size} /dev/zero | ./target/release/veil-control verify {pk_control} - {control_sig}");
+            let experiment = format!("head -c {size} /dev/zero | ./target/release/veil-experiment verify {pk_experiment} - {experiment_sig}");
             cmd!(sh, "hyperfine --warmup 10 -S /bin/bash -n control {control} -n experimental {experiment}").run()?;
         }
         BenchmarkTarget::Digest => {
