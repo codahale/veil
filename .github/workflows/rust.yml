@@ -21,18 +21,7 @@ jobs:
           profile: default
           toolchain: ${{ matrix.rust }}
           override: true
-      - uses: actions/cache@v3
-        name: "cache"
-        continue-on-error: false
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
+      - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1.0.3
         name: "xtask"
         with:
