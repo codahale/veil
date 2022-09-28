@@ -14,11 +14,7 @@ struct XTask {
 #[derive(Debug, Subcommand)]
 enum Command {
     /// Format, build, test, and lint.
-    CI {
-        /// Fail the build if a source file is not correctly formatted.
-        #[arg(long)]
-        check: bool,
-    },
+    CI,
 
     /// CLI benchmarks with Hyperfine.
     Benchmark {
@@ -46,10 +42,19 @@ fn main() -> Result<()> {
     let sh = Shell::new()?;
     sh.change_dir(project_root());
 
-    match xtask.cmd.unwrap_or(Command::CI { check: false }) {
-        Command::CI { check } => build(&sh, check),
+    match xtask.cmd.unwrap_or(Command::CI) {
+        Command::CI => ci(&sh),
         Command::Benchmark { target, no_stash } => benchmark(&sh, target, no_stash),
     }
+}
+
+fn ci(sh: &Shell) -> Result<()> {
+    cmd!(sh, "cargo fmt --check").run()?;
+    cmd!(sh, "cargo build --all-targets --all-features").run()?;
+    cmd!(sh, "cargo test --all-features").run()?;
+    cmd!(sh, "cargo clippy --all-features --tests --benches").run()?;
+
+    Ok(())
 }
 
 fn benchmark(sh: &Shell, target: BenchmarkTarget, no_stash: bool) -> Result<()> {
@@ -129,16 +134,6 @@ fn benchmark(sh: &Shell, target: BenchmarkTarget, no_stash: bool) -> Result<()> 
     if !no_stash {
         cmd!(sh, "git stash pop").run()?;
     }
-
-    Ok(())
-}
-
-fn build(sh: &Shell, check: bool) -> Result<()> {
-    let check = if check { "--check" } else { "--" };
-    cmd!(sh, "cargo fmt {check}").run()?;
-    cmd!(sh, "cargo build --all-targets --all-features").run()?;
-    cmd!(sh, "cargo test --all-features").run()?;
-    cmd!(sh, "cargo clippy --all-features --tests --benches").run()?;
 
     Ok(())
 }

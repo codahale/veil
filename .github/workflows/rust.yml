@@ -25,4 +25,4 @@ jobs:
         name: "xtask"
         with:
           command: xtask
-          args: ci --check
+          args: ci
