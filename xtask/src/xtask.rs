@@ -134,7 +134,7 @@ fn benchmark(sh: &Shell, target: BenchmarkTarget, no_stash: bool) -> Result<()> 
 }
 
 fn build(sh: &Shell, check: bool) -> Result<()> {
-    let check = if check { " --check" } else { "--" };
+    let check = if check { "--check" } else { "--" };
     cmd!(sh, "cargo fmt {check}").run()?;
     cmd!(sh, "cargo build --all-targets --all-features").run()?;
     cmd!(sh, "cargo test --all-features").run()?;
