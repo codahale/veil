@@ -1,30 +1,58 @@
 use std::env;
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Result};
+use anyhow::Result;
+use clap::{Parser, Subcommand, ValueEnum};
 use xshell::{cmd, Shell};
 
+#[derive(Debug, Parser)]
+struct XTask {
+    #[clap(subcommand)]
+    cmd: Option<Command>,
+}
+
+#[derive(Debug, Subcommand)]
+enum Command {
+    /// Format, build, test, and lint.
+    CI {
+        /// Fail the build if a source file is not correctly formatted.
+        #[arg(long)]
+        check: bool,
+    },
+
+    /// CLI benchmarks with Hyperfine.
+    Benchmark {
+        /// The subsystem to benchmark.
+        #[arg(value_enum)]
+        target: BenchmarkTarget,
+
+        /// Don't use git to stash and restore changes.
+        #[arg(long)]
+        no_stash: bool,
+    },
+}
+
+#[derive(Clone, Debug, ValueEnum)]
+enum BenchmarkTarget {
+    Encrypt,
+    Sign,
+    Verify,
+    Digest,
+}
+
 fn main() -> Result<()> {
-    let args: Vec<String> = env::args().skip(1).collect();
+    let xtask = XTask::parse();
 
     let sh = Shell::new()?;
     sh.change_dir(project_root());
 
-    if args.is_empty() {
-        build(&sh, false)?;
-    } else if args == vec!["ci"] {
-        build(&sh, true)?;
-    } else if args[0] == "benchmark" {
-        if args.len() < 2 {
-            bail!("invalid benchmark target");
-        }
-        benchmark(&sh, &args[1])?;
+    match xtask.cmd.unwrap_or(Command::CI { check: false }) {
+        Command::CI { check } => build(&sh, check),
+        Command::Benchmark { target, no_stash } => benchmark(&sh, target, no_stash),
     }
-
-    Ok(())
 }
 
-fn benchmark(sh: &Shell, target: &str) -> Result<()> {
+fn benchmark(sh: &Shell, target: BenchmarkTarget, no_stash: bool) -> Result<()> {
     // remove the old versions, if any
     cmd!(sh, "rm -f target/release/veil-experiment").run()?;
     cmd!(sh, "rm -f target/release/veil-control").run()?;
@@ -34,7 +62,9 @@ fn benchmark(sh: &Shell, target: &str) -> Result<()> {
     cmd!(sh, "cp target/release/veil target/release/veil-experiment").run()?;
 
     // stash the current state and build the last commit as release
-    cmd!(sh, "git stash").run()?;
+    if !no_stash {
+        cmd!(sh, "git stash").run()?;
+    }
     cmd!(sh, "cargo build --release").run()?;
     cmd!(sh, "cp target/release/veil target/release/veil-control").run()?;
 
@@ -47,52 +77,58 @@ fn benchmark(sh: &Shell, target: &str) -> Result<()> {
     let pk_control = cmd!(sh, "bash -c './target/release/veil-control public-key /tmp/private-key-control --passphrase-fd=3 3< <(echo -n secret)'").read()?;
     let pk_experiment = cmd!(sh, "bash -c './target/release/veil-experiment public-key /tmp/private-key-experiment --passphrase-fd=3 3< <(echo -n secret)'").read()?;
 
-    if target == "encrypt" {
-        let control =format!("head -c {size} /dev/zero | ./target/release/veil-control encrypt --passphrase-fd=3 /tmp/private-key-control - /dev/null {pk_control} --fakes 9 3< <(echo -n secret)");
-        let experiment =format!("head -c {size} /dev/zero | ./target/release/veil-experiment encrypt --passphrase-fd=3 /tmp/private-key-experiment - /dev/null {pk_experiment} --fakes 9 3< <(echo -n secret)");
-        cmd!(
+    match target {
+        BenchmarkTarget::Encrypt => {
+            let control =format!("head -c {size} /dev/zero | ./target/release/veil-control encrypt --passphrase-fd=3 /tmp/private-key-control - /dev/null {pk_control} --fakes 9 3< <(echo -n secret)");
+            let experiment =format!("head -c {size} /dev/zero | ./target/release/veil-experiment encrypt --passphrase-fd=3 /tmp/private-key-experiment - /dev/null {pk_experiment} --fakes 9 3< <(echo -n secret)");
+            cmd!(
             sh,
             "hyperfine --warmup 10 -S /bin/bash -n control {control} -n experimental {experiment}"
         )
-        .run()?;
-    } else if target == "sign" {
-        let control =format!("head -c {SIZE} /dev/zero | ./target/release/veil-control sign --passphrase-fd=3 /tmp/private-key-control - /dev/null 3< <(echo -n secret)");
-        let experiment =format!("head -c {SIZE} /dev/zero | ./target/release/veil-experiment sign --passphrase-fd=3 /tmp/private-key-experiment - /dev/null 3< <(echo -n secret)");
-        cmd!(
+            .run()?;
+        }
+        BenchmarkTarget::Sign => {
+            let control =format!("head -c {SIZE} /dev/zero | ./target/release/veil-control sign --passphrase-fd=3 /tmp/private-key-control - /dev/null 3< <(echo -n secret)");
+            let experiment =format!("head -c {SIZE} /dev/zero | ./target/release/veil-experiment sign --passphrase-fd=3 /tmp/private-key-experiment - /dev/null 3< <(echo -n secret)");
+            cmd!(
             sh,
             "hyperfine --warmup 10 -S /bin/bash -n control {control} -n experimental {experiment}"
         )
-        .run()?;
-    } else if target == "verify" {
-        let control_sig = format!("head -c {size} /dev/zero | ./target/release/veil-control sign --passphrase-fd=3 /tmp/private-key-control - 3< <(echo -n secret)");
-        let control_sig = cmd!(sh, "bash -c {control_sig}").read()?;
-        let experiment_sig = format!("head -c {size} /dev/zero | ./target/release/veil-experiment sign --passphrase-fd=3 /tmp/private-key-experiment - 3< <(echo -n secret)");
-        let experiment_sig = cmd!(sh, "bash -c {experiment_sig}").read()?;
+            .run()?;
+        }
+        BenchmarkTarget::Verify => {
+            let control_sig = format!("head -c {size} /dev/zero | ./target/release/veil-control sign --passphrase-fd=3 /tmp/private-key-control - 3< <(echo -n secret)");
+            let control_sig = cmd!(sh, "bash -c {control_sig}").read()?;
+            let experiment_sig = format!("head -c {size} /dev/zero | ./target/release/veil-experiment sign --passphrase-fd=3 /tmp/private-key-experiment - 3< <(echo -n secret)");
+            let experiment_sig = cmd!(sh, "bash -c {experiment_sig}").read()?;
 
-        let control =format!("head -c {SIZE} /dev/zero | ./target/release/veil-control verify {pk_control} - {control_sig}");
-        let experiment =format!("head -c {SIZE} /dev/zero | ./target/release/veil-experiment verify {pk_experiment} - {experiment_sig}");
-        cmd!(
+            let control =format!("head -c {SIZE} /dev/zero | ./target/release/veil-control verify {pk_control} - {control_sig}");
+            let experiment =format!("head -c {SIZE} /dev/zero | ./target/release/veil-experiment verify {pk_experiment} - {experiment_sig}");
+            cmd!(
             sh,
             "hyperfine --warmup 10 -S /bin/bash -n control {control} -n experimental {experiment}"
         )
-        .run()?;
-    } else if target == "digest" {
-        let control =
-            format!("head -c {size} /dev/zero | ./target/release/veil-control digest - /dev/null");
-        let experiment = format!(
-            "head -c {size} /dev/zero | ./target/release/veil-experiment digest - /dev/null"
-        );
-        cmd!(
+            .run()?;
+        }
+        BenchmarkTarget::Digest => {
+            let control = format!(
+                "head -c {size} /dev/zero | ./target/release/veil-control digest - /dev/null"
+            );
+            let experiment = format!(
+                "head -c {size} /dev/zero | ./target/release/veil-experiment digest - /dev/null"
+            );
+            cmd!(
             sh,
             "hyperfine --warmup 10 -S /bin/bash -n control {control} -n experimental {experiment}"
         )
-        .run()?;
-    } else {
-        bail!("unknown benchmark target");
+            .run()?;
+        }
     }
 
     // restore the working set
-    cmd!(sh, "git stash pop").run()?;
+    if !no_stash {
+        cmd!(sh, "git stash pop").run()?;
+    }
 
     Ok(())
 }
