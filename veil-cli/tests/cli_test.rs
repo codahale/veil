@@ -7,9 +7,13 @@ use xshell::{cmd, Shell};
 
 const VEIL_PATH: &str = env!("CARGO_BIN_EXE_veil");
 
-macro_rules! bash_cmd {
-    ($sh:expr, $cmd:literal) => {{
-        let bash = format!($cmd);
+macro_rules! veil_cmd {
+    ($sh:expr, $cmd:literal, $passphrase:expr) => {{
+        let bash = format!(
+            "{VEIL_PATH} {} --passphrase-fd=3 3< <(echo -n {})",
+            format!($cmd),
+            $passphrase
+        );
         cmd!($sh, "bash -c {bash}")
     }};
 }
@@ -24,12 +28,16 @@ pub fn encrypt_and_decrypt_a_message() -> Result<()> {
 
     // Alice generates a private key.
     let private_key_path_a = &dir.path().join("private-key-a");
-    bash_cmd!(sh, "{VEIL_PATH} private-key {private_key_path_a:?} --time-cost=0 --memory-cost=0 --passphrase-fd=3 3< <(echo -n {alice_passphrase})")
-        .run()
-        .expect("error creating private key");
+    veil_cmd!(
+        sh,
+        "private-key {private_key_path_a:?} --time-cost=0 --memory-cost=0 ",
+        alice_passphrase
+    )
+    .run()
+    .expect("error creating private key");
 
     // Alice generates a public key.
-    let public_key_a = bash_cmd!(sh, "{VEIL_PATH} public-key {private_key_path_a:?} --passphrase-fd=3 3< <(echo -n {alice_passphrase})")
+    let public_key_a = veil_cmd!(sh, "public-key {private_key_path_a:?}", alice_passphrase)
         .read()
         .expect("error generating public key");
 
@@ -38,12 +46,16 @@ pub fn encrypt_and_decrypt_a_message() -> Result<()> {
 
     // Bea generates a private key.
     let private_key_path_b = &dir.path().join("private-key-b");
-    bash_cmd!(sh, "{VEIL_PATH} private-key {private_key_path_b:?} --time-cost=0 --memory-cost=0 --passphrase-fd=3 3< <(echo -n {bea_passphrase})")
-        .run()
-        .expect("error creating private key");
+    veil_cmd!(
+        sh,
+        "private-key {private_key_path_b:?} --time-cost=0 --memory-cost=0",
+        bea_passphrase
+    )
+    .run()
+    .expect("error creating private key");
 
     // Bea generates a public key.
-    let public_key_b = bash_cmd!(sh, "{VEIL_PATH} public-key {private_key_path_b:?} --passphrase-fd=3 3< <(echo -n {bea_passphrase})")
+    let public_key_b = veil_cmd!(sh, "public-key {private_key_path_b:?}", bea_passphrase)
         .read()
         .expect("error generating public key");
 
@@ -53,15 +65,23 @@ pub fn encrypt_and_decrypt_a_message() -> Result<()> {
 
     // Alice encrypts the message for Bea.
     let ciphertext_path = &dir.path().join("message.veil");
-    bash_cmd!(sh, "{VEIL_PATH} encrypt {private_key_path_a:?} {message_file:?} {ciphertext_path:?} {public_key_b} --fakes=20 --padding=1024 --passphrase-fd=3 3< <(echo -n {alice_passphrase})")
-        .run()
-        .expect("error encrypting message");
+    veil_cmd!(
+        sh,
+        "encrypt {private_key_path_a:?} {message_file:?} {ciphertext_path:?} {public_key_b} --fakes=20 --padding=1024", 
+        alice_passphrase
+    )
+    .run()
+    .expect("error encrypting message");
 
     // Bea decrypts the message.
     let plaintext_path = &dir.path().join("message.txt");
-    bash_cmd!(sh, "{VEIL_PATH} decrypt {private_key_path_b:?} {ciphertext_path:?} {plaintext_path:?} {public_key_a} --passphrase-fd=3 3< <(echo -n {bea_passphrase})")
-        .run()
-        .expect("error decrypting message");
+    veil_cmd!(
+        sh,
+        "decrypt {private_key_path_b:?} {ciphertext_path:?} {plaintext_path:?} {public_key_a}",
+        bea_passphrase
+    )
+    .run()
+    .expect("error decrypting message");
 
     // Bea reads the message.
     let msg = fs::read_to_string(plaintext_path).expect("error reading message");
@@ -80,12 +100,16 @@ fn sign_and_verify_message() -> Result<()> {
 
     // Alice generates a private key.
     let private_key_path = &dir.path().join("private-key-a");
-    bash_cmd!(sh, "{VEIL_PATH} private-key {private_key_path:?} --time-cost=0 --memory-cost=0 --passphrase-fd=3 3< <(echo -n {alice_passphrase})")
-        .run()
-        .expect("error creating private key");
+    veil_cmd!(
+        sh,
+        "private-key {private_key_path:?} --time-cost=0 --memory-cost=0",
+        alice_passphrase
+    )
+    .run()
+    .expect("error creating private key");
 
     // Alice generates a public key.
-    let public_key = bash_cmd!(sh, "{VEIL_PATH} public-key {private_key_path:?} --passphrase-fd=3 3< <(echo -n {alice_passphrase})")
+    let public_key = veil_cmd!(sh, "public-key {private_key_path:?}", alice_passphrase)
         .read()
         .expect("error generating public key");
 
@@ -94,7 +118,7 @@ fn sign_and_verify_message() -> Result<()> {
     fs::write(message_file, "this is a public message").expect("error writing message file");
 
     // Alice signs the message.
-    let sig = bash_cmd!(sh, "{VEIL_PATH} sign {private_key_path:?} {message_file:?} --passphrase-fd=3 3< <(echo -n {alice_passphrase})")
+    let sig = veil_cmd!(sh, "sign {private_key_path:?} {message_file:?}", alice_passphrase)
         .read()
         .expect("error signing message");
 
