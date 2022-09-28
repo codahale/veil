@@ -283,7 +283,7 @@ impl Runnable for DigestArgs {
 
 /// Generate shell completion scripts.
 #[derive(Debug, Parser)]
-#[clap(hide(true))]
+#[command(hide(true))]
 struct CompleteArgs {
     /// The type of shell completion script to generate: bash, elvish, fish, powershell, or zsh.
     #[arg()]
