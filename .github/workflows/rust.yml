@@ -24,7 +24,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         name: "Cache dependencies"
       - uses: actions-rs/cargo@v1.0.3
-        name: "Build, Test, and Check"
+        name: "Build, test, and check"
         with:
           command: xtask
           args: ci
