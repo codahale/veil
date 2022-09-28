@@ -6,6 +6,7 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 include = ["src/**/*", "../LICENSE-MIT", "../LICENSE-APACHE", "../README.md"]
 description = "Stupid crypto tricks."
+default-run = "veil"
 
 [dependencies]
 veil = { path = "../veil" }

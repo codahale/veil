@@ -1,5 +1,5 @@
 [workspace]
-members = ["veil", "veil-cli"]
+members = ["veil", "veil-cli", "xtask"]
 
 [profile.release]
 codegen-units = 1
