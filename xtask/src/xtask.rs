@@ -84,13 +84,13 @@ fn benchmark(sh: &Shell, target: BenchmarkTarget, no_stash: bool) -> Result<()> 
 
     match target {
         BenchmarkTarget::Encrypt => {
-            let control =format!("head -c {size} /dev/zero | ./target/release/veil-control encrypt --passphrase-fd=3 /tmp/private-key-control - /dev/null {pk_control} --fakes 9 3< <(echo -n secret)");
-            let experiment =format!("head -c {size} /dev/zero | ./target/release/veil-experiment encrypt --passphrase-fd=3 /tmp/private-key-experiment - /dev/null {pk_experiment} --fakes 9 3< <(echo -n secret)");
+            let control = format!("head -c {size} /dev/zero | ./target/release/veil-control encrypt --passphrase-fd=3 /tmp/private-key-control - /dev/null {pk_control} --fakes 9 3< <(echo -n secret)");
+            let experiment = format!("head -c {size} /dev/zero | ./target/release/veil-experiment encrypt --passphrase-fd=3 /tmp/private-key-experiment - /dev/null {pk_experiment} --fakes 9 3< <(echo -n secret)");
             cmd!(sh, "hyperfine --warmup 10 -S /bin/bash -n control {control} -n experimental {experiment}").run()?;
         }
         BenchmarkTarget::Sign => {
-            let control =format!("head -c {SIZE} /dev/zero | ./target/release/veil-control sign --passphrase-fd=3 /tmp/private-key-control - /dev/null 3< <(echo -n secret)");
-            let experiment =format!("head -c {SIZE} /dev/zero | ./target/release/veil-experiment sign --passphrase-fd=3 /tmp/private-key-experiment - /dev/null 3< <(echo -n secret)");
+            let control = format!("head -c {SIZE} /dev/zero | ./target/release/veil-control sign --passphrase-fd=3 /tmp/private-key-control - /dev/null 3< <(echo -n secret)");
+            let experiment = format!("head -c {SIZE} /dev/zero | ./target/release/veil-experiment sign --passphrase-fd=3 /tmp/private-key-experiment - /dev/null 3< <(echo -n secret)");
             cmd!(sh, "hyperfine --warmup 10 -S /bin/bash -n control {control} -n experimental {experiment}").run()?;
         }
         BenchmarkTarget::Verify => {
@@ -99,8 +99,8 @@ fn benchmark(sh: &Shell, target: BenchmarkTarget, no_stash: bool) -> Result<()> 
             let experiment_sig = format!("head -c {size} /dev/zero | ./target/release/veil-experiment sign --passphrase-fd=3 /tmp/private-key-experiment - 3< <(echo -n secret)");
             let experiment_sig = cmd!(sh, "bash -c {experiment_sig}").read()?;
 
-            let control =format!("head -c {SIZE} /dev/zero | ./target/release/veil-control verify {pk_control} - {control_sig}");
-            let experiment =format!("head -c {SIZE} /dev/zero | ./target/release/veil-experiment verify {pk_experiment} - {experiment_sig}");
+            let control = format!("head -c {SIZE} /dev/zero | ./target/release/veil-control verify {pk_control} - {control_sig}");
+            let experiment = format!("head -c {SIZE} /dev/zero | ./target/release/veil-experiment verify {pk_experiment} - {experiment_sig}");
             cmd!(sh, "hyperfine --warmup 10 -S /bin/bash -n control {control} -n experimental {experiment}").run()?;
         }
         BenchmarkTarget::Digest => {
