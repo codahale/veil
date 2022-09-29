@@ -132,9 +132,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.0.1"
+version = "4.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd03107d0f87139c1774a15f3db2165b0652b5460c58c27e561f89c20c599eaf"
+checksum = "31c9484ccdc4cb8e7b117cbd0eb150c7c0f04464854e4679aeb50ef03b32d003"
 dependencies = [
  "atty",
  "bitflags",
@@ -151,7 +151,7 @@ version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32b2326335cf37df6f430050fc5de9370726bb76e5a35df80f2d0855e745bee8"
 dependencies = [
- "clap 4.0.1",
+ "clap 4.0.2",
 ]
 
 [[package]]
@@ -834,7 +834,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "atty",
- "clap 4.0.1",
+ "clap 4.0.2",
  "clap_complete",
  "rand",
  "rpassword",
@@ -982,6 +982,6 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap 4.0.1",
+ "clap 4.0.2",
  "xshell",
 ]
