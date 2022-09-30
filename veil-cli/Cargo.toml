@@ -16,7 +16,6 @@ clap = { version = "4.0.5", features = ["deprecated", "derive"] }
 clap_complete = "4.0.2"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 rpassword = "7.0.0"
-shell-words = "1.1.0"
 unicode-normalization = "0.1.22"
 
 [dev-dependencies]
