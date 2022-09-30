@@ -13,7 +13,7 @@ veil = { path = "../veil" }
 anyhow = "1.0.65"
 atty = "0.2.14"
 clap = { version = "4.0.2", features = ["deprecated", "derive"] }
-clap_complete = "4.0.1"
+clap_complete = "4.0.2"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 rpassword = "7.0.0"
 shell-words = "1.1.0"
