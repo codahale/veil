@@ -333,8 +333,11 @@ impl PassphraseInput {
     fn prompt_for_passphrase(&self) -> Result<Vec<u8>> {
         let mut term = Term::stderr();
         let _ = term.write(b"Enter passphrase: ")?;
-        let password = term.read_secure_line()?;
-        Ok(password.as_bytes().to_vec())
+        let passphrase = term.read_secure_line()?;
+        if passphrase.is_empty() {
+            bail!("No passphrase entered");
+        }
+        Ok(passphrase.as_bytes().to_vec())
     }
 
     fn decrypt_private_key(&self, path: &Path) -> Result<PrivateKey> {
