@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, bail, Result};
 use clap::{CommandFactory, Parser, Subcommand, ValueHint};
 use clap_complete::{generate_to, Shell};
+use console::Term;
 use unicode_normalization::UnicodeNormalization;
 
 use veil::{Digest, PrivateKey, PublicKey, Signature};
@@ -331,9 +332,10 @@ impl PassphraseInput {
     }
 
     fn prompt_for_passphrase(&self) -> Result<Vec<u8>> {
-        rpassword::prompt_password("Enter passphrase: ")
-            .map(|s| s.nfc().collect::<String>().as_bytes().to_vec())
-            .map_err(anyhow::Error::new)
+        let mut term = Term::stderr();
+        let _ = term.write(b"Enter passphrase: ")?;
+        let password = term.read_secure_line()?;
+        Ok(password.nfc().collect::<String>().as_bytes().to_vec())
     }
 
     fn decrypt_private_key(&self, path: &Path) -> Result<PrivateKey> {
