@@ -237,19 +237,19 @@ impl Runnable for VerifyArgs {
 #[derive(Debug, Parser)]
 struct DigestArgs {
     /// Associated metadata to be included in the digest.
-    #[arg(long, short)]
+    #[arg(short, long)]
     metadata: Vec<String>,
 
     /// Compare the computed digest to a given digest.
-    #[arg(long, value_name = "DIGEST")]
+    #[arg(long, value_name = "DIGEST", group("out"))]
     check: Option<Digest>,
 
     /// The path to the message file or '-' for stdin.
-    #[arg(value_hint = ValueHint::FilePath)]
+    #[arg(short, long, value_hint = ValueHint::FilePath, value_name = "PATH")]
     input: PathBuf,
 
     /// The path to the digest file or '-' for stdout.
-    #[arg(value_hint = ValueHint::FilePath, default_value = "-")]
+    #[arg(short, long, value_hint = ValueHint::FilePath, default_value = "-", value_name = "PATH", group("out"))]
     output: PathBuf,
 }
 

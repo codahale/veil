@@ -118,10 +118,20 @@ with a status of `0`.
 To create a digest of a message, you'll just need the message:
 
 ```shell
-veil digest announcement.txt
+veil digest -i announcement.txt
 
 #=> 5fQPsn8hoaVddFG26cWQ5QFdqxWtUPNaZ9zH2E6LYzFn
 ```
+
+### Checking Message Digests
+
+To check the digest of a message, you'll need the message and the digest:
+
+```shell
+veil digest -i announcement.txt --check 5fQPsn8hoaVddFG26cWQ5QFdqxWtUPNaZ9zH2E6LYzFn
+```
+
+If the digest of the message matches the given digest, `veil` will exit with a status of `0`.
 
 ### Including Metadata
 
@@ -129,7 +139,7 @@ The `digest` command accepts an optional sequence of metadata strings which are 
 calculation of the digest:
 
 ```shell
-veil digest announcement.txt \
+veil digest -i announcement.txt \
      --metadata 'announcement.txt' \
      --metadata 'made-with-veil'
 
@@ -141,7 +151,7 @@ veil digest announcement.txt \
 To create a MAC using a shared key, include the shared key as metadata:
 
 ```shell
-veil digest announcement.txt \
+veil digest -i announcement.txt \
      --metadata 'our special secret'
 
 #=> 9UH6dDyYZ5XrYyqn9DQvuzp1zz9wtiaVfaAPvwyhTZhT

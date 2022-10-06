@@ -110,10 +110,10 @@ fn benchmark(sh: &Shell, target: BenchmarkTarget, no_stash: bool, size: u64) -> 
         }
         BenchmarkTarget::Digest => {
             let control = format!(
-                "head -c {size} /dev/zero | ./target/release/veil-control digest - /dev/null"
+                "head -c {size} /dev/zero | ./target/release/veil-control digest -i - -o /dev/null"
             );
             let experiment = format!(
-                "head -c {size} /dev/zero | ./target/release/veil-experiment digest - /dev/null"
+                "head -c {size} /dev/zero | ./target/release/veil-experiment digest -i - -o /dev/null"
             );
             cmd!(sh, "hyperfine --warmup 10 -S /bin/bash -n control {control} -n experimental {experiment}").run()?;
         }
