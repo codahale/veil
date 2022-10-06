@@ -91,7 +91,7 @@ with.
 To sign a message, you'll just need the message:
 
 ```shell
-veil sign ./my-private-key announcement.txt
+veil sign -k ./my-private-key -i announcement.txt
 
 #=>  2sXLDBeTwHuECPp7QjWKdLYB3M9oLkju...
 ```

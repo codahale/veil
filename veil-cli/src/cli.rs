@@ -183,27 +183,23 @@ impl Runnable for DecryptArgs {
 /// Sign a message.
 #[derive(Debug, Parser)]
 struct SignArgs {
-    /// The path of the encrypted private key.
-    #[arg(value_hint = ValueHint::FilePath)]
-    private_key: PathBuf,
+    #[command(flatten)]
+    private_key: PrivateKeyInput,
 
     /// The path to the message file or '-' for stdin.
-    #[arg(value_hint = ValueHint::FilePath)]
+    #[arg(short, long, value_hint = ValueHint::FilePath, value_name = "PATH")]
     input: PathBuf,
 
     /// The path to the signature file or '-' for stdout.
-    #[arg(value_hint = ValueHint::FilePath, default_value = "-")]
+    #[arg(short, long, value_hint = ValueHint::FilePath, default_value = "-", value_name = "PATH")]
     output: PathBuf,
-
-    #[command(flatten)]
-    passphrase_input: PassphraseInput,
 }
 
 impl Runnable for SignArgs {
     fn run(self) -> Result<()> {
         let input = open_input(&self.input)?;
         let mut output = open_output(&self.output, false)?;
-        let private_key = self.passphrase_input.decrypt_private_key(&self.private_key)?;
+        let private_key = self.private_key.decrypt()?;
         let sig = private_key
             .sign(rand::thread_rng(), input)
             .with_context(|| "unable to sign message")?;
