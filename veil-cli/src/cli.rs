@@ -9,10 +9,9 @@ use console::Term;
 
 use veil::{Digest, PrivateKey, PublicKey, Signature};
 
-fn main() {
-    let mut cmd = Opts::command();
+fn main() -> Result<()> {
     let opts = Opts::parse();
-    if let Err(e) = match opts.cmd {
+    match opts.cmd {
         Cmd::PrivateKey(cmd) => cmd.run(),
         Cmd::PublicKey(cmd) => cmd.run(),
         Cmd::Encrypt(cmd) => cmd.run(),
@@ -21,8 +20,6 @@ fn main() {
         Cmd::Verify(cmd) => cmd.run(),
         Cmd::Digest(cmd) => cmd.run(),
         Cmd::Complete(cmd) => cmd.run(),
-    } {
-        cmd.error(clap::error::ErrorKind::Io, format!("{:?}", e)).exit()
     }
 }
 
