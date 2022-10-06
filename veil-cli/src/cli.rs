@@ -2,16 +2,17 @@ use std::fs::File;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{ensure, Context, Result};
 use clap::{CommandFactory, Parser, Subcommand, ValueHint};
 use clap_complete::{generate_to, Shell};
 use console::Term;
 
 use veil::{Digest, PrivateKey, PublicKey, Signature};
 
-fn main() -> Result<()> {
+fn main() {
+    let mut cmd = Opts::command();
     let opts = Opts::parse();
-    match opts.cmd {
+    if let Err(e) = match opts.cmd {
         Cmd::PrivateKey(cmd) => cmd.run(),
         Cmd::PublicKey(cmd) => cmd.run(),
         Cmd::Encrypt(cmd) => cmd.run(),
@@ -20,6 +21,8 @@ fn main() -> Result<()> {
         Cmd::Verify(cmd) => cmd.run(),
         Cmd::Digest(cmd) => cmd.run(),
         Cmd::Complete(cmd) => cmd.run(),
+    } {
+        cmd.error(clap::error::ErrorKind::Io, format!("{:?}", e)).exit()
     }
 }
 
@@ -76,15 +79,12 @@ struct PrivateKeyArgs {
 impl Runnable for PrivateKeyArgs {
     fn run(self) -> Result<()> {
         let mut rng = rand::thread_rng();
+        let output = open_output(&self.output, true)?;
         let passphrase = self.passphrase_input.read_passphrase()?;
         let private_key = PrivateKey::random(&mut rng);
-        private_key.store(
-            open_output(&self.output, true)?,
-            rng,
-            &passphrase,
-            self.time_cost,
-            self.memory_cost,
-        )?;
+        private_key
+            .store(output, rng, &passphrase, self.time_cost, self.memory_cost)
+            .with_context(|| format!("unable to write to {:?}", &self.output))?;
         Ok(())
     }
 }
@@ -106,9 +106,11 @@ struct PublicKeyArgs {
 
 impl Runnable for PublicKeyArgs {
     fn run(self) -> Result<()> {
+        let mut output = open_output(&self.output, false)?;
         let private_key = self.passphrase_input.decrypt_private_key(&self.private_key)?;
         let public_key = private_key.public_key();
-        write!(open_output(&self.output, false)?, "{}", public_key)?;
+        write!(output, "{}", public_key)
+            .with_context(|| format!("unable to write to {:?}", &self.output))?;
         Ok(())
     }
 }
@@ -146,15 +148,12 @@ struct EncryptArgs {
 
 impl Runnable for EncryptArgs {
     fn run(self) -> Result<()> {
+        let input = open_input(&self.plaintext)?;
+        let output = open_output(&self.ciphertext, true)?;
         let private_key = self.passphrase_input.decrypt_private_key(&self.private_key)?;
-        private_key.encrypt(
-            rand::thread_rng(),
-            open_input(&self.plaintext)?,
-            open_output(&self.ciphertext, true)?,
-            &self.receivers,
-            self.fakes,
-            self.padding,
-        )?;
+        private_key
+            .encrypt(rand::thread_rng(), input, output, &self.receivers, self.fakes, self.padding)
+            .with_context(|| "unable to encrypt message")?;
         Ok(())
     }
 }
@@ -184,12 +183,12 @@ struct DecryptArgs {
 
 impl Runnable for DecryptArgs {
     fn run(self) -> Result<()> {
+        let input = open_input(&self.ciphertext)?;
+        let output = open_output(&self.plaintext, true)?;
         let private_key = self.passphrase_input.decrypt_private_key(&self.private_key)?;
-        private_key.decrypt(
-            open_input(&self.ciphertext)?,
-            open_output(&self.plaintext, true)?,
-            &self.sender,
-        )?;
+        private_key
+            .decrypt(input, output, &self.sender)
+            .with_context(|| "unable to decrypt message")?;
         Ok(())
     }
 }
@@ -215,9 +214,14 @@ struct SignArgs {
 
 impl Runnable for SignArgs {
     fn run(self) -> Result<()> {
+        let input = open_input(&self.message)?;
+        let mut output = open_output(&self.output, false)?;
         let private_key = self.passphrase_input.decrypt_private_key(&self.private_key)?;
-        let sig = private_key.sign(rand::thread_rng(), open_input(&self.message)?)?;
-        write!(open_output(&self.output, false)?, "{}", sig)?;
+        let sig = private_key
+            .sign(rand::thread_rng(), input)
+            .with_context(|| "unable to sign message")?;
+        write!(output, "{}", sig)
+            .with_context(|| format!("error writing to {:?}", &self.output))?;
         Ok(())
     }
 }
@@ -240,7 +244,10 @@ struct VerifyArgs {
 
 impl Runnable for VerifyArgs {
     fn run(self) -> Result<()> {
-        self.public_key.verify(open_input(&self.message)?, &self.signature)?;
+        let input = open_input(&self.message)?;
+        self.public_key
+            .verify(input, &self.signature)
+            .with_context(|| "unable to verify signature")?;
         Ok(())
     }
 }
@@ -267,17 +274,15 @@ struct DigestArgs {
 
 impl Runnable for DigestArgs {
     fn run(self) -> Result<()> {
-        let digest = Digest::new(&self.metadata, open_input(&self.message)?)?;
+        let input = open_input(&self.message)?;
+        let digest =
+            Digest::new(&self.metadata, input).with_context(|| "unable to digest message")?;
         if let Some(check) = self.check {
-            if check == digest {
-                Ok(())
-            } else {
-                Err(anyhow!("digest mismatch"))
-            }
+            ensure!(check == digest, "digest mismatch");
         } else {
             write!(open_output(&self.output, false)?, "{}", digest)?;
-            Ok(())
         }
+        Ok(())
     }
 }
 
@@ -297,7 +302,8 @@ struct CompleteArgs {
 impl Runnable for CompleteArgs {
     fn run(self) -> Result<()> {
         let mut app = Opts::command();
-        generate_to(self.shell, &mut app, "veil", &self.output)?;
+        generate_to(self.shell, &mut app, "veil", &self.output)
+            .with_context(|| format!("unable to write to {:?}", &self.output))?;
         Ok(())
     }
 }
@@ -326,7 +332,9 @@ impl PassphraseInput {
         use std::os::unix::prelude::FromRawFd;
 
         let mut out = Vec::new();
-        unsafe { File::from_raw_fd(fd) }.read_to_end(&mut out)?;
+        unsafe { File::from_raw_fd(fd) }
+            .read_to_end(&mut out)
+            .with_context(|| format!("unable to read from file descriptor {}", fd))?;
         Ok(out)
     }
 
@@ -334,38 +342,35 @@ impl PassphraseInput {
         let mut term = Term::stderr();
         let _ = term.write(b"Enter passphrase: ")?;
         let passphrase = term.read_secure_line()?;
-        if passphrase.is_empty() {
-            bail!("No passphrase entered");
-        }
+        ensure!(!passphrase.is_empty(), "no passphrase entered");
         Ok(passphrase.as_bytes().to_vec())
     }
 
     fn decrypt_private_key(&self, path: &Path) -> Result<PrivateKey> {
         let passphrase = self.read_passphrase()?;
-        let ciphertext = File::open(path)?;
-        Ok(PrivateKey::load(ciphertext, &passphrase)?)
+        let ciphertext =
+            File::open(path).with_context(|| format!("unable to open file {:?}", path))?;
+        PrivateKey::load(ciphertext, &passphrase).with_context(|| "unable to decrypt private key")
     }
 }
 
 fn open_input(path: &Path) -> Result<Box<dyn Read>> {
     if path.as_os_str() == "-" {
-        if atty::is(atty::Stream::Stdin) {
-            bail!("stdin is a tty");
-        }
+        ensure!(!atty::is(atty::Stream::Stdin), "stdin is a tty");
         Ok(Box::new(io::stdin().lock()))
     } else {
-        Ok(Box::new(File::open(path)?))
+        let f = File::open(path).with_context(|| format!("unable to open file {:?}", path))?;
+        Ok(Box::new(f))
     }
 }
 
 fn open_output(path: &Path, binary: bool) -> Result<Box<dyn Write>> {
     if path.as_os_str() == "-" {
-        if binary && atty::is(atty::Stream::Stdout) {
-            bail!("stdout is a tty");
-        }
+        ensure!(!(binary && atty::is(atty::Stream::Stdout)), "stdout is a tty");
         Ok(Box::new(io::stdout().lock()))
     } else {
-        Ok(Box::new(File::create(path)?))
+        let f = File::create(path).with_context(|| format!("unable to create file {:?}", path))?;
+        Ok(Box::new(f))
     }
 }
 
