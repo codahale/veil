@@ -39,21 +39,13 @@ trait Runnable {
 
 #[derive(Debug, Subcommand)]
 enum Cmd {
-    #[command(display_order(1))]
     PrivateKey(PrivateKeyArgs),
-    #[command(display_order(2))]
     PublicKey(PublicKeyArgs),
-    #[command(display_order(3))]
     Encrypt(EncryptArgs),
-    #[command(display_order(4))]
     Decrypt(DecryptArgs),
-    #[command(display_order(5))]
     Sign(SignArgs),
-    #[command(display_order(6))]
     Verify(VerifyArgs),
-    #[command(display_order(7))]
     Digest(DigestArgs),
-    #[command(display_order(8))]
     Complete(CompleteArgs),
 }
 
