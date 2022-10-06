@@ -44,7 +44,7 @@ the keyboard to generate entropy.
 Now that you have a private key, you also have a public key to share with others:
 
 ```shell
-veil public-key ./my-private-key
+veil public-key -k ./my-private-key
 
 #=> TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa
 ```

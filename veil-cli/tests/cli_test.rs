@@ -37,7 +37,7 @@ pub fn encrypt_and_decrypt_a_message() -> Result<()> {
 
     // Alice generates a public key.
     let public_key_a =
-        veil_cmd!(sh, "public-key {private_key_path_a:?}", alice_passphrase).read()?;
+        veil_cmd!(sh, "public-key -k {private_key_path_a:?}", alice_passphrase).read()?;
 
     // Bea picks a passphrase.
     let bea_passphrase = "dingus";
@@ -52,7 +52,8 @@ pub fn encrypt_and_decrypt_a_message() -> Result<()> {
     .run()?;
 
     // Bea generates a public key.
-    let public_key_b = veil_cmd!(sh, "public-key {private_key_path_b:?}", bea_passphrase).read()?;
+    let public_key_b =
+        veil_cmd!(sh, "public-key -k {private_key_path_b:?}", bea_passphrase).read()?;
 
     // Alice writes a plaintext message.
     let message_file = &dir.path().join("message");
@@ -101,7 +102,8 @@ fn sign_and_verify_message() -> Result<()> {
     .run()?;
 
     // Alice generates a public key.
-    let public_key = veil_cmd!(sh, "public-key {private_key_path:?}", alice_passphrase).read()?;
+    let public_key =
+        veil_cmd!(sh, "public-key -k {private_key_path:?}", alice_passphrase).read()?;
 
     // Alice writes a plaintext message.
     let message_file = &dir.path().join("message");

@@ -84,22 +84,18 @@ impl Runnable for PrivateKeyArgs {
 /// Derive a public key from a private key.
 #[derive(Debug, Parser)]
 struct PublicKeyArgs {
-    /// The path of the encrypted private key.
-    #[arg(value_hint = ValueHint::FilePath)]
-    private_key: PathBuf,
+    #[command(flatten)]
+    private_key: PrivateKeyInput,
 
     /// The path to the public key file or '-' for stdout.
-    #[arg(value_hint = ValueHint::FilePath, default_value = "-")]
+    #[arg(short, long, value_hint = ValueHint::FilePath, default_value = "-", value_name = "PATH")]
     output: PathBuf,
-
-    #[command(flatten)]
-    passphrase_input: PassphraseInput,
 }
 
 impl Runnable for PublicKeyArgs {
     fn run(self) -> Result<()> {
         let mut output = open_output(&self.output, false)?;
-        let private_key = self.passphrase_input.decrypt_private_key(&self.private_key)?;
+        let private_key = self.private_key.decrypt()?;
         let public_key = private_key.public_key();
         write!(output, "{}", public_key)
             .with_context(|| format!("unable to write to {:?}", &self.output))?;
@@ -297,6 +293,22 @@ impl Runnable for CompleteArgs {
         generate_to(self.shell, &mut app, "veil", &self.output)
             .with_context(|| format!("unable to write to {:?}", &self.output))?;
         Ok(())
+    }
+}
+
+#[derive(Debug, Parser)]
+struct PrivateKeyInput {
+    /// The path of the encrypted private key.
+    #[arg(short = 'k', long, value_hint = ValueHint::FilePath, value_name = "PATH")]
+    private_key: PathBuf,
+
+    #[command(flatten)]
+    passphrase_input: PassphraseInput,
+}
+
+impl PrivateKeyInput {
+    fn decrypt(&self) -> Result<PrivateKey> {
+        self.passphrase_input.decrypt_private_key(&self.private_key)
     }
 }
 
