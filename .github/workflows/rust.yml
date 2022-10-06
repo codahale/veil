@@ -2,14 +2,13 @@ name: Rust CI
 
 on:
   push:
+    branches:
+      - "main"
   pull_request:
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: true
     strategy:
       matrix:
         rust:
