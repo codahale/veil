@@ -116,11 +116,11 @@ struct EncryptArgs {
 
     /// The path to the input file or '-' for stdin.
     #[arg(value_hint = ValueHint::FilePath)]
-    plaintext: PathBuf,
+    input: PathBuf,
 
     /// The path to the output file or '-' for stdout.
     #[arg(value_hint = ValueHint::FilePath)]
-    ciphertext: PathBuf,
+    output: PathBuf,
 
     /// The receivers' public keys.
     #[arg(required = true)]
@@ -140,8 +140,8 @@ struct EncryptArgs {
 
 impl Runnable for EncryptArgs {
     fn run(self) -> Result<()> {
-        let input = open_input(&self.plaintext)?;
-        let output = open_output(&self.ciphertext, true)?;
+        let input = open_input(&self.input)?;
+        let output = open_output(&self.output, true)?;
         let private_key = self.passphrase_input.decrypt_private_key(&self.private_key)?;
         private_key
             .encrypt(rand::thread_rng(), input, output, &self.receivers, self.fakes, self.padding)
@@ -159,11 +159,11 @@ struct DecryptArgs {
 
     /// The path to the input file or '-' for stdin.
     #[arg(value_hint = ValueHint::FilePath)]
-    ciphertext: PathBuf,
+    input: PathBuf,
 
     /// The path to the output file or '-' for stdout.
     #[arg(value_hint = ValueHint::FilePath)]
-    plaintext: PathBuf,
+    output: PathBuf,
 
     /// The sender's public key.
     #[arg()]
@@ -175,8 +175,8 @@ struct DecryptArgs {
 
 impl Runnable for DecryptArgs {
     fn run(self) -> Result<()> {
-        let input = open_input(&self.ciphertext)?;
-        let output = open_output(&self.plaintext, true)?;
+        let input = open_input(&self.input)?;
+        let output = open_output(&self.output, true)?;
         let private_key = self.passphrase_input.decrypt_private_key(&self.private_key)?;
         private_key
             .decrypt(input, output, &self.sender)
@@ -194,7 +194,7 @@ struct SignArgs {
 
     /// The path to the message file or '-' for stdin.
     #[arg(value_hint = ValueHint::FilePath)]
-    message: PathBuf,
+    input: PathBuf,
 
     /// The path to the signature file or '-' for stdout.
     #[arg(value_hint = ValueHint::FilePath, default_value = "-")]
@@ -206,7 +206,7 @@ struct SignArgs {
 
 impl Runnable for SignArgs {
     fn run(self) -> Result<()> {
-        let input = open_input(&self.message)?;
+        let input = open_input(&self.input)?;
         let mut output = open_output(&self.output, false)?;
         let private_key = self.passphrase_input.decrypt_private_key(&self.private_key)?;
         let sig = private_key
@@ -227,7 +227,7 @@ struct VerifyArgs {
 
     /// The path to the message file or '-' for stdin.
     #[arg(value_hint = ValueHint::FilePath)]
-    message: PathBuf,
+    input: PathBuf,
 
     /// The signature of the message.
     #[arg()]
@@ -236,7 +236,7 @@ struct VerifyArgs {
 
 impl Runnable for VerifyArgs {
     fn run(self) -> Result<()> {
-        let input = open_input(&self.message)?;
+        let input = open_input(&self.input)?;
         self.public_key
             .verify(input, &self.signature)
             .with_context(|| "unable to verify signature")?;
@@ -257,7 +257,7 @@ struct DigestArgs {
 
     /// The path to the message file or '-' for stdin.
     #[arg(value_hint = ValueHint::FilePath)]
-    message: PathBuf,
+    input: PathBuf,
 
     /// The path to the digest file or '-' for stdout.
     #[arg(value_hint = ValueHint::FilePath, default_value = "-")]
@@ -266,7 +266,7 @@ struct DigestArgs {
 
 impl Runnable for DigestArgs {
     fn run(self) -> Result<()> {
-        let input = open_input(&self.message)?;
+        let input = open_input(&self.input)?;
         let digest =
             Digest::new(&self.metadata, input).with_context(|| "unable to digest message")?;
         if let Some(check) = self.check {
