@@ -93,7 +93,7 @@ To sign a message, you'll just need the message:
 ```shell
 veil sign -k ./my-private-key -i announcement.txt
 
-#=>  2sXLDBeTwHuECPp7QjWKdLYB3M9oLkju...
+#=>  xMSgptmRtVV1YGn1DZmjL8ivnjoYbVgsqwHyHuENi5SwaQTQWAsoHpjJaN4XV3ugzp2jbfaoDVwdP5zJHLWGkjt
 ```
 
 You can then share `announcement.txt` and the signature and people will be able to verify that the
@@ -105,9 +105,9 @@ To verify a signature of a message, you'll need the signer's public key, the mes
 signature:
 
 ```shell
-veil verify TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa \
-     announcement.txt \
-     2sXLDBeTwHuECPp7QjWKdLYB3M9oLkju...
+veil verify --signer TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa \
+     --signature xMSgptmRtVV1YGn1DZmjL8ivnjoYbVgsqwHyHuENi5SwaQTQWAsoHpjJaN4XV3ugzp2jbfaoDVwdP5zJHLWGkjt \
+     -i announcement.txt
 ```
 
 If the signature is from the given public key and the message hasn't been altered, `veil` will exit

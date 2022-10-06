@@ -104,8 +104,8 @@ fn benchmark(sh: &Shell, target: BenchmarkTarget, no_stash: bool, size: u64) -> 
             let experiment_sig = format!("head -c {size} /dev/zero | ./target/release/veil-experiment sign --passphrase-fd=3 -k /tmp/private-key-experiment -i - 3< <(echo -n secret)");
             let experiment_sig = cmd!(sh, "bash -c {experiment_sig}").read()?;
 
-            let control = format!("head -c {size} /dev/zero | ./target/release/veil-control verify {pk_control} - {control_sig}");
-            let experiment = format!("head -c {size} /dev/zero | ./target/release/veil-experiment verify {pk_experiment} - {experiment_sig}");
+            let control = format!("head -c {size} /dev/zero | ./target/release/veil-control verify --signer {pk_control} -i - --signature {control_sig}");
+            let experiment = format!("head -c {size} /dev/zero | ./target/release/veil-experiment verify --signer {pk_experiment} -i - --signature {experiment_sig}");
             cmd!(sh, "hyperfine --warmup 10 -S /bin/bash -n control {control} -n experimental {experiment}").run()?;
         }
         BenchmarkTarget::Digest => {

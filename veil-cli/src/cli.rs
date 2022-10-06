@@ -213,24 +213,22 @@ impl Runnable for SignArgs {
 #[derive(Debug, Parser)]
 struct VerifyArgs {
     /// The signer's public key.
-    #[arg()]
-    public_key: PublicKey,
-
-    /// The path to the message file or '-' for stdin.
-    #[arg(value_hint = ValueHint::FilePath)]
-    input: PathBuf,
+    #[arg(long, value_name = "KEY")]
+    signer: PublicKey,
 
     /// The signature of the message.
-    #[arg()]
+    #[arg(long, value_name = "SIG")]
     signature: Signature,
+
+    /// The path to the message file or '-' for stdin.
+    #[arg(short, long, value_hint = ValueHint::FilePath, value_name = "PATH")]
+    input: PathBuf,
 }
 
 impl Runnable for VerifyArgs {
     fn run(self) -> Result<()> {
         let input = open_input(&self.input)?;
-        self.public_key
-            .verify(input, &self.signature)
-            .with_context(|| "unable to verify signature")?;
+        self.signer.verify(input, &self.signature).with_context(|| "unable to verify signature")?;
         Ok(())
     }
 }

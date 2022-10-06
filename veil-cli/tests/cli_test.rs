@@ -114,7 +114,8 @@ fn sign_and_verify_message() -> Result<()> {
         .read()?;
 
     // Bea verifies the signature.
-    cmd!(sh, "{VEIL_PATH} verify {public_key} {message_file} {sig}").run()?;
+    cmd!(sh, "{VEIL_PATH} verify --signer {public_key} -i {message_file} --signature {sig}")
+        .run()?;
 
     Ok(())
 }
