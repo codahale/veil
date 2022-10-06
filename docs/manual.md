@@ -56,10 +56,11 @@ You can then give this public key to people, so they can send you encrypted mess
 To encrypt a message, you need your private key, the receivers' public keys, and the message:
 
 ```shell
-veil encrypt ./my-private-key \
-     message.txt message.txt.veil \
-     TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa \
-     BfksdzSKbmcS2Suav16dmYE2WxifqauPRL6FZpJt1476 \
+veil encrypt -k ./my-private-key \
+     -i message.txt \
+     -o message.txt.veil \
+     -r TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa \
+     -r BfksdzSKbmcS2Suav16dmYE2WxifqauPRL6FZpJt1476 \
      --fakes 18 --padding 1234
 ```
 

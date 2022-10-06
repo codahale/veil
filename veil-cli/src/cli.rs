@@ -3,7 +3,7 @@ use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::{ensure, Context, Result};
-use clap::{CommandFactory, Parser, Subcommand, ValueHint};
+use clap::{ArgAction, CommandFactory, Parser, Subcommand, ValueHint};
 use clap_complete::{generate_to, Shell};
 use console::Term;
 
@@ -106,39 +106,42 @@ impl Runnable for PublicKeyArgs {
 /// Encrypt a message for a set of receivers.
 #[derive(Debug, Parser)]
 struct EncryptArgs {
-    /// The path of the encrypted private key.
-    #[arg(value_hint = ValueHint::FilePath)]
-    private_key: PathBuf,
+    #[command(flatten)]
+    private_key: PrivateKeyInput,
 
     /// The path to the input file or '-' for stdin.
-    #[arg(value_hint = ValueHint::FilePath)]
+    #[arg(short, long, value_hint = ValueHint::FilePath, value_name = "PATH")]
     input: PathBuf,
 
     /// The path to the output file or '-' for stdout.
-    #[arg(value_hint = ValueHint::FilePath)]
+    #[arg(short, long, value_hint = ValueHint::FilePath, value_name = "PATH")]
     output: PathBuf,
 
     /// The receivers' public keys.
-    #[arg(required = true)]
+    #[arg(
+        short = 'r',
+        long = "receiver",
+        value_name = "KEY",
+        num_args(1..),
+        required = true,
+        action(ArgAction::Append),
+    )]
     receivers: Vec<PublicKey>,
 
     /// Add fake receivers.
-    #[arg(long)]
+    #[arg(long, value_name = "COUNT")]
     fakes: Option<usize>,
 
     /// Add random bytes of padding.
-    #[arg(long)]
+    #[arg(long, value_name = "BYTES")]
     padding: Option<usize>,
-
-    #[command(flatten)]
-    passphrase_input: PassphraseInput,
 }
 
 impl Runnable for EncryptArgs {
     fn run(self) -> Result<()> {
         let input = open_input(&self.input)?;
         let output = open_output(&self.output, true)?;
-        let private_key = self.passphrase_input.decrypt_private_key(&self.private_key)?;
+        let private_key = self.private_key.decrypt()?;
         private_key
             .encrypt(rand::thread_rng(), input, output, &self.receivers, self.fakes, self.padding)
             .with_context(|| "unable to encrypt message")?;
