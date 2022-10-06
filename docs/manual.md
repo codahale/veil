@@ -75,8 +75,10 @@ To decrypt a message, you'll need the key path of the public key the message was
 encrypted message, and the sender's public key:
 
 ```shell
-veil decrypt ./my-private-key reply.txt.veil reply.txt \
-     TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa
+veil decrypt -k ./my-private-key \
+     -i reply.txt.veil \
+     -o reply.txt \
+     -s TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa
 ```
 
 This will decrypt and verify the message. If successful, you'll know that the owner of the public

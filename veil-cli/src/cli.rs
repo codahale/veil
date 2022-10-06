@@ -152,31 +152,27 @@ impl Runnable for EncryptArgs {
 /// Decrypt and verify a message.
 #[derive(Debug, Parser)]
 struct DecryptArgs {
-    /// The path of the encrypted private key.
-    #[arg(value_hint = ValueHint::FilePath)]
-    private_key: PathBuf,
+    #[command(flatten)]
+    private_key: PrivateKeyInput,
 
     /// The path to the input file or '-' for stdin.
-    #[arg(value_hint = ValueHint::FilePath)]
+    #[arg(short, long, value_hint = ValueHint::FilePath, value_name = "PATH")]
     input: PathBuf,
 
     /// The path to the output file or '-' for stdout.
-    #[arg(value_hint = ValueHint::FilePath)]
+    #[arg(short, long, value_hint = ValueHint::FilePath, value_name = "PATH")]
     output: PathBuf,
 
     /// The sender's public key.
-    #[arg()]
+    #[arg(short, long, value_name = "KEY")]
     sender: PublicKey,
-
-    #[command(flatten)]
-    passphrase_input: PassphraseInput,
 }
 
 impl Runnable for DecryptArgs {
     fn run(self) -> Result<()> {
         let input = open_input(&self.input)?;
         let output = open_output(&self.output, true)?;
-        let private_key = self.passphrase_input.decrypt_private_key(&self.private_key)?;
+        let private_key = self.private_key.decrypt()?;
         private_key
             .decrypt(input, output, &self.sender)
             .with_context(|| "unable to decrypt message")?;

@@ -72,7 +72,7 @@ pub fn encrypt_and_decrypt_a_message() -> Result<()> {
     let plaintext_path = &dir.path().join("message.txt");
     veil_cmd!(
         sh,
-        "decrypt {private_key_path_b:?} {ciphertext_path:?} {plaintext_path:?} {public_key_a}",
+        "decrypt -k {private_key_path_b:?} -i {ciphertext_path:?} -o {plaintext_path:?} -s {public_key_a}",
         bea_passphrase
     )
     .run()?;
