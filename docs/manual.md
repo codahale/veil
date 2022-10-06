@@ -32,7 +32,7 @@ veil complete zsh /usr/local/share/zsh/site-functions/
 To create a private key, use the `private-key` command:
 
 ```shell
-veil private-key ./my-private-key
+veil private-key -o ./my-private-key
 ```
 
 You'll be prompted for a passphrase, and `veil` will write the encrypted private key to

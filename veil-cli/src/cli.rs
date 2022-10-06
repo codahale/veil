@@ -53,7 +53,7 @@ enum Cmd {
 #[derive(Debug, Parser)]
 struct PrivateKeyArgs {
     /// The path to the encrypted private key file or '-' for stdout.
-    #[arg(value_hint = ValueHint::FilePath)]
+    #[arg(short, long, value_hint = ValueHint::FilePath, value_name = "PATH")]
     output: PathBuf,
 
     /// The time cost for encryption (in 2^t iterations).

@@ -81,8 +81,8 @@ fn benchmark(sh: &Shell, target: BenchmarkTarget, no_stash: bool, size: u64) -> 
     cmd!(sh, "cp target/release/veil target/release/veil-control").run()?;
 
     // create a private key with minimal KDF expansion, using both commands to make sure they work
-    cmd!(sh, "bash -c './target/release/veil-control private-key /tmp/private-key-control --passphrase-fd=3 --time-cost=0 --memory-cost=0 3< <(echo -n 'secret')'").run()?;
-    cmd!(sh, "bash -c './target/release/veil-experiment private-key /tmp/private-key-experiment --passphrase-fd=3 --time-cost=0 --memory-cost=0 3< <(echo -n secret)'").run()?;
+    cmd!(sh, "bash -c './target/release/veil-control private-key -o /tmp/private-key-control --passphrase-fd=3 --time-cost=0 --memory-cost=0 3< <(echo -n 'secret')'").run()?;
+    cmd!(sh, "bash -c './target/release/veil-experiment private-key -o /tmp/private-key-experiment --passphrase-fd=3 --time-cost=0 --memory-cost=0 3< <(echo -n secret)'").run()?;
 
     let pk_control = cmd!(sh, "bash -c './target/release/veil-control public-key /tmp/private-key-control --passphrase-fd=3 3< <(echo -n secret)'").read()?;
     let pk_experiment = cmd!(sh, "bash -c './target/release/veil-experiment public-key /tmp/private-key-experiment --passphrase-fd=3 3< <(echo -n secret)'").read()?;

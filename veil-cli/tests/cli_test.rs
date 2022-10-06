@@ -30,7 +30,7 @@ pub fn encrypt_and_decrypt_a_message() -> Result<()> {
     let private_key_path_a = &dir.path().join("private-key-a");
     veil_cmd!(
         sh,
-        "private-key {private_key_path_a:?} --time-cost=0 --memory-cost=0 ",
+        "private-key -o {private_key_path_a:?} --time-cost=0 --memory-cost=0 ",
         alice_passphrase
     )
     .run()?;
@@ -46,7 +46,7 @@ pub fn encrypt_and_decrypt_a_message() -> Result<()> {
     let private_key_path_b = &dir.path().join("private-key-b");
     veil_cmd!(
         sh,
-        "private-key {private_key_path_b:?} --time-cost=0 --memory-cost=0",
+        "private-key -o {private_key_path_b:?} --time-cost=0 --memory-cost=0",
         bea_passphrase
     )
     .run()?;
@@ -95,7 +95,7 @@ fn sign_and_verify_message() -> Result<()> {
     let private_key_path = &dir.path().join("private-key-a");
     veil_cmd!(
         sh,
-        "private-key {private_key_path:?} --time-cost=0 --memory-cost=0",
+        "private-key -o {private_key_path:?} --time-cost=0 --memory-cost=0",
         alice_passphrase
     )
     .run()?;
