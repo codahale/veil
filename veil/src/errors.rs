@@ -50,7 +50,6 @@ pub enum VerifyError {
 
 /// An error returned when parsing a signature was unsuccessful.
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
-#[error("invalid signature")]
 pub enum ParseSignatureError {
     /// Parsing failed because the value was not the correct length.
     #[error("invalid signature length")]
@@ -63,7 +62,6 @@ pub enum ParseSignatureError {
 
 /// An error returned when parsing a public key was unsuccessful.
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
-#[error("invalid public key")]
 pub enum ParsePublicKeyError {
     /// Parsing failed because the value was not a valid public key.
     #[error("invalid public key")]
