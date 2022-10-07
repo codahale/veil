@@ -10,7 +10,7 @@ use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex, TAG_LEN};
 use crate::keys::{PrivKey, PubKey};
 use crate::schnorr::SIGNATURE_LEN;
 use crate::sres::NONCE_LEN;
-use crate::{schnorr, sres, DecryptError, Signature};
+use crate::{schnorr, sres, DecryptError, EncryptError, Signature};
 
 /// The length of plaintext blocks which are encrypted.
 const BLOCK_LEN: usize = 32 * 1024;
@@ -36,7 +36,7 @@ pub fn encrypt(
     sender: &PrivKey,
     receivers: &[PubKey],
     padding: usize,
-) -> io::Result<u64> {
+) -> Result<u64, EncryptError> {
     let padding = u64::try_from(padding).expect("unexpected overflow");
 
     // Initialize an unkeyed duplex and absorb the sender's public key.
@@ -50,7 +50,7 @@ pub fn encrypt(
 
     // Absorb and write the nonce.
     mres.absorb(&nonce);
-    writer.write_all(&nonce)?;
+    writer.write_all(&nonce).map_err(EncryptError::WriteIo)?;
     let mut written = u64::try_from(NONCE_LEN).expect("unexpected overflow");
 
     // Encode a header with the DEK, receiver count, and padding.
@@ -69,12 +69,14 @@ pub fn encrypt(
         mres.absorb(&enc_header);
 
         // Write the encrypted header.
-        writer.write_all(&enc_header)?;
+        writer.write_all(&enc_header).map_err(EncryptError::WriteIo)?;
         written += u64::try_from(ENC_HEADER_LEN).expect("unexpected overflow");
     }
 
     // Add random padding to the end of the headers.
-    written += mres.absorb_reader_into(RngRead(&mut rng).take(padding), &mut writer)?;
+    written += mres
+        .absorb_reader_into(RngRead(&mut rng).take(padding), &mut writer)
+        .map_err(EncryptError::WriteIo)?;
 
     // Absorb the DEK.
     mres.absorb(&dek);
@@ -87,7 +89,7 @@ pub fn encrypt(
 
     // Sign the duplex's final state with the ephemeral private key and append the signature.
     let sig = schnorr::sign_duplex(&mut mres, &mut rng, &ephemeral);
-    writer.write_all(&sig.encode())?;
+    writer.write_all(&sig.encode()).map_err(EncryptError::WriteIo)?;
 
     Ok(written + u64::try_from(SIGNATURE_LEN).expect("unexpected overflow"))
 }
@@ -98,18 +100,18 @@ fn encrypt_message(
     mres: &mut KeyedDuplex,
     mut reader: impl Read,
     mut writer: impl Write,
-) -> io::Result<u64> {
+) -> Result<u64, EncryptError> {
     let mut buf = [0u8; ENC_BLOCK_LEN];
     let mut written = 0;
 
     loop {
         // Read a block of data.
-        let n = reader.read_block(&mut buf[..BLOCK_LEN])?;
+        let n = reader.read_block(&mut buf[..BLOCK_LEN]).map_err(EncryptError::ReadIo)?;
         let block = &mut buf[..n + TAG_LEN];
 
         // Encrypt the block and write the ciphertext and a tag.
         mres.seal_mut(block);
-        writer.write_all(block)?;
+        writer.write_all(block).map_err(EncryptError::WriteIo)?;
         written += u64::try_from(block.len()).expect("unexpected overflow");
 
         // If the block was undersized, we're at the end of the reader.
@@ -136,7 +138,7 @@ pub fn decrypt(
 
     // Read and absorb the nonce.
     let mut nonce = [0u8; NONCE_LEN];
-    reader.read_exact(&mut nonce)?;
+    reader.read_exact(&mut nonce).map_err(DecryptError::ReadIo)?;
     mres.absorb(&nonce);
 
     // Find a header, decrypt it, and write the entirety of the headers and padding to the duplex.
@@ -171,7 +173,7 @@ fn decrypt_message(
     loop {
         // Read a block and a possible signature, keeping in mind the unused bit of the buffer from
         // the last iteration.
-        let n = reader.read_block(&mut buf[offset..])?;
+        let n = reader.read_block(&mut buf[offset..]).map_err(DecryptError::ReadIo)?;
 
         // If we're at the end of the reader, we only have the signature left to process. Break out
         // of the read loop and go process the signature.
@@ -186,7 +188,7 @@ fn decrypt_message(
         // Decrypt the block and write the plaintext. If the block cannot be decrypted, return an
         // error.
         let plaintext = mres.unseal_mut(block).ok_or(DecryptError::InvalidCiphertext)?;
-        writer.write_all(plaintext)?;
+        writer.write_all(plaintext).map_err(DecryptError::WriteIo)?;
         written += u64::try_from(plaintext.len()).expect("unexpected overflow");
 
         // Copy the unused part to the beginning of the buffer and set the offset for the next loop.
@@ -219,7 +221,7 @@ fn decrypt_header(
             if e.kind() == io::ErrorKind::UnexpectedEof {
                 DecryptError::InvalidCiphertext
             } else {
-                e.into()
+                DecryptError::ReadIo(e)
             }
         })?;
 
@@ -249,7 +251,7 @@ fn decrypt_header(
     let (ephemeral, header) = header.ok_or(DecryptError::InvalidCiphertext)?;
 
     // Read the padding and absorb it with the duplex.
-    mres.absorb_reader(&mut reader.take(header.padding))?;
+    mres.absorb_reader(&mut reader.take(header.padding)).map_err(DecryptError::ReadIo)?;
 
     // Return the ephemeral public key and DEK.
     Ok((ephemeral, header.dek))

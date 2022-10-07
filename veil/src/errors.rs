@@ -2,6 +2,18 @@ use std::io;
 
 use thiserror::Error;
 
+/// An error returned when encrypting a message was unsuccessful.
+#[derive(Debug, Error)]
+pub enum EncryptError {
+    /// Encryption was unsuccessful due to an IO error reading the plaintext.
+    #[error("error reading plaintext")]
+    ReadIo(#[source] io::Error),
+
+    /// Encryption was unsuccessful due to an IO error writing the ciphertext.
+    #[error("error writing ciphertext")]
+    WriteIo(#[source] io::Error),
+}
+
 /// An error returned when decrypting a message was unsuccessful.
 #[derive(Debug, Error)]
 pub enum DecryptError {
@@ -12,10 +24,13 @@ pub enum DecryptError {
     #[error("invalid ciphertext")]
     InvalidCiphertext,
 
-    /// Decryption was unsuccessful due to an IO error reading the ciphertext or writing the
-    /// plaintext.
-    #[error("error decrypting: {0}")]
-    IoError(#[from] io::Error),
+    /// Decryption was unsuccessful due to an IO error reading the ciphertext.
+    #[error("error reading ciphertext")]
+    ReadIo(#[source] io::Error),
+
+    /// Decryption was unsuccessful due to an IO error writing the plaintext.
+    #[error("error writing plaintext")]
+    WriteIo(#[source] io::Error),
 }
 
 /// An error returned when verifying a signature was unsuccessful.
@@ -29,8 +44,8 @@ pub enum VerifyError {
     InvalidSignature,
 
     /// Verification was unsuccessful due to an IO error reading the message.
-    #[error("error verifying: {0}")]
-    IoError(#[from] io::Error),
+    #[error("error reading message")]
+    ReadIo(#[from] io::Error),
 }
 
 /// An error returned when parsing a signature was unsuccessful.

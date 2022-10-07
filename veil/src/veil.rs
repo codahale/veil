@@ -9,7 +9,9 @@ use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
 
 use crate::keys::{PrivKey, PubKey, POINT_LEN, SCALAR_LEN};
-use crate::{mres, pbenc, schnorr, DecryptError, ParsePublicKeyError, Signature, VerifyError};
+use crate::{
+    mres, pbenc, schnorr, DecryptError, EncryptError, ParsePublicKeyError, Signature, VerifyError,
+};
 
 /// A private key, used to encrypt, decrypt, and sign messages.
 #[derive(PartialEq, Eq)]
@@ -58,7 +60,7 @@ impl PrivateKey {
     /// reading, a [`DecryptError::IoError`] error will be returned.
     pub fn load(mut reader: impl Read, passphrase: &[u8]) -> Result<PrivateKey, DecryptError> {
         let mut b = Vec::with_capacity(SCALAR_LEN + pbenc::OVERHEAD);
-        reader.read_to_end(&mut b)?;
+        reader.read_to_end(&mut b).map_err(DecryptError::ReadIo)?;
 
         // Decrypt the ciphertext and use the plaintext as the private key.
         pbenc::decrypt(passphrase, &mut b)
@@ -86,7 +88,7 @@ impl PrivateKey {
         receivers: &[PublicKey],
         fakes: Option<usize>,
         padding: Option<usize>,
-    ) -> io::Result<u64> {
+    ) -> Result<u64, EncryptError> {
         let mut receivers = receivers
             .iter()
             .map(|pk| pk.0)
