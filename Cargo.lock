@@ -834,6 +834,7 @@ dependencies = [
  "clap_complete",
  "console",
  "rand",
+ "thiserror",
  "veil",
  "xshell",
 ]

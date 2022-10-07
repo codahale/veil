@@ -2,14 +2,14 @@ use std::fs::File;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
-use anyhow::{ensure, Context, Result};
 use clap::{ArgAction, CommandFactory, Parser, Subcommand, ValueHint};
 use clap_complete::{generate_to, Shell};
 use console::Term;
 
-use veil::{Digest, PrivateKey, PublicKey, Signature};
+use thiserror::Error;
+use veil::{DecryptError, Digest, PrivateKey, PublicKey, Signature};
 
-fn main() -> Result<()> {
+fn main() -> Result<(), anyhow::Error> {
     let opts = Opts::parse();
     match opts.cmd {
         Cmd::PrivateKey(cmd) => cmd.run(),
@@ -20,7 +20,8 @@ fn main() -> Result<()> {
         Cmd::Verify(cmd) => cmd.run(),
         Cmd::Digest(cmd) => cmd.run(),
         Cmd::Complete(cmd) => cmd.run(),
-    }
+    }?;
+    Ok(())
 }
 
 #[derive(Debug, Parser)]
@@ -31,7 +32,7 @@ struct Opts {
 }
 
 trait Runnable {
-    fn run(self) -> Result<()>;
+    fn run(self) -> Result<(), CliError>;
 }
 
 #[derive(Debug, Subcommand)]
@@ -66,14 +67,14 @@ struct PrivateKeyArgs {
 }
 
 impl Runnable for PrivateKeyArgs {
-    fn run(self) -> Result<()> {
+    fn run(self) -> Result<(), CliError> {
         let mut rng = rand::thread_rng();
         let output = open_output(&self.output, true)?;
         let passphrase = self.passphrase_input.read_passphrase()?;
         let private_key = PrivateKey::random(&mut rng);
         private_key
             .store(output, rng, &passphrase, self.time_cost, self.memory_cost)
-            .with_context(|| format!("unable to write to {:?}", &self.output))?;
+            .map_err(|e| CliError::WriteIo(e, self.output))?;
         Ok(())
     }
 }
@@ -90,13 +91,11 @@ struct PublicKeyArgs {
 }
 
 impl Runnable for PublicKeyArgs {
-    fn run(self) -> Result<()> {
+    fn run(self) -> Result<(), CliError> {
         let mut output = open_output(&self.output, false)?;
         let private_key = self.private_key.decrypt()?;
         let public_key = private_key.public_key();
-        write!(output, "{}", public_key)
-            .with_context(|| format!("unable to write to {:?}", &self.output))?;
-        Ok(())
+        write!(output, "{}", public_key).map_err(|e| CliError::WriteIo(e, self.output))
     }
 }
 
@@ -135,13 +134,16 @@ struct EncryptArgs {
 }
 
 impl Runnable for EncryptArgs {
-    fn run(self) -> Result<()> {
+    fn run(self) -> Result<(), CliError> {
         let input = open_input(&self.input)?;
         let output = open_output(&self.output, true)?;
         let private_key = self.private_key.decrypt()?;
         private_key
             .encrypt(rand::thread_rng(), input, output, &self.receivers, self.fakes, self.padding)
-            .with_context(|| "unable to encrypt message")?;
+            .map_err(|e| match e {
+                veil::EncryptError::ReadIo(e) => CliError::ReadIo(e, self.input),
+                veil::EncryptError::WriteIo(e) => CliError::WriteIo(e, self.output),
+            })?;
         Ok(())
     }
 }
@@ -166,13 +168,15 @@ struct DecryptArgs {
 }
 
 impl Runnable for DecryptArgs {
-    fn run(self) -> Result<()> {
+    fn run(self) -> Result<(), CliError> {
         let input = open_input(&self.input)?;
         let output = open_output(&self.output, true)?;
         let private_key = self.private_key.decrypt()?;
-        private_key
-            .decrypt(input, output, &self.sender)
-            .with_context(|| "unable to decrypt message")?;
+        private_key.decrypt(input, output, &self.sender).map_err(|e| match e {
+            DecryptError::InvalidCiphertext => CliError::InvalidCiphertext,
+            DecryptError::ReadIo(e) => CliError::ReadIo(e, self.input),
+            DecryptError::WriteIo(e) => CliError::WriteIo(e, self.input),
+        })?;
         Ok(())
     }
 }
@@ -193,15 +197,14 @@ struct SignArgs {
 }
 
 impl Runnable for SignArgs {
-    fn run(self) -> Result<()> {
+    fn run(self) -> Result<(), CliError> {
         let input = open_input(&self.input)?;
         let mut output = open_output(&self.output, false)?;
         let private_key = self.private_key.decrypt()?;
         let sig = private_key
             .sign(rand::thread_rng(), input)
-            .with_context(|| "unable to sign message")?;
-        write!(output, "{}", sig)
-            .with_context(|| format!("error writing to {:?}", &self.output))?;
+            .map_err(|e| CliError::ReadIo(e, self.input))?;
+        write!(output, "{}", sig).map_err(|e| CliError::WriteIo(e, self.output))?;
         Ok(())
     }
 }
@@ -223,9 +226,12 @@ struct VerifyArgs {
 }
 
 impl Runnable for VerifyArgs {
-    fn run(self) -> Result<()> {
+    fn run(self) -> Result<(), CliError> {
         let input = open_input(&self.input)?;
-        self.signer.verify(input, &self.signature).with_context(|| "unable to verify signature")?;
+        self.signer.verify(input, &self.signature).map_err(|e| match e {
+            veil::VerifyError::InvalidSignature => CliError::InvalidSignature,
+            veil::VerifyError::ReadIo(e) => CliError::ReadIo(e, self.input),
+        })?;
         Ok(())
     }
 }
@@ -251,14 +257,16 @@ struct DigestArgs {
 }
 
 impl Runnable for DigestArgs {
-    fn run(self) -> Result<()> {
+    fn run(self) -> Result<(), CliError> {
         let input = open_input(&self.input)?;
         let digest =
-            Digest::new(&self.metadata, input).with_context(|| "unable to digest message")?;
+            Digest::new(&self.metadata, input).map_err(|e| CliError::ReadIo(e, self.input))?;
         if let Some(check) = self.check {
-            ensure!(check == digest, "digest mismatch");
+            if check != digest {
+                return Err(CliError::DigestMismatch);
+            }
         } else {
-            write!(open_output(&self.output, false)?, "{}", digest)?;
+            write!(open_output(&self.output, false)?, "{}", digest).map_err(CliError::TermIo)?;
         }
         Ok(())
     }
@@ -278,10 +286,10 @@ struct CompleteArgs {
 }
 
 impl Runnable for CompleteArgs {
-    fn run(self) -> Result<()> {
+    fn run(self) -> Result<(), CliError> {
         let mut app = Opts::command();
         generate_to(self.shell, &mut app, "veil", &self.output)
-            .with_context(|| format!("unable to write to {:?}", &self.output))?;
+            .map_err(|e| CliError::WriteIo(e, self.output))?;
         Ok(())
     }
 }
@@ -297,8 +305,11 @@ struct PrivateKeyInput {
 }
 
 impl PrivateKeyInput {
-    fn decrypt(&self) -> Result<PrivateKey> {
-        self.passphrase_input.decrypt_private_key(&self.private_key)
+    fn decrypt(&self) -> Result<PrivateKey, CliError> {
+        let passphrase = self.passphrase_input.read_passphrase()?;
+        let ciphertext = File::open(&self.private_key)
+            .map_err(|e| CliError::ReadIo(e, self.private_key.to_path_buf()))?;
+        PrivateKey::load(ciphertext, &passphrase).map_err(CliError::BadPassphrase)
     }
 }
 
@@ -311,7 +322,7 @@ struct PassphraseInput {
 }
 
 impl PassphraseInput {
-    fn read_passphrase(&self) -> Result<Vec<u8>> {
+    fn read_passphrase(&self) -> Result<Vec<u8>, CliError> {
         if cfg!(unix) {
             if let Some(fd) = self.passphrase_fd {
                 return Self::read_from_fd(fd);
@@ -322,50 +333,85 @@ impl PassphraseInput {
     }
 
     #[cfg(unix)]
-    fn read_from_fd(fd: i32) -> Result<Vec<u8>> {
+    fn read_from_fd(fd: i32) -> Result<Vec<u8>, CliError> {
         use std::os::unix::prelude::FromRawFd;
 
         let mut out = Vec::new();
         unsafe { File::from_raw_fd(fd) }
             .read_to_end(&mut out)
-            .with_context(|| format!("unable to read from file descriptor {}", fd))?;
+            .map_err(|e| CliError::FdIo(e, fd))?;
         Ok(out)
     }
 
-    fn prompt_for_passphrase(&self) -> Result<Vec<u8>> {
+    fn prompt_for_passphrase(&self) -> Result<Vec<u8>, CliError> {
         let mut term = Term::stderr();
-        let _ = term.write(b"Enter passphrase: ")?;
-        let passphrase = term.read_secure_line()?;
-        ensure!(!passphrase.is_empty(), "no passphrase entered");
+        let _ = term.write(b"Enter passphrase: ").map_err(CliError::TermIo)?;
+        let passphrase = term.read_secure_line().map_err(CliError::TermIo)?;
+        if passphrase.is_empty() {
+            return Err(CliError::EmptyPassphrase);
+        }
         Ok(passphrase.as_bytes().to_vec())
     }
-
-    fn decrypt_private_key(&self, path: &Path) -> Result<PrivateKey> {
-        let passphrase = self.read_passphrase()?;
-        let ciphertext =
-            File::open(path).with_context(|| format!("unable to open file {:?}", path))?;
-        PrivateKey::load(ciphertext, &passphrase).with_context(|| "unable to decrypt private key")
-    }
 }
 
-fn open_input(path: &Path) -> Result<Box<dyn Read>> {
+fn open_input(path: &Path) -> Result<Box<dyn Read>, CliError> {
     if path.as_os_str() == "-" {
-        ensure!(!atty::is(atty::Stream::Stdin), "stdin is a tty");
+        if atty::is(atty::Stream::Stdin) {
+            return Err(CliError::StdinTty);
+        }
         Ok(Box::new(io::stdin().lock()))
     } else {
-        let f = File::open(path).with_context(|| format!("unable to open file {:?}", path))?;
+        let f = File::open(path).map_err(|e| CliError::ReadIo(e, path.to_path_buf()))?;
         Ok(Box::new(f))
     }
 }
 
-fn open_output(path: &Path, binary: bool) -> Result<Box<dyn Write>> {
+fn open_output(path: &Path, binary: bool) -> Result<Box<dyn Write>, CliError> {
     if path.as_os_str() == "-" {
-        ensure!(!(binary && atty::is(atty::Stream::Stdout)), "stdout is a tty");
+        if binary && atty::is(atty::Stream::Stdout) {
+            return Err(CliError::StdoutTty);
+        }
         Ok(Box::new(io::stdout().lock()))
     } else {
-        let f = File::create(path).with_context(|| format!("unable to create file {:?}", path))?;
+        let f = File::create(path).map_err(|e| CliError::WriteIo(e, path.to_path_buf()))?;
         Ok(Box::new(f))
     }
+}
+
+#[derive(Debug, Error)]
+enum CliError {
+    #[error("unable to read from stdin: is a tty")]
+    StdinTty,
+
+    #[error("unable to write to stdout: is a tty")]
+    StdoutTty,
+
+    #[error("terminal io error")]
+    TermIo(#[source] io::Error),
+
+    #[error("unable to read from file descriptor {1}")]
+    FdIo(#[source] io::Error, i32),
+
+    #[error("unable to read from {1:?}")]
+    ReadIo(#[source] io::Error, PathBuf),
+
+    #[error("unable to write to {1:?}")]
+    WriteIo(#[source] io::Error, PathBuf),
+
+    #[error("no passphrase entered")]
+    EmptyPassphrase,
+
+    #[error("unable to decrypt private key")]
+    BadPassphrase(#[source] DecryptError),
+
+    #[error("digest mismatch")]
+    DigestMismatch,
+
+    #[error("invalid signature")]
+    InvalidSignature,
+
+    #[error("invalid ciphertext")]
+    InvalidCiphertext,
 }
 
 #[cfg(test)]
