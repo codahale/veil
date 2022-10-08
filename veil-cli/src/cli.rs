@@ -1,17 +1,19 @@
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
+use std::process;
 
 use clap::{ArgAction, CommandFactory, Parser, Subcommand, ValueHint};
 use clap_complete::{generate_to, Shell};
 use console::Term;
+use narrate::report;
 use thiserror::Error;
 
 use veil::{DecryptError, Digest, PrivateKey, PublicKey, Signature};
 
-fn main() -> Result<(), anyhow::Error> {
+fn main() {
     let opts = Opts::parse();
-    match opts.cmd {
+    let res = match opts.cmd {
         Cmd::PrivateKey(cmd) => cmd.run(),
         Cmd::PublicKey(cmd) => cmd.run(),
         Cmd::Encrypt(cmd) => cmd.run(),
@@ -20,8 +22,12 @@ fn main() -> Result<(), anyhow::Error> {
         Cmd::Verify(cmd) => cmd.run(),
         Cmd::Digest(cmd) => cmd.run(),
         Cmd::Complete(cmd) => cmd.run(),
-    }?;
-    Ok(())
+    };
+
+    if let Err(e) = res {
+        report::err_full(&narrate::Error::new(e));
+        process::exit(-1);
+    }
 }
 
 #[derive(Debug, Parser)]
