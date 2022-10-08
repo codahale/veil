@@ -277,11 +277,11 @@ impl Runnable for DigestArgs {
 #[command(hide(true))]
 struct CompleteArgs {
     /// The type of shell completion script to generate: bash, elvish, fish, powershell, or zsh.
-    #[arg()]
+    #[arg(long)]
     shell: Shell,
 
     /// Output directory for shell completion scripts.
-    #[arg(value_hint = ValueHint::DirPath)]
+    #[arg(short, long, value_hint = ValueHint::DirPath)]
     output: PathBuf,
 }
 

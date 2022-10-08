@@ -24,7 +24,7 @@ practical tool.
 `veil` can generate its own shell completion scripts for Bash, Elvish, Fish, Powershell, and Zsh:
 
 ```shell
-veil complete zsh /usr/local/share/zsh/site-functions/
+veil complete --shell zsh -o /usr/local/share/zsh/site-functions/
 ```
 
 ## Creating A Private Key
