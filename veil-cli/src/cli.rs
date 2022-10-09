@@ -6,7 +6,7 @@ use std::process;
 use clap::{ArgAction, CommandFactory, Parser, Subcommand, ValueHint};
 use clap_complete::{generate_to, Shell};
 use console::Term;
-use narrate::report;
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use thiserror::Error;
 
 use veil::{DecryptError, Digest, PrivateKey, PublicKey, Signature};
@@ -25,7 +25,24 @@ fn main() {
     };
 
     if let Err(e) = res {
-        report::err_full(&narrate::Error::new(e));
+        let stderr = StandardStream::stderr(ColorChoice::Auto);
+        let mut stderr = stderr.lock();
+        let mut color = ColorSpec::new();
+        color.set_bold(true);
+        color.set_fg(Some(Color::Red));
+        let _ = stderr.set_color(&color);
+        let _ = write!(stderr, "error");
+        let _ = stderr.reset();
+        let _ = writeln!(stderr, ": {}", e);
+        color.set_bold(false);
+
+        for cause in anyhow::Error::new(e).chain().skip(1) {
+            let _ = stderr.set_color(&color);
+            let _ = write!(stderr, "cause");
+            let _ = stderr.reset();
+            let _ = writeln!(stderr, ": {}", cause);
+        }
+
         process::exit(-1);
     }
 }
