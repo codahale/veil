@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
@@ -13,7 +14,7 @@ use veil::{DecryptError, Digest, PrivateKey, PublicKey, Signature};
 
 fn main() {
     let opts = Opts::parse();
-    let res = match opts.cmd {
+    if let Err(e) = match opts.cmd {
         Cmd::PrivateKey(cmd) => cmd.run(),
         Cmd::PublicKey(cmd) => cmd.run(),
         Cmd::Encrypt(cmd) => cmd.run(),
@@ -22,27 +23,8 @@ fn main() {
         Cmd::Verify(cmd) => cmd.run(),
         Cmd::Digest(cmd) => cmd.run(),
         Cmd::Complete(cmd) => cmd.run(),
-    };
-
-    if let Err(e) = res {
-        let stderr = StandardStream::stderr(ColorChoice::Auto);
-        let mut stderr = stderr.lock();
-        let mut color = ColorSpec::new();
-        color.set_bold(true);
-        color.set_fg(Some(Color::Red));
-        let _ = stderr.set_color(&color);
-        let _ = write!(stderr, "error");
-        let _ = stderr.reset();
-        let _ = writeln!(stderr, ": {}", e);
-        color.set_bold(false);
-
-        for cause in anyhow::Error::new(e).chain().skip(1) {
-            let _ = stderr.set_color(&color);
-            let _ = write!(stderr, "cause");
-            let _ = stderr.reset();
-            let _ = writeln!(stderr, ": {}", cause);
-        }
-
+    } {
+        e.print();
         process::exit(-1);
     }
 }
@@ -435,6 +417,30 @@ enum CliError {
 
     #[error("invalid ciphertext")]
     InvalidCiphertext,
+}
+
+impl CliError {
+    fn print(&self) {
+        let stderr = StandardStream::stderr(ColorChoice::Auto);
+        let mut stderr = stderr.lock();
+        let mut color = ColorSpec::new();
+        color.set_bold(true);
+        color.set_fg(Some(Color::Red));
+        let _ = stderr.set_color(&color);
+        let _ = write!(stderr, "error");
+        let _ = stderr.reset();
+        let _ = writeln!(stderr, ": {}", self);
+        color.set_bold(false);
+
+        let mut source = self.source();
+        while let Some(cause) = source {
+            let _ = stderr.set_color(&color);
+            let _ = write!(stderr, "cause");
+            let _ = stderr.reset();
+            let _ = writeln!(stderr, ": {}", cause);
+            source = cause.source();
+        }
+    }
 }
 
 #[cfg(test)]

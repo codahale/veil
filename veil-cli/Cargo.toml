@@ -9,7 +9,6 @@ description = "Stupid crypto tricks."
 default-run = "veil"
 
 [dependencies]
-anyhow = "1.0.65"
 atty = "0.2.14"
 clap = { version = "4.0.10", features = ["deprecated", "derive"] }
 clap_complete = "4.0.2"
@@ -20,6 +19,7 @@ thiserror = "1.0.37"
 veil = { path = "../veil" }
 
 [dev-dependencies]
+anyhow = "1.0.65"
 xshell = "0.2.2"
 
 [[bin]]
