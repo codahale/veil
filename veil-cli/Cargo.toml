@@ -10,11 +10,11 @@ default-run = "veil"
 
 [dependencies]
 atty = "0.2.14"
+bunt = "0.2.6"
 clap = { version = "4.0.10", features = ["deprecated", "derive"] }
 clap_complete = "4.0.2"
 console = "0.15.2"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
-termcolor = "1.1.3"
 thiserror = "1.0.37"
 veil = { path = "../veil" }
 

@@ -7,7 +7,6 @@ use std::process;
 use clap::{ArgAction, CommandFactory, Parser, Subcommand, ValueHint};
 use clap_complete::{generate_to, Shell};
 use console::Term;
-use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use thiserror::Error;
 
 use veil::{DecryptError, Digest, PrivateKey, PublicKey, Signature};
@@ -421,23 +420,11 @@ enum CliError {
 
 impl CliError {
     fn print(&self) {
-        let stderr = StandardStream::stderr(ColorChoice::Auto);
-        let mut stderr = stderr.lock();
-        let mut color = ColorSpec::new();
-        color.set_bold(true);
-        color.set_fg(Some(Color::Red));
-        let _ = stderr.set_color(&color);
-        let _ = write!(stderr, "error");
-        let _ = stderr.reset();
-        let _ = writeln!(stderr, ": {}", self);
-        color.set_bold(false);
+        bunt::eprintln!("{[red+bold]}: {}", "error", self);
 
         let mut source = self.source();
         while let Some(cause) = source {
-            let _ = stderr.set_color(&color);
-            let _ = write!(stderr, "cause");
-            let _ = stderr.reset();
-            let _ = writeln!(stderr, ": {}", cause);
+            bunt::eprintln!("{[red]}: {}", "cause", cause);
             source = cause.source();
         }
     }
