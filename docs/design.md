@@ -751,7 +751,7 @@ secure.
 The latter portion of `veil.mres` is an EdDSA-style Schnorr signature scheme. The EdDSA-style
 Schnorr signature is sUF-CMA secure when implemented in a prime order group and a cryptographic hash
 function [[BCJZ21]](#bcjz21) [[CGN20]](#cgn20) [[PS00]](#ps00) [[NSW09]](#nsw09) (see also
-[`veil.schnor`](#digital-signatures)). Short challenge scalars are used which allow for faster
+[`veil.schnorr`](#digital-signatures)). Short challenge scalars are used which allow for faster
 verification with no loss in security [[Por22]](#por22). In addition, this construction allows for
 the use of variable-time optimizations during signature verification [[Por20+1]](#por201).
 
