@@ -340,9 +340,9 @@ dependencies = [
 
 [[package]]
 name = "cyclist"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59abde8b5ee5fe5d156bc44657b4d5700e7854f7d01ddeb75f9156d2008b994d"
+checksum = "4e1e9d8f810ba2a57bd12772aff15a766a1e35b221b3d5e6a5e56d92d83632ec"
 dependencies = [
  "byteorder",
  "constant_time_eq",
