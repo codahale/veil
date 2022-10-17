@@ -96,12 +96,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "byteorder"
-version = "1.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
-
-[[package]]
 name = "cast"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -340,11 +334,10 @@ dependencies = [
 
 [[package]]
 name = "cyclist"
-version = "0.6.1"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e1e9d8f810ba2a57bd12772aff15a766a1e35b221b3d5e6a5e56d92d83632ec"
+checksum = "eb5d6fd95a96dbaf4023c3097b5307066c31196fe76cdb15a7ee54ef7ac27816"
 dependencies = [
- "byteorder",
  "constant_time_eq",
  "keccak-p",
 ]
