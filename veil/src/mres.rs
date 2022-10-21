@@ -3,10 +3,10 @@
 use std::io::{self, Read, Write};
 use std::mem;
 
+use lockstitch::{Protocol, TAG_LEN};
 use rand::{CryptoRng, Rng};
 
 use crate::blockio::ReadBlock;
-use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex, TAG_LEN};
 use crate::keys::{PrivKey, PubKey};
 use crate::schnorr::SIGNATURE_LEN;
 use crate::sres::NONCE_LEN;
@@ -39,19 +39,20 @@ pub fn encrypt(
 ) -> Result<u64, EncryptError> {
     let padding = u64::try_from(padding).expect("unexpected overflow");
 
-    // Initialize an unkeyed duplex and absorb the sender's public key.
-    let mut mres = UnkeyedDuplex::new("veil.mres");
-    mres.absorb(&sender.pub_key.encoded);
+    // Initialize a protocol and mix the sender's public key into it.
+    let mut mres = Protocol::new("veil.mres");
+    mres.mix(&sender.pub_key.encoded);
 
     // Generate ephemeral key pair, DEK, and nonce.
-    let (ephemeral, dek, nonce) = mres.hedge(&mut rng, sender, |clone| {
-        (clone.squeeze_private_key(), clone.squeeze(), clone.squeeze::<NONCE_LEN>())
+    let (ephemeral, dek, nonce) = mres.hedge(&mut rng, &[&sender.d.encode()], |clone| {
+        PrivKey::decode_reduce(clone.derive_array::<32>())
+            .map(|k| (k, clone.derive_array(), clone.derive_array::<NONCE_LEN>()))
     });
 
-    // Absorb and write the nonce.
-    mres.absorb(&nonce);
+    // Write the nonce and mix it into the protocol.
     writer.write_all(&nonce).map_err(EncryptError::WriteIo)?;
     let mut written = u64::try_from(NONCE_LEN).expect("unexpected overflow");
+    mres.mix(&nonce);
 
     // Encode a header with the DEK, receiver count, and padding.
     let header = Header::new(dek, receivers.len(), padding).encode();
@@ -59,45 +60,42 @@ pub fn encrypt(
     // For each receiver, encrypt a copy of the header with veil.sres.
     let mut enc_header = [0u8; ENC_HEADER_LEN];
     for receiver in receivers {
-        // Squeeze a nonce for each header.
-        let nonce = mres.squeeze::<NONCE_LEN>();
+        // Derive a nonce for each header.
+        let nonce = mres.derive_array::<NONCE_LEN>();
 
         // Encrypt the header for the given receiver.
         sres::encrypt(&mut rng, sender, &ephemeral, receiver, &nonce, &header, &mut enc_header);
 
-        // Absorb the encrypted header.
-        mres.absorb(&enc_header);
+        // Mix the encrypted header into the protocol.
+        mres.mix(&enc_header);
 
         // Write the encrypted header.
         writer.write_all(&enc_header).map_err(EncryptError::WriteIo)?;
         written += u64::try_from(ENC_HEADER_LEN).expect("unexpected overflow");
     }
 
-    // Add random padding to the end of the headers.
+    // Add random padding to the end of the headers, mixing it into the protocol.
     written += mres
-        .absorb_reader_into(RngRead(&mut rng).take(padding), &mut writer)
+        .copy_stream(RngRead(&mut rng).take(padding), &mut writer)
         .map_err(EncryptError::WriteIo)?;
 
-    // Absorb the DEK.
-    mres.absorb(&dek);
-
-    // Convert the unkeyed duplex to a keyed duplex.
-    let mut mres = mres.into_keyed();
+    // Mix the DEK into the protocol.
+    mres.mix(&dek);
 
     // Encrypt the plaintext in blocks and write them.
     written += encrypt_message(&mut mres, reader, &mut writer)?;
 
-    // Sign the duplex's final state with the ephemeral private key and append the signature.
-    let sig = schnorr::sign_duplex(&mut mres, &mut rng, &ephemeral);
+    // Sign the protocol's final state with the ephemeral private key and append the signature.
+    let sig = schnorr::sign_protocol(&mut mres, &mut rng, &ephemeral);
     writer.write_all(&sig.encode()).map_err(EncryptError::WriteIo)?;
 
     Ok(written + u64::try_from(SIGNATURE_LEN).expect("unexpected overflow"))
 }
 
-/// Given a duplex keyed with the DEK, read the entire contents of `reader` in blocks and write the
-/// encrypted blocks and authentication tags to `writer`.
+/// Given a protocol keyed with the DEK, read the entire contents of `reader` in blocks and write
+/// the encrypted blocks and authentication tags to `writer`.
 fn encrypt_message(
-    mres: &mut KeyedDuplex,
+    mres: &mut Protocol,
     mut reader: impl Read,
     mut writer: impl Write,
 ) -> Result<u64, EncryptError> {
@@ -109,8 +107,8 @@ fn encrypt_message(
         let n = reader.read_block(&mut buf[..BLOCK_LEN]).map_err(EncryptError::ReadIo)?;
         let block = &mut buf[..n + TAG_LEN];
 
-        // Encrypt the block and write the ciphertext and a tag.
-        mres.seal_mut(block);
+        // Seal the block and write it.
+        mres.seal(block);
         writer.write_all(block).map_err(EncryptError::WriteIo)?;
         written += u64::try_from(block.len()).expect("unexpected overflow");
 
@@ -132,37 +130,34 @@ pub fn decrypt(
     receiver: &PrivKey,
     sender: &PubKey,
 ) -> Result<u64, DecryptError> {
-    // Initialize an unkeyed duplex and absorb the sender's public key.
-    let mut mres = UnkeyedDuplex::new("veil.mres");
-    mres.absorb(&sender.encoded);
+    // Initialize a protocol and mix the sender's public key into it.
+    let mut mres = Protocol::new("veil.mres");
+    mres.mix(&sender.encoded);
 
-    // Read and absorb the nonce.
+    // Read the nonce and mix it into the protocol.
     let mut nonce = [0u8; NONCE_LEN];
     reader.read_exact(&mut nonce).map_err(DecryptError::ReadIo)?;
-    mres.absorb(&nonce);
+    mres.mix(&nonce);
 
-    // Find a header, decrypt it, and write the entirety of the headers and padding to the duplex.
+    // Find a header, decrypt it, and mix the entirety of the headers and padding into the protocol.
     let (ephemeral, dek) = decrypt_header(&mut mres, &mut reader, receiver, sender)?;
 
-    // Absorb the DEK.
-    mres.absorb(&dek);
-
-    // Convert the duplex to a keyed duplex.
-    let mut mres = mres.into_keyed();
+    // Mix the DEK into the protocol.
+    mres.mix(&dek);
 
     // Decrypt the message.
     let (written, sig) = decrypt_message(&mut mres, &mut reader, &mut writer)?;
 
     // Verify the signature and return the number of bytes written.
-    schnorr::verify_duplex(&mut mres, &ephemeral, &sig)
+    schnorr::verify_protocol(&mut mres, &ephemeral, &sig)
         .and(Some(written))
         .ok_or(DecryptError::InvalidCiphertext)
 }
 
-/// Given a duplex keyed with the DEK, read the entire contents of `reader` in blocks and write the
-/// decrypted blocks `writer`.
+/// Given a protocol keyed with the DEK, read the entire contents of `reader` in blocks and write
+/// the decrypted blocks `writer`.
 fn decrypt_message(
-    mres: &mut KeyedDuplex,
+    mres: &mut Protocol,
     mut reader: impl Read,
     mut writer: impl Write,
 ) -> Result<(u64, Signature), DecryptError> {
@@ -185,9 +180,9 @@ fn decrypt_message(
         let block_len = n - SIGNATURE_LEN + offset;
         let block = &mut buf[..block_len];
 
-        // Decrypt the block and write the plaintext. If the block cannot be decrypted, return an
+        // Open the block and write the plaintext. If the block cannot be decrypted, return an
         // error.
-        let plaintext = mres.unseal_mut(block).ok_or(DecryptError::InvalidCiphertext)?;
+        let plaintext = mres.open(block).ok_or(DecryptError::InvalidCiphertext)?;
         writer.write_all(plaintext).map_err(DecryptError::WriteIo)?;
         written += u64::try_from(plaintext.len()).expect("unexpected overflow");
 
@@ -203,7 +198,7 @@ fn decrypt_message(
 /// Iterate through the contents of `reader` looking for a header which was encrypted by the given
 /// sender for the given receiver.
 fn decrypt_header(
-    mres: &mut UnkeyedDuplex,
+    mres: &mut Protocol,
     mut reader: impl Read,
     receiver: &PrivKey,
     sender: &PubKey,
@@ -225,12 +220,12 @@ fn decrypt_header(
             }
         })?;
 
-        // Squeeze a nonce regardless of whether we need to in order to keep the duplex state
+        // Derive a nonce regardless of whether we need to in order to keep the protocol state
         // consistent.
-        let nonce = mres.squeeze::<NONCE_LEN>();
+        let nonce = mres.derive_array::<NONCE_LEN>();
 
-        // Absorb the encrypted header with the duplex.
-        mres.absorb(&enc_header);
+        // Mix the encrypted header into the protocol.
+        mres.mix(&enc_header);
 
         // If a header hasn't been decrypted yet, try to decrypt this one.
         if header.is_none() {
@@ -250,8 +245,8 @@ fn decrypt_header(
     // Unpack the header values, if any.
     let (ephemeral, header) = header.ok_or(DecryptError::InvalidCiphertext)?;
 
-    // Read the padding and absorb it with the duplex.
-    mres.absorb_reader(&mut reader.take(header.padding)).map_err(DecryptError::ReadIo)?;
+    // Read the padding and mix it into the protocol.
+    mres.mix_stream(&mut reader.take(header.padding)).map_err(DecryptError::ReadIo)?;
 
     // Return the ephemeral public key and DEK.
     Ok((ephemeral, header.dek))
