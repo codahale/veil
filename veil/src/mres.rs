@@ -13,7 +13,7 @@ use crate::sres::NONCE_LEN;
 use crate::{schnorr, sres, DecryptError, EncryptError, Signature};
 
 /// The length of plaintext blocks which are encrypted.
-const BLOCK_LEN: usize = 32 * 1024;
+const BLOCK_LEN: usize = 64 * 1024;
 
 /// The length of an encrypted block and authentication tag.
 const ENC_BLOCK_LEN: usize = BLOCK_LEN + TAG_LEN;
