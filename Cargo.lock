@@ -506,7 +506,7 @@ dependencies = [
 [[package]]
 name = "lockstitch"
 version = "0.1.0"
-source = "git+https://github.com/codahale/lockstitch?branch=main#a8a17f14a7c51ede4d8e048fabf2c31c11c22634"
+source = "git+https://github.com/codahale/lockstitch?branch=main#1a277abc28aa20f3b6c16046c43f98b55cc75e81"
 dependencies = [
  "blake3",
  "c2-chacha",
