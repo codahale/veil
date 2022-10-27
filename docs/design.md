@@ -601,7 +601,7 @@ prove the authenticity of a message (including the identity of its sender) to a 
 All of the components of a `veil.sres` ciphertext--`C₀`, `C₁`, `S₀`, and `S₁`--are ChaCha8
 ciphertexts using keys derived via BLAKE3.  An adversary in the outsider setting (i.e. knowing only
 public keys) is unable to calculate any of the key material used to produce the ciphertexts; a
-distinguishing attack would imply that either BLAKE3 is not collision-resistent or that ChaCha8 is
+distinguishing attack would imply that either BLAKE3 is not collision-resistant or that ChaCha8 is
 not PRF secure.
 
 ### Re-use Of Ephemeral Keys
@@ -809,7 +809,7 @@ Deniability](#limited-deniability)), therefore `veil.mres` does as well.
 
 `veil.mres` ciphertexts are indistinguishable from random noise. All components of an `veil.mres`
 ciphertext are ChaCha8 ciphertexts; a successful distinguishing attack on them would imply that
-BLAKE3 is not collision-resistent or ChaCha8 is not PRF secure.
+BLAKE3 is not collision-resistant or ChaCha8 is not PRF secure.
 
 ### Partial Decryption
 
