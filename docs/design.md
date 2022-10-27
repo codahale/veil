@@ -53,9 +53,9 @@ PGP messages use a Sign-Then-Encrypt (StE) construction, which is insecure given
 oracle ([[AR10]](#ar10), p. 41):
 
 > In the StE scheme, the adversary `A` can easily break the sUF-CMA security in the outsider model.
-It can ask the encryption oracle to signcrypt a message `m` for `R'` and get
-`C=(Encrypt(pk_R',m||σ),ID_S,ID_R')` where `σ=Sign(pk_S,m)`. Then, it can recover `m||σ` using
-`sk_R'` and forge the signcryption ciphertext `C=(Encrypt(pk_R,m||σ),ID_S,ID_R)`.
+It can ask the encryption oracle to signcrypt a message `m` for `R′` and get
+`C=(Encrypt(pk_R′,mǁσ),ID_S,ID_R′)` where `σ=Sign(pk_S,m)`. Then, it can recover `mǁσ` using `sk_R′`
+and forge the signcryption ciphertext `C=(Encrypt(pk_R,mǁσ),ID_S,ID_R)`.
 
 This may seem like an academic distinction, but this attack is trivial to mount. If you send your
 boss an angry resignation letter signed and encrypted with PGP, your boss can re-transmit that to
@@ -109,10 +109,10 @@ assume `A` has three capabilities:
 1. `A` can create their own key pairs. Veil does not have a centralized certificate authority and
    creating new key pairs is intentionally trivial.
 2. `A` can trick the sender into encrypting arbitrary plaintexts with arbitrary public keys. This
-    allows us to model real-world flaws such as servers which return encrypted error messages with
-    client-provided data [[YHR04]](#yhr04).
+   allows us to model real-world flaws such as servers which return encrypted error messages with
+   client-provided data [[YHR04]](#yhr04).
 3. `A` can trick the receiver into decrypting arbitrary ciphertexts from arbitrary senders. This
-    allows us to model real-world flaws such as padding oracles [[RD10]](#rd10).
+   allows us to model real-world flaws such as padding oracles [[RD10]](#rd10).
 
 Given these capabilities, `A` can mount an attack in two different settings: the outsider setting
 and the insider setting.
@@ -173,8 +173,8 @@ compromise impersonation_, in which `A`, given knowledge of a receiver's private
 messages to that receiver from arbitrary senders [Str06](#str06). The classic example is
 authenticated Diffie-Hellman (e.g. [[RFC9180]](#rfc9180) [[ABHKLR21]](#abhklr21)), in which the
 static Diffie-Hellman shared secret point `K=[d_S]Q_R` is used to encrypt a message and its
-equivalent `K'=[d_R]Q_S` is used to decrypt it. An attacker in possession of the receiver's private
-key `d_R` and the sender's public key `Q_S` can simply encrypt the message using `K'=[d_R]Q_S`
+equivalent `K′=[d_R]Q_S` is used to decrypt it. An attacker in possession of the receiver's private
+key `d_R` and the sender's public key `Q_S` can simply encrypt the message using `K′=[d_R]Q_S`
 without ever having knowledge of `d_S`. Digital signatures are a critical element of schemes which
 provide insider authenticity, as they give receivers a way to verify the authenticity of a message
 using authenticators they (or an adversary with their private key) could never construct themselves.
@@ -200,8 +200,8 @@ unblocked programs, so that simple traffic profiling cannot identify the tools w
 number of traces; the censors respond by deploying firewalls with increasingly sophisticated
 deep-packet inspection.
 >
-> Cryptography hides patterns in user data but does not evade censorship
-if the censor can recognize patterns in the cryptography itself.
+> Cryptography hides patterns in user data but does not evade censorship if the censor can recognize
+patterns in the cryptography itself.
 
 ### Limited Deniability
 
@@ -215,36 +215,22 @@ adversary who compromises an honest receiver.
 
 ## Cryptographic Primitives
 
-In the interests of cryptographic minimalism, Veil uses just two distinct cryptographic primitives:
+In the interests of cryptographic minimalism, Veil uses just three distinct cryptographic
+primitives: [Lockstitch](https://github.com/codahale/lockstitch) for all symmetric-key operations
+and the jq255e elliptic curve [[Por22]](#por22) for all asymmetric-key operations.
 
-1. Keccyak-Min for confidentiality, authentication, and integrity.
-2. jq255e for key agreement and authenticity [[Por22]](#por22).
+### Lockstitch
 
-### Keccyak-Min
+Lockstitch is an incremental, stateful cryptographic primitive for symmetric-key cryptographic
+operations (e.g. hashing, encryption, message authentication codes, and authenticated encryption) in
+complex protocols. It combines BLAKE3 and ChaCha8 to provide GiB/sec performance on modern
+processors at a 128-bit security level. More information on the design of Lockstitch can be found
+[here](https://github.com/codahale/lockstitch/blob/main/design.md).
 
-Keccyak-Min is the adaptation of the Cyclist duplex construction from Xoodyak [[DHPVV20]](#dhpvv20)
-to the Keccak-_p_\[1600,10\] permutation instead of Xoodoo (thus "Keccyak").
-
-Cyclist is a permutation-based cryptographic duplex, a cryptographic primitive that provides
-symmetric-key confidentiality, integrity, and authentication via a single object
-[[DHPVV20]](#dhpvv20). Duplexes offer a way to replace complex, ad-hoc constructions combining
-encryption algorithms, cipher modes, AEADs, MACs, and hash algorithms using a single primitive
-[[DHPVV20]](#dhpvv20) [[BDPV11]](#bdpv11). Duplexes have security properties which reduce to the
-properties of the cryptographic sponge, which themselves reduce to the strength of the underlying
-permutation [[BDPV08]](#bdpv08).
-
-The Keccak-_p_\[1600,10\] permutation (a.k.a. KitTen) is the fastest Keccak-_p_ variant which still
-maintains a reasonable margin of security [[Aum19]](#aum19). It has a 1600-bit width, like
-Keccak-_f_\[1600\] (the basis of SHA-3), but with a reduced number of rounds for speed.This allows
-for much higher throughput in software than the Xoodoo permutation at the expense of requiring a
-larger state. Xoodyak's Cyclist parameters of `R_hash=b-256`, `R_kin=b-32`, `R_kout=b-192`, and
-`L_ratchet=16` are adapted for the larger permutation width of `b=1600`. The resulting construction
-targets a 128-bit security level and is ~4x faster than SHA-256, ~5x faster than ChaCha20Poly1305,
-and ~7.5x faster than AES-128-GCM in software.
-
-Veil's security assumes that Keccak-_p_\[1600,10\] is indistinguishable from a random permutation,
-Cyclist's `Encrypt` operation is IND-CPA secure, its `Squeeze` operation is sUF-CMA secure, and its
-`Encrypt`/`Squeeze`-based authenticated encryption construction is IND-CCA2 secure.
+Veil's security assumes that Lockstitch's `Encrypt` operation is IND-CPA secure if the protocol's
+prior state is probabilistic, its `Tag` operation is sUF-CMA secure if the protocol's prior state is
+secret, and its `Encrypt`/`Tag`-based authenticated encryption construction is IND-CCA2 secure if
+the two are IND-CPA and sUF-CMA secure, respectively.
 
 ### jq255e
 
@@ -261,33 +247,13 @@ relative to jq255e.
 
 Veil uses a few common construction techniques in its design which bear specific mention.
 
-### Unkeyed And Keyed Duplexes
-
-Veil uses Cyclist, which offers both unkeyed ("hash") and keyed modes. All Veil constructions begin
-in the unkeyed mode by absorbing a constant domain separation string (e.g. `veil.mres`). To convert
-from an unkeyed duplex to a keyed duplex, a 512-bit key is derived from the unkeyed duplex's state
-and used to initialize a keyed duplex:
-
-```text
-function EncryptExample(x, p):
-  Absorb("example.encrypt") // Initialize an unkeyed duplex.
-  Absorb(x)                 // Absorb some key material.
-  k ← SqueezeKey(64)        // Squeeze a 512-bit key.
-  Cyclist(k, ϵ, ϵ)          // Initialize a keyed duplex with the derived key.
-  c ← Encrypt(p)            // Encrypt the plaintext.
-  return c
-```
-
-The unkeyed duplex is used as a kind of key derivation function, with the lower absorb rate of
-Cyclist's unkeyed mode providing better avalanching properties.
-
 ### Integrated Constructions
 
-Cyclist is a cryptographic duplex, thus each operation is cryptographically dependent on the
-previous operations. Veil makes use of this by integrating different types of constructions to
-produce a single, unified construction. Instead of having to pass forward specific values (e.g.
-hashes of values or derived keys) to ensure cryptographic dependency, Cyclist allows for
-constructions which simply absorb all values, thus ensuring transcript integrity of complex
+Lockstitch is a cryptographically secure stateful object, thus each operation is cryptographically
+dependent on the previous operations. Veil makes use of this by integrating different types of
+constructions to produce a single, unified construction. Instead of having to pass forward specific
+values (e.g. hashes of values or derived keys) to ensure cryptographic dependency, Lockstitch allows
+for constructions which simply mixes in all values, thus ensuring transcript integrity of complex
 protocols.
 
 For example, a traditional hybrid encryption scheme like HPKE [[RFC9180]](#rfc9180) will describe a
@@ -295,20 +261,22 @@ key encapsulation mechanism (KEM) like X25519 and a data encapsulation mechanism
 and link the two together via a key derivation function (KDF) like HKDF by deriving a key and nonce
 for the DEM from the KEM output.
 
-In contrast, the same construction using Cyclist would be the following three operations, in order:
+In contrast, the same construction using Lockstitch would be the following three operations, in
+order:
 
 ```text
 function HPKE(d_E, Q_R, p):
-  Cyclist([d_E]Q_R, ϵ, ϵ) // Initialize a keyed duplex with the shared secret.
-  c ← Encrypt(p)          // Encrypt the plaintext.
-  t ← Squeeze(16)         // Squeeze an authentication tag.
-  return c||t             // Return ciphertext and tag.
+  state ← Initialize("com.example.hpke") // Initialize a Lockstitch protocol with a domain string. 
+  state ← Mix(state, [d_E]Q_R)           // Mix the ECDH shared secret into the protocol's state.
+  (state, c) ← Encrypt(state, p)         // Encrypt the plaintext.
+  (state, t) ← Tag(state)                // Create an authentication tag.
+  return cǁt                             // Return ciphertext and tag.
 ```
 
-The duplex is keyed with the shared secret point, used to encrypt the plaintext, and finally used to
-squeeze an authentication tag. Each operation modifies the duplex's state, making the final
-`Squeeze` operation's output dependent on both the previous `Encrypt` operation (and its argument,
-`p`) but also the `Cyclist` operation before it.
+The protocol is keyed with the shared secret point, used to encrypt the plaintext, and finally used
+to create an authentication tag. Each operation modifies the protocol's state, making the final
+`Tag` operation's output dependent on both the previous `Encrypt` operation (and its argument, `p`)
+but also the `Mix` and `Initialize` operations before it.
 
 This is both a dramatically clearer way of expressing the overall hybrid public-key encryption
 construction and more efficient: because the ephemeral shared secret point is unique, no nonce need
@@ -316,15 +284,16 @@ be derived (or no all-zero nonce need be justified in an audit).
 
 #### Process History As Hidden State
 
-A subtle but critical benefit of integrating constructions via a cryptographic duplex is that
-authenticators produced via `Squeeze` operations are dependent on the entire process history of the
-duplex, not just on the emitted ciphertext. The DEM components of our HPKE analog (i.e.
-`Encrypt`/`Squeeze`) are superficially similar to an Encrypt-then-MAC (EtM) construction, but where
-an adversary in possession of the MAC key can forge authenticators given an EtM ciphertext, the
-duplex-based approach makes that infeasible. The output of the `Squeeze` operation is dependent not
-just on the keying material (i.e. the `Cyclist` operation) but also on the plaintext `p`. An
-adversary attempting to forge an authenticator given only key material and ciphertext will be unable
-to reconstruct the duplex's state and thus unable to compute their forgery.
+A subtle but critical benefit of integrating constructions via a stateful cryptographic object is
+that authenticators produced via `Tag` operations are dependent on the entire process history of the
+protocol, not just on the emitted ciphertext. The DEM components of our HPKE analog (i.e.
+`Encrypt`/`Tag`) are superficially similar to an Encrypt-then-MAC (EtM) construction, but where an
+adversary in possession of the MAC key can forge authenticators given an EtM ciphertext, the
+protocol-based approach makes that infeasible. With Lockstitch, the key used to create the
+authenticator tag is derived via BLAKE3 from the protocol's state, which is itself dependent on the
+ECDH shared secret. An adversary attempting to forge an authenticator given only the ciphertext and
+the key used to produce the tag will be unable to reconstruct the protocol's state and thus unable
+to compute their forgery.
 
 ### Hedged Ephemeral Values
 
@@ -332,34 +301,34 @@ When generating ephemeral values, Veil uses Aranha et al.'s "hedged signature" t
 against both catastrophic randomness failures and differential fault attacks against purely
 deterministic schemes [[AOTZ20]](#aotz20).
 
-Specifically, the duplex's state is cloned, and the clone absorbs a context-specific secret value
-(e.g. the signer's private key in a digital signature scheme) and a 64-byte random value. The clone
-duplex is used to produce the ephemeral value or values for the scheme.
+Specifically, hedging clones the protocol's state and mixes both a context-specific secret value
+(e.g. the signer's private key in a digital signature scheme) and a 64-byte random value into the
+clone. The cloned protocol is used to produce the ephemeral value or values for the scheme.
 
-For example, the following operations would be performed on the cloned duplex:
+For example, the following operations would be performed on the cloned protocol:
 
 ```text
-function HedgedScalar(d):
-  with clone do           // Clone the duplex's current state.
-    Absorb(d)             // Absorb the private value.
-    v ← Rand(64)          // Generate a 64-byte random value.
-    Absorb(v)             // Absorb the random value.
-    x ← Squeeze(32) mod q // Squeeze a scalar from the cloned duplex.
-    return x              // Return the scalar to the outer context.
-  end clone               // Destroy the cloned duplex's state.
+function HedgedScalar(state, d):
+  with clone ← Clone(state) do  // Clone the protocol's current state.
+    clone ← Mix(clone, d)       // Mix in the private value.
+    v ← Rand(64)                // Generate a 64-byte random value.
+    clone ← Mix(clone, v)       // Mix in the random value.
+    x ← Derive(clone, 32) mod q // Derive a scalar from the clone.
+    return x                    // Return the scalar to the outer context.
+  end clone                     // Destroy the cloned protocol's state.
 ```
 
 The ephemeral scalar `x` is returned to the context of the original construction and the cloned
-duplex is discarded. This ensures that even in the event of a catastrophic failure of the random
+protocol is discarded. This ensures that even in the event of a catastrophic failure of the random
 number generator, `x` is still unique relative to `d`. Depending on the uniqueness needs of the
 construction, an ephemeral value can be hedged with a plaintext in addition to a private key.
 
-For brevity, a hedged ephemeral value `x` derived from a private input value `y` is denoted as
-`x ← Hedge(y, Squeeze(32) mod q)`.
+For brevity, a hedged ephemeral value `x` derived from a protocol `state` and a private input value
+`y` is denoted as `x ← Hedge(state, y, Derive(32) mod q)`.
 
 ## Digital Signatures
 
-`veil.schnorr` implements a Schnorr digital signature scheme.
+`veil.schnorr` implements an EdDSA-style Schnorr digital signature scheme.
 
 ### Signing A Message
 
@@ -367,35 +336,33 @@ Signing a message requires a signer's private key `d` and a message `m` of arbit
 
 ```text
 function Sign(d, m):
-  Absorb("veil.schnorr")          // Initialize an unkeyed duplex.
-  Absorb([d]G)                    // Absorb the signer's public key.
-  Absorb(m)                       // Absorb the message.
-  Cyclist(SqueezeKey(64), ϵ, ϵ)   // Convert to a keyed duplex.
-  k ← Hedge(d, Squeeze(32) mod q) // Squeeze a hedged commitment scalar.
-  I ← [k]G                        // Calculate the commitment point.
-  S_0 ← Encrypt(I)                // Encrypt the commitment point.
-  r ← Squeeze(16)                 // Squeeze a short challenge scalar.
-  s ← d×️r + k                     // Calculate the proof scalar.
-  S_1 ← Encrypt(s)                // Encrypt the proof scalar.
-  return S_0||S_1                 // Return the commitment point and proof scalar.
+  state ← Initialize("veil.schnorr")     // Initialize a protocol.
+  state ← Mix(state, [d]G)               // Mix the signer's public key into the protocol.
+  state ← Mix(state, m)                  // Mix the message into the protocol.
+  k ← Hedge(state, d, Derive(32) mod q)  // Derive a hedged commitment scalar.
+  I ← [k]G                               // Calculate the commitment point.
+  (state, S₀) ← Encrypt(state, I)        // Encrypt the commitment point.
+  (state, r) ← Derive(state, 16)         // Derive a short challenge scalar.
+  s ← d×️r + k                            // Calculate the proof scalar.
+  (state, S₁) ← Encrypt(state, s)        // Encrypt the proof scalar.
+  return S₀ǁS₁                           // Return the commitment point and proof scalar.
 ```
 
 ### Verifying A Signature
 
 Verifying a signature requires a signer's public key `Q`, a message `m`, and a signature
-`S_0||S_1`.
+`S₀ǁS₁`.
 
 ```text
-function Verify(Q, m, S_0||S_1):
-  Absorb("veil.schnorr")          // Initialize an unkeyed duplex.
-  Absorb(Q)                       // Absorb the signer's public key.
-  Absorb(m)                       // Absorb the message.
-  Cyclist(SqueezeKey(64), ϵ, ϵ)   // Convert to a keyed duplex.
-  I ← Decrypt(S_0)                // Decrypt the commitment point.
-  r' ← Squeeze(16)                // Squeeze a counterfactual challenge scalar.
-  s ← Decrypt(S_1)                // Decrypt the proof scalar.
-  I' ← [s]G - [r']Q               // Calculate the counterfactual commitment scalar.
-  return I = I'                   // The signature is valid if both points are equal.
+function Verify(Q, m, S₀ǁS₁):
+  state ← Initialize("veil.schnorr") // Initialize a protocol.
+  state ← Mix(state, Q)              // Mix the signer's public key into the protocol.
+  state ← Mix(state, m)              // Mix the message into the protocol.
+  (state, I) ← Decrypt(state, S₀)    // Decrypt the commitment point.
+  (state, r′) ← Derive(state, 16)    // Derive a counterfactual challenge scalar.
+  (state, s) ← Decrypt(state, S₁)    // Decrypt the proof scalar.
+  I′ ← [s]G - [r′]Q                  // Calculate the counterfactual commitment point.
+  return I = I′                      // The signature is valid if both points are equal.
 ```
 
 ### Constructive Analysis Of `veil.schnorr`
@@ -404,8 +371,8 @@ The Schnorr signature scheme is the application of the Fiat-Shamir transform to 
 identification scheme.
 
 Unlike Construction 13.12 of [[KL20]](#kl20) (p. 482), `veil.schnorr` transmits the commitment point
-`I` as part of the signature and the verifier calculates `I'` vs transmitting the challenge scalar
-`r` and calculating `r'`. In this way, `veil.schnorr` is closer to EdDSA [[BCJZ21]](#bcjz21) or the
+`I` as part of the signature and the verifier calculates `I′` vs transmitting the challenge scalar
+`r` and calculating `r′`. In this way, `veil.schnorr` is closer to EdDSA [[BCJZ21]](#bcjz21) or the
 Schnorr variant proposed by Hamburg [[Ham17]](#ham17). Short challenge scalars are used which allow
 for faster verification with no loss in security [[Por22]](#por22). In addition, this construction
 allows for the use of variable-time optimizations during signature verification
@@ -416,8 +383,8 @@ allows for the use of variable-time optimizations during signature verification
 Per Theorem 13.10 of [[KL20]](#kl20) (p. 478), this construction is UF-CMA secure if the Schnorr
 identification scheme is secure and the hash function is secure:
 
-> Let `Π` be an identification scheme, and let `Π'` be the signature scheme that results by applying
-the Fiat-Shamir transform to it. If `Π` is secure and `H` is modeled as a random oracle, then `Π'`
+> Let `Π` be an identification scheme, and let `Π′` be the signature scheme that results by applying
+the Fiat-Shamir transform to it. If `Π` is secure and `H` is modeled as a random oracle, then `Π′`
 is secure.
 
 Per Theorem 13.11 of [[KL20]](#kl20) (p. 481), the security of the Schnorr identification scheme is
@@ -426,10 +393,8 @@ conditioned on the hardness of the discrete logarithm problem:
 > If the discrete-logarithm problem is hard relative to `G`, then the Schnorr identification scheme
 is secure.
 
-Per Sec 5.10 of [[BDPV11+1]](#bdpv111), Cyclist is a suitable random oracle if the underlying
-permutation is indistinguishable from a random permutation. Thus, `veil.schnorr` is UF-CMA if the
-discrete-logarithm problem is hard relative to jq255e and Keccak-_p_ is indistinguishable from a
-random permutation.
+Thus, `veil.schnorr` is UF-CMA if the discrete-logarithm problem is hard relative to jq255e and
+BLAKE3 is indistinguishable from a random oracle.
 
 ### sUF-CMA Security
 
@@ -441,7 +406,7 @@ strong binding:
 1. Reject the signature if `S ∉ {0,…,L-1}`.
 2. Reject the signature if the public key `A` is one of 8 small order points.
 3. Reject the signature if `A` or `R` are non-canonical.
-4. Compute the hash `SHA2_512(R||A||M)` and reduce it mod `L` to get a scalar `h`.
+4. Compute the hash `SHA2_512(RǁAǁM)` and reduce it mod `L` to get a scalar `h`.
 5. Accept if `8(S·B)-8R-8(h·A)=0`.
 
 Rejecting `S≥L` makes the scheme sUF-CMA secure, and rejecting small order `A` values makes the
@@ -456,7 +421,7 @@ even with practical cryptographic hash functions [[PS00]](#ps00) [[NSW09]](#nsw0
 ### Key Privacy
 
 The EdDSA variant (i.e. `S=(I,s)` ) is used over the traditional Schnorr construction (i.e.
-`S=(r,s)`) to enable the variable-time computation of `I'=[s]G-[r]Q`, which provides a ~30%
+`S=(r,s)`) to enable the variable-time computation of `I′=[s]G-[r]Q`, which provides a ~30%
 performance improvement. That construction, however, allows for the recovery of the signing public
 key given a signature and a message: given the commitment point `I`, one can calculate
 `Q=-[r^-1](I-[s]G)`.
@@ -465,20 +430,20 @@ For Veil, this behavior is not desirable. A global passive adversary should not 
 the identity of a signer from a signed message.
 
 To eliminate this possibility, `veil.schnorr` encrypts both components of the signature with a
-duplex keyed with the signer's public key in addition to the message. An attack which recovers the
-plaintext of either signature component in the absence of the public key would imply that Cyclist is
-not IND-CPA.
+protocol effectively keyed with the signer's public key in addition to the message. An attack which
+recovers the plaintext of either signature component in the absence of the public key would imply
+that either BLAKE3 is not collision-resistant or that ChaCha8 is not PRF secure.
 
 ### Indistinguishability From Random Noise
 
-Given that both signature components are encrypted with Cyclist, an attack which distinguishes
-between a `veil.schnorr` and random noise would also imply that Keccak-_p_\[1600,10\] is
-distinguishable from a random permutation.
+Given that both signature components are encrypted with ChaCha8, an attack which distinguishes
+between a `veil.schnorr` and random noise would also imply that ChaCha8 is distinguishable from a
+random function.
 
 ## Encrypted Headers
 
 `veil.sres` implements a single-receiver, deniable signcryption scheme which Veil uses to encrypt
-message headers. It integrates an ephemeral ECDH KEM, a Cyclist DEM, and a designated-verifier
+message headers. It integrates an ephemeral ECDH KEM, a Lockstitch DEM, and a designated-verifier
 Schnorr signature scheme to provide multi-user insider security with limited deniability.
 
 ### Encrypting A Header
@@ -488,48 +453,46 @@ receiver's public key `Q_R`, a nonce `N`, and a plaintext `P`.
 
 ```text
 function EncryptHeader(d_S, d_E, Q_R, N, P):
-  Absorb("veil.sres")             // Initialize an unkeyed duplex.
-  Absorb([d_S]G)                  // Absorb the sender's public key.
-  Absorb(Q_R)                     // Absorb the receiver's public key.
-  Absorb(N)                       // Absorb the nonce.
-  Absorb([d_S]Q_R)                // Absorb the static ECDH shared secret.
-  Cyclist(SqueezeKey(64), ϵ, ϵ)   // Initialize a keyed duplex with the derived key.
-  C_0 ← Encrypt([d_E]G)           // Encrypt the ephemeral public key.
-  Absorb([d_E]Q_R)                // Absorb the ephemeral ECDH shared secret.
-  C_1 ← Encrypt(P)                // Encrypt the plaintext.
-  k ← Hedge(d, Squeeze(32) mod q) // Squeeze a hedged commitment scalar.
-  I ← [k]G                        // Calculate the commitment point.
-  S_0 ← Encrypt(I)                // Encrypt the commitment point.
-  r ← Squeeze(32) mod q           // Squeeze a challenge scalar.
-  s ← d_S✕r + k                   // Calculate the proof scalar.
-  X ← [s]Q_R                      // Calculate the proof point.
-  S_1 ← Encrypt(X)                // Encrypt the proof point.
-  return C_0||C_1||S_0|| S_1
+  state ← Initialize("veil.sres")       // Initialize a protocol.
+  state ← Mix(state, [d_S]G)            // Mix the sender's public key into the protocol.
+  state ← Mix(state, Q_R)               // Mix the receiver's public key into the protocol.
+  state ← Mix(state, N)                 // Mix the nonce into the protocol.
+  state ← Mix(state, [d_S]Q_R)          // Mix the static ECDH shared secret into the protocol.
+  (state, C₀) ← Encrypt(state, [d_E]G)  // Encrypt the ephemeral public key.
+  state ← Mix([d_E]Q_R)                 // Mix the ephemeral ECDH shared secret into the protocol.
+  (state, C₁) ← Encrypt(P)              // Encrypt the plaintext.
+  k ← Hedge(state, d, Derive(32) mod q) // Derive a hedged commitment scalar.
+  I ← [k]G                              // Calculate the commitment point.
+  (state, S₀) ← Encrypt(state, I)       // Encrypt the commitment point.
+  (state, r) ← Derive(state, 32) mod q  // Derive a challenge scalar.
+  s ← d_S✕r + k                         // Calculate the proof scalar.
+  X ← [s]Q_R                            // Calculate the proof point.
+  (state, S₁) ← Encrypt(state, X)       // Encrypt the proof point.
+  return C₀ǁC₁ǁS₀ǁS₁
 ```
 
 ### Decrypting A Header
 
 Decrypting a header requires a receiver's private key `d_R`, the sender's public key `Q_R`, a nonce
-`N`, and a ciphertext `C_0||C_1||S_0||S_1`.
+`N`, and a ciphertext `C₀ǁC₁ǁS₀ǁS₁`.
 
 ```text
-function DecryptHeader(d_R, Q_S, N, C_0||C_1||S_0||S_1):
-  Absorb("veil.sres")             // Initialize an unkeyed duplex.
-  Absorb(Q_S)                     // Absorb the sender's public key.
-  Absorb([d_R]G)                  // Absorb the receiver's public key.
-  Absorb(N)                       // Absorb the nonce.
-  Absorb([d_R]Q_S)                // Absorb the static ECDH shared secret.
-  Cyclist(SqueezeKey(64), ϵ, ϵ)   // Initialize a keyed duplex with the derived key.
-  Q_E ← Decrypt(C_0)              // Decrypt the ephemeral public key.
-  Absorb([d_R]Q_E)                // Absorb the ephemeral ECDH shared secret.
-  P ← Decrypt(C_1)                // Decrypt the ciphertext.
-  I ← Encrypt(S_0)                // Decrypt the commitment point.
-  r' ← Squeeze(32) mod q          // Squeeze a counterfactual challenge scalar.
-  X ← Encrypt(S_1)                // Decrypt the proof point.
-  X' ← [d_R](I + [r']Q_S)         // Calculate a counterfactual proof point.
-  if X ≠ X':                      // Return an error if the points are not equal.
+function DecryptHeader(d_R, Q_S, N, C₀ǁC₁ǁS₀ǁS₁):
+  state ← Initialize("veil.sres")       // Initialize a protocol.
+  state ← Mix(state, Q_S)               // Mix the sender's public key into the protocol.
+  state ← Mix(state, [d_R]G)            // Mix the receiver's public key into the protocol.
+  state ← Mix(state, N)                 // Mix the nonce into the protocol.
+  state ← Mix(state, [d_R]Q_S)          // Mix the static ECDH shared secret into the protocol.
+  (state, Q_E) ← Decrypt(state, C₀)     // Decrypt the ephemeral public key.
+  state ← Mix([d_R]Q_E)                 // Mix the ephemeral ECDH shared secret into the protocol.
+  (state, P) ← Decrypt(C₁)              // Decrypt the plaintext.
+  (state, I) ← Decrypt(state, S₀)       // Decrypt the commitment point.
+  (state, r′) ← Derive(state, 32) mod q // Derive a counterfactual challenge scalar.
+  (state, X) ← Decrypt(state, S₁)       // Decrypt the proof point.
+  X′ ← [d_R](I + [r′]Q_S)               // Calculate a counterfactual proof point.
+  if X ≠ X′:                            // Return an error if the points are not equal.
     return ⊥
-  return (Q_E, P)                 // Otherwise, return the ephemeral public key and plaintext.
+  return (Q_E, P)                       // Otherwise, return the ephemeral public key and plaintext.
 ```
 
 ### Constructive Analysis Of `veil.sres`
@@ -563,14 +526,15 @@ keys of all users but none of their private keys ([[BS10]](#bs10), p. 44).
 
 The classic multi-user attack on the generic Encrypt-Then-Sign (EtS) construction sees `A` strip the
 signature `σ` from the challenge ciphertext `C=(c,σ,Q_S,Q_R)` and replace it with `σ ← Sign(d_A,c)`
-to produce an attacker ciphertext `C'=(c,σ',Q_{\Adversary},Q_R)` at which point `A` can trick the
+to produce an attacker ciphertext `C′=(c,σ′,Q_{\Adversary},Q_R)` at which point `A` can trick the
 receiver into decrypting the result and giving `A` the randomly-chosen plaintext `m_0 ∨ m_1`
 [[AR10]](#ar10). This attack is not possible with `veil.sres`, as the sender's public key is
 strongly bound during encryption and decryption.
 
 `A` is unable to forge valid signatures for existing ciphertexts, limiting them to passive attacks.
-A passive attack on any of the three components of `veil.sres` ciphertexts--`C`, `S_0`, `S_1`--would
-only be possible if Cyclist is not IND-CPA secure.
+A passive attack on any of the four components of `veil.sres` ciphertexts--`C₀`, `C₁`, `S₀`,
+`S₁`--would only be possible if either BLAKE3 is not collision-resistant or ChaCha8 is not PRF
+secure.
 
 Therefore, `veil.sres` provides confidentiality in the multi-user outsider setting.
 
@@ -585,11 +549,10 @@ calculate the ECDH shared secret `[d_E]Q_R=[d_R]Q_E=[d_E{d_R}G]`.
 
 `A` also cannot trick the receiver into decrypting an equivalent message by replacing the signature,
 despite `A`'s ability to use `d_S` to create new signatures. In order to generate a valid signature
-on a ciphertext `c'` (e.g.\ `c'=c||1`), `A` would have to squeeze a valid challenge scalar `r'` from
-the duplex state. Unlike the signature hash function in the generic EtS composition, however, the
-duplex state is cryptographically dependent on values `A` does not know, specifically the ECDH
-shared secret `[d_E]Q_S` (via the `Absorb` operation) and the plaintext `P` (via the `Encrypt`
-operation).
+on a ciphertext `c′` (e.g.\ `c′=cǁ1`), `A` would have to derive a valid challenge scalar `r′` from
+the protocol state. Unlike the signature hash function in the generic EtS composition, however, the
+protocol state is cryptographically dependent on values `A` does not know, specifically the ECDH
+shared secret `[d_E]Q_S` (via the `Mix` operation).
 
 Therefore, `veil.sres` provides confidentiality in the multi-user insider setting.
 
@@ -628,10 +591,11 @@ prove the authenticity of a message (including the identity of its sender) to a 
 
 ### Indistinguishability Of Headers From Random Noise Of Encrypted Headers
 
-All of the components of a `veil.sres` ciphertext--`C`, `S_0`, and `S_1`--are Cyclist ciphertexts.
-An adversary in the outsider setting (i.e. knowing only public keys) is unable to calculate any of
-the key material used to produce the ciphertexts; a distinguishing attack would imply that
-Keccak-_p_\[1600,10\] is distinguishable from a random permutation.
+All of the components of a `veil.sres` ciphertext--`C₀`, `C₁`, `S₀`, and `S₁`--are ChaCha8
+ciphertexts using keys derived via BLAKE3.  An adversary in the outsider setting (i.e. knowing only
+public keys) is unable to calculate any of the key material used to produce the ciphertexts; a
+distinguishing attack would imply that either BLAKE3 is not collision-resistent or that ChaCha8 is
+not PRF secure.
 
 ### Re-use Of Ephemeral Keys
 
@@ -652,38 +616,39 @@ padding length `N_P`, and plaintext `P`.
 
 ```text
 function EncryptMessage(d_S, [Q_R_0,…,Q_R_n], N_P, P):
-  Absorb("veil.mres")                 // Initialize an unkeyed duplex.
-  Absorb([d_S]G)                      // Absorb the sender's public key.
-  k ← Hedge(d_S, Squeeze(32) mod q)   // Hedge a commitment scalar.
-  d_E ← Hedge(d_S, Squeeze(32) mod q) // Hedge an ephemeral private key.
-  K ← Hedge(d_S, Squeeze(32))         // Hedge a data encryption key.
-  N ← Hedge(d_S, Squeeze(16))         // Hedge a nonce.
-  C ← N                               // Write the nonce.
-  Absorb(N)                           // Absorb the nonce.
-  H ← K||N_Q||N_P                     // Encode the DEK and params in a header.
+  state ← Initialize("veil.mres")                // Initialize a protocol.
+  state ← Mix(state, [d_S]G)                     // Mix the sender's public key into the protocol.
+  k ← Hedge(state, d_S, Derive(32) mod q)        // Hedge a commitment scalar.
+  d_E ← Hedge(state, d_S, Derive(32) mod q)      // Hedge an ephemeral private key.
+  K ← Hedge(state, d_S, Derive(32))              // Hedge a data encryption key.
+  N ← Hedge(state, d_S, Derive(16))              // Hedge a nonce.
+  C ← N                                          // Write the nonce.
+  state ← Mix(state, N)                          // Mix the nonce into the protocol.
+  H ← KǁN_QǁN_P                                  // Encode the DEK and params in a header.
 
-  for Q_R_i in [Q_R_0,…,Q_R_n]:       // Encrypt the header for each receiver.
-    N_i ← Squeeze(16)
-    E_i ← EncryptHeader(d_S, d_E, Q_R_i, H, N_i)
-    Absorb(E_i)
-    C ← C||E_i
+  for Q_R_i in [Q_R_0,…,Q_R_n]:             
+    (state, N_i) ← Derive(state, 16)             // Derive a nonce for each header.
+    E_i ← EncryptHeader(d_S, d_E, Q_R_i, H, N_i) // Encrypt the header for each receiver.
+    state ← Mix(state, E_i)                      // Mix the encrypted header into the protocol.
+    C ← CǁE_i
 
-  y ← Rand(N_P)                       // Generate random padding.
-  Absorb(y)                           // Absorb padding.
-  C ← C||y                            // Append padding to ciphertext.
+  y ← Rand(N_P)                                 // Generate random padding.
+  state ← Mix(state, y)                         // Mix the padding into the protocol.
+  C ← Cǁy                                       // Append padding to ciphertext.
 
-  Absorb(K)                           // Absorb the DEK.
-  Cyclist(SqueezeKey(64), ϵ, ϵ)       // Convert to a keyed duplex.
+  state ← Mix(K)                                // Mix the DEK into the protocol.
 
-  for 32KiB blocks p in P:            // Encrypt and tag each block.
-    C ← C||Encrypt(p)
-    C ← C||Squeeze(16)
+  for 32KiB blocks p in P:                      // Encrypt and tag each block.
+    (state, C_i) ← Encrypt(state, p)
+    (state, T_i) ← Tag(state)
+    C ← CǁC_iǁT_i
 
-  I ← [k]G                            // Calculate the commitment point.
-  C ← C||Encrypt(I)                   // Encrypt the commitment point.
-  r ← Squeeze(16)                     // Squeeze a short challenge scalar.
-  s ← d_E×️r + k                       // Calculate the proof scalar.
-  C ← C||Encrypt(s)                   // Encrypt the proof scalar.
+  I ← [k]G                                      // Calculate the commitment point.
+  (state, S₀) ← Encrypt(state, I)               // Encrypt the commitment point.
+  r ← Derive(state, 16)                         // Derive a short challenge scalar.
+  s ← d_E×️r + k                                 // Calculate the proof scalar.
+  (state, S₁) ← Encrypt(state, s)               // Encrypt the proof scalar.
+  C ← CǁS₀ǁS₁
 
   return C
 ```
@@ -695,41 +660,40 @@ ciphertext `C`.
 
 ```text
 function DecryptMessage(d_R, Q_S, C):
-  Absorb("veil.mres")               // Initialize an unkeyed duplex.
-  Absorb(Q_S)                       // Absorb the sender's public key.
-  Absorb(C[0..16])                  // Absorb the nonce.
+  state ← Initialize("veil.mres") // Initialize a protocol.
+  state ← Mix(state, Q_S)         // Mix the sender's public key into the protocol.
+  state ← Mix(state, C[0..16])    // Mix the nonce into the protocol.
   C ← C[16..]
 
-  (i, N_Q) ← (0, ∞)                 // Go through ciphertext looking for a decryptable header.
+  (i, N_Q) ← (0, ∞)               // Go through ciphertext looking for a decryptable header.
   while i < N_Q:
   for each possible encrypted header E_i in C:
-    N_i ← Squeeze(16)
-    (E_i, C) ← C[..HEADER_LEN]||C[HEADER_LEN..]
-    Absorb(E_i)
+    (state, N_i) ← Derive(state, 16)
+    (E_i, C) ← C[..HEADER_LEN]ǁC[HEADER_LEN..]
+    state ← Derive(state, E_i)
     x ← DecryptHeader(d_R, Q_S, N_i, E_i)
     if x ≠ ⊥:
-      (Q_E, K||N_Q||N_P) ← x        // Once we decrypt a header, process the remaining headers.
+      (Q_E, KǁN_QǁN_P) ← x        // Once we decrypt a header, process the remaining headers.
 
-  Absorb(C[..N_P])                  // Absorb the padding.
-  C ← C[N_P..]                      // Skip to the message beginning.
+  state ← Mix(state, C[..N_P])    // Mix the padding into the protocol.
+  C ← C[N_P..]                    // Skip to the message beginning.
 
-  Absorb(K)                         // Absorb the DEK.
-  Cyclist(SqueezeKey(64), ϵ, ϵ)     // Convert to a keyed duplex.
+  state ← Mix(state, K)           // Mix the DEK into the protocol.
 
   P ← ϵ
-  for 32KiB blocks c_i||t_i in C:   // Decrypt each block, checking tags.
-    p_i ← Decrypt(c_i)
-    t_i' ← Squeeze(16)
-    if t_i ≠ t_i':
+  for 32KiB blocks c_iǁt_i in C:  // Decrypt each block, checking tags.
+    (state, p_i) ← Decrypt(state, c_i)
+    (state, ok) ← CheckTag(state, t_i)
+    if !ok:
       return ⊥
-    P ← P||p_i
+    P ← Pǁp_i
 
-  S_0||S_1 ← C                      // Split the last 64 bytes of the message.
-  I ← Decrypt(S_0)                  // Decrypt the commitment point.
-  r' ← Squeeze(16)                  // Squeeze a counterfactual challenge scalar.
-  s ← Decrypt(S_1)                  // Decrypt the proof scalar.
-  I' ← [s]G - [r']Q                 // Calculate the counterfactual commitment scalar.
-  if I ≠ I':                        // Verify the signature.
+  S₀ǁS₁ ← C                       // Split the last 64 bytes of the message.
+  (state, I) ← Decrypt(state, S₀) // Decrypt the commitment point.
+  (state, r′) ← Tag(state)        // Derive a counterfactual challenge scalar.
+  (state, s) ← Decrypt(state, S)  // Decrypt the proof scalar.
+  I′ ← [s]G - [r′]Q               // Calculate the counterfactual commitment scalar.
+  if I ≠ I′:                      // Verify the signature.
     return ⊥
   return P
 ```
@@ -744,9 +708,8 @@ copies of a symmetric data encryption key (DEK) encrypted in headers with the re
 [[Kur02]](#kur02) [[BBS03]](#bbs03) [[BBKS07]](#bbks07) [[RFC4880]](#rfc4880). The headers are
 encrypted with the `veil.sres` construction (see [`veil.sres`](#encrypted-headers)), which provides
 full insider security (i.e. IND-CCA2 and sUF-CMA in the multi-user insider setting), using a
-per-header `Squeeze` value as a nonce. The message itself is divided into a sequence of 32KiB
-blocks, each encrypted with a sequence of Cyclist `Encrypt`/`Squeeze` operations, which is IND-CCA2
-secure.
+per-header `Derive` value as a nonce. The message itself is divided into a sequence of 32KiB blocks,
+each encrypted with a sequence of Lockstitch `Encrypt`/`Tag` operations, which is IND-CCA2 secure.
 
 The latter portion of `veil.mres` is an EdDSA-style Schnorr signature scheme. The EdDSA-style
 Schnorr signature is sUF-CMA secure when implemented in a prime order group and a cryptographic hash
@@ -760,7 +723,7 @@ the use of variable-time optimizations during signature verification [[Por20+1]]
 One of the two main goals of the `veil.mres` is confidentiality in the multi-user setting (see
 [Multi-User Confidentiality](#multi-user-confidentiality)), or the inability of an adversary `A` to
 learn information about plaintexts. As `veil.mres` is a multi-receiver scheme, we adopt Bellare et
-al.'s adaptation of the multi-user setting, in which `A` may compromise a subset of receivers
+al.'s adaptation of the multi-user setting, in which `A` may compromise any subset of receivers
 [[BBKS]](#bbks07).
 
 #### Outsider Confidentiality Of Messages
@@ -779,9 +742,9 @@ decryption making this infeasible.
 `A` is unable to forge valid signatures for existing ciphertexts, limiting them to passive attacks.
 `veil.mres` ciphertexts consist of ephemeral keys, encrypted headers, random padding, encrypted
 message blocks, and encrypted signature points. Each component of the ciphertext is dependent on the
-previous inputs (including the headers, which use `Squeeze`-derived nonce to link the `veil.sres`
+previous inputs (including the headers, which use `Derive`-derived nonce to link the `veil.sres`
 ciphertexts to the `veil.mres` state). A passive attack on any of those would only be possible if
-Cyclist is not IND-CPA secure.
+either BLAKE3 is not collision-resistant or ChaCha8 is not PRF secure.
 
 #### Insider Confidentiality Of Messages
 
@@ -791,11 +754,11 @@ key in addition to the public keys of all users ([[BS10]](#bs10), p. 45-46). `A`
 message by themselves, as they do not know either `d_E` or any `d_R` and cannot decrypt any of the
 `veil.sres`-encrypted headers. As with [`veil.sres`](#multi-user-confidentiality-of-headers) `A`
 cannot trick the receiver into decrypting an equivalent message by replacing the signature, despite
-`A`~'s ability to use `d_S` to create new headers. In order to generate a valid signature on a
-ciphertext `c'` (e.g. `c'=c||1`), `A` would have to squeeze a valid challenge scalar `r'` from the
-duplex state. Unlike the signature hash function in the generic EtS composition, however, the duplex
-state is cryptographically dependent on a value `A` does not know, specifically the data encryption
-key `K` (via the `Absorb` operation) and the plaintext blocks `p_{0..n}` (via the `Encrypt`
+`A`'s ability to use `d_S` to create new headers. In order to generate a valid signature on a
+ciphertext `c′` (e.g. `c′=cǁ1`), `A` would have to derive a valid challenge scalar `r′` from the
+protocol state. Unlike the signature hash function in the generic EtS composition, however, the
+protocol state is cryptographically dependent on a value `A` does not know, specifically the data
+encryption key `K` (via the `Mix` operation) and the plaintext blocks `p_{0..n}` (via the `Encrypt`
 operation).
 
 Therefore, `veil.mres` provides confidentiality in the multi-user insider setting.
@@ -838,18 +801,18 @@ Deniability](#limited-deniability)), therefore `veil.mres` does as well.
 ### Indistinguishability Of Messages From Random Noise
 
 `veil.mres` ciphertexts are indistinguishable from random noise. All components of an `veil.mres`
-ciphertext are Cyclist ciphertexts; a successful distinguishing attack on them would imply that
-Keccak-_p_\[1600,10\] is distinguishable from a random permutation.
+ciphertext are ChaCha8 ciphertexts; a successful distinguishing attack on them would imply that
+BLAKE3 is not collision-resistent or ChaCha8 is not PRF secure.
 
 ### Partial Decryption
 
 The division of the plaintext stream into blocks takes its inspiration from the CHAIN construction
-[[HRRV]](#hrrv15), but the use of Cyclist allows for a significant reduction in complexity. Instead
-of using the nonce and associated data to create a feed-forward ciphertext dependency, the Cyclist
-duplex ensures all encryption operations are cryptographically dependent on the ciphertext of all
-previous encryption operations. Likewise, because the `veil.mres` ciphertext is terminated with a
-Schnorr signature (see [`veil.schnorr`](#digital-signatures)), using a special operation for the
-final message block isn't required.
+[[HRRV]](#hrrv15), but the use of Lockstitch allows for a significant reduction in complexity.
+Instead of using the nonce and associated data to create a feed-forward ciphertext dependency, the
+Lockstitch protocol ensures all encryption operations are cryptographically dependent on the
+ciphertext of all previous encryption operations. Likewise, because the `veil.mres` ciphertext is
+terminated with a Schnorr signature (see [`veil.schnorr`](#digital-signatures)), using a special
+operation for the final message block isn't required.
 
 The major limitation of such a system is the possibility of the partial decryption of invalid
 ciphertexts. If an attacker flips a bit on the fourth block of a ciphertext, `veil.mres` will
@@ -866,40 +829,40 @@ rest.
 
 ### Initialization
 
-Initializing a keyed duplex requires a passphrase `P`, salt `S`, time parameter `N_T`, space
+Initializing a keyed protocol requires a passphrase `P`, salt `S`, time parameter `N_T`, space
 parameter `N_S`, delta constant `D=3`, and block size constant `N_B=1024`.
 
 ```text
 function HashBlock(C, [B_0..B_n], N):
-  Absorb("veil.pbenc.iter") // Initialize an unkeyed duplex.
-  Absorb(C)                 // Absorb the counter.
-  C ← C + 1                 // Increment the counter.
+  state ← Initialize("veil.pbenc.iter") // Initialize a protocol.
+  state ← Mix(state, C)                 // Mix the counter into the protocol.
+  C ← C + 1                             // Increment the counter.
 
-  for B_i in [B_0..B_n]:    // Absorb each input block.
-    Absorb(B_i)
+  for B_i in [B_0..B_n]:                // Mix each input block into the protocol.
+    state ← Mix(state, B_i)
 
-  return Squeeze(N)         // Squeeze N bytes of output.
+  return Derive(state, N)               // Derive N bytes of output.
 
 procedure InitFromPassphrase(P, S, N_T, N_S):
-  C ← 0 // Initialize a counter.
-  B ← [[0x00 ✕ N_B] ✕ N_S] // Initialize a buffer.
+  C ← 0                                                  // Initialize a counter.
+  B ← [[0x00 ✕ N_B] ✕ N_S]                               // Initialize a buffer.
 
-  B[0] ← HashBlock(C, [P, S], N_B) // Expand input into buffer.
+  B[0] ← HashBlock(C, [P, S], N_B)                       // Expand input into buffer.
   for m in 1..N_S:
-    B[m] ← HashBlock(C, [B[m-1]], N_B) // Fill remainder of buffer with hash chain.
+    B[m] ← HashBlock(C, [B[m-1]], N_B)                   // Fill remainder of buffer with hash chain.
 
-  for t in 0..N_T: // Mix buffer contents.
+  for t in 0..N_T:                                       // Mix buffer contents.
     for m in 0..N_S:
       m_prev ← (m-1) mod N_S
       B[m] = HashBlock(C, [B[(m-1) mod N_S], B[m]], N_B) // Hash previous and current blocks.
 
       for i in 0..D:
-        r ← HashBlock(C, [S, t, m, i], 8) // Hash salt and loop indexes.
-        B[m] ← HashBlock(C, [[B[m], B[r]]], N_B) // Hash pseudo-random and current blocks.
+        r ← HashBlock(C, [S, t, m, i], 8)                // Hash salt and loop indexes.
+        B[m] ← HashBlock(C, [[B[m], B[r]]], N_B)         // Hash pseudo-random and current blocks.
 
-  Absorb("veil.pbenc") // Initialize an unkeyed duplex.
-  Absorb(B[N_S-1]) // Extract output from buffer.
-  Cyclist(SqueezeKey(64), ε, ε) // Convert to a keyed duplex.
+  state ← Initialize("veil.pbenc")                       // Initialize a protocol.
+  state ← Mix(state, B[N_S-1])                           // Mix the last block into the protocol.
+  return state
 ```
 
 ### Encrypting A Private Key
@@ -909,43 +872,43 @@ private key `d`.
 
 ```text
 function EncryptPrivateKey(P, N_T, N_S, d):
-  S ← Rand(16) // Generate a random salt.
-  InitFromPassphrase(P, S, N_T, N_S) // Initialize the duplex.
-  C ← Encrypt(d) // Encrypt the private key.
-  T ← Squeeze(16) // Squeeze an authentication tag.
-  return N_T||N_S||S||C||T
+  S ← Rand(16)                               // Generate a random salt.
+  state ← InitFromPassphrase(P, S, N_T, N_S) // Perform the balloon hashing.
+  (state, C) ← Encrypt(state, d)             // Encrypt the private key.
+  (state, T) ← Tag(state)                    // Create an authentication tag.
+  return N_TǁN_SǁSǁCǁT
 ```
 
 ### Decrypting A Private Key
 
-Decrypting a private key requires a passphrase `P` and ciphertext `C=N_T||N_S||S||C||T`.
+Decrypting a private key requires a passphrase `P` and ciphertext `C=N_TǁN_SǁSǁCǁT`.
 
 ```text
 function DecryptPrivateKey(P, N_T, N_S, d):
-  InitFromPassphrase(P, S, N_T, N_S) // Initialize the duplex.
-  d' ← Decrypt(C)                    // Decrypt the ciphertext.
-  T' ← Squeeze(16)                   // Squeeze an authentication tag.
-  if T ≠ T':                         // Return an error if the tags are not equal.
+  state ← InitFromPassphrase(P, S, N_T, N_S) // Perform the balloon hashing.
+  (state, d′) ← Decrypt(state, C)            // Decrypt the ciphertext.
+  (state, T′) ← Tag(state)                   // Create an authentication tag.
+  if T ≠ T′:                                 // Return an error if the tags are not equal.
     return ⊥
-  return d'
+  return d′
 ```
 
 ### Constructive Analysis Of `veil.pbenc`
 
-`veil.pbenc` is an integration of a memory-hard key derivation function (adapted for the
-cryptographic duplex) and a standard Cyclist authenticated encryption scheme.
+`veil.pbenc` is an integration of a memory-hard key derivation function (adapted for Lockstitch) and
+a standard Lockstitch authenticated encryption scheme.
 
 The `InitFromPassphrase` procedure of `veil.pbenc` implements balloon hashing, a memory-hard hash
 function intended for hashing low-entropy passphrases [[BCGS16]](#bcgs16). Memory-hard functions are
 a new and active area of cryptographic research, making the evaluation of schemes difficult. Balloon
 hashing was selected for its resilience to timing attacks, its reliance on a single hash primitive,
-and its relatively well-developed security proofs. The use of a duplex as a wide block labeling
+and its relatively well-developed security proofs. The use of a PRF as a wide block labeling
 function is not covered by the security proofs in Appendix B.3 of [[BCGS16]](#bcgs16) but aligns
 with the use of BLAKE2b in Argon2 [[RFC9106]](#rfc9106).
 
 The `EncryptPrivateKey` and `DecryptPrivateKey` functions use `InitFromPassphrase` to initialize the
-duplex state, after which they implement a standard Cyclist authenticated encryption scheme, which
-is IND-CCA2 secure.
+protocol state, after which they implement a standard authenticated encryption scheme, which is
+IND-CCA2 secure.
 
 ## References
 
@@ -969,12 +932,6 @@ Jee Hea An and Tal Rabin.
 2010.
 _Security for signcryption: the two-user model._ In _Practical Signcryption._ pp 21–42.
 [`DOI:10.1007/978-3-540-89411-7`](https://doi.org/10.1007/978-3-540-89411-7)
-
-### Aum19
-
-Jean-Philippe Aumasson.
-2019.
-[_Too much crypto._](https://eprint.iacr.org/2019/1492)
 
 ### BBKS07
 
@@ -1008,33 +965,6 @@ Jacqueline Brendel, Cas Cremers, Dennis Jackson, and Mang Zhao.
 2021.
 [_The provable security of Ed25519: Theory and practice._](https://eprint.iacr.org/2020/823.pdf)
 [`DOI:10.1109/SP40001.2021.00042`](https://doi.org/10.1109/SP40001.2021.00042)
-
-### BDPV08
-
-Guido Bertoni, Joan Daemen, Michaël Peeters, and Gilles Van Assche.
-2008.
-[_On the indifferentiability of the sponge construction._](https://keccak.team/files/SpongeIndifferentiability.pdf)
-[`DOI:10.1007/978-3-540-78967-3_11`](https://doi.org/10.1007/978-3-540-78967-3_11)
-
-### BDPV11
-
-Guido Bertoni, Joan Daemen, Michaël Peeters, and Gilles Van Assche.
-2011.
-[_Duplexing the sponge: Single-pass authenticated encryption and other applications._](https://keccak.team/files/SpongeDuplex.pdf)
-[`DOI:10.1007/978-3-642-28496-0_19`](https://doi.org/10.1007/978-3-642-28496-0_19)
-
-### BDPV11+1
-
-Guido Bertoni, Joan Daemen, Michaël Peeters, and Gilles Van Assche.
-2011.
-[_Cryptographic sponge functions._](https://keccak.team/files/CSF-0.1.pdf)
-
-### BDPVVV18
-
-Guido Bertoni, Joan Daemen, Michaël Peeters, Gilles Van Assche, Ronny Van Keer, and Benoı̂t Viguier.
-2018.
-[_KangarooTwelve: fast hashing based on Keccak-p._](https://eprint.iacr.org/2016/770.pdf)
-[`DOI:10.1007/978-3-319-93387-0_21`](https://doi.org/10.1007/978-3-319-93387-0_21)
 
 ### BGB04
 
@@ -1077,13 +1007,6 @@ Ran Canetti, Shai Halevi, and Jonathan Katz.
 2003.
 [_A forward-secure public-key encryption scheme._](https://eprint.iacr.org/2003/083.pdf)
 [`DOI:10.1007/3-540-39200-9_16`](https://doi.org/10.1007/3-540-39200-9_16)
-
-### DHPVV20
-
-Joan Daemen, Seth Hoffert, Michaël Peeters, Gilles Van Assche, and Ronny Van Keer.
-2020.
-[_Xoodyak, a lightweight cryptographic scheme._](https://csrc.nist.gov/CSRC/media/Projects/lightweight-cryptography/documents/finalist-round/updated-spec-doc/xoodyak-spec-final.pdf)
-[`DOI:10.13154/tosc.v2020.iS1.60-87`](https://doi.org/10.13154/tosc.v2020.iS1.60-87)
 
 ### HRRV15
 
