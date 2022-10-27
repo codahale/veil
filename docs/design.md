@@ -639,22 +639,22 @@ function EncryptMessage(d_S, [Q_R_0,…,Q_R_n], N_P, P):
     state ← Mix(state, E_i)                      // Mix the encrypted header into the protocol.
     C ← CǁE_i
 
-  y ← Rand(N_P)                                 // Generate random padding.
-  state ← Mix(state, y)                         // Mix the padding into the protocol.
-  C ← Cǁy                                       // Append padding to ciphertext.
+  y ← Rand(N_P)                                  // Generate random padding.
+  state ← Mix(state, y)                          // Mix the padding into the protocol.
+  C ← Cǁy                                        // Append padding to ciphertext.
 
-  state ← Mix(K)                                // Mix the DEK into the protocol.
+  state ← Mix(K)                                 // Mix the DEK into the protocol.
 
-  for 32KiB blocks p in P:                      // Encrypt and tag each block.
+  for 32KiB blocks p in P:                       // Encrypt and tag each block.
     (state, C_i) ← Encrypt(state, p)
     (state, T_i) ← Tag(state)
     C ← CǁC_iǁT_i
 
-  I ← [k]G                                      // Calculate the commitment point.
-  (state, S₀) ← Encrypt(state, I)               // Encrypt the commitment point.
-  r ← Derive(state, 16)                         // Derive a short challenge scalar.
-  s ← d_E×️r + k                                 // Calculate the proof scalar.
-  (state, S₁) ← Encrypt(state, s)               // Encrypt the proof scalar.
+  I ← [k]G                                       // Calculate the commitment point.
+  (state, S₀) ← Encrypt(state, I)                // Encrypt the commitment point.
+  r ← Derive(state, 16)                          // Derive a short challenge scalar.
+  s ← d_E×️r + k                                  // Calculate the proof scalar.
+  (state, S₁) ← Encrypt(state, s)                // Encrypt the proof scalar.
   C ← CǁS₀ǁS₁
 
   return C
