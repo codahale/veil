@@ -86,7 +86,7 @@ Passive Adversary, which monitors all traffic on all links of a network. For an 
 advantaged network position (e.g. a totalitarian state), looking for cryptographically-protected
 messages is trivial given the metadata they often expose. Even privacy features like GnuPG's
 `--hidden-recipients` still produce encrypted messages which are trivially identifiable as encrypted
-messages, because PGP messages consist of packets with explicitly identifiable metadata.In addition
+messages, because PGP messages consist of packets with explicitly identifiable metadata. In addition
 to being secure, privacy-enhancing technologies must be undetectable.
 
 Bernstein summarized this dilemma [[BHKL13]](#bhkl13):
@@ -97,6 +97,13 @@ patterns in the cryptography itself.
 A modern system would produce messages without recognizable metadata or patterns.
 
 ## Security Model And Notions
+
+Veil has three main security goals:
+
+1. Veil should be secure--i.e. provide both confidentiality and integrity--in the multi-user insider
+   setting.
+2. Veil should provide as much deniability as possible.
+3. Veil ciphertexts should be entirely indistinguishable from random noise.
 
 ### Multi-User Confidentiality
 
