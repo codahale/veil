@@ -108,7 +108,7 @@ Veil has three main security goals:
 ### Multi-User Confidentiality
 
 To evaluate the confidentiality of a scheme, we consider an adversary `A` attempting to attack a
-sender and receiver ([[BS10]](#bs10), p. 44). `A` creates two equal-length messages `(m_0,m_1)`, the
+sender and receiver ([[BS10]](#bs10), p. 44). `A` creates two equal-length messages `(m₀,m₁)`, the
 sender selects one at random and encrypts it, and `A` guesses which of the two has been encrypted
 without tricking the receiver into decrypting it for them. To model real-world possibilities, we
 assume `A` has three capabilities:
@@ -533,10 +533,10 @@ keys of all users but none of their private keys ([[BS10]](#bs10), p. 44).
 
 The classic multi-user attack on the generic Encrypt-Then-Sign (EtS) construction sees `A` strip the
 signature `σ` from the challenge ciphertext `C=(c,σ,Q_S,Q_R)` and replace it with `σ ← Sign(d_A,c)`
-to produce an attacker ciphertext `C′=(c,σ′,Q_{\Adversary},Q_R)` at which point `A` can trick the
-receiver into decrypting the result and giving `A` the randomly-chosen plaintext `m_0 ∨ m_1`
-[[AR10]](#ar10). This attack is not possible with `veil.sres`, as the sender's public key is
-strongly bound during encryption and decryption.
+to produce an attacker ciphertext `C′=(c,σ′,Q_A,Q_R)` at which point `A` can trick the receiver into
+decrypting the result and giving `A` the randomly-chosen plaintext `m₀ ⊕ m₁` [[AR10]](#ar10). This
+attack is not possible with `veil.sres`, as the sender's public key is strongly bound during
+encryption and decryption.
 
 `A` is unable to forge valid signatures for existing ciphertexts, limiting them to passive attacks.
 A passive attack on any of the four components of `veil.sres` ciphertexts--`C₀`, `C₁`, `S₀`,
@@ -556,7 +556,7 @@ calculate the ECDH shared secret `[d_E]Q_R=[d_R]Q_E=[d_E{d_R}G]`.
 
 `A` also cannot trick the receiver into decrypting an equivalent message by replacing the signature,
 despite `A`'s ability to use `d_S` to create new signatures. In order to generate a valid signature
-on a ciphertext `c′` (e.g.\ `c′=cǁ1`), `A` would have to derive a valid challenge scalar `r′` from
+on a ciphertext `c′` (e.g. `c′=cǁ1`), `A` would have to derive a valid challenge scalar `r′` from
 the protocol state. Unlike the signature hash function in the generic EtS composition, however, the
 protocol state is cryptographically dependent on values `A` does not know, specifically the ECDH
 shared secret `[d_E]Q_S` (via the `Mix` operation).
