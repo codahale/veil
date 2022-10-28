@@ -8,7 +8,7 @@ lto = "fat"
 [profile.dev.package.blake3]
 opt-level = 3
 
-[profile.dev.package.c2-chacha]
+[profile.dev.package.chacha20]
 opt-level = 3
 
 [profile.dev.package.crrl]
