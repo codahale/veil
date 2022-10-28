@@ -3,8 +3,8 @@ use std::str::FromStr;
 use std::{fmt, io};
 
 use constant_time_eq::constant_time_eq_n;
+use lockstitch::Protocol;
 
-use crate::duplex::{Absorb, Squeeze, UnkeyedDuplex};
 use crate::ParseDigestError;
 
 /// The digest of a sequence of metadata values and a message.
@@ -18,19 +18,19 @@ impl Digest {
     ///
     /// Returns any error returned by operations on `reader`.
     pub fn new(metadata: &[impl AsRef<[u8]>], reader: impl Read) -> io::Result<Digest> {
-        // Initialize an unkeyed duplex.
-        let mut digest = UnkeyedDuplex::new("veil.digest");
+        // Initialize a protocol.
+        let mut digest = Protocol::new("veil.digest");
 
-        // Absorb the metadata values in order.
+        // Mix the metadata values in order into the protocol.
         for v in metadata {
-            digest.absorb(v.as_ref());
+            digest.mix(v.as_ref());
         }
 
-        // Absorb the reader contents.
-        digest.absorb_reader(reader)?;
+        // Mix the reader contents into the protocol.
+        digest.mix_stream(reader)?;
 
-        // Squeeze 32 bytes as a digest.
-        Ok(Digest(digest.squeeze()))
+        // Derive 32 bytes as a digest.
+        Ok(Digest(digest.derive_array()))
     }
 
     /// Create a digest from a 32-byte slice.

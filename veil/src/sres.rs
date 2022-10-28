@@ -1,10 +1,10 @@
 //! An insider-secure hybrid signcryption implementation.
 
 use constant_time_eq::constant_time_eq;
-use crrl::jq255e::Point;
+use crrl::jq255e::{Point, Scalar};
+use lockstitch::Protocol;
 use rand::{CryptoRng, Rng};
 
-use crate::duplex::{Absorb, Squeeze, UnkeyedDuplex};
 use crate::keys::{PrivKey, PubKey, POINT_LEN};
 
 /// The recommended size of the nonce passed to [encrypt].
@@ -31,50 +31,48 @@ pub fn encrypt(
     let (out_ciphertext, out_i) = out_ciphertext.split_at_mut(plaintext.len());
     let (out_i, out_x) = out_i.split_at_mut(POINT_LEN);
 
-    // Initialize an unkeyed duplex.
-    let mut sres = UnkeyedDuplex::new("veil.sres");
+    // Initialize a protocol.
+    let mut sres = Protocol::new("veil.sres");
 
-    // Absorb the sender's public key.
-    sres.absorb(&sender.pub_key.encoded);
+    // Mix the sender's public key into the protocol.
+    sres.mix(&sender.pub_key.encoded);
 
-    // Absorb the receiver's public key.
-    sres.absorb(&receiver.encoded);
+    // Mix the receiver's public key into the protocol.
+    sres.mix(&receiver.encoded);
 
-    // Absorb the nonce.
-    sres.absorb(nonce);
+    // Mix the nonce into the protocol.
+    sres.mix(nonce);
 
-    // Absorb the static ECDH shared secret.
-    sres.absorb(&ecdh(sender, receiver));
-
-    // Convert the unkeyed duplex to a keyed duplex.
-    let mut sres = sres.into_keyed();
+    // Mix the static ECDH shared secret into the protocol.
+    sres.mix(&ecdh(sender, receiver));
 
     // Encrypt the ephemeral public key.
     out_q_e.copy_from_slice(&ephemeral.pub_key.encoded);
-    sres.encrypt_mut(out_q_e);
+    sres.encrypt(out_q_e);
 
-    // Absorb the ephemeral ECDH shared secret.
-    sres.absorb(&ecdh(ephemeral, receiver));
+    // Mix the ephemeral ECDH shared secret into the protocol.
+    sres.mix(&ecdh(ephemeral, receiver));
 
     // Encrypt the plaintext.
     out_ciphertext.copy_from_slice(plaintext);
-    sres.encrypt_mut(out_ciphertext);
+    sres.encrypt(out_ciphertext);
 
-    // Derive a commitment scalar from the duplex's current state, the sender's private key,
+    // Derive a commitment scalar from the protocol's current state, the sender's private key,
     // and a random nonce.
-    let k = sres.hedge(rng, sender, Squeeze::squeeze_scalar);
+    let k =
+        sres.hedge(rng, &[&sender.d.encode()], |clone| Scalar::decode(&clone.derive_array::<32>()));
 
     // Calculate and encrypt the commitment point.
     out_i.copy_from_slice(&Point::mulgen(&k).encode());
-    sres.encrypt_mut(out_i);
+    sres.encrypt(out_i);
 
-    // Squeeze a challenge scalar.
-    let r = sres.squeeze_scalar();
+    // Derive a challenge scalar.
+    let r = Scalar::decode_reduce(&sres.derive_array::<32>());
 
     // Calculate and encrypt the designated proof point: X = [d_S*r+k]Q_R
     let x = receiver.q * ((sender.d * r) + k);
     out_x.copy_from_slice(&x.encode());
-    sres.encrypt_mut(out_x);
+    sres.encrypt(out_x);
 }
 
 /// Given the receiver's key pair, the sender's public key, a nonce, and a ciphertext, decrypts the
@@ -97,43 +95,40 @@ pub fn decrypt<'a>(
     let (ciphertext, i) = ciphertext.split_at_mut(ciphertext.len() - POINT_LEN - POINT_LEN);
     let (i, x) = i.split_at_mut(POINT_LEN);
 
-    // Initialize an unkeyed duplex.
-    let mut sres = UnkeyedDuplex::new("veil.sres");
+    // Initialize a protocol.
+    let mut sres = Protocol::new("veil.sres");
 
-    // Absorb the sender's public key.
-    sres.absorb(&sender.encoded);
+    // Mix the sender's public key into the protocol.
+    sres.mix(&sender.encoded);
 
-    // Absorb the receiver's public key.
-    sres.absorb(&receiver.pub_key.encoded);
+    // Mix the receiver's public key into the protocol.
+    sres.mix(&receiver.pub_key.encoded);
 
-    // Absorb the nonce.
-    sres.absorb(nonce);
+    // Mix the nonce into the protocol.
+    sres.mix(nonce);
 
-    // Absorb the static ECDH shared secret.
-    sres.absorb(&ecdh(receiver, sender));
-
-    // Convert the unkeyed duplex to a keyed duplex.
-    let mut sres = sres.into_keyed();
+    // Mix the static ECDH shared secret into the protocol.
+    sres.mix(&ecdh(receiver, sender));
 
     // Decrypt and decode the ephemeral public key.
-    sres.decrypt_mut(ephemeral);
+    sres.decrypt(ephemeral);
     let ephemeral = PubKey::decode(ephemeral)?;
 
-    // Absorb the ephemeral ECDH shared secret.
-    sres.absorb(&ecdh(receiver, &ephemeral));
+    // Mix the ephemeral ECDH shared secret into the protocol.
+    sres.mix(&ecdh(receiver, &ephemeral));
 
     // Decrypt the plaintext.
-    sres.decrypt_mut(ciphertext);
+    sres.decrypt(ciphertext);
 
     // Decrypt and decode the commitment point.
-    sres.decrypt_mut(i);
+    sres.decrypt(i);
     let i = Point::decode(i)?;
 
     // Re-derive the challenge scalar.
-    let r_p = sres.squeeze_scalar();
+    let r_p = Scalar::decode_reduce(&sres.derive_array::<32>());
 
     // Decrypt the designated proof point.
-    sres.decrypt_mut(x);
+    sres.decrypt(x);
 
     // Re-calculate the proof point: X' = [d_R](I + [r']Q_R)
     let x_p = (i + (sender.q * r_p)) * receiver.d;

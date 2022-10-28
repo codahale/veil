@@ -76,7 +76,6 @@ pub use self::veil::*;
 
 mod blockio;
 mod digest;
-mod duplex;
 mod errors;
 mod keys;
 mod mres;

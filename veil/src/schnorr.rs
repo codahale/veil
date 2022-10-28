@@ -5,9 +5,9 @@ use std::str::FromStr;
 use std::{fmt, io};
 
 use crrl::jq255e::{Point, Scalar};
+use lockstitch::Protocol;
 use rand::{CryptoRng, Rng};
 
-use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex};
 use crate::keys::{PrivKey, PubKey, POINT_LEN, SCALAR_LEN};
 use crate::{ParseSignatureError, VerifyError};
 
@@ -53,45 +53,39 @@ pub fn sign(
     signer: &PrivKey,
     message: impl Read,
 ) -> io::Result<Signature> {
-    // Initialize an unkeyed duplex.
-    let mut schnorr = UnkeyedDuplex::new("veil.schnorr");
+    // Initialize a protocol.
+    let mut schnorr = Protocol::new("veil.schnorr");
 
-    // Absorb the signer's public key.
-    schnorr.absorb(&signer.pub_key.encoded);
+    // Mix the signer's public key into the protocol.
+    schnorr.mix(&signer.pub_key.encoded);
 
-    // Absorb the message.
-    schnorr.absorb_reader(message)?;
-
-    // Convert the unkeyed duplex to a keyed duplex.
-    let mut schnorr = schnorr.into_keyed();
+    // Mix the message into the protocol.
+    schnorr.mix_stream(message)?;
 
     // Calculate and return the encrypted commitment point and proof scalar.
-    Ok(sign_duplex(&mut schnorr, rng, signer))
+    Ok(sign_protocol(&mut schnorr, rng, signer))
 }
 
 /// Verify a Schnorr signature of the given message using the given public key.
 pub fn verify(signer: &PubKey, message: impl Read, sig: &Signature) -> Result<(), VerifyError> {
-    // Initialize an unkeyed duplex.
-    let mut schnorr = UnkeyedDuplex::new("veil.schnorr");
+    // Initialize a protocol.
+    let mut schnorr = Protocol::new("veil.schnorr");
 
-    // Absorb the signer's public key.
-    schnorr.absorb(&signer.encoded);
+    // Mix the signer's public key into the protocol.
+    schnorr.mix(&signer.encoded);
 
-    // Absorb the message.
-    schnorr.absorb_reader(message)?;
-
-    // Convert the unkeyed duplex to a keyed duplex.
-    let mut schnorr = schnorr.into_keyed();
+    // Mix the message into the protocol.
+    schnorr.mix_stream(message)?;
 
     // Verify the signature.
-    verify_duplex(&mut schnorr, signer, sig).ok_or(VerifyError::InvalidSignature)
+    verify_protocol(&mut schnorr, signer, sig).ok_or(VerifyError::InvalidSignature)
 }
 
-/// Create a Schnorr signature of the given duplex's state using the given private key.
+/// Create a Schnorr signature of the given protocol's state using the given private key.
 /// Returns the full signature.
 #[must_use]
-pub fn sign_duplex(
-    duplex: &mut KeyedDuplex,
+pub fn sign_protocol(
+    protocol: &mut Protocol,
     mut rng: impl CryptoRng + Rng,
     signer: &PrivKey,
 ) -> Signature {
@@ -99,42 +93,44 @@ pub fn sign_duplex(
     let mut sig = [0u8; SIGNATURE_LEN];
     let (sig_i, sig_s) = sig.split_at_mut(POINT_LEN);
 
-    // Derive a commitment scalar from the duplex's current state, the signer's private key,
+    // Derive a commitment scalar from the protocol's current state, the signer's private key,
     // and a random nonce, and calculate the commitment point.
-    let k = duplex.hedge(&mut rng, signer, Squeeze::squeeze_scalar);
+    let k = protocol.hedge(&mut rng, &[&signer.d.encode()], |clone| {
+        Scalar::decode(&clone.derive_array::<32>())
+    });
     let i = Point::mulgen(&k);
 
     // Calculate, encode, and encrypt the commitment point.
     sig_i.copy_from_slice(&i.encode());
-    duplex.encrypt_mut(sig_i);
+    protocol.encrypt(sig_i);
 
-    // Squeeze a challenge scalar.
-    let r = Scalar::from_u128(u128::from_le_bytes(duplex.squeeze()));
+    // Derive a challenge scalar.
+    let r = Scalar::from_u128(u128::from_le_bytes(protocol.derive_array()));
 
     // Calculate, encode, and encrypt the proof scalar.
     let s = (signer.d * r) + k;
     sig_s.copy_from_slice(&s.encode());
-    duplex.encrypt_mut(sig_s);
+    protocol.encrypt(sig_s);
 
     // Return the full signature.
     Signature(sig)
 }
 
-/// Verify a Schnorr signature of the given duplex's state using the given public key.
+/// Verify a Schnorr signature of the given protocol's state using the given public key.
 #[must_use]
-pub fn verify_duplex(duplex: &mut KeyedDuplex, signer: &PubKey, sig: &Signature) -> Option<()> {
+pub fn verify_protocol(protocol: &mut Protocol, signer: &PubKey, sig: &Signature) -> Option<()> {
     // Split signature into components.
     let mut sig = sig.0;
     let (i, s) = sig.split_at_mut(POINT_LEN);
 
     // Decrypt the commitment point but don't decode it.
-    duplex.decrypt_mut(i);
+    protocol.decrypt(i);
 
     // Re-derive the challenge scalar.
-    let r_p = u128::from_le_bytes(duplex.squeeze());
+    let r_p = u128::from_le_bytes(protocol.derive_array());
 
     // Decrypt and decode the proof scalar.
-    duplex.decrypt_mut(s);
+    protocol.decrypt(s);
     let s = Scalar::decode(s)?;
 
     // Return true iff I and s are well-formed and I == [s]G - [r']Q. Here we compare the encoded
@@ -197,7 +193,7 @@ mod tests {
     fn signature_encoding() {
         let (_, _, _, sig) = setup();
         assert_eq!(
-            "4hLddqTwsg6hpr3WwktApb12NwYRdK4xmQiMc2h3rFgRaAjqvuBvJyz1dpwpnmS7ENXDuLGusdfhDAzHii24UXC1",
+            "2uGBANG1q5CngzZMyg3Mg7RtavBBXVdbXirpmAYP1dLgxbqM2d2BskPwRWcq88b3qCUvJFAkH7RMVqrFmWnLMt7e",
             sig.to_string(),
             "invalid encoded signature"
         );
@@ -206,7 +202,7 @@ mod tests {
     #[test]
     fn signature_decoding() {
         let (_, _, _, sig) = setup();
-        let decoded = "4hLddqTwsg6hpr3WwktApb12NwYRdK4xmQiMc2h3rFgRaAjqvuBvJyz1dpwpnmS7ENXDuLGusdfhDAzHii24UXC1".parse::<Signature>();
+        let decoded = "2uGBANG1q5CngzZMyg3Mg7RtavBBXVdbXirpmAYP1dLgxbqM2d2BskPwRWcq88b3qCUvJFAkH7RMVqrFmWnLMt7e".parse::<Signature>();
         assert_eq!(Ok(sig), decoded, "error parsing signature");
 
         assert_eq!(

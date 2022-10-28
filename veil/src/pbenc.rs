@@ -2,9 +2,8 @@
 
 use std::mem;
 
+use lockstitch::{Protocol, TAG_LEN};
 use rand::{CryptoRng, Rng};
-
-use crate::duplex::{Absorb, KeyedDuplex, Squeeze, UnkeyedDuplex, TAG_LEN};
 
 /// The number of bytes encryption adds to a plaintext.
 pub const OVERHEAD: usize = mem::size_of::<u8>() + mem::size_of::<u8>() + SALT_LEN + TAG_LEN;
@@ -37,7 +36,7 @@ pub fn encrypt(
 
     // Encrypt the plaintext.
     ciphertext[..plaintext.len()].copy_from_slice(plaintext);
-    pbenc.seal_mut(ciphertext);
+    pbenc.seal(ciphertext);
 }
 
 /// Decrypt the given ciphertext using the given passphrase.
@@ -56,41 +55,42 @@ pub fn decrypt<'a>(passphrase: &[u8], in_out: &'a mut [u8]) -> Option<&'a [u8]> 
     let mut pbenc = init(passphrase, salt, t[0], m[0]);
 
     // Decrypt the ciphertext.
-    pbenc.unseal_mut(ciphertext)
+    pbenc.open(ciphertext)
 }
 
-fn init(passphrase: &[u8], salt: &[u8], time_cost: u8, memory_cost: u8) -> KeyedDuplex {
+fn init(passphrase: &[u8], salt: &[u8], time_cost: u8, memory_cost: u8) -> Protocol {
     // A macro for the common hash operations. This is a macro rather than a function so it can
     // accept both immutable references to blocks in the buffer as well as a mutable reference to a
-    // block in the same buffer for output. Accepts a template duplex, a counter variable, an output
-    // block, and a sequence of input blocks.
+    // block in the same buffer for output. Accepts a template protocol, a counter variable, an
+    // output block, and a sequence of input blocks.
+
     macro_rules! hash {
         ($h:ident, $ctr:ident, $out:expr, $($block:expr),*) => {
-            // Clone the template duplex's state, allowing us to avoid the cost of a single
+            // Clone the template protocol's state, allowing us to avoid the cost of a single
             // permutation.
             let mut h = $h.clone();
 
-            // Absorb the counter as a Little Endian byte string.
-            h.absorb(&$ctr.to_le_bytes());
+            // Mix the counter as a Little Endian byte string into the protocol.
+            h.mix(&$ctr.to_le_bytes());
 
             // Increment the counter by one.
             $ctr = $ctr.wrapping_add(1);
 
-            // Absorb each block in order.
+            // Mix each block in order into the protocol.
             $(
-                h.absorb($block);
+                h.mix($block);
             )*
 
-            // Fill the output with squeezed data.
-            h.squeeze_mut($out);
+            // Fill the output with derived data.
+            h.derive($out);
         };
     }
 
-    // Allocate buffer, initialize counter and default duplex state.
+    // Allocate buffer, initialize counter and default protocol state.
     let mut ctr = 0u64;
     let mut buf = vec![[0u8; N]; 1usize << memory_cost];
     let buf_len = u64::try_from(buf.len()).expect("unexpected overflow");
-    let h = UnkeyedDuplex::new("veil.pbenc.iter");
+    let h = Protocol::new("veil.pbenc.iter");
 
     // Step 1: Expand input into buffer.
     hash!(h, ctr, &mut buf[0], passphrase, salt);
@@ -119,7 +119,7 @@ fn init(passphrase: &[u8], salt: &[u8], time_cost: u8, memory_cost: u8) -> Keyed
                     &i.to_le_bytes()
                 );
 
-                // Map the PRF output to a block index.
+                // Map the derived output to a block index.
                 let idx = u64::from_le_bytes(idx_block) % buf_len;
                 let idx = usize::try_from(idx).expect("unexpected overflow");
 
@@ -130,9 +130,9 @@ fn init(passphrase: &[u8], salt: &[u8], time_cost: u8, memory_cost: u8) -> Keyed
     }
 
     // Step 3: Extract key from buffer.
-    let mut pbenc = UnkeyedDuplex::new("veil.pbenc");
-    pbenc.absorb(&buf[buf.len() - 1]);
-    pbenc.into_keyed()
+    let mut pbenc = Protocol::new("veil.pbenc");
+    pbenc.mix(&buf[buf.len() - 1]);
+    pbenc
 }
 
 const SALT_LEN: usize = 16;
