@@ -9,11 +9,11 @@ description = "Stupid crypto tricks."
 default-run = "veil"
 
 [dependencies]
-atty = "0.2.14"
 bunt = "0.2.6"
 clap = { version = "4.0.26", features = ["deprecated", "derive"] }
 clap_complete = "4.0.5"
 console = "0.15.2"
+is-terminal = "0.4.0"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 thiserror = "1.0.37"
 veil = { path = "../veil" }

@@ -7,6 +7,7 @@ use std::process;
 use clap::{ArgAction, CommandFactory, Parser, Subcommand, ValueHint};
 use clap_complete::{generate_to, Shell};
 use console::Term;
+use is_terminal::IsTerminal;
 use thiserror::Error;
 
 use veil::{DecryptError, Digest, PrivateKey, PublicKey, Signature};
@@ -360,7 +361,7 @@ impl PassphraseInput {
 
 fn open_input(path: &Path) -> Result<Box<dyn Read>, CliError> {
     if path.as_os_str() == "-" {
-        if atty::is(atty::Stream::Stdin) {
+        if io::stdin().is_terminal() {
             return Err(CliError::StdinTty);
         }
         Ok(Box::new(io::stdin().lock()))
@@ -372,7 +373,7 @@ fn open_input(path: &Path) -> Result<Box<dyn Read>, CliError> {
 
 fn open_output(path: &Path, binary: bool) -> Result<Box<dyn Write>, CliError> {
     if path.as_os_str() == "-" {
-        if binary && atty::is(atty::Stream::Stdout) {
+        if binary && io::stdout().is_terminal() {
             return Err(CliError::StdoutTty);
         }
         Ok(Box::new(io::stdout().lock()))
