@@ -13,7 +13,7 @@ bunt = "0.2.6"
 clap = { version = "4.0.27", features = ["deprecated", "derive"] }
 clap_complete = "4.0.6"
 console = "0.15.2"
-is-terminal = "0.4.0"
+is-terminal = "0.4.1"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 thiserror = "1.0.37"
 veil = { path = "../veil" }
