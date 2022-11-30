@@ -9,7 +9,7 @@ description = "Stupid crypto tricks."
 default-run = "veil"
 
 [dependencies]
-bunt = "0.2.6"
+bunt = "0.2.7"
 clap = { version = "4.0.27", features = ["deprecated", "derive"] }
 clap_complete = "4.0.6"
 console = "0.15.2"
