@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.66"
 clap = { version = "4.0.29", features = ["deprecated", "derive"] }
-xshell = "0.2.2"
+xshell = "0.2.3"
 
 [[bin]]
 name = "xtask"
