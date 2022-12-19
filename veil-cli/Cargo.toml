@@ -19,7 +19,7 @@ thiserror = "1.0.37"
 veil = { path = "../veil" }
 
 [dev-dependencies]
-anyhow = "1.0.66"
+anyhow = "1.0.68"
 xshell = "0.2.3"
 
 [[bin]]
