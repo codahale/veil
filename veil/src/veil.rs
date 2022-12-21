@@ -199,8 +199,8 @@ mod tests {
 
     #[test]
     fn public_key_encoding() {
-        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let pk = PrivateKey::random(&mut rng).public_key();
+        let rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let pk = PrivateKey::random(rng).public_key();
 
         assert_eq!(
             "Beebnk8t9qNYJqhz53ZZJgaaP6nuFRwf4CWow3rB7bD9",
@@ -234,8 +234,8 @@ mod tests {
 
     #[test]
     fn wrong_sender() {
-        let (mut rng, _, b, _, ciphertext) = setup(64);
-        let c = PrivateKey::random(&mut rng);
+        let (rng, _, b, _, ciphertext) = setup(64);
+        let c = PrivateKey::random(rng);
         assert_matches!(
             b.decrypt(Cursor::new(ciphertext), io::sink(), &c.public_key()),
             Err(DecryptError::InvalidCiphertext)
@@ -244,8 +244,8 @@ mod tests {
 
     #[test]
     fn wrong_receiver() {
-        let (mut rng, a, _, _, ciphertext) = setup(64);
-        let c = PrivateKey::random(&mut rng);
+        let (rng, a, _, _, ciphertext) = setup(64);
+        let c = PrivateKey::random(rng);
 
         assert_matches!(
             c.decrypt(Cursor::new(ciphertext), io::sink(), &a.public_key()),
