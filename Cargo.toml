@@ -5,11 +5,5 @@ members = ["veil", "veil-cli", "xtask"]
 codegen-units = 1
 lto = "fat"
 
-[profile.dev.package.blake3]
-opt-level = 3
-
-[profile.dev.package.chacha20]
-opt-level = 3
-
 [profile.dev.package.crrl]
 opt-level = 3

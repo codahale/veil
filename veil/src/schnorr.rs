@@ -193,7 +193,7 @@ mod tests {
     fn signature_encoding() {
         let (_, _, _, sig) = setup();
         assert_eq!(
-            "2uGBANG1q5CngzZMyg3Mg7RtavBBXVdbXirpmAYP1dLgxbqM2d2BskPwRWcq88b3qCUvJFAkH7RMVqrFmWnLMt7e",
+            "52fFPQpv1pTGhy6BCZEgiMKppMAfteDWWHejVHrnyeRLX7R7PAAzes8Dk2YdLk3tEq6zc21EkGcdcERD5qw8xGVH",
             sig.to_string(),
             "invalid encoded signature"
         );
@@ -202,7 +202,7 @@ mod tests {
     #[test]
     fn signature_decoding() {
         let (_, _, _, sig) = setup();
-        let decoded = "2uGBANG1q5CngzZMyg3Mg7RtavBBXVdbXirpmAYP1dLgxbqM2d2BskPwRWcq88b3qCUvJFAkH7RMVqrFmWnLMt7e".parse::<Signature>();
+        let decoded = "52fFPQpv1pTGhy6BCZEgiMKppMAfteDWWHejVHrnyeRLX7R7PAAzes8Dk2YdLk3tEq6zc21EkGcdcERD5qw8xGVH".parse::<Signature>();
         assert_eq!(Ok(sig), decoded, "error parsing signature");
 
         assert_eq!(
