@@ -3,6 +3,15 @@
 version = 3
 
 [[package]]
+name = "aligned"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80a21b9440a626c7fc8573a9e3d3a06b75c7c97754c2949bc7857b90353ca655"
+dependencies = [
+ "as-slice",
+]
+
+[[package]]
 name = "anes"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -25,6 +34,15 @@ name = "arrayvec"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
+
+[[package]]
+name = "as-slice"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "516b6b4f0e40d50dcda9365d53964ec74560ad4284da2e7fc97122cd83174516"
+dependencies = [
+ "stable_deref_trait",
+]
 
 [[package]]
 name = "assert_matches"
@@ -548,10 +566,11 @@ dependencies = [
 
 [[package]]
 name = "lockstitch"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce0b7b9f79ecb4cfa391d370178c3c089dd4ec9c8cca97b4fff7c2537e3eded7"
+checksum = "a74cfc590bbd442cb561b6a5437ca89a55e4421fd473bbc39c091cf497127281"
 dependencies = [
+ "aligned",
  "blake3",
  "constant_time_eq",
  "rand_core",
@@ -831,6 +850,12 @@ dependencies = [
  "cpufeatures",
  "digest",
 ]
+
+[[package]]
+name = "stable_deref_trait"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "strsim"
