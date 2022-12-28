@@ -12,7 +12,7 @@ default-run = "veil"
 bunt = "0.2.7"
 clap = { version = "4.0.32", features = ["deprecated", "derive"] }
 clap_complete = "4.0.7"
-console = "0.15.2"
+console = "0.15.3"
 is-terminal = "0.4.2"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 thiserror = "1.0.38"
