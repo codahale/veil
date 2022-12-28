@@ -11,7 +11,7 @@ description = "Stupid crypto tricks."
 bs58 = "0.4.0"
 constant_time_eq = "0.2.4"
 crrl = "0.3.0"
-lockstitch = "0.5.0"
+lockstitch = "0.5.1"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 thiserror = "1.0.38"
 
