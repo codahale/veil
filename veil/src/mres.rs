@@ -394,7 +394,7 @@ mod tests {
                 match decrypt(&mut src, &mut io::sink(), &receiver, &sender.pub_key) {
                     Err(DecryptError::InvalidCiphertext) => {}
                     Ok(_) => panic!("bit flip at byte {i}, bit {j} produced a valid message"),
-                    Err(e) => panic!("unknown error: {:?}", e),
+                    Err(e) => panic!("unknown error: {e:?}"),
                 };
             }
         }

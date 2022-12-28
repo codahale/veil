@@ -204,9 +204,7 @@ mod tests {
                 ciphertext[i] ^= 1 << j;
                 assert!(
                     decrypt(&receiver, &sender.pub_key, &nonce, &mut ciphertext).is_none(),
-                    "bit flip at byte {}, bit {} produced a valid message",
-                    i,
-                    j
+                    "bit flip at byte {i}, bit {j} produced a valid message",
                 );
             }
         }

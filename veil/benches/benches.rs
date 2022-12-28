@@ -105,7 +105,7 @@ fn bench_pbenc(c: &mut Criterion) {
     for time_cost in [0, 4] {
         for memory_cost in [0, 4] {
             pbenc.bench_with_input(
-                format!("t={}/s={}", time_cost, memory_cost),
+                format!("t={time_cost}/s={memory_cost}"),
                 &(time_cost, memory_cost),
                 |b, &(time_cost, memory_cost)| {
                     b.iter(|| {

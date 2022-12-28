@@ -100,7 +100,7 @@ impl Runnable for PublicKeyArgs {
         let mut output = open_output(&self.output, false)?;
         let private_key = self.private_key.decrypt()?;
         let public_key = private_key.public_key();
-        write!(output, "{}", public_key).map_err(|e| CliError::WriteIo(e, self.output))
+        write!(output, "{public_key}").map_err(|e| CliError::WriteIo(e, self.output))
     }
 }
 
@@ -209,7 +209,7 @@ impl Runnable for SignArgs {
         let sig = private_key
             .sign(rand::thread_rng(), input)
             .map_err(|e| CliError::ReadIo(e, self.input))?;
-        write!(output, "{}", sig).map_err(|e| CliError::WriteIo(e, self.output))?;
+        write!(output, "{sig}").map_err(|e| CliError::WriteIo(e, self.output))?;
         Ok(())
     }
 }
@@ -271,7 +271,7 @@ impl Runnable for DigestArgs {
                 return Err(CliError::DigestMismatch);
             }
         } else {
-            write!(open_output(&self.output, false)?, "{}", digest).map_err(CliError::TermIo)?;
+            write!(open_output(&self.output, false)?, "{digest}").map_err(CliError::TermIo)?;
         }
         Ok(())
     }
