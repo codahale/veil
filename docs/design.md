@@ -230,7 +230,7 @@ and the jq255e elliptic curve [[Por22]](#por22) for all asymmetric-key operation
 
 Lockstitch is an incremental, stateful cryptographic primitive for symmetric-key cryptographic
 operations (e.g. hashing, encryption, message authentication codes, and authenticated encryption) in
-complex protocols. It combines BLAKE3 and AEGIS128L to provide ~10 GiB/sec performance on modern
+complex protocols. It combines SHA-256 and Rocca-S to provide ~10 GiB/sec performance on modern
 processors at a 128-bit security level. More information on the design of Lockstitch can be found
 [here](https://github.com/codahale/lockstitch/blob/main/design.md).
 
@@ -297,7 +297,7 @@ protocol, not just on the emitted ciphertext. The DEM components of our HPKE ana
 `Encrypt`/`Tag`) are superficially similar to an Encrypt-then-MAC (EtM) construction, but where an
 adversary in possession of the MAC key can forge authenticators given an EtM ciphertext, the
 protocol-based approach makes that infeasible. With Lockstitch, the key used to create the
-authenticator tag is derived via BLAKE3 from the protocol's state, which is itself dependent on the
+authenticator tag is derived via SHA-256 from the protocol's state, which is itself dependent on the
 ECDH shared secret. An adversary attempting to forge an authenticator given only the ciphertext and
 the key used to produce the tag will be unable to reconstruct the protocol's state and thus unable
 to compute their forgery.
@@ -401,7 +401,7 @@ conditioned on the hardness of the discrete logarithm problem:
 is secure.
 
 Thus, `veil.schnorr` is UF-CMA if the discrete-logarithm problem is hard relative to jq255e and
-BLAKE3 is indistinguishable from a random oracle.
+SHA-256 is indistinguishable from a random oracle.
 
 ### sUF-CMA Security
 
@@ -439,12 +439,12 @@ the identity of a signer from a signed message.
 To eliminate this possibility, `veil.schnorr` encrypts both components of the signature with a
 protocol effectively keyed with the signer's public key in addition to the message. An attack which
 recovers the plaintext of either signature component in the absence of the public key would imply
-that either BLAKE3 is not collision-resistant or that AEGIS128L is not PRF secure.
+that either SHA-256 is not collision-resistant or that Rocca-S is not PRF secure.
 
 ### Indistinguishability From Random Noise
 
-Given that both signature components are encrypted with AEGIS128L, an attack which distinguishes
-between a `veil.schnorr` and random noise would also imply that AEGIS128L is distinguishable from a
+Given that both signature components are encrypted with Rocca-S, an attack which distinguishes
+between a `veil.schnorr` and random noise would also imply that Rocca-S is distinguishable from a
 random function.
 
 ## Encrypted Headers
@@ -540,7 +540,7 @@ encryption and decryption.
 
 `A` is unable to forge valid signatures for existing ciphertexts, limiting them to passive attacks.
 A passive attack on any of the four components of `veil.sres` ciphertexts--`C₀`, `C₁`, `S₀`,
-`S₁`--would only be possible if either BLAKE3 is not collision-resistant or AEGIS128L is not PRF
+`S₁`--would only be possible if either SHA-256 is not collision-resistant or Rocca-S is not PRF
 secure.
 
 Therefore, `veil.sres` provides confidentiality in the multi-user outsider setting.
@@ -598,10 +598,10 @@ prove the authenticity of a message (including the identity of its sender) to a 
 
 ### Indistinguishability Of Headers From Random Noise Of Encrypted Headers
 
-All of the components of a `veil.sres` ciphertext--`C₀`, `C₁`, `S₀`, and `S₁`--are AEGIS128L
-ciphertexts using keys derived via BLAKE3.  An adversary in the outsider setting (i.e. knowing only
+All of the components of a `veil.sres` ciphertext--`C₀`, `C₁`, `S₀`, and `S₁`--are Rocca-S
+ciphertexts using keys derived via SHA-256.  An adversary in the outsider setting (i.e. knowing only
 public keys) is unable to calculate any of the key material used to produce the ciphertexts; a
-distinguishing attack would imply that either BLAKE3 is not collision-resistant or that AEGIS128L is
+distinguishing attack would imply that either SHA-256 is not collision-resistant or that Rocca-S is
 not PRF secure.
 
 ### Re-use Of Ephemeral Keys
@@ -751,7 +751,7 @@ decryption making this infeasible.
 message blocks, and encrypted signature points. Each component of the ciphertext is dependent on the
 previous inputs (including the headers, which use `Derive`-derived nonce to link the `veil.sres`
 ciphertexts to the `veil.mres` state). A passive attack on any of those would only be possible if
-either BLAKE3 is not collision-resistant or AEGIS128L is not PRF secure.
+either SHA-256 is not collision-resistant or Rocca-S is not PRF secure.
 
 #### Insider Confidentiality Of Messages
 
@@ -808,8 +808,8 @@ Deniability](#limited-deniability)), therefore `veil.mres` does as well.
 ### Indistinguishability Of Messages From Random Noise
 
 `veil.mres` ciphertexts are indistinguishable from random noise. All components of an `veil.mres`
-ciphertext are AEGIS128L ciphertexts; a successful distinguishing attack on them would imply that
-BLAKE3 is not collision-resistant or AEGIS128L is not PRF secure.
+ciphertext are Rocca-S ciphertexts; a successful distinguishing attack on them would imply that
+SHA-256 is not collision-resistant or Rocca-S is not PRF secure.
 
 ### Partial Decryption
 
