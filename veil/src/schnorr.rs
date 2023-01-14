@@ -144,6 +144,7 @@ mod tests {
     use std::io::Cursor;
 
     use assert_matches::assert_matches;
+    use expect_test::expect;
     use rand::SeedableRng;
     use rand_chacha::ChaChaRng;
 
@@ -190,19 +191,16 @@ mod tests {
     }
 
     #[test]
-    fn signature_encoding() {
+    fn signature_kat() {
         let (_, _, _, sig) = setup();
-        assert_eq!(
-            "3FM9j75UTLWDoSLTxXbmJfhxfKydcjmoD3t2yaeG8s8VYtcYbweC2KqnzRrjkaW3Z1icgbnuja4viaThTLH8UGG6",
-            sig.to_string(),
-            "invalid encoded signature"
-        );
+        let expected = expect!["3FM9j75UTLWDoSLTxXbmJfhxfKydcjmoD3t2yaeG8s8VYtcYbweC2KqnzRrjkaW3Z1icgbnuja4viaThTLH8UGG6"];
+        expected.assert_eq(&sig.to_string());
     }
 
     #[test]
     fn signature_decoding() {
         let (_, _, _, sig) = setup();
-        let decoded = "3FM9j75UTLWDoSLTxXbmJfhxfKydcjmoD3t2yaeG8s8VYtcYbweC2KqnzRrjkaW3Z1icgbnuja4viaThTLH8UGG6".parse::<Signature>();
+        let decoded = sig.to_string().parse::<Signature>();
         assert_eq!(Ok(sig), decoded, "error parsing signature");
 
         assert_eq!(

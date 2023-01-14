@@ -18,6 +18,7 @@ thiserror = "1.0.38"
 [dev-dependencies]
 assert_matches = "1.5.0"
 criterion = { version = "0.4.0", features = ["html_reports"] }
+expect-test = "1.4.0"
 rand_chacha = "0.3.1"
 
 [[bench]]
