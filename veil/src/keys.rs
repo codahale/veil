@@ -72,9 +72,9 @@ impl PrivKey {
 
     /// Decodes the given slice as a private key, if possible.
     #[must_use]
-    pub fn decode_reduce(b: impl AsRef<[u8]>) -> Option<PrivKey> {
-        let d: Option<Scalar> = Scalar::from_bytes_mod_order(b.as_ref().try_into().ok()?).into();
-        d.filter(|d| d != &Scalar::ZERO).map(PrivKey::from_scalar)
+    pub fn decode_reduce(b: &[u8; 64]) -> Option<PrivKey> {
+        let d = Scalar::from_bytes_mod_order_wide(b);
+        (d != Scalar::ZERO).then_some(PrivKey::from_scalar(d))
     }
 
     /// Generates a random private key.
