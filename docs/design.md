@@ -224,7 +224,7 @@ adversary who compromises an honest receiver.
 
 In the interests of cryptographic minimalism, Veil uses just three distinct cryptographic
 primitives: [Lockstitch](https://github.com/codahale/lockstitch) for all symmetric-key operations
-and the jq255e elliptic curve [[Por22]](#por22) for all asymmetric-key operations.
+and Ristretto255 [[VGHLTV22]](#vghltv22) for all asymmetric-key operations.
 
 ### Lockstitch
 
@@ -239,16 +239,16 @@ prior state is probabilistic, its `Tag` operation is sUF-CMA secure if the proto
 secret, and its `Encrypt`/`Tag`-based authenticated encryption construction is IND-CCA2 secure if
 the two are IND-CPA and sUF-CMA secure, respectively.
 
-### jq255e
+### Ristretto255
 
-jq255e is a double-odd elliptic curve selected for efficiency and simplicity [[Por20]](#por20)
-[[Por22]](#por22). It provides a prime-order group, has non-malleable encodings, and has no
-co-factor concerns. This allows for the use of a wide variety of cryptographic constructions built
-on group operations. It targets a 128-bit security level, lends itself to constant-time
-implementations, and can run in constrained environments.
+Ristretto255 is a prime-order group implemented on the Curve25519 elliptic curve. It provides a
+canonical non-malleable point encoding and eliminates co-factor concerns. This allows for the use of
+a wide variety of cryptographic constructions built on group operations. It targets a 128-bit
+security level, lends itself to constant-time implementations, and can run in constrained
+environments.
 
 Veil's security assumes that the Gap Discrete Logarithm and Gap Diffie-Hellman problems are hard
-relative to jq255e.
+relative to Ristretto255.
 
 ## Construction Techniques
 
@@ -320,7 +320,7 @@ function HedgedScalar(state, d):
     clone ← Mix(clone, d)       // Mix in the private value.
     v ← Rand(64)                // Generate a 64-byte random value.
     clone ← Mix(clone, v)       // Mix in the random value.
-    x ← Derive(clone, 32) mod q // Derive a scalar from the clone.
+    x ← Derive(clone, 64) mod ℓ // Derive a scalar from the clone.
     return x                    // Return the scalar to the outer context.
   end clone                     // Destroy the cloned protocol's state.
 ```
@@ -331,7 +331,7 @@ number generator, `x` is still unique relative to `d`. Depending on the uniquene
 construction, an ephemeral value can be hedged with a plaintext in addition to a private key.
 
 For brevity, a hedged ephemeral value `x` derived from a protocol `state` and a private input value
-`y` is denoted as `x ← Hedge(state, y, Derive(32) mod q)`.
+`y` is denoted as `x ← Hedge(state, y, Derive(64) mod ℓ)`.
 
 ## Digital Signatures
 
@@ -346,10 +346,10 @@ function Sign(d, m):
   state ← Initialize("veil.schnorr")     // Initialize a protocol.
   state ← Mix(state, [d]G)               // Mix the signer's public key into the protocol.
   state ← Mix(state, m)                  // Mix the message into the protocol.
-  k ← Hedge(state, d, Derive(32) mod q)  // Derive a hedged commitment scalar.
+  k ← Hedge(state, d, Derive(64) mod ℓ)  // Derive a hedged commitment scalar.
   I ← [k]G                               // Calculate the commitment point.
   (state, S₀) ← Encrypt(state, I)        // Encrypt the commitment point.
-  (state, r) ← Derive(state, 16)         // Derive a short challenge scalar.
+  (state, r) ← Derive(state, 64) mod ℓ   // Derive a challenge scalar.
   s ← d×️r + k                            // Calculate the proof scalar.
   (state, S₁) ← Encrypt(state, s)        // Encrypt the proof scalar.
   return S₀ǁS₁                           // Return the commitment point and proof scalar.
@@ -362,14 +362,14 @@ Verifying a signature requires a signer's public key `Q`, a message `m`, and a s
 
 ```text
 function Verify(Q, m, S₀ǁS₁):
-  state ← Initialize("veil.schnorr") // Initialize a protocol.
-  state ← Mix(state, Q)              // Mix the signer's public key into the protocol.
-  state ← Mix(state, m)              // Mix the message into the protocol.
-  (state, I) ← Decrypt(state, S₀)    // Decrypt the commitment point.
-  (state, r′) ← Derive(state, 16)    // Derive a counterfactual challenge scalar.
-  (state, s) ← Decrypt(state, S₁)    // Decrypt the proof scalar.
-  I′ ← [s]G - [r′]Q                  // Calculate the counterfactual commitment point.
-  return I = I′                      // The signature is valid if both points are equal.
+  state ← Initialize("veil.schnorr")    // Initialize a protocol.
+  state ← Mix(state, Q)                 // Mix the signer's public key into the protocol.
+  state ← Mix(state, m)                 // Mix the message into the protocol.
+  (state, I) ← Decrypt(state, S₀)       // Decrypt the commitment point.
+  (state, r′) ← Derive(state, 64) mod ℓ // Derive a counterfactual challenge scalar.
+  (state, s) ← Decrypt(state, S₁)       // Decrypt the proof scalar.
+  I′ ← [s]G - [r′]Q                     // Calculate the counterfactual commitment point.
+  return I = I′                         // The signature is valid if both points are equal.
 ```
 
 ### Constructive Analysis Of `veil.schnorr`
@@ -380,10 +380,8 @@ identification scheme.
 Unlike Construction 13.12 of [[KL20]](#kl20) (p. 482), `veil.schnorr` transmits the commitment point
 `I` as part of the signature and the verifier calculates `I′` vs transmitting the challenge scalar
 `r` and calculating `r′`. In this way, `veil.schnorr` is closer to EdDSA [[BCJZ21]](#bcjz21) or the
-Schnorr variant proposed by Hamburg [[Ham17]](#ham17). Short challenge scalars are used which allow
-for faster verification with no loss in security [[Por22]](#por22). In addition, this construction
-allows for the use of variable-time optimizations during signature verification
-[[Por20+1]](#por201).
+Schnorr variant proposed by Hamburg [[Ham17]](#ham17). In addition, this construction allows for the
+use of variable-time optimizations during signature verification [[Por20+1]](#por201).
 
 ### UF-CMA Security
 
@@ -400,8 +398,8 @@ conditioned on the hardness of the discrete logarithm problem:
 > If the discrete-logarithm problem is hard relative to `G`, then the Schnorr identification scheme
 is secure.
 
-Thus, `veil.schnorr` is UF-CMA if the discrete-logarithm problem is hard relative to jq255e and
-SHA-256 is indistinguishable from a random oracle.
+Thus, `veil.schnorr` is UF-CMA if the discrete-logarithm problem is hard relative to Ristretto255
+and SHA-256 is indistinguishable from a random oracle.
 
 ### sUF-CMA Security
 
@@ -418,8 +416,8 @@ strong binding:
 
 Rejecting `S≥L` makes the scheme sUF-CMA secure, and rejecting small order `A` values makes the
 scheme strongly binding. `veil.schnorr`'s use of canonical point and scalar encoding routines
-obviate the need for these checks. Likewise, jq255e is a prime order group, which obviates the need
-for cofactoring in verification.
+obviate the need for these checks. Likewise, Ristretto255 is a prime order group, which obviates the
+need for cofactoring in verification.
 
 When implemented with a prime order group and canonical encoding routines, the Schnorr signature
 scheme is strongly unforgeable under chosen message attack (sUF-CMA) in the random oracle model and
@@ -468,10 +466,10 @@ function EncryptHeader(d_S, d_E, Q_R, N, P):
   (state, C₀) ← Encrypt(state, [d_E]G)  // Encrypt the ephemeral public key.
   state ← Mix([d_E]Q_R)                 // Mix the ephemeral ECDH shared secret into the protocol.
   (state, C₁) ← Encrypt(P)              // Encrypt the plaintext.
-  k ← Hedge(state, d, Derive(32) mod q) // Derive a hedged commitment scalar.
+  k ← Hedge(state, d, Derive(64) mod ℓ) // Derive a hedged commitment scalar.
   I ← [k]G                              // Calculate the commitment point.
   (state, S₀) ← Encrypt(state, I)       // Encrypt the commitment point.
-  (state, r) ← Derive(state, 32) mod q  // Derive a challenge scalar.
+  (state, r) ← Derive(state, 64) mod ℓ  // Derive a challenge scalar.
   s ← d_S✕r + k                         // Calculate the proof scalar.
   X ← [s]Q_R                            // Calculate the proof point.
   (state, S₁) ← Encrypt(state, X)       // Encrypt the proof point.
@@ -494,7 +492,7 @@ function DecryptHeader(d_R, Q_S, N, C₀ǁC₁ǁS₀ǁS₁):
   state ← Mix([d_R]Q_E)                 // Mix the ephemeral ECDH shared secret into the protocol.
   (state, P) ← Decrypt(C₁)              // Decrypt the plaintext.
   (state, I) ← Decrypt(state, S₀)       // Decrypt the commitment point.
-  (state, r′) ← Derive(state, 32) mod q // Derive a counterfactual challenge scalar.
+  (state, r′) ← Derive(state, 64) mod ℓ // Derive a counterfactual challenge scalar.
   (state, X) ← Decrypt(state, S₁)       // Decrypt the proof point.
   X′ ← [d_R](I + [r′]Q_S)               // Calculate a counterfactual proof point.
   if X ≠ X′:                            // Return an error if the points are not equal.
@@ -625,8 +623,8 @@ padding length `N_P`, and plaintext `P`.
 function EncryptMessage(d_S, [Q_R_0,…,Q_R_n], N_P, P):
   state ← Initialize("veil.mres")                // Initialize a protocol.
   state ← Mix(state, [d_S]G)                     // Mix the sender's public key into the protocol.
-  k ← Hedge(state, d_S, Derive(32) mod q)        // Hedge a commitment scalar.
-  d_E ← Hedge(state, d_S, Derive(32) mod q)      // Hedge an ephemeral private key.
+  k ← Hedge(state, d_S, Derive(64) mod ℓ)        // Hedge a commitment scalar.
+  d_E ← Hedge(state, d_S, Derive(64) mod ℓ)      // Hedge an ephemeral private key.
   K ← Hedge(state, d_S, Derive(32))              // Hedge a data encryption key.
   N ← Hedge(state, d_S, Derive(16))              // Hedge a nonce.
   C ← N                                          // Write the nonce.
@@ -645,14 +643,13 @@ function EncryptMessage(d_S, [Q_R_0,…,Q_R_n], N_P, P):
 
   state ← Mix(K)                                 // Mix the DEK into the protocol.
 
-  for 32KiB blocks p in P:                       // Encrypt and tag each block.
-    (state, C_i) ← Encrypt(state, p)
-    (state, T_i) ← Tag(state)
-    C ← CǁC_iǁT_i
+  for 32KiB blocks p in P:                       // Seal each block.
+    C_i ← Seal(state, p)
+    C ← CǁC_i
 
   I ← [k]G                                       // Calculate the commitment point.
   (state, S₀) ← Encrypt(state, I)                // Encrypt the commitment point.
-  r ← Derive(state, 16)                          // Derive a short challenge scalar.
+  r ← Derive(state, 64) mod ℓ                    // Derive a challenge scalar.
   s ← d_E×️r + k                                  // Calculate the proof scalar.
   (state, S₁) ← Encrypt(state, s)                // Encrypt the proof scalar.
   C ← CǁS₀ǁS₁
@@ -667,40 +664,39 @@ ciphertext `C`.
 
 ```text
 function DecryptMessage(d_R, Q_S, C):
-  state ← Initialize("veil.mres") // Initialize a protocol.
-  state ← Mix(state, Q_S)         // Mix the sender's public key into the protocol.
-  state ← Mix(state, C[0..16])    // Mix the nonce into the protocol.
+  state ← Initialize("veil.mres")       // Initialize a protocol.
+  state ← Mix(state, Q_S)               // Mix the sender's public key into the protocol.
+  state ← Mix(state, C[0..16])          // Mix the nonce into the protocol.
   C ← C[16..]
 
-  (i, N_Q) ← (0, ∞)               // Go through ciphertext looking for a decryptable header.
+  (i, N_Q) ← (0, ∞)                     // Go through ciphertext looking for a decryptable header.
   while i < N_Q:
   for each possible encrypted header E_i in C:
     (state, N_i) ← Derive(state, 16)
     (E_i, C) ← C[..HEADER_LEN]ǁC[HEADER_LEN..]
-    state ← Derive(state, E_i)
+    state ← Mix(state, E_i)
     x ← DecryptHeader(d_R, Q_S, N_i, E_i)
     if x ≠ ⊥:
-      (Q_E, KǁN_QǁN_P) ← x        // Once we decrypt a header, process the remaining headers.
+      (Q_E, KǁN_QǁN_P) ← x              // Once we decrypt a header, process the remaining headers.
 
-  state ← Mix(state, C[..N_P])    // Mix the padding into the protocol.
-  C ← C[N_P..]                    // Skip to the message beginning.
+  state ← Mix(state, C[..N_P])          // Mix the padding into the protocol.
+  C ← C[N_P..]                          // Skip to the message beginning.
 
-  state ← Mix(state, K)           // Mix the DEK into the protocol.
+  state ← Mix(state, K)                 // Mix the DEK into the protocol.
 
   P ← ϵ
-  for 32KiB blocks c_iǁt_i in C:  // Decrypt each block, checking tags.
-    (state, p_i) ← Decrypt(state, c_i)
-    (state, ok) ← CheckTag(state, t_i)
-    if !ok:
+  for 32KiB blocks c_iǁt_i in C:        // Unseal each block.
+    (state, p_i) ← Unseal(state, c_i)
+    if p_i = ⊥:
       return ⊥
     P ← Pǁp_i
 
-  S₀ǁS₁ ← C                       // Split the last 64 bytes of the message.
-  (state, I) ← Decrypt(state, S₀) // Decrypt the commitment point.
-  (state, r′) ← Tag(state)        // Derive a counterfactual challenge scalar.
-  (state, s) ← Decrypt(state, S)  // Decrypt the proof scalar.
-  I′ ← [s]G - [r′]Q               // Calculate the counterfactual commitment scalar.
-  if I ≠ I′:                      // Verify the signature.
+  S₀ǁS₁ ← C                             // Split the last 64 bytes of the message.
+  (state, I) ← Decrypt(state, S₀)       // Decrypt the commitment point.
+  (state, r′) ← Derive(state, 64) mod ℓ // Derive a counterfactual challenge scalar.
+  (state, s) ← Decrypt(state, S)        // Decrypt the proof scalar.
+  I′ ← [s]G - [r′]Q                     // Calculate the counterfactual commitment scalar.
+  if I ≠ I′:                            // Verify the signature.
     return ⊥
   return P
 ```
@@ -721,9 +717,8 @@ each encrypted with a sequence of Lockstitch `Encrypt`/`Tag` operations, which i
 The latter portion of `veil.mres` is an EdDSA-style Schnorr signature scheme. The EdDSA-style
 Schnorr signature is sUF-CMA secure when implemented in a prime order group and a cryptographic hash
 function [[BCJZ21]](#bcjz21) [[CGN20]](#cgn20) [[PS00]](#ps00) [[NSW09]](#nsw09) (see also
-[`veil.schnorr`](#digital-signatures)). Short challenge scalars are used which allow for faster
-verification with no loss in security [[Por22]](#por22). In addition, this construction allows for
-the use of variable-time optimizations during signature verification [[Por20+1]](#por201).
+[`veil.schnorr`](#digital-signatures)). In addition, this construction allows for the use of
+variable-time optimizations during signature verification [[Por20+1]](#por201).
 
 ### Multi-User Confidentiality Of Messages
 
@@ -1069,23 +1064,11 @@ David Pointcheval and Jacques Stern.
 [_Security arguments for digital signatures and blind signatures._](https://www.di.ens.fr/david.pointcheval/Documents/Papers/2000_joc.pdf)
 [`DOI:10.1007/s001450010003`](https://doi.org/10.1007/s001450010003)
 
-### Por20
-
-Thomas Pornin.
-2020.
-[_Double-Odd elliptic curves._](https://eprint.iacr.org/2020/1558.pdf)
-
 ### Por20+1
 
 Thomas Pornin.
 2020.
 [_Optimized lattice basis reduction in dimension 2, and fast Schnorr and EdDSA signature verification._](https://eprint.iacr.org/2020/454)
-
-### Por22
-
-Thomas Pornin.
-2022.
-[_Double-Odd Jacobi quartic._](https://eprint.iacr.org/2022/1052)
 
 ### RD10
 
@@ -1123,6 +1106,13 @@ Maurizio Adriano Strangio.
 2006.
 [_On the resilience of key agreement protocols to key compromise impersonation._](https://eprint.iacr.org/2006/252.pdf)
 [`DOI:10.1007/11774716_19`](https://doi.org/10.1007/11774716_19)
+
+### VGHLTV22
+
+Henry de Valence, Jack Grigg, Mike Hamburg, Isis Lovecruft, George Tankersley, and Filippo Valsorda.
+2022
+[The ristretto255 and decaf448 Groups](https://www.ietf.org/archive/id/draft-irtf-cfrg-ristretto255-decaf448-05.html)
+[`draft-irtf-cfrg-ristretto255-decaf448-05`](https://datatracker.ietf.org/doc/draft-irtf-cfrg-ristretto255-decaf448/)
 
 ### YHR04
 
