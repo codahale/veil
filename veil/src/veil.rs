@@ -64,7 +64,7 @@ impl PrivateKey {
 
         // Decrypt the ciphertext and use the plaintext as the private key.
         pbenc::decrypt(passphrase, &mut b)
-            .and_then(PrivKey::decode)
+            .and_then(PrivKey::from_canonical_bytes)
             .map(PrivateKey)
             .ok_or(DecryptError::InvalidCiphertext)
     }
@@ -144,7 +144,7 @@ impl PublicKey {
     /// Decode a public key from a 32-byte slice.
     #[must_use]
     pub fn decode(b: impl AsRef<[u8]>) -> Option<PublicKey> {
-        PubKey::decode(b).map(PublicKey)
+        PubKey::from_canonical_bytes(b).map(PublicKey)
     }
 
     /// Encode the public key as a 32-byte array.

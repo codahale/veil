@@ -116,7 +116,7 @@ pub fn decrypt<'a>(
 
     // Decrypt and decode the ephemeral public key.
     sres.decrypt(ephemeral);
-    let ephemeral = PubKey::decode(ephemeral)?;
+    let ephemeral = PubKey::from_canonical_bytes(ephemeral)?;
 
     // Mix the ephemeral ECDH shared secret into the protocol.
     sres.mix(&ecdh(receiver, &ephemeral));

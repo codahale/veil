@@ -25,7 +25,7 @@ pub struct PubKey {
 impl PubKey {
     /// Decodes the given slice as a public key, if possible.
     #[must_use]
-    pub fn decode(b: impl AsRef<[u8]>) -> Option<PubKey> {
+    pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<PubKey> {
         let encoded = <[u8; POINT_LEN]>::try_from(b.as_ref()).ok()?;
         let q = CompressedRistretto::from_slice(&encoded).decompress()?;
         (!q.is_identity()).then_some(PubKey { q, encoded })
@@ -65,16 +65,16 @@ pub struct PrivKey {
 impl PrivKey {
     /// Decodes the given slice as a canonically encoded private key, if possible.
     #[must_use]
-    pub fn decode(b: impl AsRef<[u8]>) -> Option<PrivKey> {
-        let d: Option<Scalar> = Scalar::from_canonical_bytes(b.as_ref().try_into().ok()?).into();
-        d.filter(|d| d != &Scalar::ZERO).map(PrivKey::from_scalar)
+    pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<PrivKey> {
+        let d = Scalar::from_canonical_bytes(b.as_ref().try_into().ok()?).unwrap_or(Scalar::ZERO);
+        (d != Scalar::ZERO).then(|| PrivKey::from_scalar(d))
     }
 
-    /// Decodes the given slice as a private key, if possible.
+    /// Reduces the given array as a private key, if possible.
     #[must_use]
-    pub fn decode_reduce(b: &[u8; 64]) -> Option<PrivKey> {
+    pub fn from_bytes_mod_order_wide(b: &[u8; 64]) -> Option<PrivKey> {
         let d = Scalar::from_bytes_mod_order_wide(b);
-        (d != Scalar::ZERO).then_some(PrivKey::from_scalar(d))
+        (d != Scalar::ZERO).then(|| PrivKey::from_scalar(d))
     }
 
     /// Generates a random private key.
