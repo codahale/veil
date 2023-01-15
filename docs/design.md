@@ -235,9 +235,9 @@ processors at a 128-bit security level. More information on the design of Lockst
 [here](https://github.com/codahale/lockstitch/blob/main/design.md).
 
 Veil's security assumes that Lockstitch's `Encrypt` operation is IND-CPA secure if the protocol's
-prior state is probabilistic, its `Tag` operation is sUF-CMA secure if the protocol's prior state is
-secret, and its `Encrypt`/`Tag`-based authenticated encryption construction is IND-CCA2 secure if
-the two are IND-CPA and sUF-CMA secure, respectively.
+prior state is probabilistic, its `Derive` operation is sUF-CMA secure if the protocol's prior state
+is secret, and its `Seal` operation is IND-CCA2 secure if the two are IND-CPA and sUF-CMA secure,
+respectively.
 
 ### Ristretto255
 
@@ -275,15 +275,13 @@ order:
 function HPKE(d_E, Q_R, p):
   state ← Initialize("com.example.hpke") // Initialize a Lockstitch protocol with a domain string. 
   state ← Mix(state, [d_E]Q_R)           // Mix the ECDH shared secret into the protocol's state.
-  (state, c) ← Encrypt(state, p)         // Encrypt the plaintext.
-  (state, t) ← Tag(state)                // Create an authentication tag.
-  return cǁt                             // Return ciphertext and tag.
+  (state, c) ← Seal(state, p)            // Seal the plaintext.
+  return c                               // Return ciphertext.
 ```
 
-The protocol is keyed with the shared secret point, used to encrypt the plaintext, and finally used
-to create an authentication tag. Each operation modifies the protocol's state, making the final
-`Tag` operation's output dependent on both the previous `Encrypt` operation (and its argument, `p`)
-but also the `Mix` and `Initialize` operations before it.
+The protocol is keyed with the shared secret point and used to seal the plaintext. Each operation
+modifies the protocol's state, making the final `Seal` operation's output dependent not just on its
+input `p` but also the `Mix` and `Initialize` operations before it.
 
 This is both a dramatically clearer way of expressing the overall hybrid public-key encryption
 construction and more efficient: because the ephemeral shared secret point is unique, no nonce need
@@ -292,9 +290,9 @@ be derived (or no all-zero nonce need be justified in an audit).
 #### Process History As Hidden State
 
 A subtle but critical benefit of integrating constructions via a stateful cryptographic object is
-that authenticators produced via `Tag` operations are dependent on the entire process history of the
-protocol, not just on the emitted ciphertext. The DEM components of our HPKE analog (i.e.
-`Encrypt`/`Tag`) are superficially similar to an Encrypt-then-MAC (EtM) construction, but where an
+that authenticators produced via `Derive` or `Seal` operations are dependent on the entire process
+history of the protocol, not just on the emitted ciphertext. The DEM components of our HPKE analog
+(i.e. `Seal`) are superficially similar to an Encrypt-then-MAC (EtM) construction, but where an
 adversary in possession of the MAC key can forge authenticators given an EtM ciphertext, the
 protocol-based approach makes that infeasible. With Lockstitch, the key used to create the
 authenticator tag is derived via SHA-256 from the protocol's state, which is itself dependent on the
@@ -712,7 +710,7 @@ copies of a symmetric data encryption key (DEK) encrypted in headers with the re
 encrypted with the `veil.sres` construction (see [`veil.sres`](#encrypted-headers)), which provides
 full insider security (i.e. IND-CCA2 and sUF-CMA in the multi-user insider setting), using a
 per-header `Derive` value as a nonce. The message itself is divided into a sequence of 32KiB blocks,
-each encrypted with a sequence of Lockstitch `Encrypt`/`Tag` operations, which is IND-CCA2 secure.
+each encrypted with a sequence of Lockstitch `Seal` operations, which is IND-CCA2 secure.
 
 The latter portion of `veil.mres` is an EdDSA-style Schnorr signature scheme. The EdDSA-style
 Schnorr signature is sUF-CMA secure when implemented in a prime order group and a cryptographic hash
@@ -876,9 +874,8 @@ private key `d`.
 function EncryptPrivateKey(P, N_T, N_S, d):
   S ← Rand(16)                               // Generate a random salt.
   state ← InitFromPassphrase(P, S, N_T, N_S) // Perform the balloon hashing.
-  (state, C) ← Encrypt(state, d)             // Encrypt the private key.
-  (state, T) ← Tag(state)                    // Create an authentication tag.
-  return N_TǁN_SǁSǁCǁT
+  (state, C) ← Seal(state, d)                // Seal the private key.
+  return N_TǁN_SǁSǁC
 ```
 
 ### Decrypting A Private Key
@@ -886,12 +883,9 @@ function EncryptPrivateKey(P, N_T, N_S, d):
 Decrypting a private key requires a passphrase `P` and ciphertext `C=N_TǁN_SǁSǁCǁT`.
 
 ```text
-function DecryptPrivateKey(P, N_T, N_S, d):
+function DecryptPrivateKey(P, N_T, N_S, C):
   state ← InitFromPassphrase(P, S, N_T, N_S) // Perform the balloon hashing.
-  (state, d′) ← Decrypt(state, C)            // Decrypt the ciphertext.
-  (state, T′) ← Tag(state)                   // Create an authentication tag.
-  if T ≠ T′:                                 // Return an error if the tags are not equal.
-    return ⊥
+  (state, d′) ← Unseal(state, C)             // Unseal the ciphertext.
   return d′
 ```
 
