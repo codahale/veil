@@ -4,7 +4,9 @@ use std::io::Read;
 use std::str::FromStr;
 use std::{fmt, io};
 
-use crrl::jq255e::{Point, Scalar};
+use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
+use curve25519_dalek::ristretto::RistrettoPoint;
+use curve25519_dalek::scalar::Scalar;
 use lockstitch::Protocol;
 use rand::{CryptoRng, Rng};
 
@@ -95,21 +97,21 @@ pub fn sign_protocol(
 
     // Derive a commitment scalar from the protocol's current state, the signer's private key,
     // and a random nonce, and calculate the commitment point.
-    let k = protocol.hedge(&mut rng, &[&signer.d.encode()], |clone| {
-        Scalar::decode(&clone.derive_array::<32>())
+    let k = protocol.hedge(&mut rng, &[signer.d.as_bytes()], |clone| {
+        Some(Scalar::from_bytes_mod_order_wide(&clone.derive_array::<64>()))
     });
-    let i = Point::mulgen(&k);
+    let i = &k * &RISTRETTO_BASEPOINT_TABLE;
 
     // Calculate, encode, and encrypt the commitment point.
-    sig_i.copy_from_slice(&i.encode());
+    sig_i.copy_from_slice(i.compress().as_bytes());
     protocol.encrypt(sig_i);
 
     // Derive a challenge scalar.
-    let r = Scalar::from_u128(u128::from_le_bytes(protocol.derive_array()));
+    let r = Scalar::from_bytes_mod_order_wide(&protocol.derive_array::<64>());
 
     // Calculate, encode, and encrypt the proof scalar.
     let s = (signer.d * r) + k;
-    sig_s.copy_from_slice(&s.encode());
+    sig_s.copy_from_slice(s.as_bytes());
     protocol.encrypt(sig_s);
 
     // Return the full signature.
@@ -127,16 +129,20 @@ pub fn verify_protocol(protocol: &mut Protocol, signer: &PubKey, sig: &Signature
     protocol.decrypt(i);
 
     // Re-derive the challenge scalar.
-    let r_p = u128::from_le_bytes(protocol.derive_array());
+    let r_p = Scalar::from_bytes_mod_order_wide(&protocol.derive_array::<64>());
 
     // Decrypt and decode the proof scalar.
     protocol.decrypt(s);
-    let s = Scalar::decode(s)?;
+    let s: Option<Scalar> = Scalar::from_canonical_bytes(s.try_into().ok()?).into();
 
     // Return true iff I and s are well-formed and I == [s]G - [r']Q. Here we compare the encoded
     // form of I' with the encoded form of I from the signature. This is faster, as encoding a point
     // is faster than decoding a point.
-    ((-signer.q).mul128_add_mulgen_vartime(r_p, &s).encode().as_slice() == i).then_some(())
+    (RistrettoPoint::vartime_double_scalar_mul_basepoint(&r_p, &-signer.q, &s?)
+        .compress()
+        .as_bytes()
+        == i)
+        .then_some(())
 }
 
 #[cfg(test)]
@@ -193,7 +199,7 @@ mod tests {
     #[test]
     fn signature_kat() {
         let (_, _, _, sig) = setup();
-        let expected = expect!["3FM9j75UTLWDoSLTxXbmJfhxfKydcjmoD3t2yaeG8s8VYtcYbweC2KqnzRrjkaW3Z1icgbnuja4viaThTLH8UGG6"];
+        let expected = expect!["7QyW92uX3C8ReGvvb9BHyZJs9VhGpdPbGgKJjLzT7jjKmHUTi8hy6J6kKppFJMBJX33fWakQzepY2KryJwiHeCq"];
         expected.assert_eq(&sig.to_string());
     }
 

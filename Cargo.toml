@@ -5,5 +5,5 @@ members = ["veil", "veil-cli", "xtask"]
 codegen-units = 1
 lto = "fat"
 
-[profile.dev.package.crrl]
+[profile.dev.package.curve25519-dalek]
 opt-level = 3

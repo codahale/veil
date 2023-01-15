@@ -46,7 +46,7 @@ impl PrivateKey {
         memory_cost: u8,
     ) -> io::Result<usize> {
         let mut enc_key = [0u8; SCALAR_LEN + pbenc::OVERHEAD];
-        pbenc::encrypt(rng, passphrase, time_cost, memory_cost, &self.0.d.encode(), &mut enc_key);
+        pbenc::encrypt(rng, passphrase, time_cost, memory_cost, self.0.d.as_bytes(), &mut enc_key);
         writer.write_all(&enc_key)?;
         Ok(enc_key.len())
     }
@@ -192,6 +192,7 @@ mod tests {
     use std::io::Cursor;
 
     use assert_matches::assert_matches;
+    use expect_test::expect;
     use rand::{RngCore, SeedableRng};
     use rand_chacha::ChaChaRng;
 
@@ -202,13 +203,9 @@ mod tests {
         let rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let pk = PrivateKey::random(rng).public_key();
 
-        assert_eq!(
-            "Beebnk8t9qNYJqhz53ZZJgaaP6nuFRwf4CWow3rB7bD9",
-            pk.to_string(),
-            "invalid encoded public key"
-        );
+        expect!["7V69XGhwZVrot5nYoYbW5j4YmDHu3tc3N1HaEa3TVYax"].assert_eq(&pk.to_string());
 
-        let decoded = "Beebnk8t9qNYJqhz53ZZJgaaP6nuFRwf4CWow3rB7bD9".parse::<PublicKey>();
+        let decoded = pk.to_string().parse::<PublicKey>();
         assert_eq!(Ok(pk), decoded, "error parsing public key");
 
         assert_eq!(

@@ -1,6 +1,9 @@
 use std::fmt::{Debug, Formatter};
 
-use crrl::jq255e::{Point, Scalar};
+use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
+use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
+use curve25519_dalek::scalar::Scalar;
+use curve25519_dalek::traits::IsIdentity;
 use rand::{CryptoRng, Rng};
 
 /// The length of an encoded scalar in bytes.
@@ -13,7 +16,7 @@ pub const POINT_LEN: usize = 32;
 #[derive(Clone, Copy)]
 pub struct PubKey {
     /// The decoded point.
-    pub q: Point,
+    pub q: RistrettoPoint,
 
     /// The point's canonical encoded form.
     pub encoded: [u8; POINT_LEN],
@@ -24,17 +27,15 @@ impl PubKey {
     #[must_use]
     pub fn decode(b: impl AsRef<[u8]>) -> Option<PubKey> {
         let encoded = <[u8; POINT_LEN]>::try_from(b.as_ref()).ok()?;
-        let q = Point::decode(&encoded)?;
-        (q.isneutral() == 0).then_some(PubKey { q, encoded })
+        let q = CompressedRistretto::from_slice(&encoded).decompress()?;
+        (!q.is_identity()).then_some(PubKey { q, encoded })
     }
 
     /// Generates a random public key for which no private key is known.
     #[must_use]
     pub fn random(mut rng: impl CryptoRng + Rng) -> PubKey {
-        // It would be nice if this didn't hash what is already uniform data.
-        let q = Point::hash_to_curve("", &rng.gen::<[u8; 64]>());
-        let encoded = q.encode();
-        PubKey { q, encoded }
+        let q = RistrettoPoint::random(&mut rng);
+        PubKey { q, encoded: q.compress().to_bytes() }
     }
 }
 
@@ -65,22 +66,23 @@ impl PrivKey {
     /// Decodes the given slice as a canonically encoded private key, if possible.
     #[must_use]
     pub fn decode(b: impl AsRef<[u8]>) -> Option<PrivKey> {
-        Scalar::decode(b.as_ref()).filter(|d| d.iszero() == 0).map(PrivKey::from_scalar)
+        let d: Option<Scalar> = Scalar::from_canonical_bytes(b.as_ref().try_into().ok()?).into();
+        d.filter(|d| d != &Scalar::ZERO).map(PrivKey::from_scalar)
     }
 
     /// Decodes the given slice as a private key, if possible.
     #[must_use]
     pub fn decode_reduce(b: impl AsRef<[u8]>) -> Option<PrivKey> {
-        let d = Scalar::decode_reduce(b.as_ref());
-        (d.iszero() == 0).then(|| PrivKey::from_scalar(d))
+        let d: Option<Scalar> = Scalar::from_bytes_mod_order(b.as_ref().try_into().ok()?).into();
+        d.filter(|d| d != &Scalar::ZERO).map(PrivKey::from_scalar)
     }
 
     /// Generates a random private key.
     #[must_use]
     pub fn random(mut rng: impl CryptoRng + Rng) -> PrivKey {
         loop {
-            let d = Scalar::decode_reduce(&rng.gen::<[u8; 32]>());
-            if d.iszero() == 0 {
+            let d = Scalar::random(&mut rng);
+            if d != Scalar::ZERO {
                 return PrivKey::from_scalar(d);
             }
         }
@@ -88,8 +90,8 @@ impl PrivKey {
 
     #[must_use]
     fn from_scalar(d: Scalar) -> PrivKey {
-        let q = Point::mulgen(&d);
-        PrivKey { d, pub_key: PubKey { q, encoded: q.encode() } }
+        let q = &d * &RISTRETTO_BASEPOINT_TABLE;
+        PrivKey { d, pub_key: PubKey { q, encoded: q.compress().to_bytes() } }
     }
 }
 

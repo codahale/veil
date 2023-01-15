@@ -1,7 +1,10 @@
 //! An insider-secure hybrid signcryption implementation.
 
 use constant_time_eq::constant_time_eq;
-use crrl::jq255e::{Point, Scalar};
+use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
+use curve25519_dalek::ristretto::CompressedRistretto;
+use curve25519_dalek::scalar::Scalar;
+use curve25519_dalek::traits::IsIdentity;
 use lockstitch::Protocol;
 use rand::{CryptoRng, Rng};
 
@@ -59,19 +62,20 @@ pub fn encrypt(
 
     // Derive a commitment scalar from the protocol's current state, the sender's private key,
     // and a random nonce.
-    let k =
-        sres.hedge(rng, &[&sender.d.encode()], |clone| Scalar::decode(&clone.derive_array::<32>()));
+    let k = sres.hedge(rng, &[sender.d.as_bytes()], |clone| {
+        Some(Scalar::from_bytes_mod_order_wide(&clone.derive_array::<64>()))
+    });
 
     // Calculate and encrypt the commitment point.
-    out_i.copy_from_slice(&Point::mulgen(&k).encode());
+    out_i.copy_from_slice((&k * &RISTRETTO_BASEPOINT_TABLE).compress().as_bytes());
     sres.encrypt(out_i);
 
     // Derive a challenge scalar.
-    let r = Scalar::decode_reduce(&sres.derive_array::<32>());
+    let r = Scalar::from_bytes_mod_order_wide(&sres.derive_array::<64>());
 
     // Calculate and encrypt the designated proof point: X = [d_S*r+k]Q_R
     let x = receiver.q * ((sender.d * r) + k);
-    out_x.copy_from_slice(&x.encode());
+    out_x.copy_from_slice(x.compress().as_bytes());
     sres.encrypt(out_x);
 }
 
@@ -122,10 +126,10 @@ pub fn decrypt<'a>(
 
     // Decrypt and decode the commitment point.
     sres.decrypt(i);
-    let i = Point::decode(i)?;
+    let i = CompressedRistretto::from_slice(i).decompress()?;
 
     // Re-derive the challenge scalar.
-    let r_p = Scalar::decode_reduce(&sres.derive_array::<32>());
+    let r_p = Scalar::from_bytes_mod_order_wide(&sres.derive_array::<64>());
 
     // Decrypt the designated proof point.
     sres.decrypt(x);
@@ -135,7 +139,7 @@ pub fn decrypt<'a>(
 
     // Return the ephemeral public key and plaintext iff the canonical encoding of the re-calculated
     // proof point matches the encoding of the decrypted proof point.
-    constant_time_eq(x, &x_p.encode()).then_some((ephemeral, ciphertext))
+    constant_time_eq(x, x_p.compress().as_bytes()).then_some((ephemeral, ciphertext))
 }
 
 /// Calculate the ECDH shared secret, deterministically substituting `(Q ^ d)` if the peer public
@@ -144,9 +148,9 @@ pub fn decrypt<'a>(
 #[allow(clippy::as_conversions)]
 fn ecdh(a: &PrivKey, b: &PubKey) -> [u8; POINT_LEN] {
     // Pornin's algorithm for safe, constant-time ECDH.
-    let mut zz_ab = (a.d * b.q).encode();
-    let zz_aa = a.d.encode();
-    let non_contributory = b.q.isneutral() as u8;
+    let mut zz_ab = (a.d * b.q).compress().to_bytes();
+    let zz_aa = a.d.to_bytes();
+    let non_contributory = if b.q.is_identity() { 0xFF } else { 0x00 };
     for i in 0..POINT_LEN {
         zz_ab[i] ^= non_contributory & (zz_ab[i] ^ zz_aa[i]);
     }
