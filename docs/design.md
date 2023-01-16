@@ -236,8 +236,7 @@ processors at a 128-bit security level. More information on the design of Lockst
 
 Veil's security assumes that Lockstitch's `Encrypt` operation is IND-CPA secure if the protocol's
 prior state is probabilistic, its `Derive` operation is sUF-CMA secure if the protocol's prior state
-is secret, and its `Seal` operation is IND-CCA2 secure if the two are IND-CPA and sUF-CMA secure,
-respectively.
+is secret, and its `Seal` operation is IND-CCA2 secure.
 
 ### Ristretto255
 
