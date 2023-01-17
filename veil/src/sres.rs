@@ -2,7 +2,7 @@
 
 use constant_time_eq::constant_time_eq;
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
-use curve25519_dalek::ristretto::CompressedRistretto;
+use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::IsIdentity;
 use lockstitch::Protocol;
@@ -47,14 +47,14 @@ pub fn encrypt(
     sres.mix(nonce);
 
     // Mix the static ECDH shared secret into the protocol.
-    sres.mix(&ecdh(sender, receiver));
+    sres.mix(&ecdh(&sender.d, &receiver.q));
 
     // Encrypt the ephemeral public key.
     out_q_e.copy_from_slice(&ephemeral.pub_key.encoded);
     sres.encrypt(out_q_e);
 
     // Mix the ephemeral ECDH shared secret into the protocol.
-    sres.mix(&ecdh(ephemeral, receiver));
+    sres.mix(&ecdh(&ephemeral.d, &receiver.q));
 
     // Encrypt the plaintext.
     out_ciphertext.copy_from_slice(plaintext);
@@ -74,7 +74,7 @@ pub fn encrypt(
     let r = Scalar::from_bytes_mod_order_wide(&sres.derive_array::<64>());
 
     // Calculate and encrypt the designated proof point: X = [d_S*r+k]Q_R
-    let x = receiver.q * ((sender.d * r) + k);
+    let x = ((sender.d * r) + k) * receiver.q;
     out_x.copy_from_slice(x.compress().as_bytes());
     sres.encrypt(out_x);
 }
@@ -112,14 +112,14 @@ pub fn decrypt<'a>(
     sres.mix(nonce);
 
     // Mix the static ECDH shared secret into the protocol.
-    sres.mix(&ecdh(receiver, sender));
+    sres.mix(&ecdh(&receiver.d, &sender.q));
 
     // Decrypt and decode the ephemeral public key.
     sres.decrypt(ephemeral);
     let ephemeral = PubKey::from_canonical_bytes(ephemeral)?;
 
     // Mix the ephemeral ECDH shared secret into the protocol.
-    sres.mix(&ecdh(receiver, &ephemeral));
+    sres.mix(&ecdh(&receiver.d, &ephemeral.q));
 
     // Decrypt the plaintext.
     sres.decrypt(ciphertext);
@@ -135,7 +135,7 @@ pub fn decrypt<'a>(
     sres.decrypt(x);
 
     // Re-calculate the proof point: X' = [d_R](I + [r']Q_R)
-    let x_p = (i + (sender.q * r_p)) * receiver.d;
+    let x_p = receiver.d * (i + (r_p * sender.q));
 
     // Return the ephemeral public key and plaintext iff the canonical encoding of the re-calculated
     // proof point matches the encoding of the decrypted proof point.
@@ -146,11 +146,11 @@ pub fn decrypt<'a>(
 /// key is the neutral point.
 #[must_use]
 #[allow(clippy::as_conversions)]
-fn ecdh(a: &PrivKey, b: &PubKey) -> [u8; POINT_LEN] {
+fn ecdh(d: &Scalar, q: &RistrettoPoint) -> [u8; POINT_LEN] {
     // Pornin's algorithm for safe, constant-time ECDH.
-    let mut zz_ab = (a.d * b.q).compress().to_bytes();
-    let zz_aa = a.d.as_bytes();
-    let non_contributory = if b.q.is_identity() { 0xFF } else { 0x00 };
+    let mut zz_ab = (d * q).compress().to_bytes();
+    let zz_aa = d.as_bytes();
+    let non_contributory = if q.is_identity() { 0xFF } else { 0x00 };
     for i in 0..POINT_LEN {
         zz_ab[i] ^= non_contributory & (zz_ab[i] ^ zz_aa[i]);
     }
