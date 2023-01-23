@@ -561,14 +561,14 @@ dependencies = [
 
 [[package]]
 name = "lockstitch"
-version = "0.7.1"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4de3f31e0b8cc903f06d9e579465e01b53e3b570959707253a229fee1289781"
+checksum = "599415a0bf4822a90f224d27eb8e101d611e6a8876fa2f6bde82f029c7903af0"
 dependencies = [
  "aligned",
- "constant_time_eq",
  "rand_core",
  "sha2",
+ "subtle",
 ]
 
 [[package]]
