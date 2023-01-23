@@ -1,12 +1,12 @@
 //! An insider-secure hybrid signcryption implementation.
 
-use constant_time_eq::constant_time_eq;
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::IsIdentity;
 use lockstitch::Protocol;
 use rand::{CryptoRng, Rng};
+use subtle::ConstantTimeEq;
 
 use crate::keys::{PrivKey, PubKey, POINT_LEN};
 
@@ -139,7 +139,7 @@ pub fn decrypt<'a>(
 
     // Return the ephemeral public key and plaintext iff the canonical encoding of the re-calculated
     // proof point matches the encoding of the decrypted proof point.
-    constant_time_eq(x, x_p.compress().as_bytes()).then_some((ephemeral, ciphertext))
+    bool::from(x.ct_eq(x_p.compress().as_bytes())).then_some((ephemeral, ciphertext))
 }
 
 /// Calculate the ECDH shared secret, deterministically substituting `(Q ^ d)` if the peer public
