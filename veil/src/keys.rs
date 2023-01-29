@@ -27,7 +27,7 @@ impl PubKey {
     #[must_use]
     pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<PubKey> {
         let encoded = <[u8; POINT_LEN]>::try_from(b.as_ref()).ok()?;
-        let q = CompressedRistretto::from_slice(&encoded).decompress()?;
+        let q = CompressedRistretto::from_slice(&encoded).ok()?.decompress()?;
         (!q.is_identity()).then_some(PubKey { q, encoded })
     }
 
@@ -90,7 +90,7 @@ impl PrivKey {
 
     #[must_use]
     fn from_scalar(d: Scalar) -> PrivKey {
-        let q = &d * &RISTRETTO_BASEPOINT_TABLE;
+        let q = &d * RISTRETTO_BASEPOINT_TABLE;
         PrivKey { d, pub_key: PubKey { q, encoded: q.compress().to_bytes() } }
     }
 }

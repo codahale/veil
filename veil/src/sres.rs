@@ -67,7 +67,7 @@ pub fn encrypt(
     });
 
     // Calculate and encrypt the commitment point.
-    out_i.copy_from_slice((&k * &RISTRETTO_BASEPOINT_TABLE).compress().as_bytes());
+    out_i.copy_from_slice((&k * RISTRETTO_BASEPOINT_TABLE).compress().as_bytes());
     sres.encrypt(out_i);
 
     // Derive a challenge scalar.
@@ -126,7 +126,7 @@ pub fn decrypt<'a>(
 
     // Decrypt and decode the commitment point.
     sres.decrypt(i);
-    let i = CompressedRistretto::from_slice(i).decompress()?;
+    let i = CompressedRistretto::from_slice(i).ok()?.decompress()?;
 
     // Re-derive the challenge scalar.
     let r_p = Scalar::from_bytes_mod_order_wide(&sres.derive_array::<64>());

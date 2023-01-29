@@ -100,7 +100,7 @@ pub fn sign_protocol(
     let k = protocol.hedge(&mut rng, &[signer.d.as_bytes()], |clone| {
         Some(Scalar::from_bytes_mod_order_wide(&clone.derive_array::<64>()))
     });
-    let i = &k * &RISTRETTO_BASEPOINT_TABLE;
+    let i = &k * RISTRETTO_BASEPOINT_TABLE;
 
     // Calculate, encode, and encrypt the commitment point.
     sig_i.copy_from_slice(i.compress().as_bytes());
