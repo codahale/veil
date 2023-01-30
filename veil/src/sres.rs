@@ -1,6 +1,5 @@
 //! An insider-secure hybrid signcryption implementation.
 
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::IsIdentity;
@@ -67,7 +66,7 @@ pub fn encrypt(
     });
 
     // Calculate and encrypt the commitment point.
-    out_i.copy_from_slice((&k * RISTRETTO_BASEPOINT_TABLE).compress().as_bytes());
+    out_i.copy_from_slice(RistrettoPoint::mul_base(&k).compress().as_bytes());
     sres.encrypt(out_i);
 
     // Derive a challenge scalar.

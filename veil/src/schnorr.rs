@@ -4,7 +4,6 @@ use std::io::Read;
 use std::str::FromStr;
 use std::{fmt, io};
 
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use lockstitch::Protocol;
@@ -100,7 +99,7 @@ pub fn sign_protocol(
     let k = protocol.hedge(&mut rng, &[signer.d.as_bytes()], |clone| {
         Some(Scalar::from_bytes_mod_order_wide(&clone.derive_array::<64>()))
     });
-    let i = &k * RISTRETTO_BASEPOINT_TABLE;
+    let i = RistrettoPoint::mul_base(&k);
 
     // Calculate, encode, and encrypt the commitment point.
     sig_i.copy_from_slice(i.compress().as_bytes());

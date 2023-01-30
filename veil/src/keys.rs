@@ -1,6 +1,5 @@
 use std::fmt::{Debug, Formatter};
 
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::IsIdentity;
@@ -90,7 +89,7 @@ impl PrivKey {
 
     #[must_use]
     fn from_scalar(d: Scalar) -> PrivKey {
-        let q = &d * RISTRETTO_BASEPOINT_TABLE;
+        let q = RistrettoPoint::mul_base(&d);
         PrivKey { d, pub_key: PubKey { q, encoded: q.compress().to_bytes() } }
     }
 }
