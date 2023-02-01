@@ -2,10 +2,10 @@
 
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
-use curve25519_dalek::traits::IsIdentity;
+use curve25519_dalek::traits::Identity;
 use lockstitch::Protocol;
 use rand::{CryptoRng, Rng};
-use subtle::ConstantTimeEq;
+use subtle::{ConditionallySelectable, ConstantTimeEq};
 
 use crate::keys::{PrivKey, PubKey, POINT_LEN};
 
@@ -149,9 +149,10 @@ fn ecdh(d: &Scalar, q: &RistrettoPoint) -> [u8; POINT_LEN] {
     // Pornin's algorithm for safe, constant-time ECDH.
     let mut zz_ab = (d * q).compress().to_bytes();
     let zz_aa = d.as_bytes();
-    let non_contributory = if q.is_identity() { 0xFF } else { 0x00 };
+    let non_contributory = q.ct_eq(&RistrettoPoint::identity());
+    let mask = u8::conditional_select(&0x00, &0xFF, non_contributory);
     for i in 0..POINT_LEN {
-        zz_ab[i] ^= non_contributory & (zz_ab[i] ^ zz_aa[i]);
+        zz_ab[i] ^= mask & (zz_ab[i] ^ zz_aa[i]);
     }
     zz_ab
 }
