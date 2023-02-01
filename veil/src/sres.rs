@@ -2,10 +2,9 @@
 
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
-use curve25519_dalek::traits::Identity;
 use lockstitch::Protocol;
 use rand::{CryptoRng, Rng};
-use subtle::{ConditionallySelectable, ConstantTimeEq};
+use subtle::ConstantTimeEq;
 
 use crate::keys::{PrivKey, PubKey, POINT_LEN};
 
@@ -46,14 +45,14 @@ pub fn encrypt(
     sres.mix(nonce);
 
     // Mix the static ECDH shared secret into the protocol.
-    sres.mix(&ecdh(&sender.d, &receiver.q));
+    sres.mix((sender.d * receiver.q).compress().as_bytes());
 
     // Encrypt the ephemeral public key.
     out_q_e.copy_from_slice(&ephemeral.pub_key.encoded);
     sres.encrypt(out_q_e);
 
     // Mix the ephemeral ECDH shared secret into the protocol.
-    sres.mix(&ecdh(&ephemeral.d, &receiver.q));
+    sres.mix((ephemeral.d * receiver.q).compress().as_bytes());
 
     // Encrypt the plaintext.
     out_ciphertext.copy_from_slice(plaintext);
@@ -111,14 +110,14 @@ pub fn decrypt<'a>(
     sres.mix(nonce);
 
     // Mix the static ECDH shared secret into the protocol.
-    sres.mix(&ecdh(&receiver.d, &sender.q));
+    sres.mix((receiver.d * sender.q).compress().as_bytes());
 
     // Decrypt and decode the ephemeral public key.
     sres.decrypt(ephemeral);
     let ephemeral = PubKey::from_canonical_bytes(ephemeral)?;
 
     // Mix the ephemeral ECDH shared secret into the protocol.
-    sres.mix(&ecdh(&receiver.d, &ephemeral.q));
+    sres.mix((receiver.d * ephemeral.q).compress().as_bytes());
 
     // Decrypt the plaintext.
     sres.decrypt(ciphertext);
@@ -139,22 +138,6 @@ pub fn decrypt<'a>(
     // Return the ephemeral public key and plaintext iff the canonical encoding of the re-calculated
     // proof point matches the encoding of the decrypted proof point.
     bool::from(x.ct_eq(x_p.compress().as_bytes())).then_some((ephemeral, ciphertext))
-}
-
-/// Calculate the ECDH shared secret, deterministically substituting `(Q ^ d)` if the peer public
-/// key is the neutral point.
-#[must_use]
-#[allow(clippy::as_conversions)]
-fn ecdh(d: &Scalar, q: &RistrettoPoint) -> [u8; POINT_LEN] {
-    // Pornin's algorithm for safe, constant-time ECDH.
-    let mut zz_ab = (d * q).compress().to_bytes();
-    let zz_aa = d.as_bytes();
-    let non_contributory = q.ct_eq(&RistrettoPoint::identity());
-    let mask = u8::conditional_select(&0x00, &0xFF, non_contributory);
-    for i in 0..POINT_LEN {
-        zz_ab[i] ^= mask & (zz_ab[i] ^ zz_aa[i]);
-    }
-    zz_ab
 }
 
 #[cfg(test)]
