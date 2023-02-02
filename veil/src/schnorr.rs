@@ -4,8 +4,7 @@ use std::io::Read;
 use std::str::FromStr;
 use std::{fmt, io};
 
-use curve25519_dalek::ristretto::RistrettoPoint;
-use curve25519_dalek::scalar::Scalar;
+use curve25519_dalek::{RistrettoPoint, Scalar};
 use lockstitch::Protocol;
 use rand::{CryptoRng, Rng};
 

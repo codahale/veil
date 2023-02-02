@@ -1,8 +1,8 @@
 use std::fmt::{Debug, Formatter};
 
-use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
-use curve25519_dalek::scalar::Scalar;
+use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::traits::IsIdentity;
+use curve25519_dalek::{RistrettoPoint, Scalar};
 use rand::{CryptoRng, Rng};
 
 /// The length of an encoded scalar in bytes.

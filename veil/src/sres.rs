@@ -1,7 +1,7 @@
 //! An insider-secure hybrid signcryption implementation.
 
-use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
-use curve25519_dalek::scalar::Scalar;
+use curve25519_dalek::ristretto::CompressedRistretto;
+use curve25519_dalek::{RistrettoPoint, Scalar};
 use lockstitch::Protocol;
 use rand::{CryptoRng, Rng};
 use subtle::ConstantTimeEq;
