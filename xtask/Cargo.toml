@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.69"
-clap = { version = "4.1.6", features = ["deprecated", "derive"] }
+clap = { version = "4.1.7", features = ["deprecated", "derive"] }
 xshell = "0.2.3"
 
 [[bin]]
