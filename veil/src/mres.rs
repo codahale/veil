@@ -44,9 +44,9 @@ pub fn encrypt(
     mres.mix(&sender.pub_key.encoded);
 
     // Generate ephemeral key pair, DEK, and nonce.
-    let (ephemeral, dek, nonce) = mres.hedge(&mut rng, &[sender.d.as_bytes()], |clone| {
-        PrivKey::from_bytes_mod_order_wide(&clone.derive_array::<64>())
-            .map(|k| (k, clone.derive_array(), clone.derive_array::<NONCE_LEN>()))
+    let (ephemeral, dek, nonce) = mres.hedge(&mut rng, &[sender.nonce], |clone| {
+        let k = PrivKey::from_secret_bytes(clone.derive_array::<64>());
+        Some((k, clone.derive_array(), clone.derive_array::<NONCE_LEN>()))
     });
 
     // Write the nonce and mix it into the protocol.

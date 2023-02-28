@@ -8,7 +8,7 @@ use std::{fmt, io, iter};
 use rand::prelude::SliceRandom;
 use rand::{CryptoRng, Rng};
 
-use crate::keys::{PrivKey, PubKey, POINT_LEN, SCALAR_LEN};
+use crate::keys::{PrivKey, PubKey, POINT_LEN, SECRET_LEN};
 use crate::{
     mres, pbenc, schnorr, DecryptError, EncryptError, ParsePublicKeyError, Signature, VerifyError,
 };
@@ -45,8 +45,8 @@ impl PrivateKey {
         time_cost: u8,
         memory_cost: u8,
     ) -> io::Result<usize> {
-        let mut enc_key = [0u8; SCALAR_LEN + pbenc::OVERHEAD];
-        pbenc::encrypt(rng, passphrase, time_cost, memory_cost, self.0.d.as_bytes(), &mut enc_key);
+        let mut enc_key = [0u8; SECRET_LEN + pbenc::OVERHEAD];
+        pbenc::encrypt(rng, passphrase, time_cost, memory_cost, &self.0.secret, &mut enc_key);
         writer.write_all(&enc_key)?;
         Ok(enc_key.len())
     }
@@ -59,12 +59,13 @@ impl PrivateKey {
     /// [`DecryptError::InvalidCiphertext`] error will be returned. If an error occurred while
     /// reading, a [`DecryptError::IoError`] error will be returned.
     pub fn load(mut reader: impl Read, passphrase: &[u8]) -> Result<PrivateKey, DecryptError> {
-        let mut b = Vec::with_capacity(SCALAR_LEN + pbenc::OVERHEAD);
+        let mut b = Vec::with_capacity(SECRET_LEN + pbenc::OVERHEAD);
         reader.read_to_end(&mut b).map_err(DecryptError::ReadIo)?;
 
         // Decrypt the ciphertext and use the plaintext as the private key.
         pbenc::decrypt(passphrase, &mut b)
-            .and_then(PrivKey::from_canonical_bytes)
+            .and_then(|b| b.try_into().ok())
+            .map(PrivKey::from_secret_bytes)
             .map(PrivateKey)
             .ok_or(DecryptError::InvalidCiphertext)
     }
@@ -203,7 +204,7 @@ mod tests {
         let rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let pk = PrivateKey::random(rng).public_key();
 
-        expect!["7V69XGhwZVrot5nYoYbW5j4YmDHu3tc3N1HaEa3TVYax"].assert_eq(&pk.to_string());
+        expect!["Cr3n2YDvVoHtTgCmkxLptLdWLStkofVcYzAkhcCoaWRH"].assert_eq(&pk.to_string());
 
         let decoded = pk.to_string().parse::<PublicKey>();
         assert_eq!(Ok(pk), decoded, "error parsing public key");

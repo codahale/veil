@@ -3,7 +3,11 @@ use std::fmt::{Debug, Formatter};
 use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::traits::IsIdentity;
 use curve25519_dalek::{RistrettoPoint, Scalar};
+use lockstitch::Protocol;
 use rand::{CryptoRng, Rng};
+
+/// The length of a secret in bytes.
+pub const SECRET_LEN: usize = 64;
 
 /// The length of an encoded scalar in bytes.
 pub const SCALAR_LEN: usize = 32;
@@ -54,43 +58,36 @@ impl PartialEq for PubKey {
 
 /// A private key, including its public key.
 pub struct PrivKey {
-    /// The decoded scalar; always non-zero.
+    /// The derived private scalar; always non-zero.
     pub d: Scalar,
 
     /// The corresponding [`PubKey`] for the private key; always derived from `d`.
     pub pub_key: PubKey,
+
+    /// The derived nonce value; intended to be unique per secret.
+    pub nonce: [u8; SECRET_LEN],
+
+    /// The original secret value.
+    pub secret: [u8; SECRET_LEN],
 }
 
 impl PrivKey {
-    /// Decodes the given slice as a canonically encoded private key, if possible.
-    #[must_use]
-    pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<PrivKey> {
-        let d = Scalar::from_canonical_bytes(b.as_ref().try_into().ok()?).unwrap_or(Scalar::ZERO);
-        (d != Scalar::ZERO).then(|| PrivKey::from_scalar(d))
-    }
+    /// Derives a private key from the given secret.
+    pub fn from_secret_bytes(secret: [u8; SECRET_LEN]) -> PrivKey {
+        let mut skd = Protocol::new("veil.skd");
+        skd.mix(&secret);
 
-    /// Reduces the given array as a private key, if possible.
-    #[must_use]
-    pub fn from_bytes_mod_order_wide(b: &[u8; 64]) -> Option<PrivKey> {
-        let d = Scalar::from_bytes_mod_order_wide(b);
-        (d != Scalar::ZERO).then(|| PrivKey::from_scalar(d))
+        let d = Scalar::from_bytes_mod_order_wide(&skd.derive_array());
+        let q = RistrettoPoint::mul_base(&d);
+        let nonce = skd.derive_array();
+
+        PrivKey { d, pub_key: PubKey { q, encoded: q.compress().to_bytes() }, nonce, secret }
     }
 
     /// Generates a random private key.
     #[must_use]
     pub fn random(mut rng: impl CryptoRng + Rng) -> PrivKey {
-        loop {
-            let d = Scalar::random(&mut rng);
-            if d != Scalar::ZERO {
-                return PrivKey::from_scalar(d);
-            }
-        }
-    }
-
-    #[must_use]
-    fn from_scalar(d: Scalar) -> PrivKey {
-        let q = RistrettoPoint::mul_base(&d);
-        PrivKey { d, pub_key: PubKey { q, encoded: q.compress().to_bytes() } }
+        PrivKey::from_secret_bytes(rng.gen())
     }
 }
 

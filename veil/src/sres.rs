@@ -60,7 +60,7 @@ pub fn encrypt(
 
     // Derive a commitment scalar from the protocol's current state, the sender's private key,
     // and a random nonce.
-    let k = sres.hedge(rng, &[sender.d.as_bytes()], |clone| {
+    let k = sres.hedge(rng, &[sender.nonce], |clone| {
         Some(Scalar::from_bytes_mod_order_wide(&clone.derive_array::<64>()))
     });
 

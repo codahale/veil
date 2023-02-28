@@ -299,6 +299,23 @@ ECDH shared secret. An adversary attempting to forge an authenticator given only
 the key used to produce the tag will be unable to reconstruct the protocol's state and thus unable
 to compute their forgery.
 
+### Deriving Private Scalars From Secrets
+
+Like EdDSA, Veil derives private scalars from a 64-byte secret value:
+
+```text
+function DeriveScalar(x):
+  state ← Initialize("veil.skd")       // Initialize a protocol.
+  state ← Mix(state, x)                // Mix the secret value into the protocol's state.
+  (state, d) ← Derive(state, 64) mod ℓ // Derive a private scalar.
+  (state, n) ← Derive(state, 64)       // Derive a 64-byte nonce.
+  return d, n
+```
+
+Similarly a per-secret unique value is derived and returned.
+
+The security of this construction is discussed in [[BDD23]](#bdd23).
+
 ### Hedged Ephemeral Values
 
 When generating ephemeral values, Veil uses Aranha et al.'s "hedged signature" technique to mitigate
@@ -312,23 +329,24 @@ clone. The cloned protocol is used to produce the ephemeral value or values for 
 For example, the following operations would be performed on the cloned protocol:
 
 ```text
-function HedgedScalar(state, d):
+function HedgedScalar(state, x):
+  (d, nonce) ← DeriveScalar(x)  // Derive a private scalar and nonce from the secret.
   with clone ← Clone(state) do  // Clone the protocol's current state.
-    clone ← Mix(clone, d)       // Mix in the private value.
+    clone ← Mix(clone, nonce)   // Mix in the private value.
     v ← Rand(64)                // Generate a 64-byte random value.
     clone ← Mix(clone, v)       // Mix in the random value.
-    x ← Derive(clone, 64) mod ℓ // Derive a scalar from the clone.
-    return x                    // Return the scalar to the outer context.
+    y ← Derive(clone, 64) mod ℓ // Derive a scalar from the clone.
+    return y                    // Return the scalar to the outer context.
   end clone                     // Destroy the cloned protocol's state.
 ```
 
-The ephemeral scalar `x` is returned to the context of the original construction and the cloned
+The ephemeral scalar `y` is returned to the context of the original construction and the cloned
 protocol is discarded. This ensures that even in the event of a catastrophic failure of the random
-number generator, `x` is still unique relative to `d`. Depending on the uniqueness needs of the
+number generator, `y` is still unique relative to `x`. Depending on the uniqueness needs of the
 construction, an ephemeral value can be hedged with a plaintext in addition to a private key.
 
-For brevity, a hedged ephemeral value `x` derived from a protocol `state` and a private input value
-`y` is denoted as `x ← Hedge(state, y, Derive(64) mod ℓ)`.
+For brevity, a hedged ephemeral scalar `y` derived from a protocol `state` and a private input value
+`x` is denoted as `y ← Hedge(state, x, Derive(64) mod ℓ)`.
 
 ## Digital Signatures
 
@@ -336,14 +354,15 @@ For brevity, a hedged ephemeral value `x` derived from a protocol `state` and a 
 
 ### Signing A Message
 
-Signing a message requires a signer's private key `d` and a message `m` of arbitrary length.
+Signing a message requires a signer's secret `x` and a message `m` of arbitrary length.
 
 ```text
-function Sign(d, m):
+function Sign(x, m):
+  (d, n) ← DeriveScalar(x)               // Derive a private key and nonce from the secret.
   state ← Initialize("veil.schnorr")     // Initialize a protocol.
   state ← Mix(state, [d]G)               // Mix the signer's public key into the protocol.
   state ← Mix(state, m)                  // Mix the message into the protocol.
-  k ← Hedge(state, d, Derive(64) mod ℓ)  // Derive a hedged commitment scalar.
+  k ← Hedge(state, n, Derive(64) mod ℓ)  // Derive a hedged commitment scalar.
   I ← [k]G                               // Calculate the commitment point.
   (state, S₀) ← Encrypt(state, I)        // Encrypt the commitment point.
   (state, r) ← Derive(state, 64) mod ℓ   // Derive a challenge scalar.
@@ -450,36 +469,38 @@ Schnorr signature scheme to provide multi-user insider security with limited den
 
 ### Encrypting A Header
 
-Encrypting a header requires a sender's private key `d_S`, an ephemeral private key `d_E`, the
-receiver's public key `Q_R`, a nonce `N`, and a plaintext `P`.
+Encrypting a header requires a sender's secret `x_S`, an ephemeral private key `d_E`, the receiver's
+public key `Q_R`, a nonce `N`, and a plaintext `P`.
 
 ```text
-function EncryptHeader(d_S, d_E, Q_R, N, P):
-  state ← Initialize("veil.sres")       // Initialize a protocol.
-  state ← Mix(state, [d_S]G)            // Mix the sender's public key into the protocol.
-  state ← Mix(state, Q_R)               // Mix the receiver's public key into the protocol.
-  state ← Mix(state, N)                 // Mix the nonce into the protocol.
-  state ← Mix(state, [d_S]Q_R)          // Mix the static ECDH shared secret into the protocol.
-  (state, C₀) ← Encrypt(state, [d_E]G)  // Encrypt the ephemeral public key.
-  state ← Mix([d_E]Q_R)                 // Mix the ephemeral ECDH shared secret into the protocol.
-  (state, C₁) ← Encrypt(P)              // Encrypt the plaintext.
-  k ← Hedge(state, d, Derive(64) mod ℓ) // Derive a hedged commitment scalar.
-  I ← [k]G                              // Calculate the commitment point.
-  (state, S₀) ← Encrypt(state, I)       // Encrypt the commitment point.
-  (state, r) ← Derive(state, 64) mod ℓ  // Derive a challenge scalar.
-  s ← d_S✕r + k                         // Calculate the proof scalar.
-  X ← [s]Q_R                            // Calculate the proof point.
-  (state, S₁) ← Encrypt(state, X)       // Encrypt the proof point.
+function EncryptHeader(x_S, d_E, Q_R, N, P):
+  (d_S, n_S) ← DeriveScalar(x_S)          // Derive a private key and nonce from the sender's secret.
+  state ← Initialize("veil.sres")         // Initialize a protocol.
+  state ← Mix(state, [d_S]G)              // Mix the sender's public key into the protocol.
+  state ← Mix(state, Q_R)                 // Mix the receiver's public key into the protocol.
+  state ← Mix(state, N)                   // Mix the nonce into the protocol.
+  state ← Mix(state, [d_S]Q_R)            // Mix the static ECDH shared secret into the protocol.
+  (state, C₀) ← Encrypt(state, [d_E]G)    // Encrypt the ephemeral public key.
+  state ← Mix([d_E]Q_R)                   // Mix the ephemeral ECDH shared secret into the protocol.
+  (state, C₁) ← Encrypt(P)                // Encrypt the plaintext.
+  k ← Hedge(state, n_S, Derive(64) mod ℓ) // Derive a hedged commitment scalar.
+  I ← [k]G                                // Calculate the commitment point.
+  (state, S₀) ← Encrypt(state, I)         // Encrypt the commitment point.
+  (state, r) ← Derive(state, 64) mod ℓ    // Derive a challenge scalar.
+  s ← d_S✕r + k                           // Calculate the proof scalar.
+  X ← [s]Q_R                              // Calculate the proof point.
+  (state, S₁) ← Encrypt(state, X)         // Encrypt the proof point.
   return C₀ǁC₁ǁS₀ǁS₁
 ```
 
 ### Decrypting A Header
 
-Decrypting a header requires a receiver's private key `d_R`, the sender's public key `Q_R`, a nonce
-`N`, and a ciphertext `C₀ǁC₁ǁS₀ǁS₁`.
+Decrypting a header requires a receiver's secret `x_R`, the sender's public key `Q_R`, a nonce `N`,
+and a ciphertext `C₀ǁC₁ǁS₀ǁS₁`.
 
 ```text
-function DecryptHeader(d_R, Q_S, N, C₀ǁC₁ǁS₀ǁS₁):
+function DecryptHeader(x_R, Q_S, N, C₀ǁC₁ǁS₀ǁS₁):
+  (d_R, _) ← DeriveScalar(x_R)          // Derive a private key from the receiver's secret.
   state ← Initialize("veil.sres")       // Initialize a protocol.
   state ← Mix(state, Q_S)               // Mix the sender's public key into the protocol.
   state ← Mix(state, [d_R]G)            // Mix the receiver's public key into the protocol.
@@ -613,17 +634,19 @@ sender's retention of the ephemeral private key.
 
 ### Encrypting A Message
 
-Encrypting a message requires a sender's private key `d_S`, receiver public keys `[Q_R_0,…,Q_R_n]`,
+Encrypting a message requires a sender's secret `x_S`, receiver public keys `[Q_R_0,…,Q_R_n]`,
 padding length `N_P`, and plaintext `P`.
 
 ```text
-function EncryptMessage(d_S, [Q_R_0,…,Q_R_n], N_P, P):
+function EncryptMessage(x_S, [Q_R_0,…,Q_R_n], N_P, P):
+  (d_S, n_S) ← DeriveScalar(x_S)                 // Derive a private key and nonce from the sender's secret.
   state ← Initialize("veil.mres")                // Initialize a protocol.
   state ← Mix(state, [d_S]G)                     // Mix the sender's public key into the protocol.
-  k ← Hedge(state, d_S, Derive(64) mod ℓ)        // Hedge a commitment scalar.
-  d_E ← Hedge(state, d_S, Derive(64) mod ℓ)      // Hedge an ephemeral private key.
-  K ← Hedge(state, d_S, Derive(32))              // Hedge a data encryption key.
-  N ← Hedge(state, d_S, Derive(16))              // Hedge a nonce.
+  (k, d_E, K, N) ← Hedge(state, n_S,
+                         (Derive(64) mod ℓ,      // Hedge a commitment scalar,
+                          Derive(64) mod ℓ,      // ephemeral private key,
+                          Derive(32),            // data encryption key,
+                          Derive(16)))           // and nonce.
   C ← N                                          // Write the nonce.
   state ← Mix(state, N)                          // Mix the nonce into the protocol.
   H ← KǁN_QǁN_P                                  // Encode the DEK and params in a header.
@@ -656,11 +679,12 @@ function EncryptMessage(d_S, [Q_R_0,…,Q_R_n], N_P, P):
 
 ### Decrypting A Message
 
-Decrypting a message requires a receiver's private key `d_R`, sender's public key `Q_S`, and
+Decrypting a message requires a receiver's secret `x_R`, sender's public key `Q_S`, and
 ciphertext `C`.
 
 ```text
-function DecryptMessage(d_R, Q_S, C):
+function DecryptMessage(x_R, Q_S, C):
+  (d_S, _) ← DeriveScalar(x_R)          // Derive a private key from the receiver's secret.
   state ← Initialize("veil.mres")       // Initialize a protocol.
   state ← Mix(state, Q_S)               // Mix the sender's public key into the protocol.
   state ← Mix(state, C[0..16])          // Mix the nonce into the protocol.
@@ -823,8 +847,7 @@ KIDDING`.
 
 ## Passphrase-Based Encryption
 
-`veil.pbenc` implements a memory-hard authenticated encryption scheme to encrypt private keys at
-rest.
+`veil.pbenc` implements a memory-hard authenticated encryption scheme to encrypt secrets at rest.
 
 ### Initialization
 
@@ -960,6 +983,12 @@ Jacqueline Brendel, Cas Cremers, Dennis Jackson, and Mang Zhao.
 2021.
 [_The provable security of Ed25519: Theory and practice._](https://eprint.iacr.org/2020/823.pdf)
 [`DOI:10.1109/SP40001.2021.00042`](https://doi.org/10.1109/SP40001.2021.00042)
+
+### BDD23
+
+Mihir Bellare and Hannah Davis and Zijing Di.
+2023.
+[_Hardening Signature Schemes via Derive-then-Derandomize: Stronger Security Proofs for EdDSA_](https://eprint.iacr.org/2023/298.pdf)
 
 ### BGB04
 
