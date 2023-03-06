@@ -15,7 +15,7 @@ clap_complete = "4.1.4"
 console = "0.15.5"
 is-terminal = "0.4.4"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
-thiserror = "1.0.38"
+thiserror = "1.0.39"
 veil = { path = "../veil" }
 
 [dev-dependencies]

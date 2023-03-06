@@ -13,7 +13,7 @@ curve25519-dalek = { version = "4.0.0-rc.1", features = ["rand_core"] }
 lockstitch = "0.7.4"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 subtle = "2.5.0"
-thiserror = "1.0.38"
+thiserror = "1.0.39"
 
 [dev-dependencies]
 assert_matches = "1.5.0"
