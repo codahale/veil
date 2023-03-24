@@ -10,7 +10,7 @@ description = "Stupid crypto tricks."
 [dependencies]
 bs58 = "0.4.0"
 curve25519-dalek = { version = "4.0.0-rc.1", features = ["rand_core"] }
-lockstitch = "0.8.0"
+lockstitch = "0.8.1"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 subtle = "2.5.0"
 thiserror = "1.0.40"
