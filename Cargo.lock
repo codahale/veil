@@ -973,7 +973,6 @@ dependencies = [
  "clap",
  "clap_complete",
  "console",
- "is-terminal",
  "rand",
  "thiserror",
  "veil",

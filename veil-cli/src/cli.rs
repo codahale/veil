@@ -1,13 +1,12 @@
 use std::error::Error;
 use std::fs::File;
-use std::io::{self, Read, Write};
+use std::io::{self, IsTerminal, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process;
 
 use clap::{ArgAction, CommandFactory, Parser, Subcommand, ValueHint};
 use clap_complete::{generate_to, Shell};
 use console::Term;
-use is_terminal::IsTerminal;
 use thiserror::Error;
 
 use veil::{DecryptError, Digest, PrivateKey, PublicKey, Signature};
