@@ -550,9 +550,9 @@ dependencies = [
 
 [[package]]
 name = "lockstitch"
-version = "0.11.2"
+version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a6b82a5bf3185a2a1d60c98b159fce17734cf9231d9c00218e16a7fbf459792"
+checksum = "d22825d90b828d2ce8be49294f3805ed288db620c830ef01b4ccf18d57f4386e"
 dependencies = [
  "rand_core",
  "sha2",
@@ -818,6 +818,16 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest",
+ "sha2-asm",
+]
+
+[[package]]
+name = "sha2-asm"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf27176fb5d15398e3a479c652c20459d9dac830dedd1fa55b42a77dbcdbfcea"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
