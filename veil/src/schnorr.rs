@@ -221,7 +221,7 @@ mod tests {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let signer = PrivKey::random(&mut rng);
         let message = rng.gen::<[u8; 64]>();
-        let sig = sign(&mut rng, &signer, Cursor::new(message)).expect("error signing");
+        let sig = sign(&mut rng, &signer, Cursor::new(message)).expect("signing should be ok");
         (rng, signer, message.to_vec(), sig)
     }
 }

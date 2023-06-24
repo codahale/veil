@@ -89,7 +89,7 @@ fn init(passphrase: &[u8], salt: &[u8], time_cost: u8, memory_cost: u8) -> Proto
     // Allocate buffer, initialize counter and default protocol state.
     let mut ctr = 0u64;
     let mut buf = vec![[0u8; N]; 1usize << memory_cost];
-    let buf_len = u64::try_from(buf.len()).expect("unexpected overflow");
+    let buf_len = u64::try_from(buf.len()).expect("usize should be <= u64");
     let h = Protocol::new("veil.pbenc.iter");
 
     // Step 1: Expand input into buffer.
@@ -115,13 +115,13 @@ fn init(passphrase: &[u8], salt: &[u8], time_cost: u8, memory_cost: u8) -> Proto
                     &mut idx_block,
                     salt,
                     &t.to_le_bytes(),
-                    &u64::try_from(m).expect("unexpected overflow").to_le_bytes(),
+                    &u64::try_from(m).expect("usize should be <= u64").to_le_bytes(),
                     &i.to_le_bytes()
                 );
 
                 // Map the derived output to a block index.
                 let idx = u64::from_le_bytes(idx_block) % buf_len;
-                let idx = usize::try_from(idx).expect("unexpected overflow");
+                let idx = usize::try_from(idx).expect("usize should be <= u64");
 
                 // Hash the pseudo-randomly selected block.
                 hash!(h, ctr, &mut buf[m], &buf[idx]);

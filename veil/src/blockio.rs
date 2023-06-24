@@ -38,11 +38,11 @@ mod tests {
         let mut reader = Cursor::new(&data);
         let mut block = [0u8; 16];
 
-        let n = reader.read_block(&mut block).expect("error reading");
+        let n = reader.read_block(&mut block).expect("cursor reads should be infallible");
         assert_eq!(n, 16);
         assert_eq!(&block, &data[..16]);
 
-        let n = reader.read_block(&mut block).expect("error reading");
+        let n = reader.read_block(&mut block).expect("cursor reads should be infallible");
         assert_eq!(n, 4);
         assert_eq!(&block[..4], &data[16..]);
     }

@@ -85,8 +85,10 @@ mod tests {
         let md_one = rng.gen::<[u8; 16]>();
         let md_two = rng.gen::<[u8; 16]>();
 
-        let a = Digest::new(&[&md_one, &md_two], Cursor::new(&message)).expect("error hashing");
-        let b = Digest::new(&[&md_one, &md_two], Cursor::new(&message)).expect("error hashing");
+        let a = Digest::new(&[&md_one, &md_two], Cursor::new(&message))
+            .expect("cursor reads should be infallible");
+        let b = Digest::new(&[&md_one, &md_two], Cursor::new(&message))
+            .expect("cursor reads should be infallible");
 
         assert_eq!(a, b, "inconsistent digests");
     }
@@ -98,8 +100,10 @@ mod tests {
         let md_one = rng.gen::<[u8; 16]>();
         let md_two = rng.gen::<[u8; 16]>();
 
-        let a = Digest::new(&[&md_one, &md_two], Cursor::new(&message)).expect("error hashing");
-        let b = Digest::new(&[&md_two, &md_one], Cursor::new(&message)).expect("error hashing");
+        let a = Digest::new(&[&md_one, &md_two], Cursor::new(&message))
+            .expect("cursor reads should be infallible");
+        let b = Digest::new(&[&md_two, &md_one], Cursor::new(&message))
+            .expect("cursor reads should be infallible");
 
         assert_ne!(a, b, "collision on metadata");
     }
@@ -112,9 +116,10 @@ mod tests {
         let md_two = rng.gen::<[u8; 16]>();
         let different_message = rng.gen::<[u8; 64]>();
 
-        let a = Digest::new(&[&md_one, &md_two], Cursor::new(&message)).expect("error hashing");
+        let a = Digest::new(&[&md_one, &md_two], Cursor::new(&message))
+            .expect("cursor reads should be infallible");
         let b = Digest::new(&[&md_one, &md_two], Cursor::new(&different_message))
-            .expect("error hashing");
+            .expect("cursor reads should be infallible");
 
         assert_ne!(a, b, "collision on message");
     }

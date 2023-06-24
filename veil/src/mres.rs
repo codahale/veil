@@ -37,7 +37,7 @@ pub fn encrypt(
     receivers: &[PubKey],
     padding: usize,
 ) -> Result<u64, EncryptError> {
-    let padding = u64::try_from(padding).expect("unexpected overflow");
+    let padding = u64::try_from(padding).expect("usize should be <= u64");
 
     // Initialize a protocol and mix the sender's public key into it.
     let mut mres = Protocol::new("veil.mres");
@@ -51,7 +51,7 @@ pub fn encrypt(
 
     // Write the nonce and mix it into the protocol.
     writer.write_all(&nonce).map_err(EncryptError::WriteIo)?;
-    let mut written = u64::try_from(NONCE_LEN).expect("unexpected overflow");
+    let mut written = u64::try_from(NONCE_LEN).expect("usize should be <= u64");
     mres.mix(&nonce);
 
     // Encode a header with the DEK, receiver count, and padding.
@@ -71,7 +71,7 @@ pub fn encrypt(
 
         // Write the encrypted header.
         writer.write_all(&enc_header).map_err(EncryptError::WriteIo)?;
-        written += u64::try_from(ENC_HEADER_LEN).expect("unexpected overflow");
+        written += u64::try_from(ENC_HEADER_LEN).expect("usize should be <= u64");
     }
 
     // Add random padding to the end of the headers, mixing it into the protocol.
@@ -89,7 +89,7 @@ pub fn encrypt(
     let sig = schnorr::sign_protocol(&mut mres, &mut rng, &ephemeral);
     writer.write_all(&sig.encode()).map_err(EncryptError::WriteIo)?;
 
-    Ok(written + u64::try_from(SIGNATURE_LEN).expect("unexpected overflow"))
+    Ok(written + u64::try_from(SIGNATURE_LEN).expect("usize should be <= u64"))
 }
 
 /// Given a protocol keyed with the DEK, read the entire contents of `reader` in blocks and write
@@ -110,7 +110,7 @@ fn encrypt_message(
         // Seal the block and write it.
         mres.seal(block);
         writer.write_all(block).map_err(EncryptError::WriteIo)?;
-        written += u64::try_from(block.len()).expect("unexpected overflow");
+        written += u64::try_from(block.len()).expect("usize should be <= u64");
 
         // If the block was undersized, we're at the end of the reader.
         if n < BLOCK_LEN {
@@ -184,7 +184,7 @@ fn decrypt_message(
         // error.
         let plaintext = mres.open(block).ok_or(DecryptError::InvalidCiphertext)?;
         writer.write_all(plaintext).map_err(DecryptError::WriteIo)?;
-        written += u64::try_from(plaintext.len()).expect("unexpected overflow");
+        written += u64::try_from(plaintext.len()).expect("usize should be <= u64");
 
         // Copy the unused part to the beginning of the buffer and set the offset for the next loop.
         buf.copy_within(block_len.., 0);
@@ -192,7 +192,7 @@ fn decrypt_message(
     }
 
     // Return the number of bytes and the signature.
-    Ok((written, Signature::decode(&buf[..SIGNATURE_LEN]).expect("invalid signature len")))
+    Ok((written, Signature::decode(&buf[..SIGNATURE_LEN]).expect("should be signature-sized")))
 }
 
 /// Iterate through the contents of `reader` looking for a header which was encrypted by the given
@@ -260,7 +260,7 @@ struct Header {
 
 impl Header {
     fn new(dek: [u8; DEK_LEN], recv_count: usize, padding: u64) -> Header {
-        Header { dek, recv_count: recv_count.try_into().expect("unexpected overflow"), padding }
+        Header { dek, recv_count: recv_count.try_into().expect("usize should be <= u64"), padding }
     }
 
     #[inline]
@@ -271,9 +271,9 @@ impl Header {
         let (recv_count, padding) = recv_count.split_at(mem::size_of::<u64>());
 
         // Decode components.
-        let dek = dek.try_into().expect("invalid DEK len");
-        let recv_count = u64::from_le_bytes(recv_count.try_into().expect("invalid u64 len"));
-        let padding = u64::from_le_bytes(padding.try_into().expect("invalid u64 len"));
+        let dek = dek.try_into().expect("should be DEK-sized");
+        let recv_count = u64::from_le_bytes(recv_count.try_into().expect("should be 8 bytes"));
+        let padding = u64::from_le_bytes(padding.try_into().expect("should be 8 bytes"));
 
         Header { dek, recv_count, padding }
     }
@@ -322,7 +322,7 @@ mod tests {
         let mut writer = Cursor::new(Vec::new());
 
         let ptx_len = decrypt(Cursor::new(ciphertext), &mut writer, &receiver, &sender.pub_key)
-            .expect("error decrypting");
+            .expect("decryption should be ok");
 
         assert_eq!(writer.position(), ptx_len, "returned/observed plaintext length mismatch");
         assert_eq!(plaintext.to_vec(), writer.into_inner(), "incorrect plaintext");
@@ -363,7 +363,7 @@ mod tests {
 
         let mut writer = Cursor::new(Vec::new());
         let ptx_len = decrypt(Cursor::new(ciphertext), &mut writer, &receiver, &sender.pub_key)
-            .expect("error decrypting");
+            .expect("decryption should be ok");
 
         assert_eq!(writer.position(), ptx_len, "returned/observed plaintext length mismatch");
         assert_eq!(plaintext.to_vec(), writer.into_inner(), "incorrect plaintext");
@@ -375,7 +375,7 @@ mod tests {
 
         let mut writer = Cursor::new(Vec::new());
         let ptx_len = decrypt(Cursor::new(ciphertext), &mut writer, &receiver, &sender.pub_key)
-            .expect("error decrypting");
+            .expect("decryption should be ok");
 
         assert_eq!(writer.position(), ptx_len, "returned/observed plaintext length mismatch");
         assert_eq!(plaintext.to_vec(), writer.into_inner(), "incorrect plaintext");
@@ -416,10 +416,10 @@ mod tests {
             &[sender.pub_key, receiver.pub_key],
             123,
         )
-        .expect("error encrypting");
+        .expect("encryption should be ok");
 
         assert_eq!(
-            u64::try_from(ciphertext.len()).expect("unexpected overflow"),
+            u64::try_from(ciphertext.len()).expect("usize should be <= u64"),
             ctx_len,
             "returned/observed ciphertext length mismatch"
         );

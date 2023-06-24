@@ -225,7 +225,7 @@ mod tests {
         let mut dst = Cursor::new(Vec::new());
         let ptx_len = b
             .decrypt(Cursor::new(ciphertext), &mut dst, &a.public_key())
-            .expect("error decrypting");
+            .expect("decryption should be ok");
         assert_eq!(dst.position(), ptx_len, "returned/observed plaintext length mismatch");
         assert_eq!(plaintext.to_vec(), dst.into_inner(), "incorrect plaintext");
     }
@@ -267,9 +267,9 @@ mod tests {
         let key = PrivateKey::random(&mut rng);
         let message = rng.gen::<[u8; 64]>();
 
-        let sig = key.sign(&mut rng, Cursor::new(message)).expect("error signing");
+        let sig = key.sign(&mut rng, Cursor::new(message)).expect("signing should be ok");
 
-        key.public_key().verify(Cursor::new(message), &sig).expect("error verifying");
+        key.public_key().verify(Cursor::new(message), &sig).expect("verification should be ok");
     }
 
     fn setup(n: usize) -> (rand_chacha::ChaCha20Rng, PrivateKey, PrivateKey, Vec<u8>, Vec<u8>) {
@@ -292,9 +292,9 @@ mod tests {
                 Some(20),
                 Some(123),
             )
-            .expect("error encrypting");
+            .expect("encryption should be ok");
         assert_eq!(
-            u64::try_from(ciphertext.len()).expect("unexpected overflow"),
+            u64::try_from(ciphertext.len()).expect("usize should be <= u64"),
             ctx_len,
             "returned/observed ciphertext length mismatch"
         );
