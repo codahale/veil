@@ -14,7 +14,7 @@ clap = { version = "4.3.21", features = ["deprecated", "derive"] }
 clap_complete = "4.3.2"
 console = "0.15.7"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
-thiserror = "1.0.44"
+thiserror = "1.0.45"
 veil = { path = "../veil" }
 
 [dev-dependencies]
