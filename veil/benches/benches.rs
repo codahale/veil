@@ -47,8 +47,8 @@ fn bench_decrypt(c: &mut Criterion) {
             io::repeat(0).take(n),
             &mut ciphertext,
             &[pk_b.public_key()],
-            black_box(None),
-            black_box(None),
+            None,
+            None,
         )
         .unwrap();
         let ciphertext = ciphertext.into_inner();
