@@ -965,13 +965,13 @@ version = "0.1.0"
 dependencies = [
  "assert_matches",
  "bs58",
+ "cmov",
  "criterion",
  "curve25519-dalek",
  "expect-test",
  "lockstitch",
  "rand",
  "rand_chacha",
- "subtle",
  "thiserror",
 ]
 

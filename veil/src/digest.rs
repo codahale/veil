@@ -3,7 +3,6 @@ use std::str::FromStr;
 use std::{fmt, io};
 
 use lockstitch::Protocol;
-use subtle::ConstantTimeEq;
 
 use crate::ParseDigestError;
 
@@ -63,7 +62,7 @@ impl fmt::Display for Digest {
 
 impl PartialEq for Digest {
     fn eq(&self, other: &Self) -> bool {
-        self.0.ct_eq(&other.0).into()
+        crate::ct_eq(&self.0, &other.0) == 1
     }
 }
 

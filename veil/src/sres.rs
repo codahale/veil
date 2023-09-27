@@ -4,7 +4,6 @@ use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::{RistrettoPoint, Scalar};
 use lockstitch::Protocol;
 use rand::{CryptoRng, Rng};
-use subtle::ConstantTimeEq;
 
 use crate::keys::{PrivKey, PubKey, POINT_LEN};
 
@@ -137,7 +136,7 @@ pub fn decrypt<'a>(
 
     // Return the ephemeral public key and plaintext iff the canonical encoding of the re-calculated
     // proof point matches the encoding of the decrypted proof point.
-    bool::from(x.ct_eq(x_p.compress().as_bytes())).then_some((ephemeral, ciphertext))
+    (crate::ct_eq(x, x_p.compress().as_bytes()) == 1).then_some((ephemeral, ciphertext))
 }
 
 #[cfg(test)]
