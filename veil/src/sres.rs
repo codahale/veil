@@ -136,7 +136,7 @@ pub fn decrypt<'a>(
 
     // Return the ephemeral public key and plaintext iff the canonical encoding of the re-calculated
     // proof point matches the encoding of the decrypted proof point.
-    (crate::ct_eq(x, x_p.compress().as_bytes()) == 1).then_some((ephemeral, ciphertext))
+    (lockstitch::ct_eq(x, x_p.compress().as_bytes()) == 1).then_some((ephemeral, ciphertext))
 }
 
 #[cfg(test)]

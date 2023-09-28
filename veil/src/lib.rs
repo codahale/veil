@@ -69,8 +69,6 @@
     clippy::semicolon_if_nothing_returned
 )]
 
-use cmov::CmovEq;
-
 pub use self::digest::*;
 pub use self::errors::*;
 pub use self::schnorr::Signature;
@@ -85,15 +83,3 @@ mod pbenc;
 mod schnorr;
 mod sres;
 mod veil;
-
-/// A constant-time comparison using CMOV/CSEL instructions. Returns `1` if the two slices are
-/// equal, `0` otherwise.
-#[inline(never)] // don't inline to avoid getting optimized into vartime
-pub(crate) fn ct_eq(a: &[u8], b: &[u8]) -> u8 {
-    debug_assert_eq!(a.len(), b.len(), "both slices should be the same length");
-    let mut res = 1;
-    for (x, y) in a.iter().zip(b.iter()) {
-        x.cmovne(y, 0, &mut res);
-    }
-    res
-}

@@ -11,7 +11,7 @@ description = "Stupid crypto tricks."
 bs58 = "0.5.0"
 cmov = "0.3.0"
 curve25519-dalek = { version = "4.1.1", features = ["rand_core"] }
-lockstitch = "0.12.3"
+lockstitch = "0.12.4"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 thiserror = "1.0.49"
 

@@ -62,7 +62,7 @@ impl fmt::Display for Digest {
 
 impl PartialEq for Digest {
     fn eq(&self, other: &Self) -> bool {
-        crate::ct_eq(&self.0, &other.0) == 1
+        lockstitch::ct_eq(self.0, other.0) == 1
     }
 }
 
