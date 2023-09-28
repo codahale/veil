@@ -551,9 +551,9 @@ dependencies = [
 
 [[package]]
 name = "lockstitch"
-version = "0.12.2"
+version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4115db492437afb641bed987f5074948ee08f2185810f91d2be3eae26e71c94c"
+checksum = "14c5352663e9466577abac07cf3e9d004ea727cf81428e5853345a80d69a8fb0"
 dependencies = [
  "cmov",
  "rand_core",
@@ -833,9 +833,9 @@ dependencies = [
 
 [[package]]
 name = "sha2"
-version = "0.10.7"
+version = "0.10.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "479fb9d862239e610720565ca91403019f2f00410f1864c5aa7479b950a76ed8"
+checksum = "793db75ad2bcafc3ffa7c68b215fee268f537982cd901d132f89c6343f3a3dc8"
 dependencies = [
  "cfg-if",
  "cpufeatures",
