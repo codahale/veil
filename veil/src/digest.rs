@@ -2,6 +2,7 @@ use std::io::Read;
 use std::str::FromStr;
 use std::{fmt, io};
 
+use cmov::CmovEq;
 use lockstitch::Protocol;
 
 use crate::ParseDigestError;
@@ -62,7 +63,9 @@ impl fmt::Display for Digest {
 
 impl PartialEq for Digest {
     fn eq(&self, other: &Self) -> bool {
-        lockstitch::ct_eq(self.0, other.0) == 1
+        let mut eq = 0;
+        self.0.cmoveq(&other.0, 1, &mut eq);
+        eq == 1
     }
 }
 

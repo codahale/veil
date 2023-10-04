@@ -9,7 +9,7 @@ description = "Stupid crypto tricks."
 
 [dependencies]
 bs58 = "0.5.0"
-cmov = "0.3.0"
+cmov = { git = "https://github.com/RustCrypto/utils", branch = "master", package = "cmov" }
 curve25519-dalek = { version = "4.1.1", features = ["rand_core"] }
 lockstitch = "0.12.4"
 rand = { version = "0.8.5", features = ["min_const_gen"] }

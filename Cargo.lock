@@ -239,6 +239,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aadf78c7ab2a10d7fd054aeb003c89ba2d3fb0dec68a100a057acf760040822b"
 
 [[package]]
+name = "cmov"
+version = "0.3.0"
+source = "git+https://github.com/RustCrypto/utils?branch=master#c19c5cc64e51805f5e3d64234a22559f75bee0cb"
+
+[[package]]
 name = "colorchoice"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -555,7 +560,7 @@ version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2ede87a43c009c8cb2ac79746f19bc3566b4afaa1c092be453cee6dd05182eed"
 dependencies = [
- "cmov",
+ "cmov 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand_core",
  "sha2",
 ]
@@ -965,7 +970,7 @@ version = "0.1.0"
 dependencies = [
  "assert_matches",
  "bs58",
- "cmov",
+ "cmov 0.3.0 (git+https://github.com/RustCrypto/utils?branch=master)",
  "criterion",
  "curve25519-dalek",
  "expect-test",
