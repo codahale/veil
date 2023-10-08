@@ -176,12 +176,6 @@ checksum = "cd7cc57abe963c6d3b9d8be5b06ba7c8957a930305ca90304f24ef040aa6f961"
 [[package]]
 name = "cmov"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aadf78c7ab2a10d7fd054aeb003c89ba2d3fb0dec68a100a057acf760040822b"
-
-[[package]]
-name = "cmov"
-version = "0.3.0"
 source = "git+https://github.com/RustCrypto/utils?branch=master#c19c5cc64e51805f5e3d64234a22559f75bee0cb"
 
 [[package]]
@@ -434,10 +428,9 @@ dependencies = [
 [[package]]
 name = "lockstitch"
 version = "0.12.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ede87a43c009c8cb2ac79746f19bc3566b4afaa1c092be453cee6dd05182eed"
+source = "git+https://github.com/codahale/lockstitch?branch=main#3dabc8f0490e8e2778b765d03e9547111301fb24"
 dependencies = [
- "cmov 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cmov",
  "rand_core",
  "sha2",
 ]
@@ -686,7 +679,7 @@ version = "0.1.0"
 dependencies = [
  "assert_matches",
  "bs58",
- "cmov 0.3.0 (git+https://github.com/RustCrypto/utils?branch=master)",
+ "cmov",
  "curve25519-dalek",
  "divan",
  "expect-test",

@@ -11,7 +11,7 @@ description = "Stupid crypto tricks."
 bs58 = "0.5.0"
 cmov = { git = "https://github.com/RustCrypto/utils", branch = "master", package = "cmov" }
 curve25519-dalek = { version = "4.1.1", features = ["rand_core"] }
-lockstitch = "0.12.4"
+lockstitch = { git = "https://github.com/codahale/lockstitch", branch = "main" }
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 thiserror = "1.0.49"
 
