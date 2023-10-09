@@ -428,7 +428,7 @@ dependencies = [
 [[package]]
 name = "lockstitch"
 version = "0.12.4"
-source = "git+https://github.com/codahale/lockstitch?branch=main#3dabc8f0490e8e2778b765d03e9547111301fb24"
+source = "git+https://github.com/codahale/lockstitch?branch=main#ee008333848cadb0dc82dc161fb7e18980a05c3e"
 dependencies = [
  "cmov",
  "rand_core",
