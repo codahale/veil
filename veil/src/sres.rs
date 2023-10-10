@@ -1,6 +1,5 @@
 //! An insider-secure hybrid signcryption implementation.
 
-use cmov::CmovEq;
 use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::{RistrettoPoint, Scalar};
 use lockstitch::Protocol;
@@ -137,9 +136,7 @@ pub fn decrypt<'a>(
 
     // Return the ephemeral public key and plaintext iff the canonical encoding of the re-calculated
     // proof point matches the encoding of the decrypted proof point.
-    let mut eq = 0;
-    x.cmoveq(x_p.compress().as_bytes(), 1, &mut eq);
-    (eq == 1).then_some((ephemeral, ciphertext))
+    (lockstitch::ct_eq(x, x_p.compress().as_bytes())).then_some((ephemeral, ciphertext))
 }
 
 #[cfg(test)]

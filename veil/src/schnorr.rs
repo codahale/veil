@@ -197,7 +197,7 @@ mod tests {
     #[test]
     fn signature_kat() {
         let (_, _, _, sig) = setup();
-        let expected = expect!["2cUKNuJyKDAXMGQ8hSfNVyBw7T4EHMWKEpVPohqv7Q7mZnGAn6KKqe4Xtj3Qm6K3kLNdog7oKwam7FnDwrBfeNz5"];
+        let expected = expect!["bHeA6vAJxdYfhtc1dyh1oDS1TjgSf4oPiuRDueRUPtJtLkhzhrozwtTW2JvKH7ogT4LNAjt2zHpkuxUuX3q6xzu"];
         expected.assert_eq(&sig.to_string());
     }
 
