@@ -16,7 +16,7 @@ impl Digest {
     /// # Errors
     ///
     /// Returns any error returned by operations on `reader`.
-    pub fn new(metadata: &[impl AsRef<[u8]>], reader: impl Read) -> io::Result<Digest> {
+    pub fn new(metadata: &[impl AsRef<[u8]>], mut reader: impl Read) -> io::Result<Digest> {
         // Initialize a protocol.
         let mut digest = Protocol::new("veil.digest");
 
@@ -26,7 +26,9 @@ impl Digest {
         }
 
         // Mix the reader contents into the protocol.
-        digest.mix_stream(reader)?;
+        let mut writer = digest.mix_writer(io::sink());
+        io::copy(&mut reader, &mut writer)?;
+        let (mut digest, _) = writer.into_inner();
 
         // Derive 32 bytes as a digest.
         Ok(Digest(digest.derive_array()))

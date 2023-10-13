@@ -51,7 +51,7 @@ impl fmt::Display for Signature {
 pub fn sign(
     rng: impl Rng + CryptoRng,
     signer: &PrivKey,
-    message: impl Read,
+    mut message: impl Read,
 ) -> io::Result<Signature> {
     // Initialize a protocol.
     let mut schnorr = Protocol::new("veil.schnorr");
@@ -60,14 +60,16 @@ pub fn sign(
     schnorr.mix(&signer.pub_key.encoded);
 
     // Mix the message into the protocol.
-    schnorr.mix_stream(message)?;
+    let mut writer = schnorr.mix_writer(io::sink());
+    io::copy(&mut message, &mut writer)?;
+    let (mut schnorr, _) = writer.into_inner();
 
     // Calculate and return the encrypted commitment point and proof scalar.
     Ok(sign_protocol(&mut schnorr, rng, signer))
 }
 
 /// Verify a Schnorr signature of the given message using the given public key.
-pub fn verify(signer: &PubKey, message: impl Read, sig: &Signature) -> Result<(), VerifyError> {
+pub fn verify(signer: &PubKey, mut message: impl Read, sig: &Signature) -> Result<(), VerifyError> {
     // Initialize a protocol.
     let mut schnorr = Protocol::new("veil.schnorr");
 
@@ -75,7 +77,9 @@ pub fn verify(signer: &PubKey, message: impl Read, sig: &Signature) -> Result<()
     schnorr.mix(&signer.encoded);
 
     // Mix the message into the protocol.
-    schnorr.mix_stream(message)?;
+    let mut writer = schnorr.mix_writer(io::sink());
+    io::copy(&mut message, &mut writer)?;
+    let (mut schnorr, _) = writer.into_inner();
 
     // Verify the signature.
     verify_protocol(&mut schnorr, signer, sig).ok_or(VerifyError::InvalidSignature)

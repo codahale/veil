@@ -75,9 +75,10 @@ pub fn encrypt(
     }
 
     // Add random padding to the end of the headers, mixing it into the protocol.
-    written += mres
-        .copy_stream(RngRead(&mut rng).take(padding), &mut writer)
+    let mut writer = mres.mix_writer(writer);
+    written += io::copy(&mut RngRead(&mut rng).take(padding), &mut writer)
         .map_err(EncryptError::WriteIo)?;
+    let (mut mres, mut writer) = writer.into_inner();
 
     // Mix the DEK into the protocol.
     mres.mix(&dek);
@@ -140,7 +141,7 @@ pub fn decrypt(
     mres.mix(&nonce);
 
     // Find a header, decrypt it, and mix the entirety of the headers and padding into the protocol.
-    let (ephemeral, dek) = decrypt_header(&mut mres, &mut reader, receiver, sender)?;
+    let (mut mres, ephemeral, dek) = decrypt_header(mres, &mut reader, receiver, sender)?;
 
     // Mix the DEK into the protocol.
     mres.mix(&dek);
@@ -198,11 +199,11 @@ fn decrypt_message(
 /// Iterate through the contents of `reader` looking for a header which was encrypted by the given
 /// sender for the given receiver.
 fn decrypt_header(
-    mres: &mut Protocol,
+    mut mres: Protocol,
     mut reader: impl Read,
     receiver: &PrivKey,
     sender: &PubKey,
-) -> Result<(PubKey, [u8; DEK_LEN]), DecryptError> {
+) -> Result<(Protocol, PubKey, [u8; DEK_LEN]), DecryptError> {
     let mut enc_header = [0u8; ENC_HEADER_LEN];
     let mut header = None;
     let mut i = 0u64;
@@ -246,10 +247,12 @@ fn decrypt_header(
     let (ephemeral, header) = header.ok_or(DecryptError::InvalidCiphertext)?;
 
     // Read the padding and mix it into the protocol.
-    mres.mix_stream(&mut reader.take(header.padding)).map_err(DecryptError::ReadIo)?;
+    let mut writer = mres.mix_writer(io::sink());
+    io::copy(&mut reader.take(header.padding), &mut writer).map_err(DecryptError::ReadIo)?;
+    let (mres, _) = writer.into_inner();
 
     // Return the ephemeral public key and DEK.
-    Ok((ephemeral, header.dek))
+    Ok((mres, ephemeral, header.dek))
 }
 
 struct Header {
