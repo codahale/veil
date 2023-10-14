@@ -101,7 +101,7 @@ pub fn sign_protocol(
     // and a random nonce, and calculate the commitment point.
     let k = protocol
         .hedge(&mut rng, &[signer.nonce], |clone| Some(Scalar::reduce(clone.derive_array())));
-    let i = Point::mul_base(&k);
+    let i = Point::mul_gen(&k);
 
     // Calculate, encode, and encrypt the commitment point.
     sig_i.copy_from_slice(&i.to_bytes());
@@ -139,7 +139,7 @@ pub fn verify_protocol(protocol: &mut Protocol, signer: &PubKey, sig: &Signature
     // Return true iff I and s are well-formed and I == [s]G - [r']Q. Here we compare the encoded
     // form of I' with the encoded form of I from the signature. This is faster, as encoding a point
     // is faster than decoding a point.
-    let i_p = Point::mul_base(&s) - (signer.q * r_p);
+    let i_p = Point::mul_gen(&s) - (signer.q * r_p);
     (i == i_p.to_bytes()).then_some(())
 }
 

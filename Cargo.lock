@@ -819,6 +819,7 @@ dependencies = [
  "rand",
  "rand_chacha",
  "sha2",
+ "subtle",
  "thiserror",
 ]
 

@@ -3,9 +3,10 @@ use std::ops::{Add, Mul, Sub};
 use p256::elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
 use p256::elliptic_curve::ops::{MulByGenerator, ReduceNonZero};
 use p256::elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint};
-use p256::elliptic_curve::PrimeField;
+use p256::elliptic_curve::{Field, PrimeField};
 use p256::{AffinePoint, EncodedPoint, NistP256, ProjectivePoint};
 use rand::{CryptoRng, Rng};
+use subtle::CtOption;
 
 /// The length of an encoded scalar in bytes.
 pub const SCALAR_LEN: usize = 32;
@@ -13,18 +14,27 @@ pub const SCALAR_LEN: usize = 32;
 /// The length of an encoded point in bytes.
 pub const POINT_LEN: usize = 33;
 
+/// A scalar of the NIST P-256 curve.
 #[derive(Debug, Clone, Copy)]
 pub struct Scalar(p256::Scalar);
 
 impl Scalar {
+    /// Interprets the given bytes as an integer and performs a modular reduction to a non-zero
+    /// scalar.
     pub fn reduce(b: [u8; SCALAR_LEN]) -> Scalar {
         Scalar(p256::Scalar::reduce_nonzero_bytes(&b.into()))
     }
 
+    /// Interprets the given bytes as an SEC1-encoded integer `d` and returns `Some(d)` iff `d` is
+    /// non-zero.
     pub fn from_bytes(b: [u8; SCALAR_LEN]) -> Option<Scalar> {
-        p256::Scalar::from_repr(b.into()).map(Scalar).into()
+        p256::Scalar::from_repr(b.into())
+            .and_then(|d| CtOption::new(d, !d.is_zero()))
+            .map(Scalar)
+            .into()
     }
 
+    /// Returns the SEC1 encoding of the scalar.
     pub fn to_bytes(self) -> [u8; SCALAR_LEN] {
         self.0.to_bytes().into()
     }
@@ -46,36 +56,46 @@ impl Mul<Scalar> for Scalar {
     }
 }
 
+/// A NIST P-256 point. Guaranteed to not be the identity point.
 #[derive(Debug, Clone, Copy)]
 pub struct Point(ProjectivePoint);
 
 impl Point {
+    /// Generates a random point for which no private key is known.
     #[must_use]
     pub fn random(mut rng: impl CryptoRng + Rng) -> Point {
-        loop {
-            let q = NistP256::hash_from_bytes::<ExpandMsgXmd<sha2::Sha256>>(
+        Point(
+            NistP256::hash_from_bytes::<ExpandMsgXmd<sha2::Sha256>>(
                 &[&rng.gen::<[u8; 64]>()],
                 &[b"veil-random-key-generator"],
             )
-            .and_then(|q| p256::PublicKey::from_affine(q.to_affine()));
-            if let Ok(q) = q {
-                return Point(q.to_projective());
-            }
-        }
+            .expect("hash2curve should be infallible"),
+        )
     }
 
+    /// Decodes the given array as a point, if possible. If the array encodes a non-identity point
+    /// `q` on the curve, returns `Some(q)`.
     pub fn from_bytes(b: &[u8; POINT_LEN]) -> Option<Point> {
-        let q = EncodedPoint::from_bytes(b).ok()?;
-        let q = Option::<AffinePoint>::from(AffinePoint::from_encoded_point(&q))?;
-        bool::from(!q.is_identity()).then_some(Point(q.into()))
+        EncodedPoint::from_bytes(b).ok().and_then(|q| {
+            AffinePoint::from_encoded_point(&q)
+                .and_then(|q| CtOption::new(q, !q.is_identity()))
+                .map(|q| Point(q.into()))
+                .into()
+        })
     }
 
+    /// Encodes the point as a SEC1-encoded compressed point.
     pub fn to_bytes(self) -> [u8; POINT_LEN] {
-        let q: EncodedPoint = self.0.to_affine().to_encoded_point(true);
-        q.as_bytes().try_into().expect("point should be POINT_LEN bytes")
+        self.0
+            .to_affine()
+            .to_encoded_point(true)
+            .as_bytes()
+            .try_into()
+            .expect("point should be POINT_LEN bytes")
     }
 
-    pub fn mul_base(d: &Scalar) -> Point {
+    /// Multiplies the curve's generator by the given scalar.
+    pub fn mul_gen(d: &Scalar) -> Point {
         Point(ProjectivePoint::mul_by_generator(&d.0))
     }
 }

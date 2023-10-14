@@ -61,7 +61,7 @@ pub fn encrypt(
     let k = sres.hedge(rng, &[sender.nonce], |clone| Some(Scalar::reduce(clone.derive_array())));
 
     // Calculate and encrypt the commitment point.
-    out_i.copy_from_slice(&Point::mul_base(&k).to_bytes());
+    out_i.copy_from_slice(&Point::mul_gen(&k).to_bytes());
     sres.encrypt(out_i);
 
     // Derive a challenge scalar.

@@ -77,7 +77,7 @@ impl PrivKey {
         skd.mix(&secret);
 
         let d = Scalar::reduce(skd.derive_array());
-        let q = Point::mul_base(&d);
+        let q = Point::mul_gen(&d);
         let nonce = skd.derive_array();
 
         PrivKey { d, pub_key: PubKey { q, encoded: q.to_bytes() }, nonce, secret }
