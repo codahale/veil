@@ -224,7 +224,7 @@ adversary who compromises an honest receiver.
 
 In the interests of cryptographic minimalism, Veil uses just three distinct cryptographic
 primitives: [Lockstitch](https://github.com/codahale/lockstitch) for all symmetric-key operations
-and Ristretto255 [[VGHLTV22]](#vghltv22) for all asymmetric-key operations.
+and NIST P-256 for all asymmetric-key operations.
 
 ### Lockstitch
 
@@ -238,16 +238,13 @@ Veil's security assumes that Lockstitch's `Encrypt` operation is IND-CPA secure 
 prior state is probabilistic, its `Derive` operation is sUF-CMA secure if the protocol's prior state
 is secret, and its `Seal` operation is IND-CCA2 secure.
 
-### Ristretto255
+### NIST P-256
 
-Ristretto255 is a prime-order group implemented on the Curve25519 elliptic curve. It provides a
-canonical non-malleable point encoding and eliminates co-factor concerns. This allows for the use of
-a wide variety of cryptographic constructions built on group operations. It targets a 128-bit
-security level, lends itself to constant-time implementations, and can run in constrained
-environments.
+P-256 is a standard elliptic curve with prime order. Veil encodes points as compact SEC1
+bytestrings.
 
 Veil's security assumes that the Gap Discrete Logarithm and Gap Diffie-Hellman problems are hard
-relative to Ristretto255.
+relative to P-256.
 
 ## Construction Techniques
 
@@ -414,8 +411,8 @@ conditioned on the hardness of the discrete logarithm problem:
 > If the discrete-logarithm problem is hard relative to `G`, then the Schnorr identification scheme
 is secure.
 
-Thus, `veil.schnorr` is UF-CMA if the discrete-logarithm problem is hard relative to Ristretto255
-and SHA-256 is indistinguishable from a random oracle.
+Thus, `veil.schnorr` is UF-CMA if the discrete-logarithm problem is hard relative to P-256 and
+SHA-256 is indistinguishable from a random oracle.
 
 ### sUF-CMA Security
 
@@ -432,7 +429,7 @@ strong binding:
 
 Rejecting `S≥L` makes the scheme sUF-CMA secure, and rejecting small order `A` values makes the
 scheme strongly binding. `veil.schnorr`'s use of canonical point and scalar encoding routines
-obviate the need for these checks. Likewise, Ristretto255 is a prime order group, which obviates the
+obviate the need for these checks. Likewise, P-256 is a prime order group, which obviates the
 need for cofactoring in verification.
 
 When implemented with a prime order group and canonical encoding routines, the Schnorr signature
@@ -1128,13 +1125,6 @@ Maurizio Adriano Strangio.
 2006.
 [_On the resilience of key agreement protocols to key compromise impersonation._](https://eprint.iacr.org/2006/252.pdf)
 [`DOI:10.1007/11774716_19`](https://doi.org/10.1007/11774716_19)
-
-### VGHLTV22
-
-Henry de Valence, Jack Grigg, Mike Hamburg, Isis Lovecruft, George Tankersley, and Filippo Valsorda.
-2022
-[The ristretto255 and decaf448 Groups](https://www.ietf.org/archive/id/draft-irtf-cfrg-ristretto255-decaf448-05.html)
-[`draft-irtf-cfrg-ristretto255-decaf448-05`](https://datatracker.ietf.org/doc/draft-irtf-cfrg-ristretto255-decaf448/)
 
 ### YHR04
 
