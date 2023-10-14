@@ -6,5 +6,11 @@ resolver = "2"
 codegen-units = 1
 lto = "fat"
 
-[profile.dev.package.curve25519-dalek]
+[profile.dev.package.p256]
+opt-level = 3
+
+[profile.dev.package.aes]
+opt-level = 3
+
+[profile.dev.package.sha2]
 opt-level = 3

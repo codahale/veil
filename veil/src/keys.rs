@@ -1,25 +1,24 @@
 use std::fmt::{Debug, Formatter};
 
-use curve25519_dalek::ristretto::CompressedRistretto;
-use curve25519_dalek::traits::IsIdentity;
-use curve25519_dalek::{RistrettoPoint, Scalar};
 use lockstitch::Protocol;
 use rand::{CryptoRng, Rng};
+
+use crate::ecc::{self, Point, Scalar};
 
 /// The length of a secret in bytes.
 pub const SECRET_LEN: usize = 64;
 
 /// The length of an encoded scalar in bytes.
-pub const SCALAR_LEN: usize = 32;
+pub const SCALAR_LEN: usize = ecc::SCALAR_LEN;
 
 /// The length of an encoded point in bytes.
-pub const POINT_LEN: usize = 32;
+pub const POINT_LEN: usize = ecc::POINT_LEN;
 
 /// A public key, including its canonical encoded form.
 #[derive(Clone, Copy)]
 pub struct PubKey {
     /// The decoded point.
-    pub q: RistrettoPoint,
+    pub q: Point,
 
     /// The point's canonical encoded form.
     pub encoded: [u8; POINT_LEN],
@@ -30,15 +29,15 @@ impl PubKey {
     #[must_use]
     pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<PubKey> {
         let encoded = <[u8; POINT_LEN]>::try_from(b.as_ref()).ok()?;
-        let q = CompressedRistretto::from_slice(&encoded).ok()?.decompress()?;
-        (!q.is_identity()).then_some(PubKey { q, encoded })
+        let q = Point::from_bytes(&encoded)?;
+        Some(PubKey { q, encoded })
     }
 
     /// Generates a random public key for which no private key is known.
     #[must_use]
     pub fn random(mut rng: impl CryptoRng + Rng) -> PubKey {
-        let q = RistrettoPoint::random(&mut rng);
-        PubKey { q, encoded: q.compress().to_bytes() }
+        let q = Point::random(&mut rng);
+        PubKey { q, encoded: q.to_bytes() }
     }
 }
 
@@ -77,11 +76,11 @@ impl PrivKey {
         let mut skd = Protocol::new("veil.skd");
         skd.mix(&secret);
 
-        let d = Scalar::from_bytes_mod_order_wide(&skd.derive_array());
-        let q = RistrettoPoint::mul_base(&d);
+        let d = Scalar::reduce(skd.derive_array());
+        let q = Point::mul_base(&d);
         let nonce = skd.derive_array();
 
-        PrivKey { d, pub_key: PubKey { q, encoded: q.compress().to_bytes() }, nonce, secret }
+        PrivKey { d, pub_key: PubKey { q, encoded: q.to_bytes() }, nonce, secret }
     }
 
     /// Generates a random private key.

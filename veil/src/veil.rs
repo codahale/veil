@@ -204,7 +204,7 @@ mod tests {
         let rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let pk = PrivateKey::random(rng).public_key();
 
-        expect!["8HmaJcyLyGc9r3z78oVf33HxzixkJyywRgMQfuHG6E9M"].assert_eq(&pk.to_string());
+        expect!["vXmzWpDERGpEZP1u8M2o8sBoscp9HaAwsdtPUP9YnLpC"].assert_eq(&pk.to_string());
 
         let decoded = pk.to_string().parse::<PublicKey>();
         assert_eq!(Ok(pk), decoded, "error parsing public key");
