@@ -1,9 +1,9 @@
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, Mul, Neg, Sub};
 
 use p256::elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
-use p256::elliptic_curve::ops::{MulByGenerator, ReduceNonZero};
+use p256::elliptic_curve::ops::{LinearCombination, MulByGenerator, ReduceNonZero};
 use p256::elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint};
-use p256::elliptic_curve::{Field, PrimeField};
+use p256::elliptic_curve::{Field, Group, PrimeField};
 use p256::{AffinePoint, EncodedPoint, NistP256, ProjectivePoint};
 use rand::{CryptoRng, Rng};
 use subtle::CtOption;
@@ -98,6 +98,11 @@ impl Point {
     pub fn mul_gen(d: &Scalar) -> Point {
         Point(ProjectivePoint::mul_by_generator(&d.0))
     }
+
+    /// Calculates `G * k + y * l`.
+    pub fn lincomb(k: &Scalar, y: &Point, l: &Scalar) -> Point {
+        Point(ProjectivePoint::lincomb(&ProjectivePoint::generator(), &k.0, &y.0, &l.0))
+    }
 }
 
 impl Add<Point> for Point {
@@ -105,6 +110,14 @@ impl Add<Point> for Point {
 
     fn add(self, rhs: Point) -> Self::Output {
         Point(self.0 + rhs.0)
+    }
+}
+
+impl Neg for Point {
+    type Output = Point;
+
+    fn neg(self) -> Self::Output {
+        Point(-self.0)
     }
 }
 

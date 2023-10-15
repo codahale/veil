@@ -139,7 +139,7 @@ pub fn verify_protocol(protocol: &mut Protocol, signer: &PubKey, sig: &Signature
     // Return true iff I and s are well-formed and I == [s]G - [r']Q. Here we compare the encoded
     // form of I' with the encoded form of I from the signature. This is faster, as encoding a point
     // is faster than decoding a point.
-    let i_p = Point::mul_gen(&s) - (signer.q * r_p);
+    let i_p = Point::lincomb(&s, &-signer.q, &r_p);
     (i == i_p.to_bytes()).then_some(())
 }
 
