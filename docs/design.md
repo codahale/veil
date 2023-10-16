@@ -304,7 +304,7 @@ Like EdDSA, Veil derives private scalars from a 64-byte secret value:
 function DeriveScalar(x):
   state ← Initialize("veil.skd")       // Initialize a protocol.
   state ← Mix(state, x)                // Mix the secret value into the protocol's state.
-  (state, d) ← Derive(state, 64) mod ℓ // Derive a private scalar.
+  (state, d) ← Derive(state, 32) mod ℓ // Derive a private scalar.
   (state, n) ← Derive(state, 64)       // Derive a 64-byte nonce.
   return d, n
 ```
@@ -332,7 +332,7 @@ function HedgedScalar(state, x):
     clone ← Mix(clone, nonce)   // Mix in the private value.
     v ← Rand(64)                // Generate a 64-byte random value.
     clone ← Mix(clone, v)       // Mix in the random value.
-    y ← Derive(clone, 64) mod ℓ // Derive a scalar from the clone.
+    y ← Derive(clone, 32) mod ℓ // Derive a scalar from the clone.
     return y                    // Return the scalar to the outer context.
   end clone                     // Destroy the cloned protocol's state.
 ```
@@ -343,7 +343,7 @@ number generator, `y` is still unique relative to `x`. Depending on the uniquene
 construction, an ephemeral value can be hedged with a plaintext in addition to a private key.
 
 For brevity, a hedged ephemeral scalar `y` derived from a protocol `state` and a private input value
-`x` is denoted as `y ← Hedge(state, x, Derive(64) mod ℓ)`.
+`x` is denoted as `y ← Hedge(state, x, Derive(32) mod ℓ)`.
 
 ## Digital Signatures
 
@@ -359,10 +359,10 @@ function Sign(x, m):
   state ← Initialize("veil.schnorr")     // Initialize a protocol.
   state ← Mix(state, [d]G)               // Mix the signer's public key into the protocol.
   state ← Mix(state, m)                  // Mix the message into the protocol.
-  k ← Hedge(state, n, Derive(64) mod ℓ)  // Derive a hedged commitment scalar.
+  k ← Hedge(state, n, Derive(32) mod ℓ)  // Derive a hedged commitment scalar.
   I ← [k]G                               // Calculate the commitment point.
   (state, S₀) ← Encrypt(state, I)        // Encrypt the commitment point.
-  (state, r) ← Derive(state, 64) mod ℓ   // Derive a challenge scalar.
+  (state, r) ← Derive(state, 32) mod ℓ   // Derive a challenge scalar.
   s ← d×️r + k                            // Calculate the proof scalar.
   (state, S₁) ← Encrypt(state, s)        // Encrypt the proof scalar.
   return S₀ǁS₁                           // Return the commitment point and proof scalar.
@@ -379,7 +379,7 @@ function Verify(Q, m, S₀ǁS₁):
   state ← Mix(state, Q)                 // Mix the signer's public key into the protocol.
   state ← Mix(state, m)                 // Mix the message into the protocol.
   (state, I) ← Decrypt(state, S₀)       // Decrypt the commitment point.
-  (state, r′) ← Derive(state, 64) mod ℓ // Derive a counterfactual challenge scalar.
+  (state, r′) ← Derive(state, 32) mod ℓ // Derive a counterfactual challenge scalar.
   (state, s) ← Decrypt(state, S₁)       // Decrypt the proof scalar.
   I′ ← [s]G - [r′]Q                     // Calculate the counterfactual commitment point.
   return I = I′                         // The signature is valid if both points are equal.
@@ -480,10 +480,10 @@ function EncryptHeader(x_S, d_E, Q_R, N, P):
   (state, C₀) ← Encrypt(state, [d_E]G)    // Encrypt the ephemeral public key.
   state ← Mix([d_E]Q_R)                   // Mix the ephemeral ECDH shared secret into the protocol.
   (state, C₁) ← Encrypt(P)                // Encrypt the plaintext.
-  k ← Hedge(state, n_S, Derive(64) mod ℓ) // Derive a hedged commitment scalar.
+  k ← Hedge(state, n_S, Derive(32) mod ℓ) // Derive a hedged commitment scalar.
   I ← [k]G                                // Calculate the commitment point.
   (state, S₀) ← Encrypt(state, I)         // Encrypt the commitment point.
-  (state, r) ← Derive(state, 64) mod ℓ    // Derive a challenge scalar.
+  (state, r) ← Derive(state, 32) mod ℓ    // Derive a challenge scalar.
   s ← d_S✕r + k                           // Calculate the proof scalar.
   X ← [s]Q_R                              // Calculate the proof point.
   (state, S₁) ← Encrypt(state, X)         // Encrypt the proof point.
@@ -507,7 +507,7 @@ function DecryptHeader(x_R, Q_S, N, C₀ǁC₁ǁS₀ǁS₁):
   state ← Mix([d_R]Q_E)                 // Mix the ephemeral ECDH shared secret into the protocol.
   (state, P) ← Decrypt(C₁)              // Decrypt the plaintext.
   (state, I) ← Decrypt(state, S₀)       // Decrypt the commitment point.
-  (state, r′) ← Derive(state, 64) mod ℓ // Derive a counterfactual challenge scalar.
+  (state, r′) ← Derive(state, 32) mod ℓ // Derive a counterfactual challenge scalar.
   (state, X) ← Decrypt(state, S₁)       // Decrypt the proof point.
   X′ ← [d_R](I + [r′]Q_S)               // Calculate a counterfactual proof point.
   if X ≠ X′:                            // Return an error if the points are not equal.
@@ -640,8 +640,8 @@ function EncryptMessage(x_S, [Q_R_0,…,Q_R_n], N_P, P):
   state ← Initialize("veil.mres")                // Initialize a protocol.
   state ← Mix(state, [d_S]G)                     // Mix the sender's public key into the protocol.
   (k, d_E, K, N) ← Hedge(state, n_S,
-                         (Derive(64) mod ℓ,      // Hedge a commitment scalar,
-                          Derive(64) mod ℓ,      // ephemeral private key,
+                         (Derive(32) mod ℓ,      // Hedge a commitment scalar,
+                          Derive(32) mod ℓ,      // ephemeral private key,
                           Derive(32),            // data encryption key,
                           Derive(16)))           // and nonce.
   C ← N                                          // Write the nonce.
@@ -666,7 +666,7 @@ function EncryptMessage(x_S, [Q_R_0,…,Q_R_n], N_P, P):
 
   I ← [k]G                                       // Calculate the commitment point.
   (state, S₀) ← Encrypt(state, I)                // Encrypt the commitment point.
-  r ← Derive(state, 64) mod ℓ                    // Derive a challenge scalar.
+  r ← Derive(state, 32) mod ℓ                    // Derive a challenge scalar.
   s ← d_E×️r + k                                  // Calculate the proof scalar.
   (state, S₁) ← Encrypt(state, s)                // Encrypt the proof scalar.
   C ← CǁS₀ǁS₁
@@ -711,7 +711,7 @@ function DecryptMessage(x_R, Q_S, C):
 
   S₀ǁS₁ ← C                             // Split the last 64 bytes of the message.
   (state, I) ← Decrypt(state, S₀)       // Decrypt the commitment point.
-  (state, r′) ← Derive(state, 64) mod ℓ // Derive a counterfactual challenge scalar.
+  (state, r′) ← Derive(state, 32) mod ℓ // Derive a counterfactual challenge scalar.
   (state, s) ← Decrypt(state, S)        // Decrypt the proof scalar.
   I′ ← [s]G - [r′]Q                     // Calculate the counterfactual commitment scalar.
   if I ≠ I′:                            // Verify the signature.
