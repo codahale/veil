@@ -208,9 +208,9 @@ checksum = "cd7cc57abe963c6d3b9d8be5b06ba7c8957a930305ca90304f24ef040aa6f961"
 
 [[package]]
 name = "cmov"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aadf78c7ab2a10d7fd054aeb003c89ba2d3fb0dec68a100a057acf760040822b"
+checksum = "1b1dc960ba75d543267db9254da8ec1cb318a037beb3f8d2497520e410096fab"
 
 [[package]]
 name = "colorchoice"
@@ -515,9 +515,9 @@ dependencies = [
 
 [[package]]
 name = "lockstitch"
-version = "0.14.0"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "442991bece3f816e1af4f115647f823beb5f2aaccf883b2fd56bbcc0150d6e8e"
+checksum = "cf0aa05023d5e1c9781387510b008cb901adaeac9119c3d7c2d3c07ea39f7703"
 dependencies = [
  "aes",
  "cmov",
