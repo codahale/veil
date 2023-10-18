@@ -9,7 +9,7 @@ description = "Stupid crypto tricks."
 
 [dependencies]
 bs58 = "0.5.0"
-lockstitch = "0.15.0"
+lockstitch = "0.16.0"
 p256 = { version = "0.13.2", default-features = false, features = ["arithmetic", "std", "hash2curve"] }
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 sha2 = "0.10.8"
