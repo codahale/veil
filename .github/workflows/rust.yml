@@ -14,7 +14,9 @@ jobs:
         with:
           toolchain: stable
           components: clippy
-      - run: cargo clippy --all -- -D warnings
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo clippy --all-targets -- -D warnings
+        working-directory: fuzz
 
   rustfmt:
     runs-on: ubuntu-latest
