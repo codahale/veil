@@ -57,6 +57,7 @@ fn ci(sh: &Shell) -> Result<()> {
     cmd!(sh, "cargo build --all-targets --all-features").run()?;
     cmd!(sh, "cargo test --all-features").run()?;
     cmd!(sh, "cargo clippy --all-features --tests --benches").run()?;
+    cmd!(sh, "cargo +nightly fuzz build").run()?;
 
     Ok(())
 }
