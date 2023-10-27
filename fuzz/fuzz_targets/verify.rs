@@ -14,7 +14,7 @@ struct Input {
 
 fuzz_target!(|input: Input| {
     let key = PrivateKey::random(OsRng);
-    if let Some(sig) = Signature::decode(&input.sig) {
+    if let Some(sig) = Signature::decode(input.sig) {
         let _ = key.public_key().verify(Cursor::new(input.message), &sig);
     }
 });
