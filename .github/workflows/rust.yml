@@ -37,12 +37,11 @@ jobs:
       - uses: RustCrypto/actions/cargo-cache@master
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable
-      - uses: dtolnay/rust-toolchain@master
-        with:
           toolchain: nightly
-      - run: cargo +stable install cargo-fuzz --locked
-      - run: cargo +nightly fuzz build
+      - uses: dtolnay/install@master
+        with:
+          crate: cargo-fuzz
+      - run: cargo fuzz build
   
   test:
     runs-on: ubuntu-latest
