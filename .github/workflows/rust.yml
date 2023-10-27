@@ -2,11 +2,45 @@ name: Rust CI
 
 on:
   push:
-    branches:
-      - "main"
   pull_request:
 
 jobs:
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: RustCrypto/actions/cargo-cache@master
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy
+      - run: cargo clippy --all -- -D warnings
+
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: rustfmt
+
+      - name: Run cargo fmt
+        run: cargo fmt --all -- --check
+  
+  fuzz-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: RustCrypto/actions/cargo-cache@master
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+      - run: cargo install cargo-fuzz --locked
+      - run: cargo fuzz build
+  
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -16,17 +50,8 @@ jobs:
           - beta
     steps:
       - uses: actions/checkout@v4
-        name: "Checkout source"
-      - uses: actions-rs/toolchain@v1.0.7
-        name: "Install Rust"
+      - uses: RustCrypto/actions/cargo-cache@master
+      - uses: dtolnay/rust-toolchain@master
         with:
-          profile: default
           toolchain: ${{ matrix.rust }}
-          override: true
-      - uses: Swatinem/rust-cache@v2
-        name: "Cache dependencies"
-      - uses: actions-rs/cargo@v1.0.3
-        name: "Build, test, and check"
-        with:
-          command: xtask
-          args: ci
+      - run: cargo test
