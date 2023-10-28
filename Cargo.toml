@@ -1,5 +1,5 @@
 [workspace]
-members = ["veil", "veil-cli", "xtask"]
+members = ["benchmarks", "veil", "veil-cli", "xtask"]
 resolver = "2"
 
 [profile.release]

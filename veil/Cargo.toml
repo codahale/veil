@@ -18,11 +18,5 @@ thiserror = "1.0.50"
 
 [dev-dependencies]
 assert_matches = "1.5.0"
-divan = "0.1.1"
 expect-test = "1.4.1"
 rand_chacha = "0.3.1"
-
-[[bench]]
-name = "benches"
-path = "benches/benches.rs"
-harness = false
