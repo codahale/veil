@@ -12,5 +12,5 @@ veil = { path = "../veil" }
 
 [[bench]]
 name = "benches"
-path = "benches/benches.rs"
+path = "benches/benchmarks.rs"
 harness = false
