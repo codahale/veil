@@ -1,6 +1,7 @@
 [package]
 name = "xtask"
-version = "0.1.0"
+version = "0.0.0"
+publish = false
 edition = "2021"
 
 [dependencies]
@@ -11,3 +12,6 @@ xshell = "0.2.5"
 [[bin]]
 name = "xtask"
 path = "src/xtask.rs"
+
+[package.metadata.release]
+release = false
