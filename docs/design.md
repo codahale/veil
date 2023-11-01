@@ -224,7 +224,7 @@ adversary who compromises an honest receiver.
 
 In the interests of cryptographic minimalism, Veil uses just three distinct cryptographic
 primitives: [Lockstitch](https://github.com/codahale/lockstitch) for all symmetric-key operations
-and NIST P-256 for all asymmetric-key operations.
+and GLS254 [[AA22]](#aa22) for all asymmetric-key operations.
 
 ### Lockstitch
 
@@ -238,13 +238,16 @@ Veil's security assumes that Lockstitch's `Encrypt` operation is IND-CPA secure 
 prior state is probabilistic, its `Derive` operation is sUF-CMA secure if the protocol's prior state
 is secret, and its `Seal` operation is IND-CCA2 secure.
 
-### NIST P-256
+### GLS254
 
-P-256 is a standard elliptic curve with prime order. Veil encodes points as compact SEC1
-bytestrings.
+Veil uses a prime-order group implemented on the GLS254 binary curve using the method in
+[[Por22]](#por22). It provides a canonical non-malleable point encoding and eliminates co-factor
+concerns. This allows for the use of a wide variety of cryptographic constructions built on group
+operations. It targets a 128-bit security level, lends itself to constant-time implementations, and
+can run in constrained environments.
 
 Veil's security assumes that the Gap Discrete Logarithm and Gap Diffie-Hellman problems are hard
-relative to P-256.
+relative to GLS254.
 
 ## Construction Techniques
 
@@ -347,7 +350,8 @@ For brevity, a hedged ephemeral scalar `y` derived from a protocol `state` and a
 
 ## Digital Signatures
 
-`veil.schnorr` implements an EdDSA-style Schnorr digital signature scheme.
+`veil.schnorr` implements an EdDSA-style Schnorr digital signature scheme using Pornin's scheme for
+fast Schnorr signatures [[Por20]](#por20).
 
 ### Signing A Message
 
@@ -362,8 +366,9 @@ function Sign(x, m):
   k ← Hedge(state, n, Derive(32) mod ℓ)  // Derive a hedged commitment scalar.
   I ← [k]G                               // Calculate the commitment point.
   (state, S₀) ← Encrypt(state, I)        // Encrypt the commitment point.
-  (state, r) ← Derive(state, 32) mod ℓ   // Derive a challenge scalar.
-  s ← d×️r + k                            // Calculate the proof scalar.
+  (state, r₀ǁr₁) ← Derive(state, 16)     // Derive two short challenge scalars.
+  r ← r₀ +️️ Μ×r₁️                          // Calculate the full challenge scalar using the zeta endomorphism.
+  s ← d×r + k                            // Calculate the proof scalar.
   (state, S₁) ← Encrypt(state, s)        // Encrypt the proof scalar.
   return S₀ǁS₁                           // Return the commitment point and proof scalar.
 ```
@@ -379,9 +384,9 @@ function Verify(Q, m, S₀ǁS₁):
   state ← Mix(state, Q)                 // Mix the signer's public key into the protocol.
   state ← Mix(state, m)                 // Mix the message into the protocol.
   (state, I) ← Decrypt(state, S₀)       // Decrypt the commitment point.
-  (state, r′) ← Derive(state, 32) mod ℓ // Derive a counterfactual challenge scalar.
+  (state, r₀′ǁr₁′) ← Derive(state, 16)  // Derive two counterfactual short challenge scalars.
   (state, s) ← Decrypt(state, S₁)       // Decrypt the proof scalar.
-  I′ ← [s]G - [r′]Q                     // Calculate the counterfactual commitment point.
+  I′ ← [s]G - [r₀′]Q - [r₁'Μ]Q          // Calculate the counterfactual commitment point.
   return I = I′                         // The signature is valid if both points are equal.
 ```
 
@@ -394,7 +399,7 @@ Unlike Construction 13.12 of [[KL20]](#kl20) (p. 482), `veil.schnorr` transmits 
 `I` as part of the signature and the verifier calculates `I′` vs transmitting the challenge scalar
 `r` and calculating `r′`. In this way, `veil.schnorr` is closer to EdDSA [[BCJZ21]](#bcjz21) or the
 Schnorr variant proposed by Hamburg [[Ham17]](#ham17). In addition, this construction allows for the
-use of variable-time optimizations during signature verification [[Por20+1]](#por201).
+use of variable-time optimizations during signature verification [[Por20]](#por20).
 
 ### UF-CMA Security
 
@@ -411,7 +416,7 @@ conditioned on the hardness of the discrete logarithm problem:
 > If the discrete-logarithm problem is hard relative to `G`, then the Schnorr identification scheme
 is secure.
 
-Thus, `veil.schnorr` is UF-CMA if the discrete-logarithm problem is hard relative to P-256 and
+Thus, `veil.schnorr` is UF-CMA if the discrete-logarithm problem is hard relative to GLS254 and
 SHA-256 is indistinguishable from a random oracle.
 
 ### sUF-CMA Security
@@ -429,8 +434,8 @@ strong binding:
 
 Rejecting `S≥L` makes the scheme sUF-CMA secure, and rejecting small order `A` values makes the
 scheme strongly binding. `veil.schnorr`'s use of canonical point and scalar encoding routines
-obviate the need for these checks. Likewise, P-256 is a prime order group, which obviates the
-need for cofactoring in verification.
+obviate the need for these checks. Likewise, GLS254 is a prime order group, which obviates the need
+for cofactoring in verification.
 
 When implemented with a prime order group and canonical encoding routines, the Schnorr signature
 scheme is strongly unforgeable under chosen message attack (sUF-CMA) in the random oracle model and
@@ -736,7 +741,7 @@ The latter portion of `veil.mres` is an EdDSA-style Schnorr signature scheme. Th
 Schnorr signature is sUF-CMA secure when implemented in a prime order group and a cryptographic hash
 function [[BCJZ21]](#bcjz21) [[CGN20]](#cgn20) [[PS00]](#ps00) [[NSW09]](#nsw09) (see also
 [`veil.schnorr`](#digital-signatures)). In addition, this construction allows for the use of
-variable-time optimizations during signature verification [[Por20+1]](#por201).
+variable-time optimizations during signature verification [[Por20]](#por20).
 
 ### Multi-User Confidentiality Of Messages
 
@@ -927,6 +932,12 @@ IND-CCA2 secure.
 
 ## References
 
+### AA22
+
+Marius A. Aardal, Diego F. Aranha.
+2022.
+[_2DT-GLS: Faster and exception-free scalar multiplication in the GLS254 binary curve_.](https://eprint.iacr.org/2022/748.pdf)
+
 ### ABHKLR21
 
 Joël Alwen, Bruno Blanchet, Eduard Hauck, Eike Kiltz, Benjamin Lipp, and Doreen Riepel.
@@ -1083,11 +1094,17 @@ David Pointcheval and Jacques Stern.
 [_Security arguments for digital signatures and blind signatures._](https://www.di.ens.fr/david.pointcheval/Documents/Papers/2000_joc.pdf)
 [`DOI:10.1007/s001450010003`](https://doi.org/10.1007/s001450010003)
 
-### Por20+1
+### Por20
 
 Thomas Pornin.
 2020.
 [_Optimized lattice basis reduction in dimension 2, and fast Schnorr and EdDSA signature verification._](https://eprint.iacr.org/2020/454)
+
+### Por22
+
+Thomas Pornin.
+2022.
+[Efficient and Complete Formulas for Binary Curves.](https://eprint.iacr.org/2022/1325)
 
 ### RD10
 

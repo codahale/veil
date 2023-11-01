@@ -4,10 +4,10 @@ use std::io::Read;
 use std::str::FromStr;
 use std::{fmt, io};
 
+use crrl::gls254::{Point, Scalar};
 use lockstitch::Protocol;
 use rand::{CryptoRng, Rng};
 
-use crate::ecc::{Point, Scalar};
 use crate::keys::{PrivKey, PubKey, POINT_LEN, SCALAR_LEN};
 use crate::{ParseSignatureError, VerifyError};
 
@@ -99,20 +99,24 @@ pub fn sign_protocol(
 
     // Derive a commitment scalar from the protocol's current state, the signer's private key,
     // and a random nonce, and calculate the commitment point.
-    let k = protocol
-        .hedge(&mut rng, &[signer.nonce], |clone| Some(Scalar::reduce(clone.derive_array())));
-    let i = Point::mul_gen(&k);
+    let k = protocol.hedge(&mut rng, &[signer.nonce], |clone| {
+        Some(Scalar::decode_reduce(&clone.derive_array::<32>()))
+    });
+    let i = Point::mulgen(&k);
 
     // Calculate, encode, and encrypt the commitment point.
-    sig_i.copy_from_slice(&i.to_bytes());
+    sig_i.copy_from_slice(&i.encode());
     protocol.encrypt(sig_i);
 
-    // Derive a challenge scalar.
-    let r = Scalar::reduce(protocol.derive_array());
+    // Derive a short challenge scalar.
+    let rb = protocol.derive_array::<16>();
+    let r0 = u64::from_le_bytes(rb[..8].try_into().expect("rb should be 16 bytes"));
+    let r1 = u64::from_le_bytes(rb[8..].try_into().expect("rb should be 16 bytes"));
+    let r = Scalar::from_u64(r0) + Scalar::MU * Scalar::from_u64(r1);
 
     // Calculate, encode, and encrypt the proof scalar.
     let s = (signer.d * r) + k;
-    sig_s.copy_from_slice(&s.to_bytes());
+    sig_s.copy_from_slice(&s.encode());
     protocol.encrypt(sig_s);
 
     // Return the full signature.
@@ -129,18 +133,20 @@ pub fn verify_protocol(protocol: &mut Protocol, signer: &PubKey, sig: &Signature
     // Decrypt the commitment point but don't decode it.
     protocol.decrypt(i);
 
-    // Re-derive the challenge scalar.
-    let r_p = Scalar::reduce(protocol.derive_array());
+    // Re-derive the short challenge scalars.
+    let rb_p = protocol.derive_array::<16>();
+    let r0_p = u64::from_le_bytes(rb_p[..8].try_into().expect("rb should be 16 bytes"));
+    let r1_p = u64::from_le_bytes(rb_p[8..].try_into().expect("rb should be 16 bytes"));
 
     // Decrypt and decode the proof scalar.
     protocol.decrypt(s);
-    let s = Scalar::from_bytes(s.try_into().ok()?)?;
+    let s = Scalar::decode(s)?;
 
-    // Return true iff I and s are well-formed and I == [s]G - [r']Q. Here we compare the encoded
-    // form of I' with the encoded form of I from the signature. This is faster, as encoding a point
-    // is faster than decoding a point.
-    let i_p = Point::lincomb(&s, &-signer.q, &r_p);
-    (i == i_p.to_bytes()).then_some(())
+    // Return true iff I and s are well-formed and I == [s]G - [r0']Q - [r1'Μ]Q. Here we compare the
+    // encoded form of I' with the encoded form of I from the signature. This is faster, as encoding
+    // a point is faster than decoding a point.
+    let i_p = (-signer.q).mul64mu_add_mulgen_vartime(r0_p, r1_p, &s);
+    (i == i_p.encode()).then_some(())
 }
 
 #[cfg(test)]
@@ -197,7 +203,7 @@ mod tests {
     #[test]
     fn signature_kat() {
         let (_, _, _, sig) = setup();
-        let expected = expect!["AvSrUBL7upTZsrjYihynuNKhE4AyG5kLaYiEYeCLyfjnoNANQ76fcPEXgjFWLv5K9FbwJv5XD3M3385yzUi3ru2wt"];
+        let expected = expect!["2E1qx2gppAWFTCcdSXZ3utQnsZv689KDTm8FsDxHZFCkCsYeDyyWk38tGiP9DVQPWG59CmxfdhSNCJ7nKKuHgFrU"];
         expected.assert_eq(&sig.to_string());
     }
 

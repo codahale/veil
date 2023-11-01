@@ -1,6 +1,6 @@
 //! An insider-secure hybrid signcryption implementation.
 
-use crate::ecc::{Point, Scalar};
+use crrl::gls254::{Point, Scalar};
 use lockstitch::Protocol;
 use rand::{CryptoRng, Rng};
 
@@ -43,14 +43,14 @@ pub fn encrypt(
     sres.mix(nonce);
 
     // Mix the static ECDH shared secret into the protocol.
-    sres.mix(&(receiver.q * sender.d).to_bytes());
+    sres.mix(&(receiver.q * sender.d).encode());
 
     // Encrypt the ephemeral public key.
     out_q_e.copy_from_slice(&ephemeral.pub_key.encoded);
     sres.encrypt(out_q_e);
 
     // Mix the ephemeral ECDH shared secret into the protocol.
-    sres.mix(&(receiver.q * ephemeral.d).to_bytes());
+    sres.mix(&(receiver.q * ephemeral.d).encode());
 
     // Encrypt the plaintext.
     out_ciphertext.copy_from_slice(plaintext);
@@ -58,18 +58,20 @@ pub fn encrypt(
 
     // Derive a commitment scalar from the protocol's current state, the sender's private key,
     // and a random nonce.
-    let k = sres.hedge(rng, &[sender.nonce], |clone| Some(Scalar::reduce(clone.derive_array())));
+    let k = sres.hedge(rng, &[sender.nonce], |clone| {
+        Some(Scalar::decode_reduce(&clone.derive_array::<32>()))
+    });
 
     // Calculate and encrypt the commitment point.
-    out_i.copy_from_slice(&Point::mul_gen(&k).to_bytes());
+    out_i.copy_from_slice(&Point::mulgen(&k).encode());
     sres.encrypt(out_i);
 
     // Derive a challenge scalar.
-    let r = Scalar::reduce(sres.derive_array());
+    let r = Scalar::decode_reduce(&sres.derive_array::<32>());
 
     // Calculate and encrypt the designated proof point: X = [d_S*r+k]Q_R
     let x = receiver.q * ((sender.d * r) + k);
-    out_x.copy_from_slice(&x.to_bytes());
+    out_x.copy_from_slice(&x.encode());
     sres.encrypt(out_x);
 }
 
@@ -106,24 +108,24 @@ pub fn decrypt<'a>(
     sres.mix(nonce);
 
     // Mix the static ECDH shared secret into the protocol.
-    sres.mix(&(sender.q * receiver.d).to_bytes());
+    sres.mix(&(sender.q * receiver.d).encode());
 
     // Decrypt and decode the ephemeral public key.
     sres.decrypt(ephemeral);
     let ephemeral = PubKey::from_canonical_bytes(ephemeral)?;
 
     // Mix the ephemeral ECDH shared secret into the protocol.
-    sres.mix(&(ephemeral.q * receiver.d).to_bytes());
+    sres.mix(&(ephemeral.q * receiver.d).encode());
 
     // Decrypt the plaintext.
     sres.decrypt(ciphertext);
 
     // Decrypt and decode the commitment point.
     sres.decrypt(i);
-    let i = Point::from_bytes(&i.try_into().ok()?)?;
+    let i = Point::decode(i)?;
 
     // Re-derive the challenge scalar.
-    let r_p = Scalar::reduce(sres.derive_array());
+    let r_p = Scalar::decode_reduce(&sres.derive_array::<32>());
 
     // Decrypt the designated proof point.
     sres.decrypt(x);
@@ -133,7 +135,7 @@ pub fn decrypt<'a>(
 
     // Return the ephemeral public key and plaintext iff the canonical encoding of the re-calculated
     // proof point matches the encoding of the decrypted proof point.
-    (lockstitch::ct_eq(x, &x_p.to_bytes())).then_some((ephemeral, ciphertext))
+    (lockstitch::ct_eq(x, &x_p.encode())).then_some((ephemeral, ciphertext))
 }
 
 #[cfg(test)]

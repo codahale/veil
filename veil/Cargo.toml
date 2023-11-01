@@ -9,11 +9,9 @@ description = "Stupid crypto tricks."
 
 [dependencies]
 bs58 = "0.5.0"
+crrl = { version = "0.8.0", default-features = false, features = ["std", "gls254"] }
 lockstitch = "0.16.2"
-p256 = { version = "0.13.2", default-features = false, features = ["arithmetic", "std", "hash2curve"] }
 rand = { version = "0.8.5", features = ["min_const_gen"] }
-sha2 = "0.10.8"
-subtle = "2.5.0"
 thiserror = "1.0.50"
 
 [dev-dependencies]

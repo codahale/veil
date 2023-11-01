@@ -1,18 +1,17 @@
 use std::fmt::{Debug, Formatter};
 
+use crrl::gls254::{Point, Scalar};
 use lockstitch::Protocol;
 use rand::{CryptoRng, Rng};
-
-use crate::ecc::{self, Point, Scalar};
 
 /// The length of a secret in bytes.
 pub const SECRET_LEN: usize = 64;
 
 /// The length of an encoded scalar in bytes.
-pub const SCALAR_LEN: usize = ecc::SCALAR_LEN;
+pub const SCALAR_LEN: usize = 32;
 
 /// The length of an encoded point in bytes.
-pub const POINT_LEN: usize = ecc::POINT_LEN;
+pub const POINT_LEN: usize = 32;
 
 /// A public key, including its canonical encoded form.
 #[derive(Clone, Copy)]
@@ -29,15 +28,15 @@ impl PubKey {
     #[must_use]
     pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<PubKey> {
         let encoded = <[u8; POINT_LEN]>::try_from(b.as_ref()).ok()?;
-        let q = Point::from_bytes(&encoded)?;
+        let q = Point::decode(&encoded)?;
         Some(PubKey { q, encoded })
     }
 
     /// Generates a random public key for which no private key is known.
     #[must_use]
     pub fn random(mut rng: impl CryptoRng + Rng) -> PubKey {
-        let q = Point::random(&mut rng);
-        PubKey { q, encoded: q.to_bytes() }
+        let q = Point::hash_to_curve("sha256", &rng.gen::<[u8; 64]>());
+        PubKey { q, encoded: q.encode() }
     }
 }
 
@@ -76,11 +75,11 @@ impl PrivKey {
         let mut skd = Protocol::new("veil.skd");
         skd.mix(&secret);
 
-        let d = Scalar::reduce(skd.derive_array());
-        let q = Point::mul_gen(&d);
+        let d = Scalar::decode_reduce(&skd.derive_array::<32>());
+        let q = Point::mulgen(&d);
         let nonce = skd.derive_array();
 
-        PrivKey { d, pub_key: PubKey { q, encoded: q.to_bytes() }, nonce, secret }
+        PrivKey { d, pub_key: PubKey { q, encoded: q.encode() }, nonce, secret }
     }
 
     /// Generates a random private key.
