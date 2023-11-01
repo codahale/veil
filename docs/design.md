@@ -246,6 +246,61 @@ concerns. This allows for the use of a wide variety of cryptographic constructio
 operations. It targets a 128-bit security level, lends itself to constant-time implementations, and
 can run in constrained environments.
 
+[Specifically](https://docs.rs/crrl/latest/crrl/gls254/index.html):
+
+> [GLS254 is] backed by the GLS254 elliptic curve. That curve is formally defined over GF(2^254), a
+> finite field itself defined as a degree-2 extension over GF(2^127). We follow the initial
+> parameters used in some previous papers, in particular: <https://eprint.iacr.org/2022/748>
+>
+> Field GF(2^127) is the quotient `GF(2)[z]/(1 + z^63 + z^127)`.
+> We then define GF(2^254) as `GF(2^127)[u]/(1 + u + u^2)`. This is
+> the base field for curve point coordinates. Elements of GF(2^254) are
+> represented as combinations `x0 + x1*u` for `x0` and `x1` both in
+> GF(2^127). The types `GFb127` and `GFb254` implement these fields.
+>
+> The GLS254 curve equation is `Y^2 + X*Y = X^3 + A*X^2 + B` with
+> `A = u` and `B = 1 + z^27` (`B` is part of GF(2^127)). Its order is
+> `2*r` for prime `r = 2^253 + 83877821160623817322862211711964450037`.
+>
+> We map this curve using a bijective isogeny: `x = X^4` and
+> `y = Y^4 + B^2`. This transforms the curve equation into
+> `y^2 + x*y = x^3 + a*x^2 + b*x`, with `a = A^4 = u` and
+> `b = B^2 = 1 + z^54`. Since the isogeny preserves the group structure
+> and is efficiently computable in both direction, this new curve is
+> fully equivalent, from a security point of view, to the original
+> GLS254. We can then apply the representations and formulas from:
+> <https://eprint.iacr.org/2022/1325>
+>
+> Group elements are curve points `P+N`, where `N = (0,0)` is the
+> unique point of order 2 on the curve, and `P` is any `r`-torsion point.
+> `N` is the group neutral. The sum (in the group) of `P+N` and `Q+N`
+> is `P+Q+N`. `(x,s)` coordinates are used, with `s = y + x^2 + a*x + b`.
+> The formulas for such operations are efficient and complete (no special
+> case). A group element can be encoded canonically into a field element
+> `w = sqrt(s/x)` (the neutral `N` is encoded as zero); the decoding
+> process ensures that the input is valid and canonical. Field elements
+> are serialized to sequences of 32 bytes:
+>
+> * For an element `x = \sum_{i=0}^{126} x_i z^i` of GF(2^127), we
+>    define the integer `vx = \sum_{i=0}^{126} x_i 2^i`, which we
+>    serialize into exactly 16 bytes with the unsigned little-endian
+>    conventions (the most significant bit of the 16th byte is then
+>    always 0).
+>
+> * For an element `x = x0 + x1*u` of GF(2^254), with `x0` and `x1`
+>    being elements of GF(2^127), the serialization f `x` is the
+>    concatenation of the serializations of `x0` and `x1`, in that
+>    order, for a total of of 32 bytes.
+>
+> The most significant bit of byte 15 and the most significant bit of
+> byte 31 are both always zero. The deserialization process checks that
+> these bits are indeed zero, and rejects the input otherwise. Provided
+> that these bits are both zero, then the input can always be decoded into
+> an element of GF(2^254). About half of the elements of GF(2^254) can
+> be then decoded into a valid group element; the decoding process rejects
+> invalid inputs. A field element can be decoded into at most a single
+> group element; decoding is unambiguous.
+
 Veil's security assumes that the Gap Discrete Logarithm and Gap Diffie-Hellman problems are hard
 relative to GLS254.
 
