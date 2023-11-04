@@ -36,7 +36,7 @@ impl PubKey {
     /// Generates a random public key for which no private key is known.
     #[must_use]
     pub fn random(mut rng: impl CryptoRng + Rng) -> PubKey {
-        let q = Point::hash_to_curve("sha256", &rng.gen::<[u8; 64]>());
+        let q = Point::hash_to_curve("", &rng.gen::<[u8; 64]>());
         PubKey { q, encoded: q.encode() }
     }
 }
