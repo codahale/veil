@@ -108,7 +108,7 @@ pub fn sign_protocol(
     sig_i.copy_from_slice(&i.encode());
     protocol.encrypt(sig_i);
 
-    // Derive a short challenge scalar.
+    // Derive two short challenge scalars and use them to calculate the full scalar.
     let rb = protocol.derive_array::<16>();
     let r0 = u64::from_le_bytes(rb[..8].try_into().expect("rb should be 16 bytes"));
     let r1 = u64::from_le_bytes(rb[8..].try_into().expect("rb should be 16 bytes"));
@@ -142,7 +142,7 @@ pub fn verify_protocol(protocol: &mut Protocol, signer: &PubKey, sig: &Signature
     protocol.decrypt(s);
     let s = Scalar::decode(s)?;
 
-    // Return true iff I and s are well-formed and I == [s]G - [r0']Q - [r1'Μ]Q. Here we compare the
+    // Return true iff I and s are well-formed and I == [s]G - [r0']Q - [r1'µ]Q. Here we compare the
     // encoded form of I' with the encoded form of I from the signature. This is faster, as encoding
     // a point is faster than decoding a point.
     let i_p = (-signer.q).mul64mu_add_mulgen_vartime(r0_p, r1_p, &s);

@@ -352,7 +352,7 @@ For brevity, a hedged ephemeral scalar `y` derived from a protocol `state` and a
 ## Digital Signatures
 
 `veil.schnorr` implements an EdDSA-style Schnorr digital signature scheme using Pornin's scheme for
-fast Schnorr signatures [[Por20]](#por20).
+fast Schnorr signatures [[Por23]](#por23).
 
 ### Signing A Message
 
@@ -368,7 +368,7 @@ function Sign(x, m):
   I ← [k]G                               // Calculate the commitment point.
   (state, S₀) ← Encrypt(state, I)        // Encrypt the commitment point.
   (state, r₀ǁr₁) ← Derive(state, 16)     // Derive two short challenge scalars.
-  r ← r₀ +️️ Μ×r₁️                          // Calculate the full challenge scalar using the zeta endomorphism.
+  r ← r₀ +️️ µ×r₁️                          // Calculate the full challenge scalar using the zeta endomorphism.
   s ← d×r + k                            // Calculate the proof scalar.
   (state, S₁) ← Encrypt(state, s)        // Encrypt the proof scalar.
   return S₀ǁS₁                           // Return the commitment point and proof scalar.
@@ -387,7 +387,7 @@ function Verify(Q, m, S₀ǁS₁):
   (state, I) ← Decrypt(state, S₀)       // Decrypt the commitment point.
   (state, r₀′ǁr₁′) ← Derive(state, 16)  // Derive two counterfactual short challenge scalars.
   (state, s) ← Decrypt(state, S₁)       // Decrypt the proof scalar.
-  I′ ← [s]G - [r₀′]Q - [r₁'Μ]Q          // Calculate the counterfactual commitment point.
+  I′ ← [s]G - [r₀′]Q - [r₁'µ]Q          // Calculate the counterfactual commitment point.
   return I = I′                         // The signature is valid if both points are equal.
 ```
 
@@ -399,8 +399,10 @@ identification scheme.
 Unlike Construction 13.12 of [[KL20]](#kl20) (p. 482), `veil.schnorr` transmits the commitment point
 `I` as part of the signature and the verifier calculates `I′` vs transmitting the challenge scalar
 `r` and calculating `r′`. In this way, `veil.schnorr` is closer to EdDSA [[BCJZ21]](#bcjz21) or the
-Schnorr variant proposed by Hamburg [[Ham17]](#ham17). In addition, this construction allows for the
-use of variable-time optimizations during signature verification [[Por20]](#por20).
+Schnorr variant proposed by Hamburg [[Ham17]](#ham17).
+
+The use of short challenge scalars does not decrease the security margin of the construction but
+does allow for dramatic optimizations of signature creation and verification [[Por23]](#por23).
 
 ### UF-CMA Security
 
