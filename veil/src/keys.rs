@@ -24,12 +24,13 @@ pub struct PubKey {
 }
 
 impl PubKey {
-    /// Decodes the given slice as a public key, if possible.
+    /// Decodes the given slice as a public key, if possible. Returns `None` if the slice is not a
+    /// canonically-encoded point or if it encodes the neutral point.
     #[must_use]
     pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<PubKey> {
         let encoded = <[u8; POINT_LEN]>::try_from(b.as_ref()).ok()?;
         let q = Point::decode(&encoded)?;
-        Some(PubKey { q, encoded })
+        (q.isneutral() == 0).then_some(PubKey { q, encoded })
     }
 
     /// Generates a random public key for which no private key is known.
@@ -94,5 +95,15 @@ impl Eq for PrivKey {}
 impl PartialEq for PrivKey {
     fn eq(&self, other: &Self) -> bool {
         self.pub_key == other.pub_key
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn decoding_neutral_points() {
+        assert_eq!(None, PubKey::from_canonical_bytes(Point::NEUTRAL.encode()));
     }
 }
