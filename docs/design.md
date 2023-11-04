@@ -991,20 +991,20 @@ IND-CCA2 secure.
 
 Marius A. Aardal, Diego F. Aranha.
 2022.
-[_2DT-GLS: Faster and exception-free scalar multiplication in the GLS254 binary curve_.](https://eprint.iacr.org/2022/748.pdf)
+[_2DT-GLS: Faster and exception-free scalar multiplication in the GLS254 binary curve_.](https://eprint.iacr.org/2022/748)
 
 ### ABHKLR21
 
 Joël Alwen, Bruno Blanchet, Eduard Hauck, Eike Kiltz, Benjamin Lipp, and Doreen Riepel.
 2021.
-[_Analysing the HPKE standard._](https://eprint.iacr.org/2020/1499.pdf)
+[_Analysing the HPKE standard._](https://eprint.iacr.org/2020/1499)
 [`DOI:10.1007/978-3-030-77870-5_4`](https://doi.org/10.1007/978-3-030-77870-5_4)
 
 ### AOTZ20
 
 Diego F Aranha, Claudio Orlandi, Akira Takahashi, and Greg Zaverucha.
 2020.
-[_Security of hedged Fiat–Shamir signatures under fault attacks._](https://eprint.iacr.org/2019/956.pdf)
+[_Security of hedged Fiat–Shamir signatures under fault attacks._](https://eprint.iacr.org/2019/)
 [`DOI:10.1007/978-3-030-45721-1_23`](https://doi.org/10.1007/978-3-030-45721-1_23)
 
 ### AR10
@@ -1024,7 +1024,7 @@ Mihir Bellare, Alexandra Boldyreva, Kaoru Kurosawa, and Jessica Staddon.
 
 Christian Badertscher, Fabio Banfi, and Ueli Maurer.
 2018.
-[_A constructive perspective on signcryption security._](https://eprint.iacr.org/2018/050.pdf)
+[_A constructive perspective on signcryption security._](https://eprint.iacr.org/2018/050)
 
 ### BBS03
 
@@ -1037,21 +1037,21 @@ Mihir Bellare, Alexandra Boldyreva, and Jessica Staddon.
 
 Dan Boneh, Henry Corrigan-Gibbs, and Stuart Schechter.
 2016.
-[_Balloon hashing: A memory-hard function providing provable protection against sequential attacks._](https://eprint.iacr.org/2016/027.pdf)
+[_Balloon hashing: A memory-hard function providing provable protection against sequential attacks._](https://eprint.iacr.org/2016/027)
 [`DOI:10.1007/978-3-662-53887-6_8`](https://doi.org/10.1007/978-3-662-53887-6_8)
 
 ### BCJZ21
 
 Jacqueline Brendel, Cas Cremers, Dennis Jackson, and Mang Zhao.
 2021.
-[_The provable security of Ed25519: Theory and practice._](https://eprint.iacr.org/2020/823.pdf)
+[_The provable security of Ed25519: Theory and practice._](https://eprint.iacr.org/2020/823)
 [`DOI:10.1109/SP40001.2021.00042`](https://doi.org/10.1109/SP40001.2021.00042)
 
 ### BDD23
 
 Mihir Bellare and Hannah Davis and Zijing Di.
 2023.
-[_Hardening Signature Schemes via Derive-then-Derandomize: Stronger Security Proofs for EdDSA_](https://eprint.iacr.org/2023/298.pdf)
+[_Hardening Signature Schemes via Derive-then-Derandomize: Stronger Security Proofs for EdDSA_](https://eprint.iacr.org/2023/298)
 
 ### BGB04
 
@@ -1085,28 +1085,28 @@ Jenny Blessing, Michael A. Specter, and Daniel J. Weitzner.
 
 Konstantinos Chalkias, François Garillot, and Valeria Nikolaenko.
 2020.
-[_Taming the many EdDSAs._](https://eprint.iacr.org/2020/1244.pdf)
+[_Taming the many EdDSAs._](https://eprint.iacr.org/2020/1244)
 [`DOI:10.1007/978-3-030-64357-7_4`](https://doi.org/10.1007/978-3-030-64357-7_4)
 
 ### CHK03
 
 Ran Canetti, Shai Halevi, and Jonathan Katz.
 2003.
-[_A forward-secure public-key encryption scheme._](https://eprint.iacr.org/2003/083.pdf)
+[_A forward-secure public-key encryption scheme._](https://eprint.iacr.org/2003/083)
 [`DOI:10.1007/3-540-39200-9_16`](https://doi.org/10.1007/3-540-39200-9_16)
 
 ### HRRV15
 
 Viet Tung Hoang, Reza Reyhanitabar, Phillip Rogaway, and Damian Vizár.
 2015.
-[_Online authenticated-encryption and its nonce-reuse misuse-resistance._](https://eprint.iacr.org/2015/189.pdf)
+[_Online authenticated-encryption and its nonce-reuse misuse-resistance._](https://eprint.iacr.org/2015/189)
 [`DOI:10.1007/978-3-662-47989-6_24`](https://doi.org/10.1007/978-3-662-47989-6_24)
 
 ### Ham17
 
 Mike Hamburg.
 2017.
-[_The STROBE protocol framework._](https://eprint.iacr.org/2017/003.pdf)
+[_The STROBE protocol framework._](https://eprint.iacr.org/2017/003)
 
 ### KL20
 
@@ -1159,7 +1159,7 @@ Thomas Pornin.
 
 Thomas Pornin.
 2022.
-[Efficient and Complete Formulas for Binary Curves.](https://eprint.iacr.org/2022/1325)
+[_Efficient and Complete Formulas for Binary Curves._](https://eprint.iacr.org/2022/1325)
 
 ### RD10
 
