@@ -57,10 +57,10 @@ pub fn sign(
     let mut schnorr = Protocol::new("veil.schnorr");
 
     // Mix the signer's public key into the protocol.
-    schnorr.mix(&signer.pub_key.encoded);
+    schnorr.mix(b"signer", &signer.pub_key.encoded);
 
     // Mix the message into the protocol.
-    let mut writer = schnorr.mix_writer(io::sink());
+    let mut writer = schnorr.mix_writer(b"message", io::sink());
     io::copy(&mut message, &mut writer)?;
     let (mut schnorr, _) = writer.into_inner();
 
@@ -74,10 +74,10 @@ pub fn verify(signer: &PubKey, mut message: impl Read, sig: &Signature) -> Resul
     let mut schnorr = Protocol::new("veil.schnorr");
 
     // Mix the signer's public key into the protocol.
-    schnorr.mix(&signer.encoded);
+    schnorr.mix(b"signer", &signer.encoded);
 
     // Mix the message into the protocol.
-    let mut writer = schnorr.mix_writer(io::sink());
+    let mut writer = schnorr.mix_writer(b"message", io::sink());
     io::copy(&mut message, &mut writer)?;
     let (mut schnorr, _) = writer.into_inner();
 
@@ -100,16 +100,16 @@ pub fn sign_protocol(
     // Derive a commitment scalar from the protocol's current state, the signer's private key,
     // and a random nonce, and calculate the commitment point.
     let k = protocol.hedge(&mut rng, &[signer.nonce], |clone| {
-        Some(Scalar::decode_reduce(&clone.derive_array::<32>()))
+        Some(Scalar::decode_reduce(&clone.derive_array::<32>(b"commitment-scalar")))
     });
     let i = Point::mulgen(&k);
 
     // Calculate, encode, and encrypt the commitment point.
     sig_i.copy_from_slice(&i.encode());
-    protocol.encrypt(sig_i);
+    protocol.encrypt(b"commitment-point", sig_i);
 
     // Derive two short challenge scalars and use them to calculate the full scalar.
-    let rb = protocol.derive_array::<16>();
+    let rb = protocol.derive_array::<16>(b"challenge-scalar");
     let r0 = u64::from_le_bytes(rb[..8].try_into().expect("rb should be 16 bytes"));
     let r1 = u64::from_le_bytes(rb[8..].try_into().expect("rb should be 16 bytes"));
     let r = Scalar::from_u64(r0) + Scalar::MU * Scalar::from_u64(r1);
@@ -117,7 +117,7 @@ pub fn sign_protocol(
     // Calculate, encode, and encrypt the proof scalar.
     let s = (signer.d * r) + k;
     sig_s.copy_from_slice(&s.encode());
-    protocol.encrypt(sig_s);
+    protocol.encrypt(b"proof-scalar", sig_s);
 
     // Return the full signature.
     Signature(sig)
@@ -131,15 +131,15 @@ pub fn verify_protocol(protocol: &mut Protocol, signer: &PubKey, sig: &Signature
     let (i, s) = sig.split_at_mut(POINT_LEN);
 
     // Decrypt the commitment point but don't decode it.
-    protocol.decrypt(i);
+    protocol.decrypt(b"commitment-point", i);
 
     // Re-derive the short challenge scalars.
-    let rb_p = protocol.derive_array::<16>();
+    let rb_p = protocol.derive_array::<16>(b"challenge-scalar");
     let r0_p = u64::from_le_bytes(rb_p[..8].try_into().expect("rb should be 16 bytes"));
     let r1_p = u64::from_le_bytes(rb_p[8..].try_into().expect("rb should be 16 bytes"));
 
     // Decrypt and decode the proof scalar.
-    protocol.decrypt(s);
+    protocol.decrypt(b"proof-scalar", s);
     let s = Scalar::decode(s)?;
 
     // Return true iff I and s are well-formed and I == [s]G - [r0']Q - [r1'µ]Q. Here we compare the
@@ -203,7 +203,7 @@ mod tests {
     #[test]
     fn signature_kat() {
         let (_, _, _, sig) = setup();
-        let expected = expect!["2E1qx2gppAWFTCcdSXZ3utQnsZv689KDTm8FsDxHZFCkCsYeDyyWk38tGiP9DVQPWG59CmxfdhSNCJ7nKKuHgFrU"];
+        let expected = expect!["4jVvQEWEUzZaatePrLYsbwXhXnsPnJFko5LaX4y4GRDzYCKp2z2mQx6xHB4s1ohfRxr7DUeFhbkwh2rudvi4v1yh"];
         expected.assert_eq(&sig.to_string());
     }
 

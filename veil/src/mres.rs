@@ -41,18 +41,18 @@ pub fn encrypt(
 
     // Initialize a protocol and mix the sender's public key into it.
     let mut mres = Protocol::new("veil.mres");
-    mres.mix(&sender.pub_key.encoded);
+    mres.mix(b"sender", &sender.pub_key.encoded);
 
     // Generate ephemeral key pair, DEK, and nonce.
     let (ephemeral, dek, nonce) = mres.hedge(&mut rng, &[sender.nonce], |clone| {
-        let k = PrivKey::from_secret_bytes(clone.derive_array::<64>());
-        Some((k, clone.derive_array(), clone.derive_array::<NONCE_LEN>()))
+        let k = PrivKey::from_secret_bytes(clone.derive_array::<64>(b"ephemeral-key"));
+        Some((k, clone.derive_array(b"dek"), clone.derive_array::<NONCE_LEN>(b"nonce")))
     });
 
     // Write the nonce and mix it into the protocol.
     writer.write_all(&nonce).map_err(EncryptError::WriteIo)?;
     let mut written = u64::try_from(NONCE_LEN).expect("usize should be <= u64");
-    mres.mix(&nonce);
+    mres.mix(b"nonce", &nonce);
 
     // Encode a header with the DEK, receiver count, and padding.
     let header = Header::new(dek, receivers.len(), padding).encode();
@@ -61,13 +61,13 @@ pub fn encrypt(
     let mut enc_header = [0u8; ENC_HEADER_LEN];
     for receiver in receivers {
         // Derive a nonce for each header.
-        let nonce = mres.derive_array::<NONCE_LEN>();
+        let nonce = mres.derive_array::<NONCE_LEN>(b"nonce");
 
         // Encrypt the header for the given receiver.
         sres::encrypt(&mut rng, sender, &ephemeral, receiver, &nonce, &header, &mut enc_header);
 
         // Mix the encrypted header into the protocol.
-        mres.mix(&enc_header);
+        mres.mix(b"header", &enc_header);
 
         // Write the encrypted header.
         writer.write_all(&enc_header).map_err(EncryptError::WriteIo)?;
@@ -75,13 +75,13 @@ pub fn encrypt(
     }
 
     // Add random padding to the end of the headers, mixing it into the protocol.
-    let mut writer = mres.mix_writer(writer);
+    let mut writer = mres.mix_writer(b"padding", writer);
     written += io::copy(&mut RngRead(&mut rng).take(padding), &mut writer)
         .map_err(EncryptError::WriteIo)?;
     let (mut mres, mut writer) = writer.into_inner();
 
     // Mix the DEK into the protocol.
-    mres.mix(&dek);
+    mres.mix(b"dek", &dek);
 
     // Encrypt the plaintext in blocks and write them.
     written += encrypt_message(&mut mres, reader, &mut writer)?;
@@ -109,7 +109,7 @@ fn encrypt_message(
         let block = &mut buf[..n + TAG_LEN];
 
         // Seal the block and write it.
-        mres.seal(block);
+        mres.seal(b"block", block);
         writer.write_all(block).map_err(EncryptError::WriteIo)?;
         written += u64::try_from(block.len()).expect("usize should be <= u64");
 
@@ -133,18 +133,18 @@ pub fn decrypt(
 ) -> Result<u64, DecryptError> {
     // Initialize a protocol and mix the sender's public key into it.
     let mut mres = Protocol::new("veil.mres");
-    mres.mix(&sender.encoded);
+    mres.mix(b"sender", &sender.encoded);
 
     // Read the nonce and mix it into the protocol.
     let mut nonce = [0u8; NONCE_LEN];
     reader.read_exact(&mut nonce).map_err(DecryptError::ReadIo)?;
-    mres.mix(&nonce);
+    mres.mix(b"nonce", &nonce);
 
     // Find a header, decrypt it, and mix the entirety of the headers and padding into the protocol.
     let (mut mres, ephemeral, dek) = decrypt_header(mres, &mut reader, receiver, sender)?;
 
     // Mix the DEK into the protocol.
-    mres.mix(&dek);
+    mres.mix(b"dek", &dek);
 
     // Decrypt the message.
     let (written, sig) = decrypt_message(&mut mres, &mut reader, &mut writer)?;
@@ -183,7 +183,7 @@ fn decrypt_message(
 
         // Open the block and write the plaintext. If the block cannot be decrypted, return an
         // error.
-        let plaintext = mres.open(block).ok_or(DecryptError::InvalidCiphertext)?;
+        let plaintext = mres.open(b"block", block).ok_or(DecryptError::InvalidCiphertext)?;
         writer.write_all(plaintext).map_err(DecryptError::WriteIo)?;
         written += u64::try_from(plaintext.len()).expect("usize should be <= u64");
 
@@ -223,10 +223,10 @@ fn decrypt_header(
 
         // Derive a nonce regardless of whether we need to in order to keep the protocol state
         // consistent.
-        let nonce = mres.derive_array::<NONCE_LEN>();
+        let nonce = mres.derive_array::<NONCE_LEN>(b"nonce");
 
         // Mix the encrypted header into the protocol.
-        mres.mix(&enc_header);
+        mres.mix(b"header", &enc_header);
 
         // If a header hasn't been decrypted yet, try to decrypt this one.
         if header.is_none() {
@@ -247,7 +247,7 @@ fn decrypt_header(
     let (ephemeral, header) = header.ok_or(DecryptError::InvalidCiphertext)?;
 
     // Read the padding and mix it into the protocol.
-    let mut writer = mres.mix_writer(io::sink());
+    let mut writer = mres.mix_writer(b"padding", io::sink());
     io::copy(&mut reader.take(header.padding), &mut writer).map_err(DecryptError::ReadIo)?;
     let (mres, _) = writer.into_inner();
 

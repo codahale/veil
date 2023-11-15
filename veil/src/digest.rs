@@ -22,16 +22,16 @@ impl Digest {
 
         // Mix the metadata values in order into the protocol.
         for v in metadata {
-            digest.mix(v.as_ref());
+            digest.mix(b"metadata", v.as_ref());
         }
 
         // Mix the reader contents into the protocol.
-        let mut writer = digest.mix_writer(io::sink());
+        let mut writer = digest.mix_writer(b"message", io::sink());
         io::copy(&mut reader, &mut writer)?;
         let (mut digest, _) = writer.into_inner();
 
         // Derive 32 bytes as a digest.
-        Ok(Digest(digest.derive_array()))
+        Ok(Digest(digest.derive_array(b"digest")))
     }
 
     /// Create a digest from a 32-byte slice.

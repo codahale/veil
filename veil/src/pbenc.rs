@@ -36,7 +36,7 @@ pub fn encrypt(
 
     // Encrypt the plaintext.
     ciphertext[..plaintext.len()].copy_from_slice(plaintext);
-    pbenc.seal(ciphertext);
+    pbenc.seal(b"secret", ciphertext);
 }
 
 /// Decrypt the given ciphertext using the given passphrase.
@@ -55,7 +55,7 @@ pub fn decrypt<'a>(passphrase: &[u8], in_out: &'a mut [u8]) -> Option<&'a [u8]> 
     let mut pbenc = init(passphrase, salt, t[0], m[0]);
 
     // Decrypt the ciphertext.
-    pbenc.open(ciphertext)
+    pbenc.open(b"secret", ciphertext)
 }
 
 fn init(passphrase: &[u8], salt: &[u8], time_cost: u8, memory_cost: u8) -> Protocol {
@@ -71,18 +71,18 @@ fn init(passphrase: &[u8], salt: &[u8], time_cost: u8, memory_cost: u8) -> Proto
             let mut h = $h.clone();
 
             // Mix the counter as a Little Endian byte string into the protocol.
-            h.mix(&$ctr.to_le_bytes());
+            h.mix(b"counter", &$ctr.to_le_bytes());
 
             // Increment the counter by one.
             $ctr = $ctr.wrapping_add(1);
 
             // Mix each block in order into the protocol.
             $(
-                h.mix($block);
+                h.mix(b"block", $block);
             )*
 
             // Fill the output with derived data.
-            h.derive($out);
+            h.derive(b"output", $out);
         };
     }
 
@@ -131,7 +131,7 @@ fn init(passphrase: &[u8], salt: &[u8], time_cost: u8, memory_cost: u8) -> Proto
 
     // Step 3: Extract key from buffer.
     let mut pbenc = Protocol::new("veil.pbenc");
-    pbenc.mix(&buf[buf.len() - 1]);
+    pbenc.mix(b"expanded-key", &buf[buf.len() - 1]);
     pbenc
 }
 
