@@ -36,7 +36,7 @@ fn verify() {
     #[derive(Debug, TypeGenerator)]
     struct Input {
         seed: u64,
-        sig: [u8; 32],
+        sig: [u8; 64],
         message: Vec<u8>,
     }
 
