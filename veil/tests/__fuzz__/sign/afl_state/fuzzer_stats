@@ -1,0 +1,30 @@
+start_time        : 1700025282
+last_update       : 1700025298
+fuzzer_pid        : 18575
+cycles_done       : 0
+execs_done        : 227257
+execs_per_sec     : 625.00
+paths_total       : 37
+paths_favored     : 18
+paths_found       : 36
+paths_imported    : 0
+max_depth         : 4
+cur_path          : 36
+pending_favs      : 1
+pending_total     : 18
+variable_paths    : 32
+stability         : 91.38%
+bitmap_cvg        : 0.27%
+unique_crashes    : 0
+unique_hangs      : 0
+last_path         : 1700025290
+last_crash        : 0
+last_hang         : 0
+execs_since_crash : 227257
+exec_timeout      : 20
+afl_banner        : fuzz-44bc420dde35773d
+afl_version       : 2.57b
+target_mode       : persistent deferred 
+command_line      : /Users/coda/.cargo/bin/cargo-bolero -i /Users/coda/Projects/veil/veil/tests/__fuzz__/sign/corpus -o /Users/coda/Projects/veil/veil/tests/__fuzz__/sign/afl_state -- /Users/coda/Projects/veil/target/fuzz/build_9c02a90910d52406/aarch64-apple-darwin/fuzz/deps/fuzz-44bc420dde35773d sign --exact --nocapture --quiet --test-threads 1
+slowest_exec_ms   : 12
+peak_rss_mb       : 33

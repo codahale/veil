@@ -15,8 +15,6 @@ jobs:
           toolchain: stable
           components: clippy
       - run: cargo clippy --all-targets -- -D warnings
-      - run: cargo clippy --all-targets -- -D warnings
-        working-directory: fuzz
 
   rustfmt:
     runs-on: ubuntu-latest
@@ -31,19 +29,6 @@ jobs:
 
       - name: Run cargo fmt
         run: cargo fmt --all -- --check
-  
-  fuzz-build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: RustCrypto/actions/cargo-cache@master
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly
-      - uses: dtolnay/install@master
-        with:
-          crate: cargo-fuzz
-      - run: cargo fuzz build
   
   test:
     runs-on: ubuntu-latest
