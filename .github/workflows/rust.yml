@@ -37,6 +37,8 @@ jobs:
         rust:
           - stable
           - beta
+    env:
+      RUSTFLAGS: "-C target-feature=+aes,+ssse3"
     steps:
       - uses: actions/checkout@v4
       - uses: RustCrypto/actions/cargo-cache@master
