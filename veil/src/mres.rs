@@ -61,7 +61,7 @@ pub fn encrypt(
     let mut enc_header = [0u8; ENC_HEADER_LEN];
     for receiver in receivers {
         // Derive a nonce for each header.
-        let nonce = mres.derive_array::<NONCE_LEN>(b"nonce");
+        let nonce = mres.derive_array::<NONCE_LEN>(b"header-nonce");
 
         // Encrypt the header for the given receiver.
         sres::encrypt(&mut rng, sender, &ephemeral, receiver, &nonce, &header, &mut enc_header);
@@ -223,7 +223,7 @@ fn decrypt_header(
 
         // Derive a nonce regardless of whether we need to in order to keep the protocol state
         // consistent.
-        let nonce = mres.derive_array::<NONCE_LEN>(b"nonce");
+        let nonce = mres.derive_array::<NONCE_LEN>(b"header-nonce");
 
         // Mix the encrypted header into the protocol.
         mres.mix(b"header", &enc_header);

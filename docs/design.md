@@ -274,8 +274,8 @@ order:
 ```text
 function HPKE(d_E, Q_R, p):
   state ← Initialize("com.example.hpke") // Initialize a Lockstitch protocol with a domain string. 
-  state ← Mix(state, [d_E]Q_R)           // Mix the ECDH shared secret into the protocol's state.
-  (state, c) ← Seal(state, p)            // Seal the plaintext.
+  state ← Mix(state, "ecdh", [d_E]Q_R)   // Mix the ECDH shared secret into the protocol's state.
+  (state, c) ← Seal(state, "message", p) // Seal the plaintext.
   return c                               // Return ciphertext.
 ```
 
@@ -306,10 +306,10 @@ Like EdDSA, Veil derives private scalars from a 64-byte secret value:
 
 ```text
 function DeriveScalar(x):
-  state ← Initialize("veil.skd")       // Initialize a protocol.
-  state ← Mix(state, x)                // Mix the secret value into the protocol's state.
-  (state, d) ← Derive(state, 32) mod ℓ // Derive a private scalar.
-  (state, n) ← Derive(state, 64)       // Derive a 64-byte nonce.
+  state ← Initialize("veil.skd")                 // Initialize a protocol.
+  state ← Mix(state, "secret", x)                // Mix the secret value into the protocol's state.
+  (state, d) ← Derive(state, "scalar", 32) mod ℓ // Derive a private scalar.
+  (state, n) ← Derive(state, "nonce", 64)        // Derive a 64-byte nonce.
   return d, n
 ```
 
@@ -330,15 +330,15 @@ clone. The cloned protocol is used to produce the ephemeral value or values for 
 For example, the following operations would be performed on the cloned protocol:
 
 ```text
-function HedgedScalar(state, x):
-  (d, nonce) ← DeriveScalar(x)  // Derive a private scalar and nonce from the secret.
-  with clone ← Clone(state) do  // Clone the protocol's current state.
-    clone ← Mix(clone, nonce)   // Mix in the private value.
-    v ← Rand(64)                // Generate a 64-byte random value.
-    clone ← Mix(clone, v)       // Mix in the random value.
-    y ← Derive(clone, 32) mod ℓ // Derive a scalar from the clone.
-    return y                    // Return the scalar to the outer context.
-  end clone                     // Destroy the cloned protocol's state.
+function HedgedScalar(state, x, label):
+  (d, nonce) ← DeriveScalar(x)         // Derive a private scalar and nonce from the secret.
+  with clone ← Clone(state) do         // Clone the protocol's current state.
+    clone ← Mix(clone, "nonce", nonce) // Mix in the private value.
+    v ← Rand(64)                       // Generate a 64-byte random value.
+    clone ← Mix(clone, "random", v)    // Mix in the random value.
+    y ← Derive(clone, 32, label) mod ℓ // Derive a scalar from the clone.
+    return y                           // Return the scalar to the outer context.
+  end clone                            // Destroy the cloned protocol's state.
 ```
 
 The ephemeral scalar `y` is returned to the context of the original construction and the cloned
@@ -347,7 +347,7 @@ number generator, `y` is still unique relative to `x`. Depending on the uniquene
 construction, an ephemeral value can be hedged with a plaintext in addition to a private key.
 
 For brevity, a hedged ephemeral scalar `y` derived from a protocol `state` and a private input value
-`x` is denoted as `y ← Hedge(state, x, Derive(32) mod ℓ)`.
+`x` is denoted as `y ← Hedge(state, x, Derive(label, 32) mod ℓ)`.
 
 ## Digital Signatures
 
@@ -360,18 +360,18 @@ Signing a message requires a signer's secret `x` and a message `m` of arbitrary 
 
 ```text
 function Sign(x, m):
-  (d, n) ← DeriveScalar(x)               // Derive a private key and nonce from the secret.
-  state ← Initialize("veil.schnorr")     // Initialize a protocol.
-  state ← Mix(state, [d]G)               // Mix the signer's public key into the protocol.
-  state ← Mix(state, m)                  // Mix the message into the protocol.
-  k ← Hedge(state, n, Derive(32) mod ℓ)  // Derive a hedged commitment scalar.
-  I ← [k]G                               // Calculate the commitment point.
-  (state, S₀) ← Encrypt(state, I)        // Encrypt the commitment point.
-  (state, r₀ǁr₁) ← Derive(state, 16)     // Derive two short challenge scalars.
-  r ← r₀ +️️ µ×r₁️                          // Calculate the full challenge scalar using the zeta endomorphism.
-  s ← d×r + k                            // Calculate the proof scalar.
-  (state, S₁) ← Encrypt(state, s)        // Encrypt the proof scalar.
-  return S₀ǁS₁                           // Return the commitment point and proof scalar.
+  (d, n) ← DeriveScalar(x)                                  // Derive a private key and nonce from the secret.
+  state ← Initialize("veil.schnorr")                        // Initialize a protocol.
+  state ← Mix(state, "signer", [d]G)                        // Mix the signer's public key into the protocol.
+  state ← Mix(state, "message", m)                           // Mix the message into the protocol.
+  k ← Hedge(state, n, Derive("commitment-scalar", 32) mod ℓ) // Derive a hedged commitment scalar.
+  I ← [k]G                                                   // Calculate the commitment point.
+  (state, S₀) ← Encrypt(state, "commitment-point", I)        // Encrypt the commitment point.
+  (state, r₀ǁr₁) ← Derive(state, "challenge-scalar", 16)     // Derive two short challenge scalars.
+  r ← r₀ +️️ µ×r₁️                                              // Calculate the full challenge scalar using the zeta endomorphism.
+  s ← d×r + k                                                // Calculate the proof scalar.
+  (state, S₁) ← Encrypt(state, "proof-scalar", s)            // Encrypt the proof scalar.
+  return S₀ǁS₁                                               // Return the commitment point and proof scalar.
 ```
 
 ### Verifying A Signature
@@ -381,14 +381,14 @@ Verifying a signature requires a signer's public key `Q`, a message `m`, and a s
 
 ```text
 function Verify(Q, m, S₀ǁS₁):
-  state ← Initialize("veil.schnorr")    // Initialize a protocol.
-  state ← Mix(state, Q)                 // Mix the signer's public key into the protocol.
-  state ← Mix(state, m)                 // Mix the message into the protocol.
-  (state, I) ← Decrypt(state, S₀)       // Decrypt the commitment point.
-  (state, r₀′ǁr₁′) ← Derive(state, 16)  // Derive two counterfactual short challenge scalars.
-  (state, s) ← Decrypt(state, S₁)       // Decrypt the proof scalar.
-  I′ ← [s]G - [r₀′]Q - [r₁'µ]Q          // Calculate the counterfactual commitment point.
-  return I = I′                         // The signature is valid if both points are equal.
+  state ← Initialize("veil.schnorr")                       // Initialize a protocol.
+  state ← Mix(state, "signer", Q)                          // Mix the signer's public key into the protocol.
+  state ← Mix(state, "message", m)                         // Mix the message into the protocol.
+  (state, I) ← Decrypt(state, "commitment-point", S₀)      // Decrypt the commitment point.
+  (state, r₀′ǁr₁′) ← Derive(state, "challenge-scalar", 16) // Derive two counterfactual short challenge scalars.
+  (state, s) ← Decrypt(state, "proof-scalar", S₁)          // Decrypt the proof scalar.
+  I′ ← [s]G - [r₀′]Q - [r₁'µ]Q                             // Calculate the counterfactual commitment point.
+  return I = I′                                            // The signature is valid if both points are equal.
 ```
 
 ### Constructive Analysis Of `veil.schnorr`
@@ -479,22 +479,22 @@ public key `Q_R`, a nonce `N`, and a plaintext `P`.
 
 ```text
 function EncryptHeader(x_S, d_E, Q_R, N, P):
-  (d_S, n_S) ← DeriveScalar(x_S)          // Derive a private key and nonce from the sender's secret.
-  state ← Initialize("veil.sres")         // Initialize a protocol.
-  state ← Mix(state, [d_S]G)              // Mix the sender's public key into the protocol.
-  state ← Mix(state, Q_R)                 // Mix the receiver's public key into the protocol.
-  state ← Mix(state, N)                   // Mix the nonce into the protocol.
-  state ← Mix(state, [d_S]Q_R)            // Mix the static ECDH shared secret into the protocol.
-  (state, C₀) ← Encrypt(state, [d_E]G)    // Encrypt the ephemeral public key.
-  state ← Mix([d_E]Q_R)                   // Mix the ephemeral ECDH shared secret into the protocol.
-  (state, C₁) ← Encrypt(P)                // Encrypt the plaintext.
-  k ← Hedge(state, n_S, Derive(32) mod ℓ) // Derive a hedged commitment scalar.
-  I ← [k]G                                // Calculate the commitment point.
-  (state, S₀) ← Encrypt(state, I)         // Encrypt the commitment point.
-  (state, r) ← Derive(state, 32) mod ℓ    // Derive a challenge scalar.
-  s ← d_S✕r + k                           // Calculate the proof scalar.
-  X ← [s]Q_R                              // Calculate the proof point.
-  (state, S₁) ← Encrypt(state, X)         // Encrypt the proof point.
+  (d_S, n_S) ← DeriveScalar(x_S)                               // Derive a private key and nonce from the sender's secret.
+  state ← Initialize("veil.sres")                              // Initialize a protocol.
+  state ← Mix(state, "sender", [d_S]G)                         // Mix the sender's public key into the protocol.
+  state ← Mix(state, "receiver", Q_R)                          // Mix the receiver's public key into the protocol.
+  state ← Mix(state, "nonce", N)                               // Mix the nonce into the protocol.
+  state ← Mix(state, "static-ecdh", [d_S]Q_R)                  // Mix the static ECDH shared secret into the protocol.
+  (state, C₀) ← Encrypt(state, "ephemeral-key", [d_E]G)        // Encrypt the ephemeral public key.
+  state ← Mix(state, "ephemeral-ecdh", [d_E]Q_R)               // Mix the ephemeral ECDH shared secret into the protocol.
+  (state, C₁) ← Encrypt(state, "message", P)                   // Encrypt the plaintext.
+  k ← Hedge(state, n_S, Derive("commitment-scalar", 32) mod ℓ) // Derive a hedged commitment scalar.
+  I ← [k]G                                                     // Calculate the commitment point.
+  (state, S₀) ← Encrypt(state, "commitment-point", I)          // Encrypt the commitment point.
+  (state, r) ← Derive(state, "challenge-scalar", 32) mod ℓ     // Derive a challenge scalar.
+  s ← d_S✕r + k                                                // Calculate the proof scalar.
+  X ← [s]Q_R                                                   // Calculate the proof point.
+  (state, S₁) ← Encrypt(state, "proof-point", X)               // Encrypt the proof point.
   return C₀ǁC₁ǁS₀ǁS₁
 ```
 
@@ -505,22 +505,22 @@ and a ciphertext `C₀ǁC₁ǁS₀ǁS₁`.
 
 ```text
 function DecryptHeader(x_R, Q_S, N, C₀ǁC₁ǁS₀ǁS₁):
-  (d_R, _) ← DeriveScalar(x_R)          // Derive a private key from the receiver's secret.
-  state ← Initialize("veil.sres")       // Initialize a protocol.
-  state ← Mix(state, Q_S)               // Mix the sender's public key into the protocol.
-  state ← Mix(state, [d_R]G)            // Mix the receiver's public key into the protocol.
-  state ← Mix(state, N)                 // Mix the nonce into the protocol.
-  state ← Mix(state, [d_R]Q_S)          // Mix the static ECDH shared secret into the protocol.
-  (state, Q_E) ← Decrypt(state, C₀)     // Decrypt the ephemeral public key.
-  state ← Mix([d_R]Q_E)                 // Mix the ephemeral ECDH shared secret into the protocol.
-  (state, P) ← Decrypt(C₁)              // Decrypt the plaintext.
-  (state, I) ← Decrypt(state, S₀)       // Decrypt the commitment point.
-  (state, r′) ← Derive(state, 32) mod ℓ // Derive a counterfactual challenge scalar.
-  (state, X) ← Decrypt(state, S₁)       // Decrypt the proof point.
-  X′ ← [d_R](I + [r′]Q_S)               // Calculate a counterfactual proof point.
-  if X ≠ X′:                            // Return an error if the points are not equal.
+  (d_R, _) ← DeriveScalar(x_R)                              // Derive a private key from the receiver's secret.
+  state ← Initialize("veil.sres")                           // Initialize a protocol.
+  state ← Mix(state, "sender", Q_S)                         // Mix the sender's public key into the protocol.
+  state ← Mix(state, "receiver", [d_R]G)                    // Mix the receiver's public key into the protocol.
+  state ← Mix(state, "nonce", N)                            // Mix the nonce into the protocol.
+  state ← Mix(state, "static-ecdh", [d_R]Q_S)               // Mix the static ECDH shared secret into the protocol.
+  (state, Q_E) ← Decrypt(state, "ephemeral-key", C₀)        // Decrypt the ephemeral public key.
+  state ← Mix(state, "ephemeral-ecdh", [d_R]Q_E)            // Mix the ephemeral ECDH shared secret into the protocol.
+  (state, P) ← Decrypt(state, "message", C₁)                // Decrypt the plaintext.
+  (state, I) ← Decrypt(state, "commitment-point", S₀)       // Decrypt the commitment point.
+  (state, r′) ← Derive(state, "challenge-scalar", 32) mod ℓ // Derive a counterfactual challenge scalar.
+  (state, X) ← Decrypt(state, "proof-point", S₁)            // Decrypt the proof point.
+  X′ ← [d_R](I + [r′]Q_S)                                   // Calculate a counterfactual proof point.
+  if X ≠ X′:                                                // Return an error if the points are not equal.
     return ⊥
-  return (Q_E, P)                       // Otherwise, return the ephemeral public key and plaintext.
+  return (Q_E, P)                                           // Otherwise, return the ephemeral public key and plaintext.
 ```
 
 ### Constructive Analysis Of `veil.sres`
@@ -646,37 +646,40 @@ padding length `N_P`, and plaintext `P`.
 function EncryptMessage(x_S, [Q_R_0,…,Q_R_n], N_P, P):
   (d_S, n_S) ← DeriveScalar(x_S)                 // Derive a private key and nonce from the sender's secret.
   state ← Initialize("veil.mres")                // Initialize a protocol.
-  state ← Mix(state, [d_S]G)                     // Mix the sender's public key into the protocol.
+  state ← Mix(state, "sender", [d_S]G)           // Mix the sender's public key into the protocol.
   (k, d_E, K, N) ← Hedge(state, n_S,
-                         (Derive(32) mod ℓ,      // Hedge a commitment scalar,
-                          Derive(32) mod ℓ,      // ephemeral private key,
-                          Derive(32),            // data encryption key,
-                          Derive(16)))           // and nonce.
+                         (Derive("commitment-scalar", 32) mod ℓ, // Hedge a commitment scalar,
+                          Derive("ephemeral-key", 32) mod ℓ,     // ephemeral private key,
+                          Derive("dek", 32),                     // data encryption key,
+                          Derive("nonce", 16)))                  // and nonce.
   C ← N                                          // Write the nonce.
-  state ← Mix(state, N)                          // Mix the nonce into the protocol.
+  state ← Mix(state, "nonce", N)                 // Mix the nonce into the protocol.
   H ← KǁN_QǁN_P                                  // Encode the DEK and params in a header.
 
-  for Q_R_i in [Q_R_0,…,Q_R_n]:             
-    (state, N_i) ← Derive(state, 16)             // Derive a nonce for each header.
-    E_i ← EncryptHeader(d_S, d_E, Q_R_i, H, N_i) // Encrypt the header for each receiver.
-    state ← Mix(state, E_i)                      // Mix the encrypted header into the protocol.
+  for Q_R_i in [Q_R_0,…,Q_R_n]:
+    (state, N_i) ← Derive(state, "header-nonce", 16) // Derive a nonce for each header.
+    E_i ← EncryptHeader(d_S, d_E, Q_R_i, H, N_i)     // Encrypt the header for each receiver.
+    state ← Mix(state, "header", E_i)                // Mix the encrypted header into the protocol.
     C ← CǁE_i
 
   y ← Rand(N_P)                                  // Generate random padding.
-  state ← Mix(state, y)                          // Mix the padding into the protocol.
+  state ← Mix(state, "padding", y)               // Mix the padding into the protocol.
   C ← Cǁy                                        // Append padding to ciphertext.
 
-  state ← Mix(K)                                 // Mix the DEK into the protocol.
+  state ← Mix(state, "dek", K)                   // Mix the DEK into the protocol.
 
   for 32KiB blocks p in P:                       // Seal each block.
-    C_i ← Seal(state, p)
+    C_i ← Seal(state, "block", p)
     C ← CǁC_i
 
-  I ← [k]G                                       // Calculate the commitment point.
-  (state, S₀) ← Encrypt(state, I)                // Encrypt the commitment point.
-  r ← Derive(state, 32) mod ℓ                    // Derive a challenge scalar.
-  s ← d_E×️r + k                                  // Calculate the proof scalar.
-  (state, S₁) ← Encrypt(state, s)                // Encrypt the proof scalar.
+  k ← Hedge(state, n, Derive("commitment-scalar", 32) mod ℓ) // Derive a hedged commitment scalar.
+  I ← [k]G                                                   // Calculate the commitment point.
+  (state, S₀) ← Encrypt(state, "commitment-point", I)        // Encrypt the commitment point.
+  (state, r₀ǁr₁) ← Derive(state, "challenge-scalar", 16)     // Derive two short challenge scalars.
+  r ← r₀ +️️ µ×r₁️                                              // Calculate the full challenge scalar using the zeta endomorphism.
+  s ← d_E×r + k                                              // Calculate the proof scalar.
+  (state, S₁) ← Encrypt(state, "proof-scalar", s)            // Encrypt the proof scalar.
+
   C ← CǁS₀ǁS₁
 
   return C
@@ -691,38 +694,38 @@ ciphertext `C`.
 function DecryptMessage(x_R, Q_S, C):
   (d_S, _) ← DeriveScalar(x_R)          // Derive a private key from the receiver's secret.
   state ← Initialize("veil.mres")       // Initialize a protocol.
-  state ← Mix(state, Q_S)               // Mix the sender's public key into the protocol.
-  state ← Mix(state, C[0..16])          // Mix the nonce into the protocol.
+  state ← Mix(state, "sender", Q_S)               // Mix the sender's public key into the protocol.
+  state ← Mix(state, "nonce", C[0..16])          // Mix the nonce into the protocol.
   C ← C[16..]
 
   (i, N_Q) ← (0, ∞)                     // Go through ciphertext looking for a decryptable header.
   while i < N_Q:
   for each possible encrypted header E_i in C:
-    (state, N_i) ← Derive(state, 16)
+    (state, N_i) ← Derive(state, "header-nonce", 16)
     (E_i, C) ← C[..HEADER_LEN]ǁC[HEADER_LEN..]
-    state ← Mix(state, E_i)
+    state ← Mix(state, "header", E_i)
     x ← DecryptHeader(d_R, Q_S, N_i, E_i)
     if x ≠ ⊥:
       (Q_E, KǁN_QǁN_P) ← x              // Once we decrypt a header, process the remaining headers.
 
-  state ← Mix(state, C[..N_P])          // Mix the padding into the protocol.
+  state ← Mix(state, "padding", C[..N_P])          // Mix the padding into the protocol.
   C ← C[N_P..]                          // Skip to the message beginning.
 
-  state ← Mix(state, K)                 // Mix the DEK into the protocol.
+  state ← Mix(state, "dek", K)                 // Mix the DEK into the protocol.
 
   P ← ϵ
   for 32KiB blocks c_iǁt_i in C:        // Unseal each block.
-    (state, p_i) ← Unseal(state, c_i)
+    (state, p_i) ← Unseal(state, "block", c_i)
     if p_i = ⊥:
       return ⊥
     P ← Pǁp_i
 
-  S₀ǁS₁ ← C                             // Split the last 64 bytes of the message.
-  (state, I) ← Decrypt(state, S₀)       // Decrypt the commitment point.
-  (state, r′) ← Derive(state, 32) mod ℓ // Derive a counterfactual challenge scalar.
-  (state, s) ← Decrypt(state, S)        // Decrypt the proof scalar.
-  I′ ← [s]G - [r′]Q                     // Calculate the counterfactual commitment scalar.
-  if I ≠ I′:                            // Verify the signature.
+  S₀ǁS₁ ← C                                                // Split the last 64 bytes of the message.
+  (state, I) ← Decrypt(state, "commitment-point", S₀)      // Decrypt the commitment point.
+  (state, r₀′ǁr₁′) ← Derive(state, "challenge-scalar", 16) // Derive two counterfactual short challenge scalars.
+  (state, s) ← Decrypt(state, "proof-scalar", S₁)          // Decrypt the proof scalar.
+  I′ ← [s]G - [r₀′]Q_E - [r₁'µ]Q_E                         // Calculate the counterfactual commitment point.
+  if I ≠ I′:                                               // Verify the signature.
     return ⊥
   return P
 ```
@@ -862,13 +865,13 @@ parameter `N_S`, delta constant `D=3`, and block size constant `N_B=1024`.
 ```text
 function HashBlock(C, [B_0..B_n], N):
   state ← Initialize("veil.pbenc.iter") // Initialize a protocol.
-  state ← Mix(state, C)                 // Mix the counter into the protocol.
+  state ← Mix(state, "counter", C)      // Mix the counter into the protocol.
   C ← C + 1                             // Increment the counter.
 
   for B_i in [B_0..B_n]:                // Mix each input block into the protocol.
-    state ← Mix(state, B_i)
+    state ← Mix(state, "block", B_i)
 
-  return Derive(state, N)               // Derive N bytes of output.
+  return Derive(state, "output", N)     // Derive N bytes of output.
 
 procedure InitFromPassphrase(P, S, N_T, N_S):
   C ← 0                                                  // Initialize a counter.
@@ -888,7 +891,7 @@ procedure InitFromPassphrase(P, S, N_T, N_S):
         B[m] ← HashBlock(C, [[B[m], B[r]]], N_B)         // Hash pseudo-random and current blocks.
 
   state ← Initialize("veil.pbenc")                       // Initialize a protocol.
-  state ← Mix(state, B[N_S-1])                           // Mix the last block into the protocol.
+  state ← Mix(state, "expanded-key", B[N_S-1])           // Mix the last block into the protocol.
   return state
 ```
 
@@ -901,7 +904,7 @@ private key `d`.
 function EncryptPrivateKey(P, N_T, N_S, d):
   S ← Rand(16)                               // Generate a random salt.
   state ← InitFromPassphrase(P, S, N_T, N_S) // Perform the balloon hashing.
-  (state, C) ← Seal(state, d)                // Seal the private key.
+  (state, C) ← Seal(state, "secret", d)      // Seal the private key.
   return N_TǁN_SǁSǁC
 ```
 
@@ -912,7 +915,7 @@ Decrypting a private key requires a passphrase `P` and ciphertext `C=N_TǁN_SǁS
 ```text
 function DecryptPrivateKey(P, N_T, N_S, C):
   state ← InitFromPassphrase(P, S, N_T, N_S) // Perform the balloon hashing.
-  (state, d′) ← Unseal(state, C)             // Unseal the ciphertext.
+  (state, d′) ← Unseal(state, "secret", C)   // Unseal the ciphertext.
   return d′
 ```
 
