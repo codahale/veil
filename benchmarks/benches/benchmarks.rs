@@ -1,3 +1,5 @@
+#![allow(elided_lifetimes_in_paths)]
+
 use std::io;
 use std::io::{Cursor, Read};
 
@@ -80,7 +82,7 @@ fn digest<const LEN: u64>(bencher: divan::Bencher) {
     bencher
         .with_inputs(|| io::repeat(0).take(LEN))
         .counter(BytesCount::new(LEN))
-        .bench_values(|message| Digest::new(&[] as &[&str], message).unwrap());
+        .bench_values(|message| Digest::new(&[""; 0], message).unwrap());
 }
 
 const TIME_COSTS: &[u8] = &[1, 2, 4, 6, 8];
