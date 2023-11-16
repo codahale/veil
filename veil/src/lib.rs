@@ -54,20 +54,7 @@
 //! # }
 //! ```
 #![forbid(unsafe_code)]
-#![warn(
-    missing_docs,
-    rust_2018_idioms,
-    trivial_casts,
-    unused_lifetimes,
-    unused_qualifications,
-    missing_debug_implementations,
-    clippy::as_conversions,
-    clippy::cognitive_complexity,
-    clippy::missing_const_for_fn,
-    clippy::doc_markdown,
-    clippy::missing_errors_doc,
-    clippy::semicolon_if_nothing_returned
-)]
+#![warn(missing_docs)]
 
 pub use self::digest::*;
 pub use self::errors::*;

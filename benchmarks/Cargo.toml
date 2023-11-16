@@ -14,3 +14,6 @@ veil = { path = "../veil" }
 name = "benches"
 path = "benches/benchmarks.rs"
 harness = false
+
+[lints]
+workspace = true

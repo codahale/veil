@@ -24,3 +24,6 @@ xshell = "0.2.5"
 [[bin]]
 name = "veil"
 path = "src/cli.rs"
+
+[lints]
+workspace = true
