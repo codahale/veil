@@ -1,0 +1,28 @@
+name: Fuzz
+on:
+    workflow_dispatch: 
+    schedule:
+        - cron: "0 0 * * 0" 
+jobs:
+  libFuzzer:
+    strategy:
+      matrix:
+        target:
+            - encrypt
+            - decrypt
+            - sign
+            - verify
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: "-C target-feature=+aes,+ssse3"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: RustCrypto/actions/cargo-cache@master
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - run: cargo +stable install cargo-bolero -f
+      - run: cargo +nightly bolero test ${{ matrix.target }} -T 5m
