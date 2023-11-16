@@ -19,7 +19,7 @@ macro_rules! veil_cmd {
 }
 
 #[test]
-pub fn encrypt_and_decrypt_a_message() -> Result<()> {
+fn encrypt_and_decrypt_a_message() -> Result<()> {
     let sh = Shell::new()?;
     let dir = sh.create_temp_dir()?;
 

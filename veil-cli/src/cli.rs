@@ -8,7 +8,6 @@ use clap::{ArgAction, CommandFactory, Parser, Subcommand, ValueHint};
 use clap_complete::{generate_to, Shell};
 use console::Term;
 use thiserror::Error;
-
 use veil::{DecryptError, Digest, PrivateKey, PublicKey, Signature};
 
 fn main() {
