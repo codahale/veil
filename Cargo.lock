@@ -317,6 +317,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 
 [[package]]
+name = "concat-kdf"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d72c1252426a83be2092dd5884a5f6e3b8e7180f6891b6263d2c21b92ec8816"
+dependencies = [
+ "digest",
+]
+
+[[package]]
 name = "condtype"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -551,9 +560,10 @@ dependencies = [
 [[package]]
 name = "lockstitch"
 version = "0.16.3"
-source = "git+https://github.com/codahale/lockstitch#db50c667a69c08ae49dc2a29f518097ccdb9ac62"
+source = "git+https://github.com/codahale/lockstitch#2a43c3bf70c12f0cf39accd3cf38a6e625769755"
 dependencies = [
  "cmov",
+ "concat-kdf",
  "rand_core",
  "sha2",
 ]
