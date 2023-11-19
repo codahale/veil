@@ -99,7 +99,7 @@ pub fn sign_protocol(
 
     // Derive a commitment scalar from the protocol's current state, the signer's private key,
     // and a random nonce, and calculate the commitment point.
-    let k = protocol.hedge(&mut rng, &[signer.nonce], |clone| {
+    let k = protocol.hedge(&mut rng, &[signer.nonce], 10_000, |clone| {
         Some(Scalar::decode_reduce(&clone.derive_array::<32>(b"commitment-scalar")))
     });
     let i = Point::mulgen(&k);
@@ -203,7 +203,7 @@ mod tests {
     #[test]
     fn signature_kat() {
         let (_, _, _, sig) = setup();
-        let expected = expect!["4jVvQEWEUzZaatePrLYsbwXhXnsPnJFko5LaX4y4GRDzYCKp2z2mQx6xHB4s1ohfRxr7DUeFhbkwh2rudvi4v1yh"];
+        let expected = expect!["5GsMnuMUbdt1BvFLWMTrYycdQNjsuM1KBrAgZ4m6AXuHDHahevbQ8tAwCRxx66Yue5sh68cKswUE5vSPWyS3nWHm"];
         expected.assert_eq(&sig.to_string());
     }
 

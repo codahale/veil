@@ -44,7 +44,7 @@ pub fn encrypt(
     mres.mix(b"sender", &sender.pub_key.encoded);
 
     // Generate ephemeral key pair, DEK, and nonce.
-    let (ephemeral, dek, nonce) = mres.hedge(&mut rng, &[sender.nonce], |clone| {
+    let (ephemeral, dek, nonce) = mres.hedge(&mut rng, &[sender.nonce], 10_000, |clone| {
         let k = PrivKey::from_secret_bytes(clone.derive_array::<64>(b"ephemeral-key"));
         Some((k, clone.derive_array(b"dek"), clone.derive_array::<NONCE_LEN>(b"nonce")))
     });

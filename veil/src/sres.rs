@@ -58,7 +58,7 @@ pub fn encrypt(
 
     // Derive a commitment scalar from the protocol's current state, the sender's private key,
     // and a random nonce.
-    let k = sres.hedge(rng, &[sender.nonce], |clone| {
+    let k = sres.hedge(rng, &[sender.nonce], 10_000, |clone| {
         Some(Scalar::decode_reduce(&clone.derive_array::<32>(b"commitment-scalar")))
     });
 
