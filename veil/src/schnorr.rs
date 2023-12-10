@@ -203,7 +203,7 @@ mod tests {
     #[test]
     fn signature_kat() {
         let (_, _, _, sig) = setup();
-        let expected = expect!["5GsMnuMUbdt1BvFLWMTrYycdQNjsuM1KBrAgZ4m6AXuHDHahevbQ8tAwCRxx66Yue5sh68cKswUE5vSPWyS3nWHm"];
+        let expected = expect!["HFB4HdD1PosbVxQ2RyeNj4mufa7Y295ukfx93ymsLRZzbPmfJHsSXSBisGduqx15k96UCX6TzcxHUmYgQq1qUgw"];
         expected.assert_eq(&sig.to_string());
     }
 
