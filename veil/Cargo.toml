@@ -10,7 +10,7 @@ description = "Stupid crypto tricks."
 [dependencies]
 bs58 = "0.5.0"
 crrl = { version = "0.8.0", default-features = false, features = ["std", "gls254"] }
-lockstitch = { git = "https://github.com/codahale/lockstitch" }
+lockstitch = "0.18.0"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 thiserror = "1.0.50"
 
