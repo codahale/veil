@@ -1,6 +1,7 @@
 //! An insider-secure hybrid signcryption implementation.
 
 use crrl::gls254::{Point, Scalar};
+use lockstitch::subtle::ConstantTimeEq;
 use lockstitch::Protocol;
 use rand::{CryptoRng, Rng};
 
@@ -135,7 +136,7 @@ pub fn decrypt<'a>(
 
     // Return the ephemeral public key and plaintext iff the canonical encoding of the re-calculated
     // proof point matches the encoding of the decrypted proof point.
-    (lockstitch::ct_eq(x, &x_p.encode())).then_some((ephemeral, ciphertext))
+    bool::from(x.ct_eq(&x_p.encode())).then_some((ephemeral, ciphertext))
 }
 
 #[cfg(test)]

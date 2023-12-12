@@ -305,12 +305,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "702fc72eb24e5a1e48ce58027a675bc24edd52096d5397d4aea7c6dd9eca0bd1"
 
 [[package]]
-name = "cmov"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b1dc960ba75d543267db9254da8ec1cb318a037beb3f8d2497520e410096fab"
-
-[[package]]
 name = "colorchoice"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -548,14 +542,14 @@ dependencies = [
 
 [[package]]
 name = "lockstitch"
-version = "0.18.0"
+version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "962df79b09c8384d0fcdc711610740d83bc15e13f741ef4ab8119ec55cd97741"
+checksum = "22ec6eebb581f888f7f31027d1e8ad5d902b6c4ae15458ad010170d01e05c337"
 dependencies = [
- "cmov",
  "hkdf",
  "rand_core",
  "sha2",
+ "subtle",
 ]
 
 [[package]]
