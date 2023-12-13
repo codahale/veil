@@ -2,7 +2,7 @@ use std::env;
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{ArgAction, Parser, Subcommand, ValueEnum};
 use xshell::{cmd, Shell};
 
 #[derive(Debug, Parser)]
@@ -15,6 +15,13 @@ struct XTask {
 enum Command {
     /// Format, build, test, and lint.
     CI,
+
+    // Run benchmarks.
+    Bench {
+        /// Additional arguments.
+        #[arg(action(ArgAction::Append), allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 
     /// CLI benchmarks with Hyperfine.
     BenchmarkCli {
@@ -48,6 +55,7 @@ fn main() -> Result<()> {
 
     match xtask.cmd.unwrap_or(Command::CI) {
         Command::CI => ci(&sh),
+        Command::Bench { args } => bench(&sh, args),
         Command::BenchmarkCli { target, no_stash, size } => {
             benchmark_cli(&sh, target, no_stash, size)
         }
@@ -68,6 +76,18 @@ const RUSTFLAGS: &str = "-C target-feature=+aes,+ssse3";
 
 #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
 const RUSTFLAGS: &str = "";
+
+fn bench(sh: &Shell, args: Vec<String>) -> Result<()> {
+    cmd!(sh, "cargo bench -p benchmarks {args...}")
+        .env("RUSTFLAGS", RUSTFLAGS)
+        .env("DIVAN_BYTES_FORMAT", "binary")
+        .env("DIVAN_TIMER", "tsc")
+        .env("DIVAN_MIN_TIME", "1")
+        .env("DIVAN_SKIP_EXT_TIME", "true")
+        .run()?;
+
+    Ok(())
+}
 
 fn benchmark_cli(sh: &Shell, target: BenchmarkTarget, no_stash: bool, size: u64) -> Result<()> {
     // Convert size to bytes.
