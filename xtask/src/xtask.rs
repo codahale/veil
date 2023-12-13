@@ -17,7 +17,7 @@ enum Command {
     CI,
 
     /// CLI benchmarks with Hyperfine.
-    Benchmark {
+    BenchmarkCli {
         /// The subsystem to benchmark.
         #[arg(value_enum)]
         target: BenchmarkTarget,
@@ -48,7 +48,9 @@ fn main() -> Result<()> {
 
     match xtask.cmd.unwrap_or(Command::CI) {
         Command::CI => ci(&sh),
-        Command::Benchmark { target, no_stash, size } => benchmark(&sh, target, no_stash, size),
+        Command::BenchmarkCli { target, no_stash, size } => {
+            benchmark_cli(&sh, target, no_stash, size)
+        }
     }
 }
 
@@ -61,7 +63,13 @@ fn ci(sh: &Shell) -> Result<()> {
     Ok(())
 }
 
-fn benchmark(sh: &Shell, target: BenchmarkTarget, no_stash: bool, size: u64) -> Result<()> {
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+const RUSTFLAGS: &str = "-C target-feature=+aes,+ssse3";
+
+#[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
+const RUSTFLAGS: &str = "";
+
+fn benchmark_cli(sh: &Shell, target: BenchmarkTarget, no_stash: bool, size: u64) -> Result<()> {
     // Convert size to bytes.
     let size = format!("{}", size * 1024 * 1024);
 
@@ -70,14 +78,14 @@ fn benchmark(sh: &Shell, target: BenchmarkTarget, no_stash: bool, size: u64) -> 
     cmd!(sh, "rm -f target/release/veil-control").run()?;
 
     // build the current state as release
-    cmd!(sh, "cargo build --release").run()?;
+    cmd!(sh, "cargo build --release").env("RUSTFLAGS", RUSTFLAGS).run()?;
     cmd!(sh, "cp target/release/veil target/release/veil-experiment").run()?;
 
     // stash the current state and build the last commit as release
     if !no_stash {
         cmd!(sh, "git stash").run()?;
     }
-    cmd!(sh, "cargo build --release").run()?;
+    cmd!(sh, "cargo build --release").env("RUSTFLAGS", RUSTFLAGS).run()?;
     cmd!(sh, "cp target/release/veil target/release/veil-control").run()?;
 
     // create a private key with minimal KDF expansion, using both commands to make sure they work
