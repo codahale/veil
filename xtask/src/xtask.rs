@@ -24,7 +24,7 @@ enum Command {
     },
 
     /// CLI benchmarks with Hyperfine.
-    BenchmarkCli {
+    BenchCli {
         /// The subsystem to benchmark.
         #[arg(value_enum)]
         target: BenchmarkTarget,
@@ -56,9 +56,7 @@ fn main() -> Result<()> {
     match xtask.cmd.unwrap_or(Command::CI) {
         Command::CI => ci(&sh),
         Command::Bench { args } => bench(&sh, args),
-        Command::BenchmarkCli { target, no_stash, size } => {
-            benchmark_cli(&sh, target, no_stash, size)
-        }
+        Command::BenchCli { target, no_stash, size } => bench_cli(&sh, target, no_stash, size),
     }
 }
 
@@ -89,7 +87,7 @@ fn bench(sh: &Shell, args: Vec<String>) -> Result<()> {
     Ok(())
 }
 
-fn benchmark_cli(sh: &Shell, target: BenchmarkTarget, no_stash: bool, size: u64) -> Result<()> {
+fn bench_cli(sh: &Shell, target: BenchmarkTarget, no_stash: bool, size: u64) -> Result<()> {
     // Convert size to bytes.
     let size = format!("{}", size * 1024 * 1024);
 
