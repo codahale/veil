@@ -111,6 +111,9 @@ fn pbenc_memory<const MEMORY: u8>(bencher: divan::Bencher) {
         .bench_values(|(rng, pk)| pk.store(io::sink(), rng, b"passphrase", 0, MEMORY));
 }
 
+#[global_allocator]
+static ALLOC: divan::AllocProfiler = divan::AllocProfiler::system();
+
 fn main() {
     divan::main();
 }
