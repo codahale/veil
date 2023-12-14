@@ -56,10 +56,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-pub use self::digest::*;
-pub use self::errors::*;
-pub use self::schnorr::Signature;
-pub use self::veil::*;
+pub use self::{digest::*, errors::*, schnorr::Signature, veil::*};
 
 mod blockio;
 mod digest;

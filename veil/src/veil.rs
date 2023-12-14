@@ -1,15 +1,18 @@
 //! The Veil hybrid cryptosystem.
 
-use std::fmt::{Debug, Formatter};
-use std::io::{Read, Write};
-use std::str::FromStr;
-use std::{fmt, io, iter};
+use std::{
+    fmt,
+    fmt::{Debug, Formatter},
+    io,
+    io::{Read, Write},
+    iter,
+    str::FromStr,
+};
 
-use rand::prelude::SliceRandom;
-use rand::{CryptoRng, Rng};
+use rand::{prelude::SliceRandom, CryptoRng, Rng};
 
-use crate::keys::{PrivKey, PubKey, POINT_LEN, SECRET_LEN};
 use crate::{
+    keys::{PrivKey, PubKey, POINT_LEN, SECRET_LEN},
     mres, pbenc, schnorr, DecryptError, EncryptError, ParsePublicKeyError, Signature, VerifyError,
 };
 

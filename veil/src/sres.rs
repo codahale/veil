@@ -1,8 +1,7 @@
 //! An insider-secure hybrid signcryption implementation.
 
 use crrl::gls254::{Point, Scalar};
-use lockstitch::subtle::ConstantTimeEq;
-use lockstitch::Protocol;
+use lockstitch::{subtle::ConstantTimeEq, Protocol};
 use rand::{CryptoRng, Rng};
 
 use crate::keys::{PrivKey, PubKey, POINT_LEN};

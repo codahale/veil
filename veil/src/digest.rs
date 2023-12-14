@@ -1,9 +1,6 @@
-use std::io::Read;
-use std::str::FromStr;
-use std::{fmt, io};
+use std::{fmt, io, io::Read, str::FromStr};
 
-use lockstitch::subtle::ConstantTimeEq;
-use lockstitch::Protocol;
+use lockstitch::{subtle::ConstantTimeEq, Protocol};
 
 use crate::ParseDigestError;
 

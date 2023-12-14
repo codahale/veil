@@ -1,15 +1,15 @@
 //! Schnorr-variant digital signatures.
 
-use std::io::Read;
-use std::str::FromStr;
-use std::{fmt, io};
+use std::{fmt, io, io::Read, str::FromStr};
 
 use crrl::gls254::{Point, Scalar};
 use lockstitch::Protocol;
 use rand::{CryptoRng, Rng};
 
-use crate::keys::{PrivKey, PubKey, POINT_LEN, SCALAR_LEN};
-use crate::{ParseSignatureError, VerifyError};
+use crate::{
+    keys::{PrivKey, PubKey, POINT_LEN, SCALAR_LEN},
+    ParseSignatureError, VerifyError,
+};
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;

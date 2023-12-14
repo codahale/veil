@@ -1,7 +1,9 @@
 #![allow(elided_lifetimes_in_paths)]
 
-use std::io;
-use std::io::{Cursor, Read};
+use std::{
+    io,
+    io::{Cursor, Read},
+};
 
 use divan::counter::BytesCount;
 use rand::SeedableRng;

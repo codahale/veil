@@ -1,5 +1,4 @@
-use std::io;
-use std::io::Read;
+use std::{io, io::Read};
 
 /// Extension trait for reading fixed-sized blocks of data.
 pub trait ReadBlock: Read {

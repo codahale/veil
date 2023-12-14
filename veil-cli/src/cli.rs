@@ -1,8 +1,10 @@
-use std::error::Error;
-use std::fs::File;
-use std::io::{self, IsTerminal, Read, Write};
-use std::path::{Path, PathBuf};
-use std::process;
+use std::{
+    error::Error,
+    fs::File,
+    io::{self, IsTerminal, Read, Write},
+    path::{Path, PathBuf},
+    process,
+};
 
 use clap::{ArgAction, CommandFactory, Parser, Subcommand, ValueHint};
 use clap_complete::{generate_to, Shell};

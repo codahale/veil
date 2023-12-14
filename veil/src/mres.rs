@@ -1,16 +1,22 @@
 //! A multi-receiver, hybrid cryptosystem.
 
-use std::io::{self, Read, Write};
-use std::mem;
+use std::{
+    io::{self, Read, Write},
+    mem,
+};
 
 use lockstitch::{Protocol, TAG_LEN};
 use rand::{CryptoRng, Rng};
 
-use crate::blockio::ReadBlock;
-use crate::keys::{PrivKey, PubKey};
-use crate::schnorr::SIGNATURE_LEN;
-use crate::sres::NONCE_LEN;
-use crate::{schnorr, sres, DecryptError, EncryptError, Signature};
+use crate::{
+    blockio::ReadBlock,
+    keys::{PrivKey, PubKey},
+    schnorr,
+    schnorr::SIGNATURE_LEN,
+    sres,
+    sres::NONCE_LEN,
+    DecryptError, EncryptError, Signature,
+};
 
 /// The length of plaintext blocks which are encrypted.
 const BLOCK_LEN: usize = 64 * 1024;
