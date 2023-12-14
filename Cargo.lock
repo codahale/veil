@@ -480,9 +480,9 @@ checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
 
 [[package]]
 name = "hkdf"
-version = "0.12.3"
+version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "791a029f6b9fc27657f6f188ec6e5e43f6911f6f878e0dc5501396e09809d437"
+checksum = "7b5f8eb2ad728638ea2c7d47a21db23b7b58a72ed6a38256b8a1849f15fbbdf7"
 dependencies = [
  "hmac",
 ]
@@ -544,9 +544,9 @@ dependencies = [
 
 [[package]]
 name = "lockstitch"
-version = "0.19.0"
+version = "0.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22ec6eebb581f888f7f31027d1e8ad5d902b6c4ae15458ad010170d01e05c337"
+checksum = "7e385291e82be75b3c5f837a2837c144d7295a224cfde305c78b07c90e0bec63"
 dependencies = [
  "hkdf",
  "rand_core",
