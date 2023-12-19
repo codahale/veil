@@ -5,7 +5,7 @@ publish = false
 edition = "2021"
 
 [dependencies]
-divan = "0.1.7"
+divan = "0.1.8"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 veil = { path = "../veil" }
