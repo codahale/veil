@@ -9,6 +9,7 @@ use std::{
 use clap::{ArgAction, CommandFactory, Parser, Subcommand, ValueHint};
 use clap_complete::{generate_to, Shell};
 use console::Term;
+use rand::rngs::OsRng;
 use thiserror::Error;
 use veil::{DecryptError, Digest, PrivateKey, PublicKey, Signature};
 
@@ -73,12 +74,11 @@ struct PrivateKeyArgs {
 
 impl Runnable for PrivateKeyArgs {
     fn run(self) -> Result<(), CliError> {
-        let mut rng = rand::thread_rng();
         let output = open_output(&self.output, true)?;
         let passphrase = self.passphrase_input.read_passphrase()?;
-        let private_key = PrivateKey::random(&mut rng);
+        let private_key = PrivateKey::random(OsRng);
         private_key
-            .store(output, rng, &passphrase, self.time_cost, self.memory_cost)
+            .store(output, OsRng, &passphrase, self.time_cost, self.memory_cost)
             .map_err(|e| CliError::WriteIo(e, self.output))?;
         Ok(())
     }
@@ -144,7 +144,7 @@ impl Runnable for EncryptArgs {
         let output = open_output(&self.output, true)?;
         let private_key = self.private_key.decrypt()?;
         private_key
-            .encrypt(rand::thread_rng(), input, output, &self.receivers, self.fakes, self.padding)
+            .encrypt(OsRng, input, output, &self.receivers, self.fakes, self.padding)
             .map_err(|e| match e {
                 veil::EncryptError::ReadIo(e) => CliError::ReadIo(e, self.input),
                 veil::EncryptError::WriteIo(e) => CliError::WriteIo(e, self.output),
@@ -206,9 +206,7 @@ impl Runnable for SignArgs {
         let input = open_input(&self.input)?;
         let mut output = open_output(&self.output, false)?;
         let private_key = self.private_key.decrypt()?;
-        let sig = private_key
-            .sign(rand::thread_rng(), input)
-            .map_err(|e| CliError::ReadIo(e, self.input))?;
+        let sig = private_key.sign(OsRng, input).map_err(|e| CliError::ReadIo(e, self.input))?;
         write!(output, "{sig}").map_err(|e| CliError::WriteIo(e, self.output))?;
         Ok(())
     }

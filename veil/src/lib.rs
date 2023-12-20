@@ -14,15 +14,16 @@
 //! ```rust
 //! use std::io;
 //! use std::io::Cursor;
+//! use rand::rngs::OsRng;
 //! use veil::PrivateKey;
 //! # use std::error::Error;
 //! #
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! // Alice generates a private key.
-//! let alice_priv = PrivateKey::random(rand::thread_rng());
+//! let alice_priv = PrivateKey::random(OsRng);
 //!
 //! // Bea generates a private key.
-//! let bea_priv = PrivateKey::random(rand::thread_rng());
+//! let bea_priv = PrivateKey::random(OsRng);
 //!
 //! // Alice and Bea share public keys.
 //! let alice_pub = alice_priv.public_key();
@@ -31,7 +32,7 @@
 //! // Alice encrypts a secret message for Bea.
 //! let mut ciphertext = Cursor::new(Vec::new());
 //! alice_priv.encrypt(
-//!   rand::thread_rng(),
+//!   OsRng,
 //!   Cursor::new("this is a secret message"),
 //!   &mut ciphertext,
 //!   &[bea_pub],
