@@ -34,45 +34,45 @@ pub fn encrypt(
     let mut sres = Protocol::new("veil.sres");
 
     // Mix the sender's public key into the protocol.
-    sres.mix(b"sender", &sender.pub_key.encoded);
+    sres.mix("sender", &sender.pub_key.encoded);
 
     // Mix the receiver's public key into the protocol.
-    sres.mix(b"receiver", &receiver.encoded);
+    sres.mix("receiver", &receiver.encoded);
 
     // Mix the nonce into the protocol.
-    sres.mix(b"nonce", nonce);
+    sres.mix("nonce", nonce);
 
     // Mix the static ECDH shared secret into the protocol.
-    sres.mix(b"static-ecdh", &(receiver.q * sender.d).encode());
+    sres.mix("static-ecdh", &(receiver.q * sender.d).encode());
 
     // Encrypt the ephemeral public key.
     out_q_e.copy_from_slice(&ephemeral.pub_key.encoded);
-    sres.encrypt(b"ephemeral-key", out_q_e);
+    sres.encrypt("ephemeral-key", out_q_e);
 
     // Mix the ephemeral ECDH shared secret into the protocol.
-    sres.mix(b"ephemeral-ecdh", &(receiver.q * ephemeral.d).encode());
+    sres.mix("ephemeral-ecdh", &(receiver.q * ephemeral.d).encode());
 
     // Encrypt the plaintext.
     out_ciphertext.copy_from_slice(plaintext);
-    sres.encrypt(b"message", out_ciphertext);
+    sres.encrypt("message", out_ciphertext);
 
     // Derive a commitment scalar from the protocol's current state, the sender's private key,
     // and a random nonce.
     let k = sres.hedge(rng, &[sender.nonce], 10_000, |clone| {
-        Some(Scalar::decode_reduce(&clone.derive_array::<32>(b"commitment-scalar")))
+        Some(Scalar::decode_reduce(&clone.derive_array::<32>("commitment-scalar")))
     });
 
     // Calculate and encrypt the commitment point.
     out_i.copy_from_slice(&Point::mulgen(&k).encode());
-    sres.encrypt(b"commitment-point", out_i);
+    sres.encrypt("commitment-point", out_i);
 
     // Derive a challenge scalar.
-    let r = Scalar::decode_reduce(&sres.derive_array::<32>(b"challenge-scalar"));
+    let r = Scalar::decode_reduce(&sres.derive_array::<32>("challenge-scalar"));
 
     // Calculate and encrypt the designated proof point: X = [d_S*r+k]Q_R
     let x = receiver.q * ((sender.d * r) + k);
     out_x.copy_from_slice(&x.encode());
-    sres.encrypt(b"proof-point", out_x);
+    sres.encrypt("proof-point", out_x);
 }
 
 /// Given the receiver's key pair, the sender's public key, a nonce, and a ciphertext, decrypts the
@@ -99,36 +99,36 @@ pub fn decrypt<'a>(
     let mut sres = Protocol::new("veil.sres");
 
     // Mix the sender's public key into the protocol.
-    sres.mix(b"sender", &sender.encoded);
+    sres.mix("sender", &sender.encoded);
 
     // Mix the receiver's public key into the protocol.
-    sres.mix(b"receiver", &receiver.pub_key.encoded);
+    sres.mix("receiver", &receiver.pub_key.encoded);
 
     // Mix the nonce into the protocol.
-    sres.mix(b"nonce", nonce);
+    sres.mix("nonce", nonce);
 
     // Mix the static ECDH shared secret into the protocol.
-    sres.mix(b"static-ecdh", &(sender.q * receiver.d).encode());
+    sres.mix("static-ecdh", &(sender.q * receiver.d).encode());
 
     // Decrypt and decode the ephemeral public key.
-    sres.decrypt(b"ephemeral-key", ephemeral);
+    sres.decrypt("ephemeral-key", ephemeral);
     let ephemeral = PubKey::from_canonical_bytes(ephemeral)?;
 
     // Mix the ephemeral ECDH shared secret into the protocol.
-    sres.mix(b"ephemeral-ecdh", &(ephemeral.q * receiver.d).encode());
+    sres.mix("ephemeral-ecdh", &(ephemeral.q * receiver.d).encode());
 
     // Decrypt the plaintext.
-    sres.decrypt(b"message", ciphertext);
+    sres.decrypt("message", ciphertext);
 
     // Decrypt and decode the commitment point.
-    sres.decrypt(b"commitment-point", i);
+    sres.decrypt("commitment-point", i);
     let i = Point::decode(i)?;
 
     // Re-derive the challenge scalar.
-    let r_p = Scalar::decode_reduce(&sres.derive_array::<32>(b"challenge-scalar"));
+    let r_p = Scalar::decode_reduce(&sres.derive_array::<32>("challenge-scalar"));
 
     // Decrypt the designated proof point.
-    sres.decrypt(b"proof-point", x);
+    sres.decrypt("proof-point", x);
 
     // Re-calculate the proof point: X' = [d_R](I + [r']Q_R)
     let x_p = (i + (sender.q * r_p)) * receiver.d;

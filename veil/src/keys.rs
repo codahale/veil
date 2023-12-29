@@ -74,11 +74,11 @@ impl PrivKey {
     /// Derives a private key from the given secret.
     pub fn from_secret_bytes(secret: [u8; SECRET_LEN]) -> PrivKey {
         let mut skd = Protocol::new("veil.skd");
-        skd.mix(b"secret", &secret);
+        skd.mix("secret", &secret);
 
-        let d = Scalar::decode_reduce(&skd.derive_array::<32>(b"scalar"));
+        let d = Scalar::decode_reduce(&skd.derive_array::<32>("scalar"));
         let q = Point::mulgen(&d);
-        let nonce = skd.derive_array(b"nonce");
+        let nonce = skd.derive_array("nonce");
 
         PrivKey { d, pub_key: PubKey { q, encoded: q.encode() }, nonce, secret }
     }
