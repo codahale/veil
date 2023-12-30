@@ -42,15 +42,15 @@ pub fn encrypt(
     // Mix the nonce into the protocol.
     sres.mix("nonce", nonce);
 
-    // Mix the static ECDH shared secret into the protocol.
-    sres.mix("static-ecdh", &(receiver.q * sender.d).encode());
+    // Mix the static ECDH shared secret into the protocol: [d_S]Q_R
+    sres.mix("static-ecdh", &(sender.d * receiver.q).encode());
 
     // Encrypt the ephemeral public key.
     out_q_e.copy_from_slice(&ephemeral.pub_key.encoded);
     sres.encrypt("ephemeral-key", out_q_e);
 
-    // Mix the ephemeral ECDH shared secret into the protocol.
-    sres.mix("ephemeral-ecdh", &(receiver.q * ephemeral.d).encode());
+    // Mix the ephemeral ECDH shared secret into the protocol: [d_E]Q_R
+    sres.mix("ephemeral-ecdh", &(ephemeral.d * receiver.q).encode());
 
     // Encrypt the plaintext.
     out_ciphertext.copy_from_slice(plaintext);
@@ -70,7 +70,7 @@ pub fn encrypt(
     let r = Scalar::decode_reduce(&sres.derive_array::<32>("challenge-scalar"));
 
     // Calculate and encrypt the designated proof point: X = [d_S*r+k]Q_R
-    let x = receiver.q * ((sender.d * r) + k);
+    let x = ((sender.d * r) + k) * receiver.q;
     out_x.copy_from_slice(&x.encode());
     sres.encrypt("proof-point", out_x);
 }
@@ -107,15 +107,15 @@ pub fn decrypt<'a>(
     // Mix the nonce into the protocol.
     sres.mix("nonce", nonce);
 
-    // Mix the static ECDH shared secret into the protocol.
-    sres.mix("static-ecdh", &(sender.q * receiver.d).encode());
+    // Mix the static ECDH shared secret into the protocol: [d_R]Q_S
+    sres.mix("static-ecdh", &(receiver.d * sender.q).encode());
 
     // Decrypt and decode the ephemeral public key.
     sres.decrypt("ephemeral-key", ephemeral);
     let ephemeral = PubKey::from_canonical_bytes(ephemeral)?;
 
-    // Mix the ephemeral ECDH shared secret into the protocol.
-    sres.mix("ephemeral-ecdh", &(ephemeral.q * receiver.d).encode());
+    // Mix the ephemeral ECDH shared secret into the protocol: [d_R]Q_E
+    sres.mix("ephemeral-ecdh", &(receiver.d * ephemeral.q).encode());
 
     // Decrypt the plaintext.
     sres.decrypt("message", ciphertext);
@@ -131,7 +131,7 @@ pub fn decrypt<'a>(
     sres.decrypt("proof-point", x);
 
     // Re-calculate the proof point: X' = [d_R](I + [r']Q_R)
-    let x_p = (i + (sender.q * r_p)) * receiver.d;
+    let x_p = receiver.d * (i + (r_p * sender.q));
 
     // Return the ephemeral public key and plaintext iff the canonical encoding of the re-calculated
     // proof point matches the encoding of the decrypted proof point.
