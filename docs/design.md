@@ -230,7 +230,7 @@ and GLS254 [[AA22]](#aa22) for all asymmetric-key operations.
 
 Lockstitch is an incremental, stateful cryptographic primitive for symmetric-key cryptographic
 operations (e.g. hashing, encryption, message authentication codes, and authenticated encryption) in
-complex protocols. It combines SHA-256 and AES-128-CTR to provide ~1 GiB/sec performance on modern
+complex protocols. It combines SHA-256 and AEGIS-128L to provide ~10 GiB/sec performance on modern
 processors at a 128-bit security level. More information on the design of Lockstitch can be found
 [here](https://github.com/codahale/lockstitch/blob/main/design.md).
 
@@ -458,13 +458,13 @@ the identity of a signer from a signed message.
 To eliminate this possibility, `veil.schnorr` encrypts both components of the signature with a
 protocol effectively keyed with the signer's public key in addition to the message. An attack which
 recovers the plaintext of either signature component in the absence of the public key would imply
-that either SHA-256 is not collision-resistant or that AES-128-CTR is not PRF secure.
+that either SHA-256 is not collision-resistant or that AEGIS-128L is not PRF secure.
 
 ### Indistinguishability From Random Noise
 
-Given that both signature components are encrypted with AES-128-CTR, an attack which distinguishes
-between a `veil.schnorr` and random noise would also imply that AES-128-CTR is distinguishable from
-a random function.
+Given that both signature components are encrypted with AEGIS-128L, an attack which distinguishes
+between a `veil.schnorr` and random noise would also imply that AEGIS-128L is distinguishable from
+a random function over short messages..
 
 ## Encrypted Headers
 
@@ -561,7 +561,7 @@ encryption and decryption.
 
 `A` is unable to forge valid signatures for existing ciphertexts, limiting them to passive attacks.
 A passive attack on any of the four components of `veil.sres` ciphertexts--`C₀`, `C₁`, `S₀`,
-`S₁`--would only be possible if either SHA-256 is not collision-resistant or AES-128-CTR is not PRF
+`S₁`--would only be possible if either SHA-256 is not collision-resistant or AEGIS-128L is not PRF
 secure.
 
 Therefore, `veil.sres` provides confidentiality in the multi-user outsider setting.
@@ -619,10 +619,10 @@ prove the authenticity of a message (including the identity of its sender) to a 
 
 ### Indistinguishability Of Headers From Random Noise Of Encrypted Headers
 
-All of the components of a `veil.sres` ciphertext--`C₀`, `C₁`, `S₀`, and `S₁`--are AES-128-CTR
+All of the components of a `veil.sres` ciphertext--`C₀`, `C₁`, `S₀`, and `S₁`--are AEGIS-128L
 ciphertexts using keys derived via SHA-256.  An adversary in the outsider setting (i.e. knowing only
 public keys) is unable to calculate any of the key material used to produce the ciphertexts; a
-distinguishing attack would imply that either SHA-256 is not collision-resistant or that AES-128-CTR
+distinguishing attack would imply that either SHA-256 is not collision-resistant or that AEGIS-128L
 is not PRF secure.
 
 ### Re-use Of Ephemeral Keys
@@ -775,7 +775,7 @@ decryption making this infeasible.
 message blocks, and encrypted signature points. Each component of the ciphertext is dependent on the
 previous inputs (including the headers, which use `Derive`-derived nonce to link the `veil.sres`
 ciphertexts to the `veil.mres` state). A passive attack on any of those would only be possible if
-either SHA-256 is not collision-resistant or AES-128-CTR is not PRF secure.
+either SHA-256 is not collision-resistant or AEGIS-128L is not PRF secure.
 
 #### Insider Confidentiality Of Messages
 
@@ -832,8 +832,8 @@ Deniability](#limited-deniability)), therefore `veil.mres` does as well.
 ### Indistinguishability Of Messages From Random Noise
 
 `veil.mres` ciphertexts are indistinguishable from random noise. All components of an `veil.mres`
-ciphertext are AES-128-CTR ciphertexts; a successful distinguishing attack on them would imply that
-SHA-256 is not collision-resistant or AES-128-CTR is not PRF secure.
+ciphertext are AEGIS-128L ciphertexts; a successful distinguishing attack on them would imply that
+SHA-256 is not collision-resistant or AEGIS-128L is not PRF secure.
 
 ### Partial Decryption
 
