@@ -33,26 +33,37 @@ pub fn encrypt(
     // Initialize a protocol.
     let mut sres = Protocol::new("veil.sres");
 
-    // Mix the sender's public key into the protocol.
+    // Mix the sender's public key into the protocol. This binds all following outputs to the
+    // sender's identity, preventing unknown key-share attacks with respect to the sender.
     sres.mix("sender", &sender.pub_key.encoded);
 
-    // Mix the receiver's public key into the protocol.
+    // Mix the receiver's public key into the protocol. This binds all following outputs to the
+    // receiver's identity, preventing unknown key-share attacks with respect to the receiver.
     sres.mix("receiver", &receiver.encoded);
 
-    // Mix the nonce into the protocol.
+    // Mix the nonce into the protocol. This makes all following outputs probabilistic with respect
+    // to the nonce.
     sres.mix("nonce", nonce);
 
-    // Mix the static ECDH shared secret into the protocol: [d_S]Q_R
+    // Mix the static ECDH shared secret `[d_S]Q_R` into the protocol. This makes all following
+    // outputs confidential to passive adversaries but not active adversaries.
     sres.mix("static-ecdh", &(sender.d * receiver.q).encode());
 
-    // Encrypt the ephemeral public key.
+    // Encrypt the ephemeral public key. An attacker in possession of recorded ciphertexts and
+    // either the sender or receiver's private key can recover this value. While this does represent
+    // a distinguishing attack, ~12% of random 32-byte values successfully decode to GLS254 points,
+    // which reduces the utility somewhat.
     out_q_e.copy_from_slice(&ephemeral.pub_key.encoded);
     sres.encrypt("ephemeral-key", out_q_e);
 
-    // Mix the ephemeral ECDH shared secret into the protocol: [d_E]Q_R
+    // Mix the ephemeral ECDH shared secret `[d_E]Q_R` into the protocol. This makes all following
+    // outputs confidential to passive adversaries even if the sender's private key is compromised
+    // (i.e. sender forward-secure).
     sres.mix("ephemeral-ecdh", &(ephemeral.d * receiver.q).encode());
 
-    // Encrypt the plaintext.
+    // Encrypt the plaintext. By itself, this is confidential to passive adversaries (i.e. IND-CPA),
+    // sender forward-secure, and implicitly authenticated as being from either the sender or the
+    // receiver (but vulnerable to key compromise impersonation).
     out_ciphertext.copy_from_slice(plaintext);
     sres.encrypt("message", out_ciphertext);
 
@@ -66,10 +77,14 @@ pub fn encrypt(
     out_i.copy_from_slice(&Point::mulgen(&k).encode());
     sres.encrypt("commitment-point", out_i);
 
-    // Derive a challenge scalar.
+    // Derive a challenge scalar. This closes over all previous inputs and outputs: sender identity,
+    // receiver identity, nonce, static ECDH shared secret, ephemeral public key, ephemeral ECDH
+    // shared secret, message, and commitment point.
     let r = Scalar::decode_reduce(&sres.derive_array::<32>("challenge-scalar"));
 
-    // Calculate and encrypt the designated proof point: X = [d_S*r+k]Q_R
+    // Calculate and encrypt the designated proof point `[d_S*r+k]Q_R`. Only someone who knows d_R
+    // will be able to verify the signature. The final resulting ciphertext is confidential to both
+    // passive and active attackers (i.e. IND-CCA2).
     let x = ((sender.d * r) + k) * receiver.q;
     out_x.copy_from_slice(&x.encode());
     sres.encrypt("proof-point", out_x);
