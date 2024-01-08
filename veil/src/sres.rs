@@ -46,24 +46,26 @@ pub fn encrypt(
     sres.mix("nonce", nonce);
 
     // Mix the static ECDH shared secret `[d_S]Q_R` into the protocol. This makes all following
-    // outputs confidential to passive adversaries but not active adversaries.
+    // outputs confidential against passive outsider adversaries (i.e. in possession of the sender
+    // and receiver's public keys but no private keys) but not active outsider adversaries.
     sres.mix("static-ecdh", &(sender.d * receiver.q).encode());
 
-    // Encrypt the ephemeral public key. An attacker in possession of recorded ciphertexts and
-    // either the sender or receiver's private key can recover this value. While this does represent
-    // a distinguishing attack, ~12% of random 32-byte values successfully decode to GLS254 points,
+    // Encrypt the ephemeral public key. An insider adversary (i.e. in possession of either the
+    // sender or the receiver's private key) can recover this value. While this does represent a
+    // distinguishing attack, ~12% of random 32-byte values successfully decode to GLS254 points,
     // which reduces the utility somewhat.
     out_q_e.copy_from_slice(&ephemeral.pub_key.encoded);
     sres.encrypt("ephemeral-key", out_q_e);
 
     // Mix the ephemeral ECDH shared secret `[d_E]Q_R` into the protocol. This makes all following
-    // outputs confidential to passive adversaries even if the sender's private key is compromised
-    // (i.e. sender forward-secure).
+    // outputs confidential against passive insider adversaries (i.e. an adversary in possession of
+    // the sender's private key) a.k.a sender forward-secure.
     sres.mix("ephemeral-ecdh", &(ephemeral.d * receiver.q).encode());
 
-    // Encrypt the plaintext. By itself, this is confidential to passive adversaries (i.e. IND-CPA),
-    // sender forward-secure, and implicitly authenticated as being from either the sender or the
-    // receiver (but vulnerable to key compromise impersonation).
+    // Encrypt the plaintext. By itself, this is confidential against passive insider adversaries
+    // and implicitly authenticated as being from either the sender or the receiver but vulnerable
+    // to key compromise impersonation (i.e. authenticated against outsider but not insider
+    // adversaries).
     out_ciphertext.copy_from_slice(plaintext);
     sres.encrypt("message", out_ciphertext);
 
@@ -82,9 +84,10 @@ pub fn encrypt(
     // shared secret, message, and commitment point.
     let r = Scalar::decode_reduce(&sres.derive_array::<32>("challenge-scalar"));
 
-    // Calculate and encrypt the designated proof point `[d_S*r+k]Q_R`. Only someone who knows d_R
-    // will be able to verify the signature. The final resulting ciphertext is confidential to both
-    // passive and active attackers (i.e. IND-CCA2).
+    // Calculate and encrypt the designated proof point `[d_S*r+k]Q_R`. The final resulting
+    // ciphertext is confidential against both passive and active insider adversaries and
+    // authenticated against both passive and active insider adversaries. In addition, no one not in
+    // possession of the receiver's private key `d_R` will be able to verify the signature.
     let x = ((sender.d * r) + k) * receiver.q;
     out_x.copy_from_slice(&x.encode());
     sres.encrypt("proof-point", out_x);
