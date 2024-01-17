@@ -64,7 +64,7 @@ pub struct PrivKey {
     pub pub_key: PubKey,
 
     /// The derived nonce value; intended to be unique per secret.
-    pub nonce: [u8; SECRET_LEN],
+    nonce: [u8; SECRET_LEN],
 
     /// The original secret value.
     pub secret: [u8; SECRET_LEN],
@@ -87,6 +87,15 @@ impl PrivKey {
     #[must_use]
     pub fn random(mut rng: impl CryptoRng + Rng) -> PrivKey {
         PrivKey::from_secret_bytes(rng.gen())
+    }
+
+    /// Uses the key's nonce and a clone of the given protocol to deterministically create a
+    /// commitment scalar for the protocol's state.
+    #[must_use]
+    pub fn commitment(&self, protocol: &Protocol) -> Scalar {
+        let mut clone = protocol.clone();
+        clone.mix("signer-nonce", &self.nonce);
+        Scalar::decode_reduce(&clone.derive_array::<32>("commitment-scalar"))
     }
 }
 

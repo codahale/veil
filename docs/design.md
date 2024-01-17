@@ -309,8 +309,8 @@ function DeriveScalar(x):
   state ← Initialize("veil.skd")                 // Initialize a protocol.
   state ← Mix(state, "secret", x)                // Mix the secret value into the protocol's state.
   (state, d) ← Derive(state, "scalar", 32) mod ℓ // Derive a private scalar.
-  (state, n) ← Derive(state, "nonce", 64)        // Derive a 64-byte nonce.
-  return d, n
+  (state, z) ← Derive(state, "nonce", 64)        // Derive a 64-byte nonce.
+  return d, z
 ```
 
 Similarly a per-secret unique value is derived and returned.
@@ -328,29 +328,33 @@ Signing a message requires a signer's secret `x` and a message `m` of arbitrary 
 
 ```text
 function Sign(x, m):
-  (d, n) ← DeriveScalar(x)                               // Derive a private key and nonce from the secret.
+  (d, z) ← DeriveScalar(x)                               // Derive a private key and nonce from the secret.
   state ← Initialize("veil.schnorr")                     // Initialize a protocol.
   state ← Mix(state, "signer", [d]G)                     // Mix the signer's public key into the protocol.
+  n ← Rand(16)                                           // Generate a random nonce.
+  state ← Mix(state, "nonce", n)                         // Mix the nonce into the protocol.
   state ← Mix(state, "message", m)                       // Mix the message into the protocol.
-  k ← Rand(32) mod ℓ                                     // Generate a random commitment scalar.
+  clone ← Mix(state, "signer-nonce", z)                  // Mix the signer's nonce into a cloned protocol.
+  k ← Derive(clone, "commitment-scalar", 32) mod ℓ       // Derive a commitment scalar.
   I ← [k]G                                               // Calculate the commitment point.
   (state, S₀) ← Encrypt(state, "commitment-point", I)    // Encrypt the commitment point.
   (state, r₀ǁr₁) ← Derive(state, "challenge-scalar", 16) // Derive two short challenge scalars.
   r ← r₀ +️️ µ×r₁️                                          // Calculate the full challenge scalar using the zeta endomorphism.
   s ← d×r + k                                            // Calculate the proof scalar.
   (state, S₁) ← Encrypt(state, "proof-scalar", s)        // Encrypt the proof scalar.
-  return S₀ǁS₁                                           // Return the commitment point and proof scalar.
+  return nǁS₀ǁS₁                                         // Return the nonce, commitment point, and proof scalar.
 ```
 
 ### Verifying A Signature
 
 Verifying a signature requires a signer's public key `Q`, a message `m`, and a signature
-`S₀ǁS₁`.
+`nǁS₀ǁS₁`.
 
 ```text
-function Verify(Q, m, S₀ǁS₁):
+function Verify(Q, m, nǁS₀ǁS₁):
   state ← Initialize("veil.schnorr")                       // Initialize a protocol.
   state ← Mix(state, "signer", Q)                          // Mix the signer's public key into the protocol.
+  state ← Mix(state, "nonce", n)                           // Mix the nonce into the protocol.
   state ← Mix(state, "message", m)                         // Mix the message into the protocol.
   (state, I) ← Decrypt(state, "commitment-point", S₀)      // Decrypt the commitment point.
   (state, r₀′ǁr₁′) ← Derive(state, "challenge-scalar", 16) // Derive two counterfactual short challenge scalars.
@@ -428,11 +432,22 @@ protocol effectively keyed with the signer's public key in addition to the messa
 recovers the plaintext of either signature component in the absence of the public key would imply
 that either TurboSHAKE128 is not collision-resistant or that AEGIS-128L is not PRF secure.
 
+### Resilience Against Fault Attacks
+
+Per [[PSSLR17]](#psslr17), purely deterministic signature schemes like RFC 6979 and EdDSA are
+vulnerable to fault attacks, in which an adversary induces a signer to generate multiple invalid
+signatures by injecting a fault (e.g. a random bit-flip via RowHammer attack, thus leaking bits of
+the private key.
+
+Because `veil.schnorr` messages are arbitrary bitstrings, a randomized nonce is added to the
+protocol's state in order to ensure that the signatures are probabilistic and thus immune to fault
+attacks.
+
 ### Indistinguishability From Random Noise
 
 Given that both signature components are encrypted with AEGIS-128L, an attack which distinguishes
 between a `veil.schnorr` and random noise would also imply that AEGIS-128L is distinguishable from
-a random function over short messages..
+a random function over short messages.
 
 ## Encrypted Headers
 
@@ -447,7 +462,7 @@ public key `Q_R`, a nonce `N`, and a plaintext `P`.
 
 ```text
 function EncryptHeader(x_S, d_E, Q_R, N, P):
-  (d_S, n_S) ← DeriveScalar(x_S)                           // Derive a private key and nonce from the sender's secret.
+  (d_S, z_S) ← DeriveScalar(x_S)                           // Derive a private key and nonce from the sender's secret.
   state ← Initialize("veil.sres")                          // Initialize a protocol.
   state ← Mix(state, "sender", [d_S]G)                     // Mix the sender's public key into the protocol.
   state ← Mix(state, "receiver", Q_R)                      // Mix the receiver's public key into the protocol.
@@ -456,7 +471,8 @@ function EncryptHeader(x_S, d_E, Q_R, N, P):
   (state, C₀) ← Encrypt(state, "ephemeral-key", [d_E]G)    // Encrypt the ephemeral public key.
   state ← Mix(state, "ephemeral-ecdh", [d_E]Q_R)           // Mix the ephemeral ECDH shared secret into the protocol.
   (state, C₁) ← Encrypt(state, "message", P)               // Encrypt the plaintext.
-  k ← Rand(32) mod ℓ                                       // Generate a random commitment scalar.
+  clone ← Mix(state, "signer-nonce", z)                    // Mix the signer's nonce into a cloned protocol.
+  k ← Derive(clone, "commitment-scalar", 32) mod ℓ         // Derive a commitment scalar.
   I ← [k]G                                                 // Calculate the commitment point.
   (state, S₀) ← Encrypt(state, "commitment-point", I)      // Encrypt the commitment point.
   (state, r) ← Derive(state, "challenge-scalar", 32) mod ℓ // Derive a challenge scalar.
@@ -578,6 +594,9 @@ Again, the Schnorr signature scheme is sUF-CMA secure and the signature is creat
 signer's private key. The receiver (or `A` in possession of the receiver's private key) cannot forge
 signatures for new messages. Therefore, `veil.sres` provides authenticity in the multi-user insider
 setting.
+
+Because `veil.sres` is only ever used to encrypt unique messages, the use of a deterministic
+signature scheme is not vulnerable to fault injection attacks.
 
 ### Limited Deniability Of Headers
 
@@ -786,6 +805,9 @@ Again, the Schnorr signature scheme is sUF-CMA secure and the signature is creat
 ephemeral private key, which `A` does not possess. The receiver (or `A` in possession of the
 receiver's private key) cannot forge signatures for new messages. Therefore, `veil.mres` provides
 authenticity in the multi-user insider setting.
+
+Because `veil.mres` is only ever used to encrypt unique messages, the use of a deterministic
+signature scheme is not vulnerable to fault injection attacks.
 
 ### Limited Deniability Of Messages
 
@@ -1076,6 +1098,13 @@ Thomas Pornin.
 Thomas Pornin.
 2023.
 [_Faster Complete Formulas for the GLS254 Binary Curve._](https://eprint.iacr.org/2023/1688)
+
+### PSSLR17
+
+Damian Poddebniak, Juraj Somorovsky, Sebastian Schinzel, Manfred Lochter, and Paul Rösler.
+2017
+[Attacking Deterministic Signature Schemes using Fault Attacks](https://eprint.iacr.org/2017/1014)
+[`DOI:10.1109/EuroSP.2018.00031`](https://doi.org/10.1109/EuroSP.2018.00031)
 
 ### RD10
 

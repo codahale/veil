@@ -11,11 +11,10 @@ use rand::{CryptoRng, Rng};
 use crate::{
     blockio::ReadBlock,
     keys::{PrivKey, PubKey},
-    schnorr,
-    schnorr::SIGNATURE_LEN,
+    schnorr::{self, DET_SIGNATURE_LEN},
     sres,
     sres::NONCE_LEN,
-    DecryptError, EncryptError, Signature,
+    DecryptError, EncryptError,
 };
 
 /// The length of plaintext blocks which are encrypted.
@@ -69,7 +68,7 @@ pub fn encrypt(
         let nonce = mres.derive_array::<NONCE_LEN>("header-nonce");
 
         // Encrypt the header for the given receiver.
-        sres::encrypt(&mut rng, sender, &ephemeral, receiver, &nonce, &header, &mut enc_header);
+        sres::encrypt(sender, &ephemeral, receiver, &nonce, &header, &mut enc_header);
 
         // Mix the encrypted header into the protocol.
         mres.mix("header", &enc_header);
@@ -91,11 +90,13 @@ pub fn encrypt(
     // Encrypt the plaintext in blocks and write them.
     written += encrypt_message(&mut mres, reader, &mut writer)?;
 
-    // Sign the protocol's final state with the ephemeral private key and append the signature.
-    let sig = schnorr::sign_protocol(&mut mres, &mut rng, &ephemeral);
-    writer.write_all(&sig.encode()).map_err(EncryptError::WriteIo)?;
+    // Deterministically sign the protocol's final state with the ephemeral private key and append
+    // the signature. The protocol's state is randomized with both the nonce and the ephemeral key,
+    // so the risk of e.g. fault attacks is minimal.
+    let sig = schnorr::det_sign(&mut mres, &ephemeral);
+    writer.write_all(&sig).map_err(EncryptError::WriteIo)?;
 
-    Ok(written + u64::try_from(SIGNATURE_LEN).expect("usize should be <= u64"))
+    Ok(written + u64::try_from(DET_SIGNATURE_LEN).expect("usize should be <= u64"))
 }
 
 /// Given a protocol keyed with the DEK, read the entire contents of `reader` in blocks and write
@@ -155,7 +156,7 @@ pub fn decrypt(
     let (written, sig) = decrypt_message(&mut mres, &mut reader, &mut writer)?;
 
     // Verify the signature and return the number of bytes written.
-    schnorr::verify_protocol(&mut mres, &ephemeral, &sig)
+    schnorr::det_verify(&mut mres, &ephemeral, sig)
         .and(Some(written))
         .ok_or(DecryptError::InvalidCiphertext)
 }
@@ -166,8 +167,8 @@ fn decrypt_message(
     mres: &mut Protocol,
     mut reader: impl Read,
     mut writer: impl Write,
-) -> Result<(u64, Signature), DecryptError> {
-    let mut buf = [0u8; ENC_BLOCK_LEN + SIGNATURE_LEN];
+) -> Result<(u64, [u8; 64]), DecryptError> {
+    let mut buf = [0u8; ENC_BLOCK_LEN + DET_SIGNATURE_LEN];
     let mut offset = 0;
     let mut written = 0;
 
@@ -183,7 +184,7 @@ fn decrypt_message(
         }
 
         // Pretend we don't see the possible signature at the end.
-        let block_len = n - SIGNATURE_LEN + offset;
+        let block_len = n - DET_SIGNATURE_LEN + offset;
         let block = &mut buf[..block_len];
 
         // Open the block and write the plaintext. If the block cannot be decrypted, return an
@@ -198,7 +199,7 @@ fn decrypt_message(
     }
 
     // Return the number of bytes and the signature.
-    Ok((written, Signature::decode(&buf[..SIGNATURE_LEN]).expect("should be signature-sized")))
+    Ok((written, buf[..DET_SIGNATURE_LEN].try_into().expect("should be signature-sized")))
 }
 
 /// Iterate through the contents of `reader` looking for a header which was encrypted by the given

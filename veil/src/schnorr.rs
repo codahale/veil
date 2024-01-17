@@ -8,24 +8,30 @@ use rand::{CryptoRng, Rng};
 
 use crate::{
     keys::{PrivKey, PubKey, POINT_LEN, SCALAR_LEN},
+    sres::NONCE_LEN,
     ParseSignatureError, VerifyError,
 };
 
+/// The length of a deterministic signature, in bytes.
+pub const DET_SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
+
 /// The length of a signature, in bytes.
-pub const SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
+pub const SIGNATURE_LEN: usize = NONCE_LEN + POINT_LEN + SCALAR_LEN;
 
 /// A Schnorr signature.
+///
+/// Consists of a 16-byte nonce, an encrypted commitment point, and an encrypted proof scalar.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Signature([u8; SIGNATURE_LEN]);
 
 impl Signature {
-    /// Create a signature from a 64-byte slice.
+    /// Create a signature from a 80-byte slice.
     #[must_use]
     pub fn decode(b: impl AsRef<[u8]>) -> Option<Signature> {
         Some(Signature(b.as_ref().try_into().ok()?))
     }
 
-    /// Encode the signature as a 64-byte array.
+    /// Encode the signature as a 80-byte array.
     #[must_use]
     pub const fn encode(&self) -> [u8; SIGNATURE_LEN] {
         self.0
@@ -47,28 +53,36 @@ impl fmt::Display for Signature {
     }
 }
 
-/// Create a Schnorr signature of the given message using the given key pair.
+/// Create a randomized Schnorr signature of the given message using the given key pair.
 pub fn sign(
-    rng: impl Rng + CryptoRng,
+    mut rng: impl Rng + CryptoRng,
     signer: &PrivKey,
     mut message: impl Read,
 ) -> io::Result<Signature> {
+    // Allocate an output buffer.
+    let mut sig = [0u8; SIGNATURE_LEN];
+
     // Initialize a protocol.
     let mut schnorr = Protocol::new("veil.schnorr");
 
     // Mix the signer's public key into the protocol.
     schnorr.mix("signer", &signer.pub_key.encoded);
 
+    // Generate a random nonce and mix it into the protocol.
+    rng.fill_bytes(&mut sig[..NONCE_LEN]);
+    schnorr.mix("nonce", &sig[..NONCE_LEN]);
+
     // Mix the message into the protocol.
     let mut writer = schnorr.mix_writer("message", io::sink());
     io::copy(&mut message, &mut writer)?;
     let (mut schnorr, _) = writer.into_inner();
 
-    // Calculate and return the encrypted commitment point and proof scalar.
-    Ok(sign_protocol(&mut schnorr, rng, signer))
+    // Calculate and the encrypted commitment point and proof scalar.
+    sig[NONCE_LEN..].copy_from_slice(&det_sign(&mut schnorr, signer));
+    Ok(Signature(sig))
 }
 
-/// Verify a Schnorr signature of the given message using the given public key.
+/// Verify a randomized Schnorr signature of the given message using the given public key.
 pub fn verify(signer: &PubKey, mut message: impl Read, sig: &Signature) -> Result<(), VerifyError> {
     // Initialize a protocol.
     let mut schnorr = Protocol::new("veil.schnorr");
@@ -76,29 +90,27 @@ pub fn verify(signer: &PubKey, mut message: impl Read, sig: &Signature) -> Resul
     // Mix the signer's public key into the protocol.
     schnorr.mix("signer", &signer.encoded);
 
+    // Mix the nonce into the protocol.
+    schnorr.mix("nonce", &sig.0[..NONCE_LEN]);
+
     // Mix the message into the protocol.
     let mut writer = schnorr.mix_writer("message", io::sink());
     io::copy(&mut message, &mut writer)?;
     let (mut schnorr, _) = writer.into_inner();
 
     // Verify the signature.
-    verify_protocol(&mut schnorr, signer, sig).ok_or(VerifyError::InvalidSignature)
+    det_verify(&mut schnorr, signer, sig.0[NONCE_LEN..].try_into().expect("should be 64 bytes"))
+        .ok_or(VerifyError::InvalidSignature)
 }
 
-/// Create a Schnorr signature of the given protocol's state using the given private key.
-/// Returns the full signature.
-#[must_use]
-pub fn sign_protocol(
-    protocol: &mut Protocol,
-    mut rng: impl CryptoRng + Rng,
-    signer: &PrivKey,
-) -> Signature {
-    // Allocate an output buffer.
-    let mut sig = [0u8; SIGNATURE_LEN];
+/// Create a deterministic Schnorr signature of the given protocol's state using the given private
+/// key. The protocol's state must be randomized to mitigate fault attacks.
+pub fn det_sign(protocol: &mut Protocol, signer: &PrivKey) -> [u8; DET_SIGNATURE_LEN] {
+    let mut sig = [0u8; DET_SIGNATURE_LEN];
     let (sig_i, sig_s) = sig.split_at_mut(POINT_LEN);
 
-    // Generate a random commitment scalar.
-    let k = Scalar::decode_reduce(&rng.gen::<[u8; 32]>());
+    // Deterministically generate a commitment scalar.
+    let k = signer.commitment(protocol);
     let i = Point::mulgen(&k);
 
     // Calculate, encode, and encrypt the commitment point.
@@ -116,15 +128,18 @@ pub fn sign_protocol(
     sig_s.copy_from_slice(&s.encode());
     protocol.encrypt("proof-scalar", sig_s);
 
-    // Return the full signature.
-    Signature(sig)
+    sig
 }
 
-/// Verify a Schnorr signature of the given protocol's state using the given public key.
+/// Verify a deterministic Schnorr signature of the given protocol's state using the given public
+/// key.
 #[must_use]
-pub fn verify_protocol(protocol: &mut Protocol, signer: &PubKey, sig: &Signature) -> Option<()> {
+pub fn det_verify(
+    protocol: &mut Protocol,
+    signer: &PubKey,
+    mut sig: [u8; DET_SIGNATURE_LEN],
+) -> Option<()> {
     // Split signature into components.
-    let mut sig = sig.0;
     let (i, s) = sig.split_at_mut(POINT_LEN);
 
     // Decrypt the commitment point but don't decode it.
@@ -200,7 +215,7 @@ mod tests {
     #[test]
     fn signature_kat() {
         let (_, _, _, sig) = setup();
-        let expected = expect!["5yb965AUaCm4pLJYP7AmXksvdMsPMoV6gTszcvjJC6L3N66MdK9xSyvZ4z7dNb16jBbR3e2TvHxqAvxoPfEP7CHN"];
+        let expected = expect!["364axhz5SyMk6inmV3H7uLZv1eLBGLHEwapEA5rqpSoyeBTbrFELeQLbfAAfvgMR6RZWcMKjy6DA4zkx3Mr35G8bCf7Qzj5Wwtn2BejAzU7gNF"];
         expected.assert_eq(&sig.to_string());
     }
 

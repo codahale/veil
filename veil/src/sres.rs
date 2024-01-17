@@ -2,7 +2,6 @@
 
 use crrl::gls254::{Point, Scalar};
 use lockstitch::Protocol;
-use rand::{CryptoRng, Rng};
 
 use crate::keys::{PrivKey, PubKey, POINT_LEN};
 
@@ -15,7 +14,6 @@ pub const OVERHEAD: usize = POINT_LEN + POINT_LEN + POINT_LEN;
 /// Given the sender's key pair, the ephemeral key pair, the receiver's public key, a nonce, and a
 /// plaintext, encrypts the given plaintext and returns the ciphertext.
 pub fn encrypt(
-    mut rng: impl Rng + CryptoRng,
     sender: &PrivKey,
     ephemeral: &PrivKey,
     receiver: &PubKey,
@@ -69,8 +67,9 @@ pub fn encrypt(
     out_ciphertext.copy_from_slice(plaintext);
     sres.encrypt("message", out_ciphertext);
 
-    // Generate a random commitment scalar.
-    let k = Scalar::decode_reduce(&rng.gen::<[u8; 32]>());
+    // Deterministically generate a commitment scalar. The protocol's state is randomized with both
+    // the nonce and the ephemeral key, so the risk of e.g. fault attacks is minimal.
+    let k = sender.commitment(&sres);
 
     // Calculate and encrypt the commitment point.
     out_i.copy_from_slice(&Point::mulgen(&k).encode());
@@ -155,7 +154,7 @@ pub fn decrypt<'a>(
 
 #[cfg(test)]
 mod tests {
-    use rand::SeedableRng;
+    use rand::{Rng, SeedableRng};
     use rand_chacha::ChaChaRng;
 
     use super::*;
@@ -220,15 +219,7 @@ mod tests {
         let nonce = rng.gen::<[u8; NONCE_LEN]>();
 
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
-        encrypt(
-            &mut rng,
-            &sender,
-            &ephemeral,
-            &receiver.pub_key,
-            &nonce,
-            &plaintext,
-            &mut ciphertext,
-        );
+        encrypt(&sender, &ephemeral, &receiver.pub_key, &nonce, &plaintext, &mut ciphertext);
 
         (rng, sender, receiver, ephemeral, plaintext, nonce, ciphertext)
     }
