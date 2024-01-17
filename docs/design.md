@@ -317,38 +317,6 @@ Similarly a per-secret unique value is derived and returned.
 
 The security of this construction is discussed in [[BDD23]](#bdd23).
 
-### Hedged Ephemeral Values
-
-When generating ephemeral values, Veil uses Aranha et al.'s "hedged signature" technique to mitigate
-against both catastrophic randomness failures and differential fault attacks against purely
-deterministic schemes [[AOTZ20]](#aotz20).
-
-Specifically, hedging clones the protocol's state and mixes both a context-specific secret value
-(e.g. the signer's private key in a digital signature scheme) and a 64-byte random value into the
-clone. The cloned protocol is used to produce the ephemeral value or values for the scheme.
-
-For example, the following operations would be performed on the cloned protocol:
-
-```text
-function HedgedScalar(state, x, label):
-  (d, nonce) ← DeriveScalar(x)         // Derive a private scalar and nonce from the secret.
-  with clone ← Clone(state) do         // Clone the protocol's current state.
-    clone ← Mix(clone, "nonce", nonce) // Mix in the private value.
-    v ← Rand(64)                       // Generate a 64-byte random value.
-    clone ← Mix(clone, "random", v)    // Mix in the random value.
-    y ← Derive(clone, 32, label) mod ℓ // Derive a scalar from the clone.
-    return y                           // Return the scalar to the outer context.
-  end clone                            // Destroy the cloned protocol's state.
-```
-
-The ephemeral scalar `y` is returned to the context of the original construction and the cloned
-protocol is discarded. This ensures that even in the event of a catastrophic failure of the random
-number generator, `y` is still unique relative to `x`. Depending on the uniqueness needs of the
-construction, an ephemeral value can be hedged with a plaintext in addition to a private key.
-
-For brevity, a hedged ephemeral scalar `y` derived from a protocol `state` and a private input value
-`x` is denoted as `y ← Hedge(state, x, Derive(label, 32) mod ℓ)`.
-
 ## Digital Signatures
 
 `veil.schnorr` implements an EdDSA-style Schnorr digital signature scheme using Pornin's scheme for
@@ -360,18 +328,18 @@ Signing a message requires a signer's secret `x` and a message `m` of arbitrary 
 
 ```text
 function Sign(x, m):
-  (d, n) ← DeriveScalar(x)                                  // Derive a private key and nonce from the secret.
-  state ← Initialize("veil.schnorr")                        // Initialize a protocol.
-  state ← Mix(state, "signer", [d]G)                        // Mix the signer's public key into the protocol.
-  state ← Mix(state, "message", m)                           // Mix the message into the protocol.
-  k ← Hedge(state, n, Derive("commitment-scalar", 32) mod ℓ) // Derive a hedged commitment scalar.
-  I ← [k]G                                                   // Calculate the commitment point.
-  (state, S₀) ← Encrypt(state, "commitment-point", I)        // Encrypt the commitment point.
-  (state, r₀ǁr₁) ← Derive(state, "challenge-scalar", 16)     // Derive two short challenge scalars.
-  r ← r₀ +️️ µ×r₁️                                              // Calculate the full challenge scalar using the zeta endomorphism.
-  s ← d×r + k                                                // Calculate the proof scalar.
-  (state, S₁) ← Encrypt(state, "proof-scalar", s)            // Encrypt the proof scalar.
-  return S₀ǁS₁                                               // Return the commitment point and proof scalar.
+  (d, n) ← DeriveScalar(x)                               // Derive a private key and nonce from the secret.
+  state ← Initialize("veil.schnorr")                     // Initialize a protocol.
+  state ← Mix(state, "signer", [d]G)                     // Mix the signer's public key into the protocol.
+  state ← Mix(state, "message", m)                       // Mix the message into the protocol.
+  k ← Rand(32) mod ℓ                                     // Generate a random commitment scalar.
+  I ← [k]G                                               // Calculate the commitment point.
+  (state, S₀) ← Encrypt(state, "commitment-point", I)    // Encrypt the commitment point.
+  (state, r₀ǁr₁) ← Derive(state, "challenge-scalar", 16) // Derive two short challenge scalars.
+  r ← r₀ +️️ µ×r₁️                                          // Calculate the full challenge scalar using the zeta endomorphism.
+  s ← d×r + k                                            // Calculate the proof scalar.
+  (state, S₁) ← Encrypt(state, "proof-scalar", s)        // Encrypt the proof scalar.
+  return S₀ǁS₁                                           // Return the commitment point and proof scalar.
 ```
 
 ### Verifying A Signature
@@ -479,22 +447,22 @@ public key `Q_R`, a nonce `N`, and a plaintext `P`.
 
 ```text
 function EncryptHeader(x_S, d_E, Q_R, N, P):
-  (d_S, n_S) ← DeriveScalar(x_S)                               // Derive a private key and nonce from the sender's secret.
-  state ← Initialize("veil.sres")                              // Initialize a protocol.
-  state ← Mix(state, "sender", [d_S]G)                         // Mix the sender's public key into the protocol.
-  state ← Mix(state, "receiver", Q_R)                          // Mix the receiver's public key into the protocol.
-  state ← Mix(state, "nonce", N)                               // Mix the nonce into the protocol.
-  state ← Mix(state, "static-ecdh", [d_S]Q_R)                  // Mix the static ECDH shared secret into the protocol.
-  (state, C₀) ← Encrypt(state, "ephemeral-key", [d_E]G)        // Encrypt the ephemeral public key.
-  state ← Mix(state, "ephemeral-ecdh", [d_E]Q_R)               // Mix the ephemeral ECDH shared secret into the protocol.
-  (state, C₁) ← Encrypt(state, "message", P)                   // Encrypt the plaintext.
-  k ← Hedge(state, n_S, Derive("commitment-scalar", 32) mod ℓ) // Derive a hedged commitment scalar.
-  I ← [k]G                                                     // Calculate the commitment point.
-  (state, S₀) ← Encrypt(state, "commitment-point", I)          // Encrypt the commitment point.
-  (state, r) ← Derive(state, "challenge-scalar", 32) mod ℓ     // Derive a challenge scalar.
-  s ← d_S✕r + k                                                // Calculate the proof scalar.
-  X ← [s]Q_R                                                   // Calculate the proof point.
-  (state, S₁) ← Encrypt(state, "proof-point", X)               // Encrypt the proof point.
+  (d_S, n_S) ← DeriveScalar(x_S)                           // Derive a private key and nonce from the sender's secret.
+  state ← Initialize("veil.sres")                          // Initialize a protocol.
+  state ← Mix(state, "sender", [d_S]G)                     // Mix the sender's public key into the protocol.
+  state ← Mix(state, "receiver", Q_R)                      // Mix the receiver's public key into the protocol.
+  state ← Mix(state, "nonce", N)                           // Mix the nonce into the protocol.
+  state ← Mix(state, "static-ecdh", [d_S]Q_R)              // Mix the static ECDH shared secret into the protocol.
+  (state, C₀) ← Encrypt(state, "ephemeral-key", [d_E]G)    // Encrypt the ephemeral public key.
+  state ← Mix(state, "ephemeral-ecdh", [d_E]Q_R)           // Mix the ephemeral ECDH shared secret into the protocol.
+  (state, C₁) ← Encrypt(state, "message", P)               // Encrypt the plaintext.
+  k ← Rand(32) mod ℓ                                       // Generate a random commitment scalar.
+  I ← [k]G                                                 // Calculate the commitment point.
+  (state, S₀) ← Encrypt(state, "commitment-point", I)      // Encrypt the commitment point.
+  (state, r) ← Derive(state, "challenge-scalar", 32) mod ℓ // Derive a challenge scalar.
+  s ← d_S✕r + k                                            // Calculate the proof scalar.
+  X ← [s]Q_R                                               // Calculate the proof point.
+  (state, S₁) ← Encrypt(state, "proof-point", X)           // Encrypt the proof point.
   return C₀ǁC₁ǁS₀ǁS₁
 ```
 
@@ -647,11 +615,9 @@ function EncryptMessage(x_S, [Q_R_0,…,Q_R_n], N_P, P):
   (d_S, n_S) ← DeriveScalar(x_S)                 // Derive a private key and nonce from the sender's secret.
   state ← Initialize("veil.mres")                // Initialize a protocol.
   state ← Mix(state, "sender", [d_S]G)           // Mix the sender's public key into the protocol.
-  (k, d_E, K, N) ← Hedge(state, n_S,
-                         (Derive("commitment-scalar", 32) mod ℓ, // Hedge a commitment scalar,
-                          Derive("ephemeral-key", 32) mod ℓ,     // ephemeral private key,
-                          Derive("dek", 32),                     // data encryption key,
-                          Derive("nonce", 16)))                  // and nonce.
+  d_E ← Rand(32) mod ℓ                           // Generate a random ephemeral private key.
+  K ← Rand(32)                                   // Generate a random data encryption key.
+  N ← Rand(16)                                   // Generate a random nonce.
   C ← N                                          // Write the nonce.
   state ← Mix(state, "nonce", N)                 // Mix the nonce into the protocol.
   H ← KǁN_QǁN_P                                  // Encode the DEK and params in a header.
@@ -672,13 +638,13 @@ function EncryptMessage(x_S, [Q_R_0,…,Q_R_n], N_P, P):
     C_i ← Seal(state, "block", p)
     C ← CǁC_i
 
-  k ← Hedge(state, n, Derive("commitment-scalar", 32) mod ℓ) // Derive a hedged commitment scalar.
-  I ← [k]G                                                   // Calculate the commitment point.
-  (state, S₀) ← Encrypt(state, "commitment-point", I)        // Encrypt the commitment point.
-  (state, r₀ǁr₁) ← Derive(state, "challenge-scalar", 16)     // Derive two short challenge scalars.
-  r ← r₀ +️️ µ×r₁️                                              // Calculate the full challenge scalar using the zeta endomorphism.
-  s ← d_E×r + k                                              // Calculate the proof scalar.
-  (state, S₁) ← Encrypt(state, "proof-scalar", s)            // Encrypt the proof scalar.
+  k ← Rand(32) mod ℓ                                     // Generate a random commitment scalar.
+  I ← [k]G                                               // Calculate the commitment point.
+  (state, S₀) ← Encrypt(state, "commitment-point", I)    // Encrypt the commitment point.
+  (state, r₀ǁr₁) ← Derive(state, "challenge-scalar", 16) // Derive two short challenge scalars.
+  r ← r₀ +️️ µ×r₁️                                          // Calculate the full challenge scalar using the zeta endomorphism.
+  s ← d_E×r + k                                          // Calculate the proof scalar.
+  (state, S₁) ← Encrypt(state, "proof-scalar", s)        // Encrypt the proof scalar.
 
   C ← CǁS₀ǁS₁
 
@@ -950,13 +916,6 @@ Joël Alwen, Bruno Blanchet, Eduard Hauck, Eike Kiltz, Benjamin Lipp, and Doreen
 2021.
 [_Analysing the HPKE standard._](https://eprint.iacr.org/2020/1499)
 [`DOI:10.1007/978-3-030-77870-5_4`](https://doi.org/10.1007/978-3-030-77870-5_4)
-
-### AOTZ20
-
-Diego F Aranha, Claudio Orlandi, Akira Takahashi, and Greg Zaverucha.
-2020.
-[_Security of hedged Fiat–Shamir signatures under fault attacks._](https://eprint.iacr.org/2019/)
-[`DOI:10.1007/978-3-030-45721-1_23`](https://doi.org/10.1007/978-3-030-45721-1_23)
 
 ### AR10
 

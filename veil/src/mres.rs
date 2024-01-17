@@ -49,11 +49,10 @@ pub fn encrypt(
     let mut mres = Protocol::new("veil.mres");
     mres.mix("sender", &sender.pub_key.encoded);
 
-    // Generate ephemeral key pair, DEK, and nonce.
-    let (ephemeral, dek, nonce) = mres.hedge(&mut rng, &[sender.nonce], 10_000, |clone| {
-        let k = PrivKey::from_secret_bytes(clone.derive_array::<64>("ephemeral-key"));
-        Some((k, clone.derive_array("dek"), clone.derive_array::<NONCE_LEN>("nonce")))
-    });
+    // Generate a random ephemeral key pair, DEK, and nonce.
+    let ephemeral = PrivKey::random(&mut rng);
+    let dek = rng.gen::<[u8; DEK_LEN]>();
+    let nonce = rng.gen::<[u8; NONCE_LEN]>();
 
     // Write the nonce and mix it into the protocol.
     writer.write_all(&nonce).map_err(EncryptError::WriteIo)?;

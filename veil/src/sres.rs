@@ -15,7 +15,7 @@ pub const OVERHEAD: usize = POINT_LEN + POINT_LEN + POINT_LEN;
 /// Given the sender's key pair, the ephemeral key pair, the receiver's public key, a nonce, and a
 /// plaintext, encrypts the given plaintext and returns the ciphertext.
 pub fn encrypt(
-    rng: impl Rng + CryptoRng,
+    mut rng: impl Rng + CryptoRng,
     sender: &PrivKey,
     ephemeral: &PrivKey,
     receiver: &PubKey,
@@ -69,11 +69,8 @@ pub fn encrypt(
     out_ciphertext.copy_from_slice(plaintext);
     sres.encrypt("message", out_ciphertext);
 
-    // Derive a commitment scalar from the protocol's current state, the sender's private key,
-    // and a random nonce.
-    let k = sres.hedge(rng, &[sender.nonce], 10_000, |clone| {
-        Some(Scalar::decode_reduce(&clone.derive_array::<32>("commitment-scalar")))
-    });
+    // Generate a random commitment scalar.
+    let k = Scalar::decode_reduce(&rng.gen::<[u8; 32]>());
 
     // Calculate and encrypt the commitment point.
     out_i.copy_from_slice(&Point::mulgen(&k).encode());
