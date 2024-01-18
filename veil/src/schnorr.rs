@@ -77,7 +77,7 @@ pub fn sign(
     io::copy(&mut message, &mut writer)?;
     let (mut schnorr, _) = writer.into_inner();
 
-    // Calculate and the encrypted commitment point and proof scalar.
+    // Calculate the encrypted commitment point and proof scalar.
     sig[NONCE_LEN..].copy_from_slice(&det_sign(&mut schnorr, signer));
     Ok(Signature(sig))
 }
