@@ -59,15 +59,12 @@ impl PartialEq for PubKey {
 pub struct PrivKey {
     /// The derived private scalar; always non-zero.
     pub d: Scalar,
-
     /// The corresponding [`PubKey`] for the private key; always derived from `d`.
     pub pub_key: PubKey,
-
-    /// The derived nonce value; intended to be unique per secret.
-    nonce: [u8; SECRET_LEN],
-
     /// The original secret value.
     pub secret: [u8; SECRET_LEN],
+    /// The derived nonce value; intended to be unique per secret.
+    nonce: [u8; SECRET_LEN],
 }
 
 impl PrivKey {
@@ -80,7 +77,7 @@ impl PrivKey {
         let q = Point::mulgen(&d);
         let nonce = skd.derive_array("nonce");
 
-        PrivKey { d, pub_key: PubKey { q, encoded: q.encode() }, nonce, secret }
+        PrivKey { d, pub_key: PubKey { q, encoded: q.encode() }, secret, nonce }
     }
 
     /// Generates a random private key.
