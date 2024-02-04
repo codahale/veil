@@ -1,38 +1,53 @@
-#![allow(elided_lifetimes_in_paths)]
-
 use std::{
     io,
     io::{Cursor, Read},
 };
 
-use divan::counter::BytesCount;
+use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
 
 use veil::{Digest, PrivateKey};
 
-const KB: u64 = 1024;
-const LENS: &[u64] = &[0, KB, 8 * KB, 32 * KB, 64 * KB, 128 * KB, KB * KB];
+const LENS: &[(u64, &str)] = &[
+    (0, "0B"),
+    (1024, "1KiB"),
+    (8 * 1024, "8KiB"),
+    (32 * 1024, "32KiB"),
+    (64 * 1024, "64KiB"),
+    (128 * 1024, "128KiB"),
+    (1024 * 1024, "1MiB"),
+];
 
-#[divan::bench(args = LENS)]
-fn encrypt(bencher: divan::Bencher, len: u64) {
-    bencher
-        .with_inputs(|| {
+fn encrypt(c: &mut Criterion) {
+    let mut g = c.benchmark_group("encrypt");
+    for &(len, id) in LENS {
+        g.throughput(Throughput::Bytes(len));
+        g.bench_function(id, |b| {
             let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
             let pk_a = PrivateKey::random(&mut rng);
             let pk_b = PrivateKey::random(&mut rng);
-            (rng, pk_a, pk_b, io::repeat(0).take(len), io::sink())
-        })
-        .counter(BytesCount::new(len))
-        .bench_values(|(rng, pk_a, pk_b, plaintext, ciphertext)| {
-            pk_a.encrypt(rng, plaintext, ciphertext, &[pk_b.public_key()], None, None).unwrap()
+            b.iter(|| {
+                pk_a.encrypt(
+                    &mut rng,
+                    io::repeat(0).take(len),
+                    io::sink(),
+                    &[pk_b.public_key()],
+                    None,
+                    None,
+                )
+                .unwrap()
+            });
         });
+    }
+    g.finish();
 }
 
-#[divan::bench(args = LENS)]
-fn decrypt(bencher: divan::Bencher, len: u64) {
-    bencher
-        .with_inputs(|| {
+fn decrypt(c: &mut Criterion) {
+    let mut g = c.benchmark_group("decrypt");
+    for &(len, id) in LENS {
+        g.throughput(Throughput::Bytes(len));
+        g.bench_function(id, |b| {
             let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
             let pk_a = PrivateKey::random(&mut rng);
             let pk_b = PrivateKey::random(&mut rng);
@@ -46,76 +61,68 @@ fn decrypt(bencher: divan::Bencher, len: u64) {
                 None,
             )
             .unwrap();
-            (pk_a, pk_b, Cursor::new(ciphertext.into_inner()))
-        })
-        .counter(BytesCount::new(len))
-        .bench_refs(|(pk_a, pk_b, ciphertext)| {
-            pk_b.decrypt(ciphertext, io::sink(), &pk_a.public_key()).unwrap()
+            let ciphertext = Cursor::new(ciphertext.into_inner());
+            b.iter(|| pk_b.decrypt(ciphertext.clone(), io::sink(), &pk_a.public_key()).unwrap());
         });
+    }
+    g.finish();
 }
 
-#[divan::bench(args = LENS)]
-fn sign(bencher: divan::Bencher, len: u64) {
-    bencher
-        .with_inputs(|| {
+fn sign(c: &mut Criterion) {
+    let mut g = c.benchmark_group("sign");
+    for &(len, id) in LENS {
+        g.throughput(Throughput::Bytes(len));
+        g.bench_function(id, |b| {
             let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
             let pk = PrivateKey::random(&mut rng);
-            (rng, pk, io::repeat(0).take(len))
-        })
-        .counter(BytesCount::new(len))
-        .bench_refs(|(rng, pk, message)| pk.sign(rng, message).unwrap());
+            b.iter(|| pk.sign(&mut rng, io::repeat(0).take(len)).unwrap());
+        });
+    }
+    g.finish();
 }
 
-#[divan::bench(args = LENS)]
-fn verify(bencher: divan::Bencher, len: u64) {
-    bencher
-        .with_inputs(|| {
+fn verify(c: &mut Criterion) {
+    let mut g = c.benchmark_group("verify");
+    for &(len, id) in LENS {
+        g.throughput(Throughput::Bytes(len));
+        g.bench_function(id, |b| {
             let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
             let pk = PrivateKey::random(&mut rng);
             let sig = pk.sign(rng, io::repeat(0).take(len)).unwrap();
-            (pk, io::repeat(0).take(len), sig)
-        })
-        .counter(BytesCount::new(len))
-        .bench_refs(|(pk, message, sig)| pk.public_key().verify(message, sig));
+            b.iter(|| pk.public_key().verify(io::repeat(0).take(len), &sig).unwrap());
+        });
+    }
+    g.finish();
 }
 
-#[divan::bench(args = LENS)]
-fn digest(bencher: divan::Bencher, len: u64) {
-    bencher
-        .with_inputs(|| io::repeat(0).take(len))
-        .counter(BytesCount::new(len))
-        .bench_values(|message| Digest::new(&[""; 0], message).unwrap());
+fn digest(c: &mut Criterion) {
+    let mut g = c.benchmark_group("digest");
+    for &(len, id) in LENS {
+        g.throughput(Throughput::Bytes(len));
+        g.bench_function(id, |b| {
+            b.iter(|| Digest::new(&[""; 0], io::repeat(0).take(len)).unwrap());
+        });
+    }
+    g.finish();
 }
 
-const TIME_COSTS: &[u8] = &[1, 2, 4, 6, 8];
-
-#[divan::bench(args = TIME_COSTS)]
-fn pbenc_time(bencher: divan::Bencher, time: u8) {
-    bencher
-        .with_inputs(|| {
-            let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-            let pk = PrivateKey::random(&mut rng);
-            (rng, pk)
-        })
-        .bench_values(|(rng, pk)| pk.store(io::sink(), rng, b"passphrase", time, 0));
+fn pbenc(c: &mut Criterion) {
+    let mut g = c.benchmark_group("pbenc");
+    for time in [1, 2, 4, 8] {
+        for memory in [1, 2, 4, 8] {
+            g.bench_with_input(
+                format!("t={time}/m={memory}"),
+                &(time, memory),
+                |b, &(time, memory)| {
+                    let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+                    let pk = PrivateKey::random(&mut rng);
+                    b.iter(|| pk.store(io::sink(), &mut rng, b"passphrase", time, memory));
+                },
+            );
+        }
+    }
+    g.finish();
 }
 
-const MEMORY_COSTS: &[u8] = &[1, 2, 4, 6, 8];
-
-#[divan::bench(args = MEMORY_COSTS)]
-fn pbenc_memory(bencher: divan::Bencher, memory: u8) {
-    bencher
-        .with_inputs(|| {
-            let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-            let pk = PrivateKey::random(&mut rng);
-            (rng, pk)
-        })
-        .bench_values(|(rng, pk)| pk.store(io::sink(), rng, b"passphrase", 0, memory));
-}
-
-#[global_allocator]
-static ALLOC: divan::AllocProfiler = divan::AllocProfiler::system();
-
-fn main() {
-    divan::main();
-}
+criterion_group!(benches, encrypt, decrypt, sign, verify, digest, pbenc);
+criterion_main!(benches);

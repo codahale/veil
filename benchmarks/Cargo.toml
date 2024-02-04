@@ -5,13 +5,13 @@ publish = false
 edition = "2021"
 
 [dependencies]
-divan = "0.1.11"
+criterion = "0.5.1"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 veil = { path = "../veil" }
 
 [[bench]]
-name = "benches"
+name = "benchmarks"
 path = "benches/benchmarks.rs"
 harness = false
 
