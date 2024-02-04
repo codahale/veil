@@ -9,15 +9,7 @@ use rand_chacha::ChaChaRng;
 
 use veil::{Digest, PrivateKey};
 
-const LENS: &[(u64, &str)] = &[
-    (0, "0B"),
-    (1024, "1KiB"),
-    (8 * 1024, "8KiB"),
-    (32 * 1024, "32KiB"),
-    (64 * 1024, "64KiB"),
-    (128 * 1024, "128KiB"),
-    (1024 * 1024, "1MiB"),
-];
+const LENS: &[(u64, &str)] = &[(0, "0B"), (1024 * 1024, "1MiB"), (10 * 1024 * 1024, "10MiB")];
 
 fn encrypt(c: &mut Criterion) {
     let mut g = c.benchmark_group("encrypt");
