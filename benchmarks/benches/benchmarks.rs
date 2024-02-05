@@ -102,15 +102,11 @@ fn pbenc(c: &mut Criterion) {
     let mut g = c.benchmark_group("pbenc");
     for time in [1, 2, 4, 8] {
         for memory in [1, 2, 4, 8] {
-            g.bench_with_input(
-                format!("t={time}/m={memory}"),
-                &(time, memory),
-                |b, &(time, memory)| {
-                    let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-                    let pk = PrivateKey::random(&mut rng);
-                    b.iter(|| pk.store(io::sink(), &mut rng, b"passphrase", time, memory));
-                },
-            );
+            g.bench_function(format!("t={time}/m={memory}"), |b| {
+                let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+                let pk = PrivateKey::random(&mut rng);
+                b.iter(|| pk.store(io::sink(), &mut rng, b"passphrase", time, memory));
+            });
         }
     }
     g.finish();
