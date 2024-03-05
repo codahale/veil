@@ -140,9 +140,9 @@ dependencies = [
 
 [[package]]
 name = "bolero"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f9fec67acd9afcd579067cc506c537da49751b8b81c98d5a5e15ba1e853aa3c"
+checksum = "212e8dca6d4001cc6cac941d6932ddaa8cd27f57e5e44a9da19c913eb6a43b33"
 dependencies = [
  "bolero-afl",
  "bolero-engine",
@@ -166,9 +166,9 @@ dependencies = [
 
 [[package]]
 name = "bolero-engine"
-version = "0.10.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6a09b85b01ee6981baa38808cec0a3fe62a87abf7412ecd275e2fbbab266029"
+checksum = "6206263ebdd42e093c1229dab3957f61c9fd68d73c00f238ae25a378778b6bd3"
 dependencies = [
  "anyhow",
  "backtrace",
@@ -180,9 +180,9 @@ dependencies = [
 
 [[package]]
 name = "bolero-generator"
-version = "0.10.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "764b0d288a8730ed4ee928579d3e4e946e42e5333c500a8ca6a8e8b5e268379c"
+checksum = "ac749fb4f2e14734e835a9352c0d1eb2ab62a025d4c56a823fa3f391e015741a"
 dependencies = [
  "bolero-generator-derive",
  "either",
