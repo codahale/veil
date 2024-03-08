@@ -37,7 +37,6 @@
 //!   &mut ciphertext,
 //!   &[bea_pub],
 //!   Some(20),
-//!   Some(1234),
 //! )?;
 //!
 //! // Bea decrypts the message.

@@ -17,7 +17,7 @@ fn decrypt() {
 fn encrypt() {
     bolero::check!().with_type::<(u64, Vec<u8>)>().for_each(|(seed, data)| {
         let key = PrivateKey::random(ChaChaRng::seed_from_u64(*seed));
-        key.encrypt(OsRng, Cursor::new(data), io::sink(), &[key.public_key()], None, None)
+        key.encrypt(OsRng, Cursor::new(data), io::sink(), &[key.public_key()], None)
             .expect("should encrypt without error");
     });
 }

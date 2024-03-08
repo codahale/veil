@@ -12,12 +12,24 @@ use crate::{
     blockio::ReadBlock,
     keys::{PrivKey, PubKey},
     schnorr::{self, DET_SIGNATURE_LEN},
-    sres,
-    sres::NONCE_LEN,
+    sres::{self, NONCE_LEN},
     DecryptError, EncryptError,
 };
 
-/// The length of plaintext blocks which are encrypted.
+/// The length of a plaintext block header. The first byte signifies the block type, the next three
+/// are the following block length in bytes, encoded as a 24-bit unsigned little-endian integer.
+const BLOCK_HEADER_LEN: usize = 4;
+
+/// The length of an encrypted block header and authentication tag.
+const ENC_BLOCK_HEADER_LEN: usize = BLOCK_HEADER_LEN + TAG_LEN;
+
+/// A block of message data.
+const DATA_BLOCK: u8 = 0;
+
+/// A block of random padding.
+const PADDING_BLOCK: u8 = 1;
+
+/// The length of a plaintext block.
 const BLOCK_LEN: usize = 64 * 1024;
 
 /// The length of an encrypted block and authentication tag.
@@ -27,23 +39,20 @@ const ENC_BLOCK_LEN: usize = BLOCK_LEN + TAG_LEN;
 const DEK_LEN: usize = 32;
 
 /// The length of an encoded header.
-const HEADER_LEN: usize = DEK_LEN + mem::size_of::<u64>() + mem::size_of::<u64>();
+const HEADER_LEN: usize = DEK_LEN + mem::size_of::<u64>();
 
 /// The length of an encrypted header.
 const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
-/// `receivers` and write the ciphertext to `writer` with `padding` bytes of random data added.
+/// `receivers` and write the ciphertext to `writer` with some padding bytes of random data added.
 pub fn encrypt(
     mut rng: impl Rng + CryptoRng,
     reader: impl Read,
     mut writer: impl Write,
     sender: &PrivKey,
     receivers: &[PubKey],
-    padding: usize,
 ) -> Result<u64, EncryptError> {
-    let padding = u64::try_from(padding).expect("usize should be <= u64");
-
     // Initialize a protocol and mix the sender's public key into it.
     let mut mres = Protocol::new("veil.mres");
     mres.mix("sender", &sender.pub_key.encoded);
@@ -58,8 +67,8 @@ pub fn encrypt(
     let mut written = u64::try_from(NONCE_LEN).expect("usize should be <= u64");
     mres.mix("nonce", &nonce);
 
-    // Encode a header with the DEK, receiver count, and padding.
-    let header = Header::new(dek, receivers.len(), padding).encode();
+    // Encode a header with the DEK and receiver count.
+    let header = Header::new(dek, receivers.len()).encode();
 
     // For each receiver, encrypt a copy of the header with veil.sres.
     let mut enc_header = [0u8; ENC_HEADER_LEN];
@@ -78,41 +87,41 @@ pub fn encrypt(
         written += u64::try_from(ENC_HEADER_LEN).expect("usize should be <= u64");
     }
 
-    // Add random padding to the end of the headers, mixing it into the protocol.
-    let mut writer = mres.mix_writer("padding", writer);
-    written += io::copy(&mut RngRead(&mut rng).take(padding), &mut writer)
-        .map_err(EncryptError::WriteIo)?;
-    let (mut mres, mut writer) = writer.into_inner();
-
     // Mix the DEK into the protocol.
     mres.mix("dek", &dek);
 
-    // Encrypt the plaintext in blocks and write them.
-    written += encrypt_message(&mut mres, reader, &mut writer)?;
+    // Encrypt the plaintext in blocks and write them, then sign the message.
+    written += encrypt_message(&mut rng, mres, reader, writer, ephemeral)?;
 
-    // Deterministically sign the protocol's final state with the ephemeral private key and append
-    // the signature. The protocol's state is randomized with both the nonce and the ephemeral key,
-    // so the risk of e.g. fault attacks is minimal.
-    let sig = schnorr::det_sign(&mut mres, &ephemeral);
-    writer.write_all(&sig).map_err(EncryptError::WriteIo)?;
-
-    Ok(written + u64::try_from(DET_SIGNATURE_LEN).expect("usize should be <= u64"))
+    Ok(written)
 }
 
 /// Given a protocol keyed with the DEK, read the entire contents of `reader` in blocks and write
 /// the encrypted blocks and authentication tags to `writer`.
 fn encrypt_message(
-    mres: &mut Protocol,
+    mut rng: impl Rng + CryptoRng,
+    mut mres: Protocol,
     mut reader: impl Read,
     mut writer: impl Write,
+    ephemeral: PrivKey,
 ) -> Result<u64, EncryptError> {
     let mut buf = [0u8; ENC_BLOCK_LEN];
+    let mut block_header = [0u8; ENC_BLOCK_HEADER_LEN];
+    let mut read = 0;
     let mut written = 0;
 
     loop {
         // Read a block of data.
         let n = reader.read_block(&mut buf[..BLOCK_LEN]).map_err(EncryptError::ReadIo)?;
+        read += u64::try_from(n).expect("usize should be <= u64");
         let block = &mut buf[..n + TAG_LEN];
+
+        // Encode, seal, and write a data block header.
+        block_header[0] = DATA_BLOCK;
+        block_header[1..4].copy_from_slice(&(n as u32).to_le_bytes()[..3]);
+        mres.seal("block-header", &mut block_header);
+        writer.write_all(&block_header).map_err(EncryptError::WriteIo)?;
+        written += u64::try_from(block_header.len()).expect("usize should be <= u64");
 
         // Seal the block and write it.
         mres.seal("block", block);
@@ -124,6 +133,30 @@ fn encrypt_message(
             break;
         }
     }
+
+    // Calculate the number of bytes to automatically pad the message with.
+    let padding_len = padding_len(read);
+
+    // Encode, seal, and write a padding block header.
+    block_header[0] = PADDING_BLOCK;
+    block_header[1..4].copy_from_slice(&(padding_len as u32).to_le_bytes()[..3]);
+    mres.seal("block-header", &mut block_header);
+    writer.write_all(&block_header).map_err(EncryptError::WriteIo)?;
+    written += u64::try_from(block_header.len()).expect("usize should be <= u64");
+
+    // Seal and write the padding block.
+    let mut padding = vec![0u8; padding_len + TAG_LEN];
+    rng.fill_bytes(&mut padding[..padding_len]);
+    mres.seal("block", &mut padding);
+    writer.write_all(&padding).map_err(EncryptError::WriteIo)?;
+    written += u64::try_from(padding.len()).expect("usize should be <= u64");
+
+    // Deterministically sign the protocol's final state with the ephemeral private key and append
+    // the signature. The protocol's state is randomized with both the nonce and the ephemeral key,
+    // so the risk of e.g. fault attacks is minimal.
+    let sig = schnorr::det_sign(&mut mres, &ephemeral);
+    writer.write_all(&sig).map_err(EncryptError::WriteIo)?;
+    written += u64::try_from(sig.len()).expect("usize should be <= u64");
 
     // Return the number of ciphertext bytes written.
     Ok(written)
@@ -156,7 +189,7 @@ pub fn decrypt(
     let (written, sig) = decrypt_message(&mut mres, &mut reader, &mut writer)?;
 
     // Verify the signature and return the number of bytes written.
-    schnorr::det_verify(&mut mres, &ephemeral, sig)
+    schnorr::det_verify(&mut mres, &ephemeral, sig.try_into().expect("should be signature sized"))
         .and(Some(written))
         .ok_or(DecryptError::InvalidCiphertext)
 }
@@ -167,39 +200,39 @@ fn decrypt_message(
     mres: &mut Protocol,
     mut reader: impl Read,
     mut writer: impl Write,
-) -> Result<(u64, [u8; 64]), DecryptError> {
-    let mut buf = [0u8; ENC_BLOCK_LEN + DET_SIGNATURE_LEN];
-    let mut offset = 0;
+) -> Result<(u64, Vec<u8>), DecryptError> {
+    let mut header = [0u8; ENC_BLOCK_HEADER_LEN];
+    let mut buf = vec![0u8; ENC_BLOCK_LEN + DET_SIGNATURE_LEN];
     let mut written = 0;
 
     loop {
-        // Read a block and a possible signature, keeping in mind the unused bit of the buffer from
-        // the last iteration.
-        let n = reader.read_block(&mut buf[offset..]).map_err(DecryptError::ReadIo)?;
+        // Read and open a block header.
+        reader.read_exact(&mut header).map_err(DecryptError::ReadIo)?;
+        let header =
+            mres.open("block-header", &mut header).ok_or(DecryptError::InvalidCiphertext)?;
+        let block_len = (header[1] as usize)
+            + ((header[2] as usize) << 8)
+            + ((header[3] as usize) << 16)
+            + TAG_LEN;
 
-        // If we're at the end of the reader, we only have the signature left to process. Break out
-        // of the read loop and go process the signature.
-        if n == 0 {
-            break;
+        // Read and open the block.
+        reader.read_exact(&mut buf[..block_len]).map_err(DecryptError::ReadIo)?;
+        let plaintext =
+            mres.open("block", &mut buf[..block_len]).ok_or(DecryptError::InvalidCiphertext)?;
+        if header[0] == DATA_BLOCK {
+            // Write the plaintext.
+            writer.write_all(plaintext).map_err(DecryptError::WriteIo)?;
+            written += u64::try_from(plaintext.len()).expect("usize should be <= u64");
+        } else {
+            // Ignore the padding and read the final signature.
+            buf.truncate(0);
+            reader.read_to_end(&mut buf).map_err(DecryptError::ReadIo)?;
+            buf.shrink_to_fit();
+
+            // Return the number of written bytes and the signature.
+            return Ok((written, buf));
         }
-
-        // Pretend we don't see the possible signature at the end.
-        let block_len = n - DET_SIGNATURE_LEN + offset;
-        let block = &mut buf[..block_len];
-
-        // Open the block and write the plaintext. If the block cannot be decrypted, return an
-        // error.
-        let plaintext = mres.open("block", block).ok_or(DecryptError::InvalidCiphertext)?;
-        writer.write_all(plaintext).map_err(DecryptError::WriteIo)?;
-        written += u64::try_from(plaintext.len()).expect("usize should be <= u64");
-
-        // Copy the unused part to the beginning of the buffer and set the offset for the next loop.
-        buf.copy_within(block_len.., 0);
-        offset = buf.len() - block_len;
     }
-
-    // Return the number of bytes and the signature.
-    Ok((written, buf[..DET_SIGNATURE_LEN].try_into().expect("should be signature-sized")))
 }
 
 /// Iterate through the contents of `reader` looking for a header which was encrypted by the given
@@ -238,8 +271,8 @@ fn decrypt_header(
         if header.is_none() {
             if let Some((ephemeral, hdr)) = sres::decrypt(receiver, sender, &nonce, &mut enc_header)
             {
-                // If the header was successfully decrypted, keep the ephemeral public key, DEK, and
-                // padding and update the loop variable to not be effectively infinite.
+                // If the header was successfully decrypted, keep the ephemeral public key and DEK
+                // and update the loop variable to not be effectively infinite.
                 let hdr = Header::decode(hdr);
                 recv_count = hdr.recv_count;
                 header = Some((ephemeral, hdr));
@@ -252,11 +285,6 @@ fn decrypt_header(
     // Unpack the header values, if any.
     let (ephemeral, header) = header.ok_or(DecryptError::InvalidCiphertext)?;
 
-    // Read the padding and mix it into the protocol.
-    let mut writer = mres.mix_writer("padding", io::sink());
-    io::copy(&mut reader.take(header.padding), &mut writer).map_err(DecryptError::ReadIo)?;
-    let (mres, _) = writer.into_inner();
-
     // Return the ephemeral public key and DEK.
     Ok((mres, ephemeral, header.dek))
 }
@@ -264,12 +292,11 @@ fn decrypt_header(
 struct Header {
     dek: [u8; DEK_LEN],
     recv_count: u64,
-    padding: u64,
 }
 
 impl Header {
-    fn new(dek: [u8; DEK_LEN], recv_count: usize, padding: u64) -> Header {
-        Header { dek, recv_count: recv_count.try_into().expect("usize should be <= u64"), padding }
+    fn new(dek: [u8; DEK_LEN], recv_count: usize) -> Header {
+        Header { dek, recv_count: recv_count.try_into().expect("usize should be <= u64") }
     }
 
     #[inline]
@@ -277,14 +304,12 @@ impl Header {
     fn decode(header: &[u8]) -> Header {
         // Split header into components.
         let (dek, recv_count) = header.split_at(DEK_LEN);
-        let (recv_count, padding) = recv_count.split_at(mem::size_of::<u64>());
 
         // Decode components.
         let dek = dek.try_into().expect("should be DEK-sized");
         let recv_count = u64::from_le_bytes(recv_count.try_into().expect("should be 8 bytes"));
-        let padding = u64::from_le_bytes(padding.try_into().expect("should be 8 bytes"));
 
-        Header { dek, recv_count, padding }
+        Header { dek, recv_count }
     }
 
     #[inline]
@@ -292,26 +317,23 @@ impl Header {
     fn encode(&self) -> [u8; HEADER_LEN] {
         let mut header = [0u8; HEADER_LEN];
         let (hdr_dek, hdr_recv_count) = header.split_at_mut(DEK_LEN);
-        let (hdr_recv_count, hdr_padding) = hdr_recv_count.split_at_mut(mem::size_of::<u64>());
         hdr_dek.copy_from_slice(&self.dek);
         hdr_recv_count.copy_from_slice(&self.recv_count.to_le_bytes());
-        hdr_padding.copy_from_slice(&self.padding.to_le_bytes());
         header
     }
 }
 
-struct RngRead<R>(R)
-where
-    R: Rng + CryptoRng;
-
-impl<R> Read for RngRead<R>
-where
-    R: Rng + CryptoRng,
-{
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.0.try_fill_bytes(buf)?;
-        Ok(buf.len())
-    }
+/// Returns the number of bytes with which to pad a message of the given size.
+///
+/// Uses the PADMÉ algorithm from
+/// [Reducing Metadata Leakage from Encrypted Files and Communication with PURBs](https://bford.info/pub/sec/purb.pdf).
+#[inline]
+fn padding_len(len: u64) -> usize {
+    let e = 63u64.saturating_sub(len.leading_zeros() as u64);
+    let s = 64 - e.leading_zeros() as u64;
+    let z = e - s;
+    let mask = (1u64 << z) - 1;
+    usize::try_from(((len + mask) & !mask) - len).expect("should be <= usize")
 }
 
 #[cfg(test)]
@@ -423,7 +445,6 @@ mod tests {
             Cursor::new(&mut ciphertext),
             &sender,
             &[sender.pub_key, receiver.pub_key],
-            123,
         )
         .expect("encryption should be ok");
 

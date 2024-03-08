@@ -132,10 +132,6 @@ struct EncryptArgs {
     /// Add fake receivers.
     #[arg(long, value_name = "COUNT")]
     fakes: Option<usize>,
-
-    /// Add random bytes of padding.
-    #[arg(long, value_name = "BYTES")]
-    padding: Option<usize>,
 }
 
 impl Runnable for EncryptArgs {
@@ -143,12 +139,12 @@ impl Runnable for EncryptArgs {
         let input = open_input(&self.input)?;
         let output = open_output(&self.output, true)?;
         let private_key = self.private_key.decrypt()?;
-        private_key
-            .encrypt(OsRng, input, output, &self.receivers, self.fakes, self.padding)
-            .map_err(|e| match e {
+        private_key.encrypt(OsRng, input, output, &self.receivers, self.fakes).map_err(
+            |e| match e {
                 veil::EncryptError::ReadIo(e) => CliError::ReadIo(e, self.input),
                 veil::EncryptError::WriteIo(e) => CliError::WriteIo(e, self.output),
-            })?;
+            },
+        )?;
         Ok(())
     }
 }

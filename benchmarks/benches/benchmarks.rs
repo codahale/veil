@@ -26,7 +26,6 @@ fn encrypt(c: &mut Criterion) {
                     io::sink(),
                     &[pk_b.public_key()],
                     None,
-                    None,
                 )
                 .unwrap()
             });
@@ -49,7 +48,6 @@ fn decrypt(c: &mut Criterion) {
                 io::repeat(0).take(len),
                 &mut ciphertext,
                 &[pk_b.public_key()],
-                None,
                 None,
             )
             .unwrap();

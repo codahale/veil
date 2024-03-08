@@ -63,7 +63,7 @@ fn encrypt_and_decrypt_a_message() -> Result<()> {
     let ciphertext_path = &dir.path().join("message.veil");
     veil_cmd!(
         sh,
-        "encrypt -k {private_key_path_a:?} -i {message_file:?} -o {ciphertext_path:?} -r {public_key_b} --fakes=20 --padding=1024", 
+        "encrypt -k {private_key_path_a:?} -i {message_file:?} -o {ciphertext_path:?} -r {public_key_b} --fakes=20", 
         alice_passphrase
     )
     .run()?;

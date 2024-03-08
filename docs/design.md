@@ -627,10 +627,10 @@ sender's retention of the ephemeral private key.
 ### Encrypting A Message
 
 Encrypting a message requires a sender's secret `x_S`, receiver public keys `[Q_R_0,…,Q_R_n]`,
-padding length `N_P`, and plaintext `P`.
+and plaintext `P`.
 
 ```text
-function EncryptMessage(x_S, [Q_R_0,…,Q_R_n], N_P, P):
+function EncryptMessage(x_S, [Q_R_0,…,Q_R_n], P):
   (d_S, n_S) ← DeriveScalar(x_S)                 // Derive a private key and nonce from the sender's secret.
   state ← Initialize("veil.mres")                // Initialize a protocol.
   state ← Mix(state, "sender", [d_S]G)           // Mix the sender's public key into the protocol.
@@ -639,7 +639,7 @@ function EncryptMessage(x_S, [Q_R_0,…,Q_R_n], N_P, P):
   N ← Rand(16)                                   // Generate a random nonce.
   C ← N                                          // Write the nonce.
   state ← Mix(state, "nonce", N)                 // Mix the nonce into the protocol.
-  H ← KǁN_QǁN_P                                  // Encode the DEK and params in a header.
+  H ← KǁN_Q                                      // Encode the DEK and params in a header.
 
   for Q_R_i in [Q_R_0,…,Q_R_n]:
     (state, N_i) ← Derive(state, "header-nonce", 16) // Derive a nonce for each header.
@@ -647,15 +647,17 @@ function EncryptMessage(x_S, [Q_R_0,…,Q_R_n], N_P, P):
     state ← Mix(state, "header", E_i)                // Mix the encrypted header into the protocol.
     C ← CǁE_i
 
-  y ← Rand(N_P)                                  // Generate random padding.
-  state ← Mix(state, "padding", y)               // Mix the padding into the protocol.
-  C ← Cǁy                                        // Append padding to ciphertext.
+  state ← Mix(state, "dek", K) // Mix the DEK into the protocol.
 
-  state ← Mix(state, "dek", K)                   // Mix the DEK into the protocol.
-
-  for 32KiB blocks p in P:                       // Seal each block.
+  for all blocks p in P:
+    H_i ← Seal(state, "block-header", 0x00ǁLE_24(|p|)) // Encrypt each block with a header.
     C_i ← Seal(state, "block", p)
-    C ← CǁC_i
+    C ← CǁH_iǁC_i
+
+  N_P ← PADME(|P|)                                   // Generate a block of random padding.
+  H_p ← Seal(state, "block-header", 0x01ǁLE_24(N_P))
+  C_p ← Seal(state, "block", Rand(N_P))
+  C ← CǁH_pǁC_p
 
   k ← Rand(32) mod ℓ                                     // Generate a random commitment scalar.
   I ← [k]G                                               // Calculate the commitment point.
@@ -691,21 +693,21 @@ function DecryptMessage(x_R, Q_S, C):
     state ← Mix(state, "header", E_i)
     x ← DecryptHeader(d_R, Q_S, N_i, E_i)
     if x ≠ ⊥:
-      (Q_E, KǁN_QǁN_P) ← x              // Once we decrypt a header, process the remaining headers.
-
-  state ← Mix(state, "padding", C[..N_P])          // Mix the padding into the protocol.
-  C ← C[N_P..]                          // Skip to the message beginning.
+      (Q_E, KǁN_Q) ← x // Once we decrypt a header, process the remaining headers.
 
   state ← Mix(state, "dek", K)                 // Mix the DEK into the protocol.
 
   P ← ϵ
-  for 32KiB blocks c_iǁt_i in C:        // Unseal each block.
-    (state, p_i) ← Unseal(state, "block", c_i)
-    if p_i = ⊥:
-      return ⊥
-    P ← Pǁp_i
+  for each encrypted block header E_i in C:    // Read and open each block header and block.
+      TǁN_i ← Open(state, "block_header", E_i)
+      (C_i, C) ← (C[..N_i], C[N_i..])
+      P_i ← Open(state, "block", C_i)
+      if t = 0x00:
+        P ← Pǁp_i
+      else:
+        break
 
-  S₀ǁS₁ ← C                                                // Split the last 64 bytes of the message.
+  S₀ǁS₁ ← C                                                // Split the last bytes of the message.
   (state, I) ← Decrypt(state, "commitment-point", S₀)      // Decrypt the commitment point.
   (state, r₀′ǁr₁′) ← Derive(state, "challenge-scalar", 16) // Derive two counterfactual short challenge scalars.
   (state, s) ← Decrypt(state, "proof-scalar", S₁)          // Decrypt the proof scalar.
@@ -903,7 +905,7 @@ Decrypting a private key requires a passphrase `P` and ciphertext `C=N_TǁN_SǁS
 ```text
 function DecryptPrivateKey(P, N_T, N_S, C):
   state ← InitFromPassphrase(P, S, N_T, N_S) // Perform the balloon hashing.
-  (state, d′) ← Unseal(state, "secret", C)   // Unseal the ciphertext.
+  (state, d′) ← Open(state, "secret", C)     // Open the ciphertext.
   return d′
 ```
 

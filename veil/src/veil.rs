@@ -91,7 +91,6 @@ impl PrivateKey {
         writer: impl Write,
         receivers: &[PublicKey],
         fakes: Option<usize>,
-        padding: Option<usize>,
     ) -> Result<u64, EncryptError> {
         let mut receivers = receivers
             .iter()
@@ -103,7 +102,7 @@ impl PrivateKey {
         receivers.shuffle(&mut rng);
 
         // Finally, encrypt.
-        mres::encrypt(&mut rng, reader, writer, &self.0, &receivers, padding.unwrap_or_default())
+        mres::encrypt(&mut rng, reader, writer, &self.0, &receivers)
     }
 
     /// Decrypts the contents of `reader`, if possible, and writes the plaintext to `writer`.
@@ -293,7 +292,6 @@ mod tests {
                 Cursor::new(&mut ciphertext),
                 &[b.public_key()],
                 Some(20),
-                Some(123),
             )
             .expect("encryption should be ok");
         assert_eq!(
