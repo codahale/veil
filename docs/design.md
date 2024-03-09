@@ -300,23 +300,6 @@ on the ECDH shared secret. An adversary attempting to forge an authenticator giv
 ciphertext and the key used to produce the tag will be unable to reconstruct the protocol's state
 and thus unable to compute their forgery.
 
-### Deriving Private Scalars From Secrets
-
-Like EdDSA, Veil derives private scalars from a 64-byte secret value:
-
-```text
-function DeriveScalar(x):
-  state ← Initialize("veil.skd")                 // Initialize a protocol.
-  state ← Mix(state, "secret", x)                // Mix the secret value into the protocol's state.
-  (state, d) ← Derive(state, "scalar", 32) mod ℓ // Derive a private scalar.
-  (state, z) ← Derive(state, "nonce", 64)        // Derive a 64-byte nonce.
-  return d, z
-```
-
-Similarly a per-secret unique value is derived and returned.
-
-The security of this construction is discussed in [[BDD23]](#bdd23).
-
 ## Digital Signatures
 
 `veil.schnorr` implements an EdDSA-style Schnorr digital signature scheme using Pornin's scheme for
@@ -324,11 +307,11 @@ fast Schnorr signatures [[Por23]](#por23).
 
 ### Signing A Message
 
-Signing a message requires a signer's secret `x` and a message `m` of arbitrary length.
+Signing a message requires a signer's private key `d`, a signer's secret nonce `z`, and a message
+`m` of arbitrary length.
 
 ```text
-function Sign(x, m):
-  (d, z) ← DeriveScalar(x)                               // Derive a private key and nonce from the secret.
+function Sign(d, z, m):
   state ← Initialize("veil.schnorr")                     // Initialize a protocol.
   state ← Mix(state, "signer", [d]G)                     // Mix the signer's public key into the protocol.
   n ← Rand(16)                                           // Generate a random nonce.
@@ -457,12 +440,11 @@ Schnorr signature scheme to provide multi-user insider security with limited den
 
 ### Encrypting A Header
 
-Encrypting a header requires a sender's secret `x_S`, an ephemeral private key `d_E`, the receiver's
-public key `Q_R`, a nonce `N`, and a plaintext `P`.
+Encrypting a header requires a sender's private key `d_S`, a sender's secret nonce `z_S`, an
+ephemeral private key `d_E`, the receiver's public key `Q_R`, a nonce `N`, and a plaintext `P`.
 
 ```text
-function EncryptHeader(x_S, d_E, Q_R, N, P):
-  (d_S, z_S) ← DeriveScalar(x_S)                           // Derive a private key and nonce from the sender's secret.
+function EncryptHeader(d_S, z_S, d_E, Q_R, N, P):
   state ← Initialize("veil.sres")                          // Initialize a protocol.
   state ← Mix(state, "sender", [d_S]G)                     // Mix the sender's public key into the protocol.
   state ← Mix(state, "receiver", Q_R)                      // Mix the receiver's public key into the protocol.
@@ -484,12 +466,11 @@ function EncryptHeader(x_S, d_E, Q_R, N, P):
 
 ### Decrypting A Header
 
-Decrypting a header requires a receiver's secret `x_R`, the sender's public key `Q_R`, a nonce `N`,
-and a ciphertext `C₀ǁC₁ǁS₀ǁS₁`.
+Decrypting a header requires a receiver's private key `d_R`, the sender's public key `Q_R`, a nonce
+`N`, and a ciphertext `C₀ǁC₁ǁS₀ǁS₁`.
 
 ```text
-function DecryptHeader(x_R, Q_S, N, C₀ǁC₁ǁS₀ǁS₁):
-  (d_R, _) ← DeriveScalar(x_R)                              // Derive a private key from the receiver's secret.
+function DecryptHeader(d_R, Q_S, N, C₀ǁC₁ǁS₀ǁS₁):
   state ← Initialize("veil.sres")                           // Initialize a protocol.
   state ← Mix(state, "sender", Q_S)                         // Mix the sender's public key into the protocol.
   state ← Mix(state, "receiver", [d_R]G)                    // Mix the receiver's public key into the protocol.
@@ -626,12 +607,11 @@ sender's retention of the ephemeral private key.
 
 ### Encrypting A Message
 
-Encrypting a message requires a sender's secret `x_S`, receiver public keys `[Q_R_0,…,Q_R_n]`,
-and plaintext `P`.
+Encrypting a message requires a sender's private key `d_S`, a sender's secret nonce `z_S`, receiver
+public keys `[Q_R_0,…,Q_R_n]`, and plaintext `P`.
 
 ```text
-function EncryptMessage(x_S, [Q_R_0,…,Q_R_n], P):
-  (d_S, n_S) ← DeriveScalar(x_S)                 // Derive a private key and nonce from the sender's secret.
+function EncryptMessage(d_S, z_S, [Q_R_0,…,Q_R_n], P):
   state ← Initialize("veil.mres")                // Initialize a protocol.
   state ← Mix(state, "sender", [d_S]G)           // Mix the sender's public key into the protocol.
   d_E ← Rand(32) mod ℓ                           // Generate a random ephemeral private key.
@@ -674,15 +654,14 @@ function EncryptMessage(x_S, [Q_R_0,…,Q_R_n], P):
 
 ### Decrypting A Message
 
-Decrypting a message requires a receiver's secret `x_R`, sender's public key `Q_S`, and
+Decrypting a message requires a receiver's private key `d_R`, sender's public key `Q_S`, and
 ciphertext `C`.
 
 ```text
-function DecryptMessage(x_R, Q_S, C):
-  (d_S, _) ← DeriveScalar(x_R)          // Derive a private key from the receiver's secret.
+function DecryptMessage(d_R, Q_S, C):
   state ← Initialize("veil.mres")       // Initialize a protocol.
-  state ← Mix(state, "sender", Q_S)               // Mix the sender's public key into the protocol.
-  state ← Mix(state, "nonce", C[0..16])          // Mix the nonce into the protocol.
+  state ← Mix(state, "sender", Q_S)     // Mix the sender's public key into the protocol.
+  state ← Mix(state, "nonce", C[0..16]) // Mix the nonce into the protocol.
   C ← C[16..]
 
   (i, N_Q) ← (0, ∞)                     // Go through ciphertext looking for a decryptable header.

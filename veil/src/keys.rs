@@ -5,7 +5,10 @@ use lockstitch::Protocol;
 use rand::{CryptoRng, Rng};
 
 /// The length of a secret in bytes.
-pub const SECRET_LEN: usize = 64;
+pub const SECRET_LEN: usize = SCALAR_LEN + NONCE_LEN;
+
+/// The length of a nonce in bytes.
+pub const NONCE_LEN: usize = 64;
 
 /// The length of an encoded scalar in bytes.
 pub const SCALAR_LEN: usize = 32;
@@ -50,33 +53,26 @@ impl PartialEq for PubKey {
 
 /// A private key, including its public key.
 pub struct PrivKey {
-    /// The derived private scalar; always non-zero.
+    /// The private scalar; always non-zero.
     pub d: Scalar,
+
     /// The corresponding [`PubKey`] for the private key; always derived from `d`.
     pub pub_key: PubKey,
-    /// The original secret value.
-    pub secret: [u8; SECRET_LEN],
-    /// The derived nonce value; intended to be unique per secret.
-    nonce: [u8; SECRET_LEN],
+
+    /// The scalar's canonical encoded form and the nonce.
+    pub encoded: [u8; SECRET_LEN],
 }
 
 impl PrivKey {
-    /// Derives a private key from the given secret.
-    pub fn from_secret_bytes(secret: [u8; SECRET_LEN]) -> PrivKey {
-        let mut skd = Protocol::new("veil.skd");
-        skd.mix("secret", &secret);
-
-        let d = Scalar::decode_reduce(&skd.derive_array::<32>("scalar"));
-        let q = Point::mulgen(&d);
-        let nonce = skd.derive_array("nonce");
-
-        PrivKey { d, pub_key: PubKey { q, encoded: q.encode() }, secret, nonce }
-    }
-
     /// Generates a random private key.
     #[must_use]
     pub fn random(mut rng: impl CryptoRng + Rng) -> PrivKey {
-        PrivKey::from_secret_bytes(rng.gen())
+        let d = Scalar::decode_reduce(&rng.gen::<[u8; SCALAR_LEN]>());
+        let q = Point::mulgen(&d);
+        let mut encoded = [0u8; SECRET_LEN];
+        encoded[..SCALAR_LEN].copy_from_slice(&d.encode());
+        rng.fill_bytes(&mut encoded[SCALAR_LEN..]);
+        PrivKey { d, pub_key: PubKey { q, encoded: q.encode() }, encoded }
     }
 
     /// Uses the key's nonce and a clone of the given protocol to deterministically create a
@@ -84,8 +80,17 @@ impl PrivKey {
     #[must_use]
     pub fn commitment(&self, protocol: &Protocol) -> Scalar {
         let mut clone = protocol.clone();
-        clone.mix("signer-nonce", &self.nonce);
+        clone.mix("signer-nonce", &self.encoded[SCALAR_LEN..]);
         Scalar::decode_reduce(&clone.derive_array::<32>("commitment-scalar"))
+    }
+
+    /// Decodes the given slice as a private key, if possible.
+    #[must_use]
+    pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<PrivKey> {
+        let encoded = <[u8; SECRET_LEN]>::try_from(b.as_ref()).ok()?;
+        let d = Scalar::decode(&encoded[..SCALAR_LEN])?;
+        let q = Point::mulgen(&d);
+        Some(PrivKey { d, pub_key: PubKey { q, encoded: q.encode() }, encoded })
     }
 }
 

@@ -49,7 +49,7 @@ impl PrivateKey {
         memory_cost: u8,
     ) -> io::Result<usize> {
         let mut enc_key = [0u8; SECRET_LEN + pbenc::OVERHEAD];
-        pbenc::encrypt(rng, passphrase, time_cost, memory_cost, &self.0.secret, &mut enc_key);
+        pbenc::encrypt(rng, passphrase, time_cost, memory_cost, &self.0.encoded, &mut enc_key);
         writer.write_all(&enc_key)?;
         Ok(enc_key.len())
     }
@@ -67,8 +67,7 @@ impl PrivateKey {
 
         // Decrypt the ciphertext and use the plaintext as the private key.
         pbenc::decrypt(passphrase, &mut b)
-            .and_then(|b| b.try_into().ok())
-            .map(PrivKey::from_secret_bytes)
+            .and_then(PrivKey::from_canonical_bytes)
             .map(PrivateKey)
             .ok_or(DecryptError::InvalidCiphertext)
     }
@@ -205,7 +204,7 @@ mod tests {
         let rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let pk = PrivateKey::random(rng).public_key();
 
-        expect!["CNYNfYzLm22yHDwpJJAe2yo6S3nEcFzge873NCRce8kF"].assert_eq(&pk.to_string());
+        expect!["6DTweDzYgCtZMbzF1WoqFoiwZVkzxwtovf51wAQPDbwg"].assert_eq(&pk.to_string());
 
         let decoded = pk.to_string().parse::<PublicKey>();
         assert_eq!(Ok(pk), decoded, "error parsing public key");
