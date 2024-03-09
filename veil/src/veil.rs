@@ -93,9 +93,9 @@ impl PrivateKey {
     ) -> Result<u64, EncryptError> {
         let mut receivers = receivers
             .iter()
-            .map(|pk| pk.0)
-            .chain(iter::repeat_with(|| PubKey::random(&mut rng)).take(fakes.unwrap_or_default()))
-            .collect::<Vec<PubKey>>();
+            .map(|pk| Some(pk.0))
+            .chain(iter::repeat(None).take(fakes.unwrap_or_default()))
+            .collect::<Vec<Option<PubKey>>>();
 
         // Shuffle the receivers list.
         receivers.shuffle(&mut rng);

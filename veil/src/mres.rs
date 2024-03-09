@@ -47,7 +47,7 @@ pub fn encrypt(
     reader: impl Read,
     mut writer: impl Write,
     sender: &PrivKey,
-    receivers: &[PubKey],
+    receivers: &[Option<PubKey>],
 ) -> Result<u64, EncryptError> {
     // Initialize a protocol and mix the sender's public key into it.
     let mut mres = Protocol::new("veil.mres");
@@ -72,8 +72,13 @@ pub fn encrypt(
         // Derive a nonce for each header.
         let nonce = mres.derive_array::<NONCE_LEN>("header-nonce");
 
-        // Encrypt the header for the given receiver.
-        sres::encrypt(sender, &ephemeral, receiver, &nonce, &header, &mut enc_header);
+        // Encrypt the header for the given receiver, if any, or use random data to create a fake
+        // recipient.
+        if let Some(receiver) = receiver {
+            sres::encrypt(sender, &ephemeral, receiver, &nonce, &header, &mut enc_header);
+        } else {
+            rng.fill_bytes(&mut enc_header);
+        }
 
         // Mix the encrypted header into the protocol.
         mres.mix("header", &enc_header);
@@ -371,10 +376,15 @@ mod tests {
     fn wrong_sender() {
         let (mut rng, _, receiver, _, ciphertext) = setup(64);
 
-        let wrong_sender = PubKey::random(&mut rng);
+        let wrong_sender = PrivKey::random(&mut rng);
 
         assert_matches!(
-            decrypt(Cursor::new(ciphertext), Cursor::new(Vec::new()), &receiver, &wrong_sender),
+            decrypt(
+                Cursor::new(ciphertext),
+                Cursor::new(Vec::new()),
+                &receiver,
+                &wrong_sender.pub_key
+            ),
             Err(DecryptError::InvalidCiphertext)
         );
     }
@@ -452,7 +462,7 @@ mod tests {
             Cursor::new(&plaintext),
             Cursor::new(&mut ciphertext),
             &sender,
-            &[sender.pub_key, receiver.pub_key],
+            &[Some(sender.pub_key), Some(receiver.pub_key), None],
         )
         .expect("encryption should be ok");
 

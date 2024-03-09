@@ -195,9 +195,9 @@ mod tests {
     #[test]
     fn wrong_signer() {
         let (mut rng, _, message, sig) = setup();
-        let wrong_signer = PubKey::random(&mut rng);
+        let wrong_signer = PrivKey::random(&mut rng);
         assert_matches!(
-            verify(&wrong_signer, Cursor::new(message), &sig),
+            verify(&wrong_signer.pub_key, Cursor::new(message), &sig),
             Err(VerifyError::InvalidSignature)
         );
     }
