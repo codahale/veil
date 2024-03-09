@@ -58,7 +58,6 @@
 
 pub use self::{digest::*, errors::*, schnorr::Signature, veil::*};
 
-mod blockio;
 mod digest;
 mod errors;
 mod keys;

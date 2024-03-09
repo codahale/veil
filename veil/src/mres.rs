@@ -9,7 +9,6 @@ use lockstitch::{Protocol, TAG_LEN};
 use rand::{CryptoRng, Rng};
 
 use crate::{
-    blockio::ReadBlock,
     keys::{PrivKey, PubKey},
     schnorr::{self, DET_SIGNATURE_LEN},
     sres::{self, NONCE_LEN},
@@ -105,16 +104,23 @@ fn encrypt_message(
     mut writer: impl Write,
     ephemeral: PrivKey,
 ) -> Result<u64, EncryptError> {
-    let mut buf = [0u8; ENC_BLOCK_LEN];
+    let mut block = Vec::with_capacity(ENC_BLOCK_LEN);
     let mut block_header = [0u8; ENC_BLOCK_HEADER_LEN];
     let mut read = 0;
     let mut written = 0;
 
     loop {
         // Read a block of data.
-        let n = reader.read_block(&mut buf[..BLOCK_LEN]).map_err(EncryptError::ReadIo)?;
+        let n = (&mut reader)
+            .take(BLOCK_LEN as u64)
+            .read_to_end(&mut block)
+            .map_err(EncryptError::ReadIo)?;
         read += u64::try_from(n).expect("usize should be <= u64");
-        let block = &mut buf[..n + TAG_LEN];
+
+        // Break if we're at the end of the reader.
+        if n == 0 {
+            break;
+        }
 
         // Encode, seal, and write a data block header.
         block_header[0] = DATA_BLOCK;
@@ -124,14 +130,18 @@ fn encrypt_message(
         written += u64::try_from(block_header.len()).expect("usize should be <= u64");
 
         // Seal the block and write it.
-        mres.seal("block", block);
-        writer.write_all(block).map_err(EncryptError::WriteIo)?;
+        block.resize(n + TAG_LEN, 0);
+        mres.seal("block", &mut block);
+        writer.write_all(&block).map_err(EncryptError::WriteIo)?;
         written += u64::try_from(block.len()).expect("usize should be <= u64");
 
         // If the block was undersized, we're at the end of the reader.
         if n < BLOCK_LEN {
             break;
         }
+
+        // Reset the block buffer for the next read.
+        block.truncate(0);
     }
 
     // Calculate the number of bytes to automatically pad the message with.
