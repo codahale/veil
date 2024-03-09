@@ -10,7 +10,7 @@ use rand::{CryptoRng, Rng};
 
 use crate::{
     keys::{PrivKey, PubKey},
-    schnorr::{self, DET_SIGNATURE_LEN},
+    schnorr::{self},
     sres::{self, NONCE_LEN},
     DecryptError, EncryptError,
 };
@@ -23,16 +23,13 @@ const BLOCK_HEADER_LEN: usize = 4;
 const ENC_BLOCK_HEADER_LEN: usize = BLOCK_HEADER_LEN + TAG_LEN;
 
 /// A block of message data.
-const DATA_BLOCK: u8 = 0;
+const DATA_BLOCK: u8 = 0x00;
 
 /// A block of random padding.
-const PADDING_BLOCK: u8 = 1;
+const PADDING_BLOCK: u8 = 0x01;
 
 /// The length of a plaintext block.
 const BLOCK_LEN: usize = 64 * 1024;
-
-/// The length of an encrypted block and authentication tag.
-const ENC_BLOCK_LEN: usize = BLOCK_LEN + TAG_LEN;
 
 /// The length of the data encryption key.
 const DEK_LEN: usize = 32;
@@ -104,7 +101,7 @@ fn encrypt_message(
     mut writer: impl Write,
     ephemeral: PrivKey,
 ) -> Result<u64, EncryptError> {
-    let mut block = Vec::with_capacity(ENC_BLOCK_LEN);
+    let mut block = Vec::with_capacity(BLOCK_LEN + TAG_LEN);
     let mut block_header = [0u8; ENC_BLOCK_HEADER_LEN];
     let mut read = 0;
     let mut written = 0;
@@ -212,7 +209,7 @@ fn decrypt_message(
     mut writer: impl Write,
 ) -> Result<(u64, Vec<u8>), DecryptError> {
     let mut header = [0u8; ENC_BLOCK_HEADER_LEN];
-    let mut buf = vec![0u8; ENC_BLOCK_LEN + DET_SIGNATURE_LEN];
+    let mut buf = Vec::with_capacity(BLOCK_LEN + TAG_LEN);
     let mut written = 0;
 
     loop {
@@ -224,6 +221,7 @@ fn decrypt_message(
             + ((header[2] as usize) << 8)
             + ((header[3] as usize) << 16)
             + TAG_LEN;
+        buf.resize(block_len, 0);
 
         // Read and open the block.
         reader.read_exact(&mut buf[..block_len]).map_err(DecryptError::ReadIo)?;
@@ -400,7 +398,7 @@ mod tests {
 
     #[test]
     fn multi_block_message() {
-        let (_, sender, receiver, plaintext, ciphertext) = setup(65 * 1024);
+        let (_, sender, receiver, plaintext, ciphertext) = setup(BLOCK_LEN * 5 + 102);
 
         let mut writer = Cursor::new(Vec::new());
         let ptx_len = decrypt(Cursor::new(ciphertext), &mut writer, &receiver, &sender.pub_key)
