@@ -61,13 +61,12 @@ veil encrypt -k ./my-private-key \
      -o message.txt.veil \
      -r TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa \
      -r BfksdzSKbmcS2Suav16dmYE2WxifqauPRL6FZpJt1476 \
-     --fakes 18 --padding 1234
+     --fakes 18
 ```
 
 This will create a file `message.txt.veil` which the owners of the two public keys can decrypt if
 they have your public key. It adds 18 fake receivers, so neither receiver really knows how many
-people you sent the message to. It also adds 1234 bytes of random padding, so someone monitoring
-your communications won't know how long the message really is.
+people you sent the message to.
 
 ## Decrypting A Message
 

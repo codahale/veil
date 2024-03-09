@@ -758,11 +758,11 @@ new ciphertext they can then trick the receiver into decrypting for them. Again,
 decryption making this infeasible.
 
 `A` is unable to forge valid signatures for existing ciphertexts, limiting them to passive attacks.
-`veil.mres` ciphertexts consist of ephemeral keys, encrypted headers, random padding, encrypted
-message blocks, and encrypted signature points. Each component of the ciphertext is dependent on the
-previous inputs (including the headers, which use `Derive`-derived nonce to link the `veil.sres`
-ciphertexts to the `veil.mres` state). A passive attack on any of those would only be possible if
-either TurboSHAKE128 is not collision-resistant or AEGIS-128L is not PRF secure.
+`veil.mres` ciphertexts consist of ephemeral keys, encrypted headers, encrypted message blocks, and
+encrypted signature points. Each component of the ciphertext is dependent on the previous inputs
+(including the headers, which use `Derive`-derived nonce to link the `veil.sres` ciphertexts to the
+`veil.mres` state). A passive attack on any of those would only be possible if either TurboSHAKE128
+is not collision-resistant or AEGIS-128L is not PRF secure.
 
 #### Insider Confidentiality Of Messages
 

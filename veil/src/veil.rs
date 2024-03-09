@@ -75,8 +75,7 @@ impl PrivateKey {
 
     /// Encrypts the contents of the reader and write the ciphertext to the writer.
     ///
-    /// Optionally add a number of fake receivers to disguise the number of true receivers and/or
-    /// random padding to disguise the message length.
+    /// Optionally add a number of fake receivers to disguise the number of true receivers.
     ///
     /// Returns the number of bytes of ciphertext written to `writer`.
     ///
