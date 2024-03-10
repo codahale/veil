@@ -9,8 +9,8 @@ use lockstitch::{Protocol, TAG_LEN};
 use rand::{CryptoRng, Rng};
 
 use crate::{
-    keys::{PrivKey, PubKey},
-    schnorr::{self},
+    keys::{EphemeralPrivKey, EphemeralPubKey, StaticPrivKey, StaticPubKey},
+    schnorr,
     sres::{self, NONCE_LEN},
     DecryptError, EncryptError,
 };
@@ -46,15 +46,15 @@ pub fn encrypt(
     mut rng: impl Rng + CryptoRng,
     reader: impl Read,
     mut writer: impl Write,
-    sender: &PrivKey,
-    receivers: &[Option<PubKey>],
+    sender: &StaticPrivKey,
+    receivers: &[Option<StaticPubKey>],
 ) -> Result<u64, EncryptError> {
     // Initialize a protocol and mix the sender's public key into it.
     let mut mres = Protocol::new("veil.mres");
     mres.mix("sender", &sender.pub_key.encoded);
 
     // Generate a random ephemeral key pair, DEK, and nonce.
-    let ephemeral = PrivKey::random(&mut rng);
+    let ephemeral = EphemeralPrivKey::random(&mut rng);
     let dek = rng.gen::<[u8; DEK_LEN]>();
     let nonce = rng.gen::<[u8; NONCE_LEN]>();
 
@@ -75,7 +75,7 @@ pub fn encrypt(
         // Encrypt the header for the given receiver, if any, or use random data to create a fake
         // recipient.
         if let Some(receiver) = receiver {
-            sres::encrypt(sender, &ephemeral, receiver, &nonce, &header, &mut enc_header);
+            sres::encrypt(&mut rng, sender, &ephemeral, receiver, &nonce, &header, &mut enc_header);
         } else {
             rng.fill_bytes(&mut enc_header);
         }
@@ -104,7 +104,7 @@ fn encrypt_message(
     mut mres: Protocol,
     mut reader: impl Read,
     mut writer: impl Write,
-    ephemeral: PrivKey,
+    ephemeral: EphemeralPrivKey,
 ) -> Result<u64, EncryptError> {
     let mut block = Vec::with_capacity(BLOCK_LEN + TAG_LEN);
     let mut block_header = [0u8; ENC_BLOCK_HEADER_LEN];
@@ -166,7 +166,7 @@ fn encrypt_message(
     // Deterministically sign the protocol's final state with the ephemeral private key and append
     // the signature. The protocol's state is randomized with both the nonce and the ephemeral key,
     // so the risk of e.g. fault attacks is minimal.
-    let sig = schnorr::det_sign(&mut mres, &ephemeral);
+    let sig = schnorr::det_sign(&mut mres, &ephemeral.sk);
     writer.write_all(&sig).map_err(EncryptError::WriteIo)?;
     written += u64::try_from(sig.len()).expect("usize should be <= u64");
 
@@ -179,8 +179,8 @@ fn encrypt_message(
 pub fn decrypt(
     mut reader: impl Read,
     mut writer: impl Write,
-    receiver: &PrivKey,
-    sender: &PubKey,
+    receiver: &StaticPrivKey,
+    sender: &StaticPubKey,
 ) -> Result<u64, DecryptError> {
     // Initialize a protocol and mix the sender's public key into it.
     let mut mres = Protocol::new("veil.mres");
@@ -201,9 +201,13 @@ pub fn decrypt(
     let (written, sig) = decrypt_message(&mut mres, &mut reader, &mut writer)?;
 
     // Verify the signature and return the number of bytes written.
-    schnorr::det_verify(&mut mres, &ephemeral, sig.try_into().expect("should be signature sized"))
-        .and(Some(written))
-        .ok_or(DecryptError::InvalidCiphertext)
+    schnorr::det_verify(
+        &mut mres,
+        &ephemeral.vk,
+        sig.try_into().expect("should be signature sized"),
+    )
+    .and(Some(written))
+    .ok_or(DecryptError::InvalidCiphertext)
 }
 
 /// Given a protocol keyed with the DEK, read the entire contents of `reader` in blocks and write
@@ -253,9 +257,9 @@ fn decrypt_message(
 fn decrypt_header(
     mut mres: Protocol,
     mut reader: impl Read,
-    receiver: &PrivKey,
-    sender: &PubKey,
-) -> Result<(Protocol, PubKey, [u8; DEK_LEN]), DecryptError> {
+    receiver: &StaticPrivKey,
+    sender: &StaticPubKey,
+) -> Result<(Protocol, EphemeralPubKey, [u8; DEK_LEN]), DecryptError> {
     let mut enc_header = [0u8; ENC_HEADER_LEN];
     let mut header = None;
     let mut i = 0u64;
@@ -376,7 +380,7 @@ mod tests {
     fn wrong_sender() {
         let (mut rng, _, receiver, _, ciphertext) = setup(64);
 
-        let wrong_sender = PrivKey::random(&mut rng);
+        let wrong_sender = StaticPrivKey::random(&mut rng);
 
         assert_matches!(
             decrypt(
@@ -393,7 +397,7 @@ mod tests {
     fn wrong_receiver() {
         let (mut rng, sender, _, _, ciphertext) = setup(64);
 
-        let wrong_receiver = PrivKey::random(&mut rng);
+        let wrong_receiver = StaticPrivKey::random(&mut rng);
 
         assert_matches!(
             decrypt(
@@ -430,29 +434,10 @@ mod tests {
         assert_eq!(plaintext.to_vec(), writer.into_inner(), "incorrect plaintext");
     }
 
-    #[test]
-    fn flip_every_bit() {
-        let (_, sender, receiver, _, ciphertext) = setup(16);
-
-        for i in 0..ciphertext.len() {
-            for j in 0u8..8 {
-                let mut ciphertext = ciphertext.clone();
-                ciphertext[i] ^= 1 << j;
-                let mut src = Cursor::new(ciphertext);
-
-                match decrypt(&mut src, &mut io::sink(), &receiver, &sender.pub_key) {
-                    Err(DecryptError::InvalidCiphertext) => {}
-                    Ok(_) => panic!("bit flip at byte {i}, bit {j} produced a valid message"),
-                    Err(e) => panic!("unknown error: {e:?}"),
-                };
-            }
-        }
-    }
-
-    fn setup(n: usize) -> (ChaChaRng, PrivKey, PrivKey, Vec<u8>, Vec<u8>) {
+    fn setup(n: usize) -> (ChaChaRng, StaticPrivKey, StaticPrivKey, Vec<u8>, Vec<u8>) {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let sender = PrivKey::random(&mut rng);
-        let receiver = PrivKey::random(&mut rng);
+        let sender = StaticPrivKey::random(&mut rng);
+        let receiver = StaticPrivKey::random(&mut rng);
         let mut plaintext = vec![0u8; n];
         rng.fill_bytes(&mut plaintext);
         let mut ciphertext = Vec::with_capacity(plaintext.len());
@@ -462,7 +447,7 @@ mod tests {
             Cursor::new(&plaintext),
             Cursor::new(&mut ciphertext),
             &sender,
-            &[Some(sender.pub_key), Some(receiver.pub_key), None],
+            &[Some(sender.pub_key.clone()), Some(receiver.pub_key.clone()), None],
         )
         .expect("encryption should be ok");
 

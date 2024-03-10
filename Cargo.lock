@@ -693,6 +693,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
+name = "hybrid-array"
+version = "0.2.0-rc.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87c2311a0adecbffff284aabcf1249b1485193b16e685f9ef171b1ba82979cff"
+dependencies = [
+ "typenum",
+]
+
+[[package]]
 name = "indexmap"
 version = "2.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -803,6 +812,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d811f3e15f28568be3407c8e7fdb6514c1cda3cb30683f15b6a1a1dc4ea14a7"
 dependencies = [
  "adler",
+]
+
+[[package]]
+name = "ml-kem"
+version = "0.1.0-alpha"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30e1feae656c9ee9cc7a3363c18d45cfae7f90242a1b59a87d0b4db2e0f0834a"
+dependencies = [
+ "hybrid-array",
+ "rand_core",
+ "sha3",
 ]
 
 [[package]]
@@ -1263,6 +1283,7 @@ dependencies = [
  "ed25519-zebra",
  "expect-test",
  "lockstitch",
+ "ml-kem",
  "rand",
  "rand_chacha",
  "thiserror",
