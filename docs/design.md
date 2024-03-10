@@ -210,21 +210,13 @@ deep-packet inspection.
 > Cryptography hides patterns in user data but does not evade censorship if the censor can recognize
 patterns in the cryptography itself.
 
-### Limited Deniability
-
-The inability of a receiver (or an adversary in possession of a receiver's private key) to prove the
-authenticity of a message to a third party is critical for privacy. Other privacy-sensitive
-protocols achieve this by forfeiting insider authenticity or authenticity altogether
-[[BGB04]](#bgb04). Veil achieves a limited version of deniability: a receiver can only prove the
-authenticity of a message to a third party by revealing their own private key. This deters a
-dishonest receiver from selectively leaking messages and requires all-or-nothing disclosure from an
-adversary who compromises an honest receiver.
-
 ## Cryptographic Primitives
 
-In the interests of cryptographic minimalism, Veil uses just three distinct cryptographic
-primitives: [Lockstitch](https://github.com/codahale/lockstitch) for all symmetric-key operations
-and GLS254 [[AA22]](#aa22) for all asymmetric-key operations.
+In the interests of cryptographic minimalism, Veil uses the following cryptographic primitives:
+
+1. [Lockstitch](https://github.com/codahale/lockstitch) for all symmetric-key operations.
+2. [X25519](https://www.rfc-editor.org/rfc/rfc7748.html) for key agreement.
+3. [Ed25519](https://www.rfc-editor.org/rfc/rfc8032.html) for digital signatures.
 
 ### Lockstitch
 
@@ -237,6 +229,19 @@ found [here](https://github.com/codahale/lockstitch/blob/main/design.md).
 Veil's security assumes that Lockstitch's `Encrypt` operation is IND-CPA secure if the protocol's
 prior state is probabilistic, its `Derive` operation is sUF-CMA secure if the protocol's prior state
 is secret, and its `Seal` operation is IND-CCA2 secure.
+
+### X25519
+
+X25519 implements elliptic curve Diffie-Hellman key agreement on the Montgomery form of Curve25519.
+
+Veil's security assumes that the Gap Diffie-Hellman problem is hard relative to Curve25519.
+
+### Ed25519
+
+Ed25519 implements a Schnorr-style digital signature on the Edwards form of Curve25519 using
+SHA-512.
+
+Veil's security assumes that Ed25519 is sUF-CMA-secure.
 
 ### GLS254
 

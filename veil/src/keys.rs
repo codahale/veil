@@ -1,29 +1,22 @@
 use std::fmt::{Debug, Formatter};
 
-use crrl::gls254::{Point, Scalar};
-use lockstitch::Protocol;
 use rand::{CryptoRng, Rng};
 
-/// The length of a secret in bytes.
-pub const SECRET_LEN: usize = SCALAR_LEN + NONCE_LEN;
+pub const PUB_KEY_LEN: usize = 32 + 32;
 
-/// The length of a nonce in bytes.
-pub const NONCE_LEN: usize = 64;
-
-/// The length of an encoded scalar in bytes.
-pub const SCALAR_LEN: usize = 32;
-
-/// The length of an encoded point in bytes.
-pub const POINT_LEN: usize = 32;
+pub const PRIV_KEY_LEN: usize = PUB_KEY_LEN + 32 + 32;
 
 /// A public key, including its canonical encoded form.
 #[derive(Clone, Copy)]
 pub struct PubKey {
-    /// The decoded point.
-    pub q: Point,
+    /// The X25519 encrypting key.
+    pub ek: x25519_dalek::PublicKey,
 
-    /// The point's canonical encoded form.
-    pub encoded: [u8; POINT_LEN],
+    /// The Ed25519 verifying key.
+    pub vk: ed25519_zebra::VerificationKey,
+
+    /// The public key's canonical encoded form.
+    pub encoded: [u8; PUB_KEY_LEN],
 }
 
 impl PubKey {
@@ -31,9 +24,11 @@ impl PubKey {
     /// canonically-encoded point or if it encodes the neutral point.
     #[must_use]
     pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<PubKey> {
-        let encoded = <[u8; POINT_LEN]>::try_from(b.as_ref()).ok()?;
-        let q = Point::decode(&encoded)?;
-        (q.isneutral() == 0).then_some(PubKey { q, encoded })
+        let encoded = <[u8; PUB_KEY_LEN]>::try_from(b.as_ref()).ok()?;
+        let (ek, vk) = encoded.split_at(32);
+        let ek = x25519_dalek::PublicKey::from(<[u8; 32]>::try_from(ek).ok()?);
+        let vk = ed25519_zebra::VerificationKey::try_from(<[u8; 32]>::try_from(vk).ok()?).ok()?;
+        Some(PubKey { ek, vk, encoded })
     }
 }
 
@@ -53,44 +48,60 @@ impl PartialEq for PubKey {
 
 /// A private key, including its public key.
 pub struct PrivKey {
-    /// The private scalar; always non-zero.
-    pub d: Scalar,
+    /// The X25519 decrypting key.
+    pub dk: x25519_dalek::StaticSecret,
 
-    /// The corresponding [`PubKey`] for the private key; always derived from `d`.
+    /// The Ed25519 signing key.
+    pub sk: ed25519_zebra::SigningKey,
+
+    /// The corresponding [`PubKey`] for the private key.
     pub pub_key: PubKey,
 
-    /// The scalar's canonical encoded form and the nonce.
-    pub encoded: [u8; SECRET_LEN],
+    /// The private key's canonical encoded form.
+    pub encoded: [u8; PRIV_KEY_LEN],
 }
 
 impl PrivKey {
     /// Generates a random private key.
     #[must_use]
     pub fn random(mut rng: impl CryptoRng + Rng) -> PrivKey {
-        let d = Scalar::decode_reduce(&rng.gen::<[u8; SCALAR_LEN]>());
-        let q = Point::mulgen(&d);
-        let mut encoded = [0u8; SECRET_LEN];
-        encoded[..SCALAR_LEN].copy_from_slice(&d.encode());
-        rng.fill_bytes(&mut encoded[SCALAR_LEN..]);
-        PrivKey { d, pub_key: PubKey { q, encoded: q.encode() }, encoded }
-    }
+        let dk = x25519_dalek::StaticSecret::random_from_rng(&mut rng);
+        let ek = x25519_dalek::PublicKey::from(&dk);
+        let sk = ed25519_zebra::SigningKey::new(&mut rng);
+        let vk = ed25519_zebra::VerificationKey::from(&sk);
 
-    /// Uses the key's nonce and a clone of the given protocol to deterministically create a
-    /// commitment scalar for the protocol's state.
-    #[must_use]
-    pub fn commitment(&self, protocol: &Protocol) -> Scalar {
-        let mut clone = protocol.clone();
-        clone.mix("signer-nonce", &self.encoded[SCALAR_LEN..]);
-        Scalar::decode_reduce(&clone.derive_array::<32>("commitment-scalar"))
+        let mut pub_encoded = Vec::with_capacity(PUB_KEY_LEN);
+        pub_encoded.extend_from_slice(ek.as_bytes());
+        pub_encoded.extend_from_slice(vk.as_ref());
+
+        let mut priv_encoded = Vec::with_capacity(PRIV_KEY_LEN);
+        priv_encoded.extend_from_slice(&pub_encoded);
+        priv_encoded.extend_from_slice(dk.as_bytes());
+        priv_encoded.extend_from_slice(sk.as_ref());
+
+        PrivKey {
+            dk,
+            sk,
+            pub_key: PubKey {
+                ek,
+                vk,
+                encoded: pub_encoded.try_into().expect("should be public key sized"),
+            },
+            encoded: priv_encoded.try_into().expect("should be private key sized"),
+        }
     }
 
     /// Decodes the given slice as a private key, if possible.
     #[must_use]
     pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<PrivKey> {
-        let encoded = <[u8; SECRET_LEN]>::try_from(b.as_ref()).ok()?;
-        let d = Scalar::decode(&encoded[..SCALAR_LEN])?;
-        let q = Point::mulgen(&d);
-        Some(PrivKey { d, pub_key: PubKey { q, encoded: q.encode() }, encoded })
+        let encoded = <[u8; PRIV_KEY_LEN]>::try_from(b.as_ref()).ok()?;
+        let (pub_key, dk) = encoded.split_at(PUB_KEY_LEN);
+        let (dk, sk) = dk.split_at(32);
+        let pub_key = PubKey::from_canonical_bytes(pub_key)?;
+        let dk = x25519_dalek::StaticSecret::from(<[u8; 32]>::try_from(dk).ok()?);
+        let sk = ed25519_zebra::SigningKey::from(<[u8; 32]>::try_from(sk).ok()?);
+
+        Some(PrivKey { dk, sk, pub_key, encoded })
     }
 }
 
@@ -99,15 +110,5 @@ impl Eq for PrivKey {}
 impl PartialEq for PrivKey {
     fn eq(&self, other: &Self) -> bool {
         self.pub_key == other.pub_key
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn decoding_neutral_points() {
-        assert_eq!(None, PubKey::from_canonical_bytes(Point::NEUTRAL.encode()));
     }
 }

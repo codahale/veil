@@ -1,22 +1,18 @@
-//! Schnorr-variant digital signatures.
+//! Ed25519 digital signatures.
 
 use std::{fmt, io, io::Read, str::FromStr};
 
-use crrl::gls254::{Point, Scalar};
 use lockstitch::Protocol;
 use rand::{CryptoRng, Rng};
 
 use crate::{
-    keys::{PrivKey, PubKey, POINT_LEN, SCALAR_LEN},
+    keys::{PrivKey, PubKey},
     sres::NONCE_LEN,
     ParseSignatureError, VerifyError,
 };
 
-/// The length of a deterministic signature, in bytes.
-pub const DET_SIGNATURE_LEN: usize = POINT_LEN + SCALAR_LEN;
-
 /// The length of a signature, in bytes.
-pub const SIGNATURE_LEN: usize = NONCE_LEN + POINT_LEN + SCALAR_LEN;
+pub const SIGNATURE_LEN: usize = NONCE_LEN + ed25519_zebra::Signature::BYTE_SIZE;
 
 /// A Schnorr signature.
 ///
@@ -103,30 +99,20 @@ pub fn verify(signer: &PubKey, mut message: impl Read, sig: &Signature) -> Resul
         .ok_or(VerifyError::InvalidSignature)
 }
 
-/// Create a deterministic Schnorr signature of the given protocol's state using the given private
+/// Create a deterministic Ed25519 signature of the given protocol's state using the given private
 /// key. The protocol's state must be randomized to mitigate fault attacks.
-pub fn det_sign(protocol: &mut Protocol, signer: &PrivKey) -> [u8; DET_SIGNATURE_LEN] {
-    let mut sig = [0u8; DET_SIGNATURE_LEN];
-    let (sig_i, sig_s) = sig.split_at_mut(POINT_LEN);
+pub fn det_sign(
+    protocol: &mut Protocol,
+    signer: &PrivKey,
+) -> [u8; ed25519_zebra::Signature::BYTE_SIZE] {
+    // Derive a 256-bit commitment value.
+    let k = protocol.derive_array::<32>("commitment");
 
-    // Deterministically generate a commitment scalar.
-    let k = signer.commitment(protocol);
-    let i = Point::mulgen(&k);
+    // Create an Ed25519 signature of it.
+    let mut sig = signer.sk.sign(&k).to_bytes();
 
-    // Calculate, encode, and encrypt the commitment point.
-    sig_i.copy_from_slice(&i.encode());
-    protocol.encrypt("commitment-point", sig_i);
-
-    // Derive two short challenge scalars and use them to calculate the full scalar.
-    let rb = protocol.derive_array::<16>("challenge-scalar");
-    let r0 = u64::from_le_bytes(rb[..8].try_into().expect("rb should be 16 bytes"));
-    let r1 = u64::from_le_bytes(rb[8..].try_into().expect("rb should be 16 bytes"));
-    let r = Scalar::from_u64(r0) + Scalar::MU * Scalar::from_u64(r1);
-
-    // Calculate, encode, and encrypt the proof scalar.
-    let s = (signer.d * r) + k;
-    sig_s.copy_from_slice(&s.encode());
-    protocol.encrypt("proof-scalar", sig_s);
+    // Encrypt the signature.
+    protocol.encrypt("signature", &mut sig);
 
     sig
 }
@@ -137,28 +123,17 @@ pub fn det_sign(protocol: &mut Protocol, signer: &PrivKey) -> [u8; DET_SIGNATURE
 pub fn det_verify(
     protocol: &mut Protocol,
     signer: &PubKey,
-    mut sig: [u8; DET_SIGNATURE_LEN],
+    mut sig: [u8; ed25519_zebra::Signature::BYTE_SIZE],
 ) -> Option<()> {
-    // Split signature into components.
-    let (i, s) = sig.split_at_mut(POINT_LEN);
+    // Derive a 256-bit commitment value.
+    let k = protocol.derive_array::<32>("commitment");
 
-    // Decrypt the commitment point but don't decode it.
-    protocol.decrypt("commitment-point", i);
+    // Decrypt the signature.
+    protocol.decrypt("signature", &mut sig);
+    let sig = ed25519_zebra::Signature::from_bytes(&sig);
 
-    // Re-derive the short challenge scalars.
-    let rb_p = protocol.derive_array::<16>("challenge-scalar");
-    let r0_p = u64::from_le_bytes(rb_p[..8].try_into().expect("rb should be 16 bytes"));
-    let r1_p = u64::from_le_bytes(rb_p[8..].try_into().expect("rb should be 16 bytes"));
-
-    // Decrypt and decode the proof scalar.
-    protocol.decrypt("proof-scalar", s);
-    let s = Scalar::decode(s)?;
-
-    // Return true iff I and s are well-formed and I == [s]G - [r0']Q - [r1'µ]Q. Here we compare the
-    // encoded form of I' with the encoded form of I from the signature. This is faster, as encoding
-    // a point is faster than decoding a point.
-    let i_p = (-signer.q).mul64mu_add_mulgen_vartime(r0_p, r1_p, &s);
-    (i == i_p.encode()).then_some(())
+    // Verify the signature.
+    signer.vk.verify(&sig, &k).ok()
 }
 
 #[cfg(test)]
@@ -215,7 +190,7 @@ mod tests {
     #[test]
     fn signature_kat() {
         let (_, _, _, sig) = setup();
-        let expected = expect!["2W5fjXbSYLANVnPNUgzc7JYrRH8LaL1cYgQvbiZcYn47aeEgHtvbikJvQjjUAKGpqhtMjpdDD5UH49gnZdJG8JtPs7YxNptNEBmBBW6Z2Mcfoq"];
+        let expected = expect!["2idSUEXUxeuQgiNDyL7PZgxbm51rArDgHtpMtLQhStL3YhWa4D1oXvdduTdUB3eXThSwxLbX3tivBjc4N2KVruFeDc3mMamAQyqPVMnYhubdap"];
         expected.assert_eq(&sig.to_string());
     }
 

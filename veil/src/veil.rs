@@ -12,7 +12,7 @@ use std::{
 use rand::{prelude::SliceRandom, CryptoRng, Rng};
 
 use crate::{
-    keys::{PrivKey, PubKey, POINT_LEN, SECRET_LEN},
+    keys::{PrivKey, PubKey, PRIV_KEY_LEN, PUB_KEY_LEN},
     mres, pbenc, schnorr, DecryptError, EncryptError, ParsePublicKeyError, Signature, VerifyError,
 };
 
@@ -48,7 +48,7 @@ impl PrivateKey {
         time_cost: u8,
         memory_cost: u8,
     ) -> io::Result<usize> {
-        let mut enc_key = [0u8; SECRET_LEN + pbenc::OVERHEAD];
+        let mut enc_key = [0u8; PRIV_KEY_LEN + pbenc::OVERHEAD];
         pbenc::encrypt(rng, passphrase, time_cost, memory_cost, &self.0.encoded, &mut enc_key);
         writer.write_all(&enc_key)?;
         Ok(enc_key.len())
@@ -62,7 +62,7 @@ impl PrivateKey {
     /// [`DecryptError::InvalidCiphertext`] error will be returned. If an error occurred while
     /// reading, a [`DecryptError::IoError`] error will be returned.
     pub fn load(mut reader: impl Read, passphrase: &[u8]) -> Result<PrivateKey, DecryptError> {
-        let mut b = Vec::with_capacity(SECRET_LEN + pbenc::OVERHEAD);
+        let mut b = Vec::with_capacity(PRIV_KEY_LEN + pbenc::OVERHEAD);
         reader.read_to_end(&mut b).map_err(DecryptError::ReadIo)?;
 
         // Decrypt the ciphertext and use the plaintext as the private key.
@@ -150,7 +150,7 @@ impl PublicKey {
 
     /// Encode the public key as a 32-byte array.
     #[must_use]
-    pub const fn encode(&self) -> [u8; POINT_LEN] {
+    pub const fn encode(&self) -> [u8; PUB_KEY_LEN] {
         self.0.encoded
     }
 
@@ -204,7 +204,7 @@ mod tests {
         let rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let pk = PrivateKey::random(rng).public_key();
 
-        expect!["6DTweDzYgCtZMbzF1WoqFoiwZVkzxwtovf51wAQPDbwg"].assert_eq(&pk.to_string());
+        expect!["55iQouo8hQ6PPjtoPHS3o6VwaN1XKud2DmR1hCeNjs6seQMFZTgYSNyoRf2zUidpd8yupKzBaK2hnvbuiNzpJL42"].assert_eq(&pk.to_string());
 
         let decoded = pk.to_string().parse::<PublicKey>();
         assert_eq!(Ok(pk), decoded, "error parsing public key");

@@ -6,7 +6,6 @@ use std::{
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
-
 use veil::{Digest, PrivateKey};
 
 const LENS: &[(u64, &str)] = &[(0, "0B"), (1024 * 1024, "1MiB"), (10 * 1024 * 1024, "10MiB")];
