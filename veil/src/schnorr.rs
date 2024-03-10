@@ -74,7 +74,7 @@ pub fn sign(
     let (mut schnorr, _) = writer.into_inner();
 
     // Calculate the encrypted commitment point and proof scalar.
-    sig[NONCE_LEN..].copy_from_slice(&det_sign(&mut schnorr, &signer.sk));
+    sig[NONCE_LEN..].copy_from_slice(&det_sign(&mut schnorr, &signer.sk_c));
     Ok(Signature(sig))
 }
 
@@ -99,8 +99,12 @@ pub fn verify(
     let (mut schnorr, _) = writer.into_inner();
 
     // Verify the signature.
-    det_verify(&mut schnorr, &signer.vk, sig.0[NONCE_LEN..].try_into().expect("should be 64 bytes"))
-        .ok_or(VerifyError::InvalidSignature)
+    det_verify(
+        &mut schnorr,
+        &signer.vk_c,
+        sig.0[NONCE_LEN..].try_into().expect("should be 64 bytes"),
+    )
+    .ok_or(VerifyError::InvalidSignature)
 }
 
 /// Create a deterministic Ed25519 signature of the given protocol's state using the given private

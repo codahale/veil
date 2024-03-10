@@ -19,7 +19,7 @@ pub struct StaticPubKey {
     pub ek_c: x25519_dalek::PublicKey,
 
     /// The Ed25519 verifying key.
-    pub vk: ed25519_zebra::VerificationKey,
+    pub vk_c: ed25519_zebra::VerificationKey,
 
     /// The public key's canonical encoded form.
     pub encoded: [u8; STATIC_PUB_KEY_LEN],
@@ -32,13 +32,14 @@ impl StaticPubKey {
     pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<StaticPubKey> {
         let encoded = <[u8; STATIC_PUB_KEY_LEN]>::try_from(b.as_ref()).ok()?;
         let (ek_pq, ek_c) = encoded.split_at(1184);
-        let (ek_c, vk) = ek_c.split_at(32);
+        let (ek_c, vk_c) = ek_c.split_at(32);
         let ek_pq = ml_kem::kem::EncapsulationKey::<ml_kem::MlKem768Params>::from_bytes(
             &ek_pq.try_into().ok()?,
         );
         let ek_c = x25519_dalek::PublicKey::from(<[u8; 32]>::try_from(ek_c).ok()?);
-        let vk = ed25519_zebra::VerificationKey::try_from(<[u8; 32]>::try_from(vk).ok()?).ok()?;
-        Some(StaticPubKey { ek_pq, ek_c, vk, encoded })
+        let vk_c =
+            ed25519_zebra::VerificationKey::try_from(<[u8; 32]>::try_from(vk_c).ok()?).ok()?;
+        Some(StaticPubKey { ek_pq, ek_c, vk_c, encoded })
     }
 }
 
@@ -65,7 +66,7 @@ pub struct StaticPrivKey {
     pub dk_c: x25519_dalek::StaticSecret,
 
     /// The Ed25519 signing key.
-    pub sk: ed25519_zebra::SigningKey,
+    pub sk_c: ed25519_zebra::SigningKey,
 
     /// The corresponding [`PubKey`] for the private key.
     pub pub_key: StaticPubKey,
@@ -81,28 +82,28 @@ impl StaticPrivKey {
         let (dk_pq, ek_pq) = ml_kem::kem::Kem::<ml_kem::MlKem768Params>::generate(&mut rng);
         let dk_c = x25519_dalek::StaticSecret::random_from_rng(&mut rng);
         let ek_c = x25519_dalek::PublicKey::from(&dk_c);
-        let sk = ed25519_zebra::SigningKey::new(&mut rng);
-        let vk = ed25519_zebra::VerificationKey::from(&sk);
+        let sk_c = ed25519_zebra::SigningKey::new(&mut rng);
+        let vk_c = ed25519_zebra::VerificationKey::from(&sk_c);
 
         let mut pub_encoded = Vec::with_capacity(STATIC_PUB_KEY_LEN);
         pub_encoded.extend_from_slice(&ek_pq.as_bytes());
         pub_encoded.extend_from_slice(ek_c.as_bytes());
-        pub_encoded.extend_from_slice(vk.as_ref());
+        pub_encoded.extend_from_slice(vk_c.as_ref());
 
         let mut priv_encoded = Vec::with_capacity(STATIC_PRIV_KEY_LEN);
         priv_encoded.extend_from_slice(&pub_encoded);
         priv_encoded.extend_from_slice(&dk_pq.as_bytes());
         priv_encoded.extend_from_slice(dk_c.as_bytes());
-        priv_encoded.extend_from_slice(sk.as_ref());
+        priv_encoded.extend_from_slice(sk_c.as_ref());
 
         StaticPrivKey {
             dk_pq,
             dk_c,
-            sk,
+            sk_c,
             pub_key: StaticPubKey {
                 ek_pq,
                 ek_c,
-                vk,
+                vk_c,
                 encoded: pub_encoded.try_into().expect("should be public key sized"),
             },
             encoded: priv_encoded.try_into().expect("should be private key sized"),
@@ -121,9 +122,9 @@ impl StaticPrivKey {
             &dk_pq.try_into().ok()?,
         );
         let dk_c = x25519_dalek::StaticSecret::from(<[u8; 32]>::try_from(dk_c).ok()?);
-        let sk = ed25519_zebra::SigningKey::from(<[u8; 32]>::try_from(sk).ok()?);
+        let sk_c = ed25519_zebra::SigningKey::from(<[u8; 32]>::try_from(sk).ok()?);
 
-        Some(StaticPrivKey { dk_pq, dk_c, sk, pub_key, encoded })
+        Some(StaticPrivKey { dk_pq, dk_c, sk_c, pub_key, encoded })
     }
 }
 
@@ -139,10 +140,10 @@ impl PartialEq for StaticPrivKey {
 #[derive(Clone)]
 pub struct EphemeralPubKey {
     /// The X25519 encrypting key.
-    pub ek: x25519_dalek::PublicKey,
+    pub ek_c: x25519_dalek::PublicKey,
 
     /// The Ed25519 verifying key.
-    pub vk: ed25519_zebra::VerificationKey,
+    pub vk_c: ed25519_zebra::VerificationKey,
 
     /// The public key's canonical encoded form.
     pub encoded: [u8; EPHEMERAL_PUB_KEY_LEN],
@@ -154,10 +155,11 @@ impl EphemeralPubKey {
     #[must_use]
     pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<EphemeralPubKey> {
         let encoded = <[u8; EPHEMERAL_PUB_KEY_LEN]>::try_from(b.as_ref()).ok()?;
-        let (ek, vk) = encoded.split_at(32);
-        let ek = x25519_dalek::PublicKey::from(<[u8; 32]>::try_from(ek).ok()?);
-        let vk = ed25519_zebra::VerificationKey::try_from(<[u8; 32]>::try_from(vk).ok()?).ok()?;
-        Some(EphemeralPubKey { ek, vk, encoded })
+        let (ek_c, vk_c) = encoded.split_at(32);
+        let ek_c = x25519_dalek::PublicKey::from(<[u8; 32]>::try_from(ek_c).ok()?);
+        let vk_c =
+            ed25519_zebra::VerificationKey::try_from(<[u8; 32]>::try_from(vk_c).ok()?).ok()?;
+        Some(EphemeralPubKey { ek_c, vk_c, encoded })
     }
 }
 
@@ -178,10 +180,10 @@ impl PartialEq for EphemeralPubKey {
 /// A private key, including its public key.
 pub struct EphemeralPrivKey {
     /// The X25519 decrypting key.
-    pub dk: x25519_dalek::StaticSecret,
+    pub dk_c: x25519_dalek::StaticSecret,
 
     /// The Ed25519 signing key.
-    pub sk: ed25519_zebra::SigningKey,
+    pub sk_c: ed25519_zebra::SigningKey,
 
     /// The corresponding [`PubKey`] for the private key.
     pub pub_key: EphemeralPubKey,
@@ -191,21 +193,21 @@ impl EphemeralPrivKey {
     /// Generates a random private key.
     #[must_use]
     pub fn random(mut rng: impl CryptoRng + Rng) -> EphemeralPrivKey {
-        let dk = x25519_dalek::StaticSecret::random_from_rng(&mut rng);
-        let ek = x25519_dalek::PublicKey::from(&dk);
-        let sk = ed25519_zebra::SigningKey::new(&mut rng);
-        let vk = ed25519_zebra::VerificationKey::from(&sk);
+        let dk_c = x25519_dalek::StaticSecret::random_from_rng(&mut rng);
+        let ek_c = x25519_dalek::PublicKey::from(&dk_c);
+        let sk_c = ed25519_zebra::SigningKey::new(&mut rng);
+        let vk_c = ed25519_zebra::VerificationKey::from(&sk_c);
 
         let mut encoded = Vec::with_capacity(EPHEMERAL_PUB_KEY_LEN);
-        encoded.extend_from_slice(ek.as_bytes());
-        encoded.extend_from_slice(vk.as_ref());
+        encoded.extend_from_slice(ek_c.as_bytes());
+        encoded.extend_from_slice(vk_c.as_ref());
 
         EphemeralPrivKey {
-            dk,
-            sk,
+            dk_c,
+            sk_c,
             pub_key: EphemeralPubKey {
-                ek,
-                vk,
+                ek_c,
+                vk_c,
                 encoded: encoded.try_into().expect("should be public key sized"),
             },
         }

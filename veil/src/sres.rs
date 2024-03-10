@@ -71,7 +71,7 @@ pub fn encrypt(
     // Mix the ephemeral ECDH shared secret `[d_E]Q_R` into the protocol. This makes all following
     // outputs confidential against passive insider adversaries (i.e. an adversary in possession of
     // the sender's private key) a.k.a sender forward-secure.
-    sres.mix("ephemeral-ecdh", ephemeral.dk.diffie_hellman(&receiver.ek_c).as_bytes());
+    sres.mix("ephemeral-ecdh", ephemeral.dk_c.diffie_hellman(&receiver.ek_c).as_bytes());
 
     // Encrypt the plaintext. By itself, this is confidential against passive insider adversaries
     // and implicitly authenticated as being from either the sender or the receiver but vulnerable
@@ -82,7 +82,7 @@ pub fn encrypt(
 
     // Deterministically sign the protocol's state. The protocol's state is randomized with both
     // the nonce and the ephemeral key, so the risk of e.g. fault attacks is minimal.
-    let sig = schnorr::det_sign(&mut sres, &sender.sk);
+    let sig = schnorr::det_sign(&mut sres, &sender.sk_c);
     out_sig.copy_from_slice(&sig);
 }
 
@@ -133,13 +133,13 @@ pub fn decrypt<'a>(
     let ephemeral = EphemeralPubKey::from_canonical_bytes(ephemeral)?;
 
     // Mix the ephemeral ECDH shared secret into the protocol: [d_R]Q_E
-    sres.mix("ephemeral-ecdh", receiver.dk_c.diffie_hellman(&ephemeral.ek).as_bytes());
+    sres.mix("ephemeral-ecdh", receiver.dk_c.diffie_hellman(&ephemeral.ek_c).as_bytes());
 
     // Decrypt the plaintext.
     sres.decrypt("message", ciphertext);
 
     // Verify the signature.
-    schnorr::det_verify(&mut sres, &sender.vk, sig.try_into().ok()?)
+    schnorr::det_verify(&mut sres, &sender.vk_c, sig.try_into().ok()?)
         .is_some()
         .then_some((ephemeral, ciphertext))
 }
