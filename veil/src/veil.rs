@@ -220,6 +220,21 @@ mod tests {
     }
 
     #[test]
+    fn private_key_round_trip() {
+        let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let k = PrivateKey::random(&mut rng);
+
+        let mut ciphertext = Vec::new();
+        k.store(&mut ciphertext, &mut rng, b"hello world", 1, 1)
+            .expect("should store successfully");
+
+        let k_p = PrivateKey::load(Cursor::new(&ciphertext), b"hello world")
+            .expect("should load successfully");
+
+        assert_eq!(k, k_p);
+    }
+
+    #[test]
     fn round_trip() {
         let (_, a, b, plaintext, ciphertext) = setup(64);
         let mut dst = Cursor::new(Vec::new());
