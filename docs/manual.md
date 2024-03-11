@@ -44,9 +44,7 @@ the keyboard to generate entropy.
 Now that you have a private key, you also have a public key to share with others:
 
 ```shell
-veil public-key -k ./my-private-key
-
-#=> TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa
+veil public-key --private-key ./my-private-key --output ./contacts/me
 ```
 
 You can then give this public key to people, so they can send you encrypted messages.
@@ -59,8 +57,8 @@ To encrypt a message, you need your private key, the receivers' public keys, and
 veil encrypt -k ./my-private-key \
      -i message.txt \
      -o message.txt.veil \
-     -r TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa \
-     -r BfksdzSKbmcS2Suav16dmYE2WxifqauPRL6FZpJt1476 \
+     -r ./contacts/alice \
+     -r ./contacts/bob \
      --fakes 18
 ```
 
@@ -77,7 +75,7 @@ encrypted message, and the sender's public key:
 veil decrypt -k ./my-private-key \
      -i reply.txt.veil \
      -o reply.txt \
-     -s TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa
+     -s ./contacts/bob
 ```
 
 This will decrypt and verify the message. If successful, you'll know that the owner of the public
@@ -104,7 +102,7 @@ To verify a signature of a message, you'll need the signer's public key, the mes
 signature:
 
 ```shell
-veil verify --signer TkUWybv8fAvsHPhauPj7edUTVdCHuCFHazA6RjnvwJa \
+veil verify --signer ./contacts/me \
      --signature xMSgptmRtVV1YGn1DZmjL8ivnjoYbVgsqwHyHuENi5SwaQTQWAsoHpjJaN4XV3ugzp2jbfaoDVwdP5zJHLWGkjt \
      -i announcement.txt
 ```
