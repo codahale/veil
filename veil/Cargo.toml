@@ -9,6 +9,7 @@ description = "Stupid crypto tricks."
 
 [dependencies]
 bs58 = "0.5.0"
+dilithium-raw = { version = "0.1.0", default-features = false, features = ["avx2", "dilithium3"] }
 ed25519-zebra = { version = "4.0.3", default-features = false, features = ["std"] }
 lockstitch = "0.25.1"
 ml-kem = "0.1.0-alpha"

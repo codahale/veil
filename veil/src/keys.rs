@@ -1,13 +1,18 @@
 use std::fmt::{Debug, Formatter};
 
+use dilithium_raw::{
+    dilithium3,
+    ffi::dilithium3::{PUBLICKEYBYTES as DILITHIUM3_PK_LEN, SECRETKEYBYTES as DILITHIUM3_SK_LEN},
+    util::ByteArray,
+};
 use ml_kem::{EncodedSizeUser as _, KemCore as _};
 use rand::{CryptoRng, Rng};
 
-pub const EPHEMERAL_PUB_KEY_LEN: usize = 32 + 32;
+pub const EPHEMERAL_PUB_KEY_LEN: usize = 32 + DILITHIUM3_PK_LEN + 32;
 
-pub const STATIC_PUB_KEY_LEN: usize = 1184 + 32 + 32;
+pub const STATIC_PUB_KEY_LEN: usize = 1184 + 32 + DILITHIUM3_PK_LEN + 32;
 
-pub const STATIC_PRIV_KEY_LEN: usize = STATIC_PUB_KEY_LEN + 2400 + 32 + 32;
+pub const STATIC_PRIV_KEY_LEN: usize = STATIC_PUB_KEY_LEN + 2400 + 32 + DILITHIUM3_SK_LEN + 32;
 
 /// A static public key, including its canonical encoded form.
 #[derive(Clone)]
@@ -17,6 +22,9 @@ pub struct StaticPubKey {
 
     /// The X25519 encrypting key.
     pub ek_c: x25519_dalek::PublicKey,
+
+    /// The Dilithium3 verifying key.
+    pub vk_pq: dilithium3::PublicKey,
 
     /// The Ed25519 verifying key.
     pub vk_c: ed25519_zebra::VerificationKey,
@@ -32,14 +40,16 @@ impl StaticPubKey {
     pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<StaticPubKey> {
         let encoded = <[u8; STATIC_PUB_KEY_LEN]>::try_from(b.as_ref()).ok()?;
         let (ek_pq, ek_c) = encoded.split_at(1184);
-        let (ek_c, vk_c) = ek_c.split_at(32);
+        let (ek_c, vk_pq) = ek_c.split_at(32);
+        let (vk_pq, vk_c) = vk_pq.split_at(DILITHIUM3_PK_LEN);
         let ek_pq = ml_kem::kem::EncapsulationKey::<ml_kem::MlKem768Params>::from_bytes(
             &ek_pq.try_into().ok()?,
         );
         let ek_c = x25519_dalek::PublicKey::from(<[u8; 32]>::try_from(ek_c).ok()?);
+        let vk_pq = dilithium3::PublicKey::from(ByteArray::new(vk_pq.try_into().ok()?));
         let vk_c =
             ed25519_zebra::VerificationKey::try_from(<[u8; 32]>::try_from(vk_c).ok()?).ok()?;
-        Some(StaticPubKey { ek_pq, ek_c, vk_c, encoded })
+        Some(StaticPubKey { ek_pq, ek_c, vk_pq, vk_c, encoded })
     }
 }
 
@@ -65,6 +75,9 @@ pub struct StaticPrivKey {
     /// The X25519 decrypting key.
     pub dk_c: x25519_dalek::StaticSecret,
 
+    /// The Dilithium3 signing key.
+    pub sk_pq: dilithium3::SecretKey,
+
     /// The Ed25519 signing key.
     pub sk_c: ed25519_zebra::SigningKey,
 
@@ -82,27 +95,34 @@ impl StaticPrivKey {
         let (dk_pq, ek_pq) = ml_kem::kem::Kem::<ml_kem::MlKem768Params>::generate(&mut rng);
         let dk_c = x25519_dalek::StaticSecret::random_from_rng(&mut rng);
         let ek_c = x25519_dalek::PublicKey::from(&dk_c);
+        let mut vk_pq_seed = [0u8; 128];
+        rng.fill_bytes(&mut vk_pq_seed);
+        let (vk_pq, sk_pq) = dilithium3::generate_keypair(&mut vk_pq_seed);
         let sk_c = ed25519_zebra::SigningKey::new(&mut rng);
         let vk_c = ed25519_zebra::VerificationKey::from(&sk_c);
 
         let mut pub_encoded = Vec::with_capacity(STATIC_PUB_KEY_LEN);
         pub_encoded.extend_from_slice(&ek_pq.as_bytes());
         pub_encoded.extend_from_slice(ek_c.as_bytes());
+        pub_encoded.extend_from_slice(vk_pq.as_ref());
         pub_encoded.extend_from_slice(vk_c.as_ref());
 
         let mut priv_encoded = Vec::with_capacity(STATIC_PRIV_KEY_LEN);
         priv_encoded.extend_from_slice(&pub_encoded);
         priv_encoded.extend_from_slice(&dk_pq.as_bytes());
         priv_encoded.extend_from_slice(dk_c.as_bytes());
+        priv_encoded.extend_from_slice(sk_pq.as_ref());
         priv_encoded.extend_from_slice(sk_c.as_ref());
 
         StaticPrivKey {
             dk_pq,
             dk_c,
+            sk_pq,
             sk_c,
             pub_key: StaticPubKey {
                 ek_pq,
                 ek_c,
+                vk_pq,
                 vk_c,
                 encoded: pub_encoded.try_into().expect("should be public key sized"),
             },
@@ -116,15 +136,17 @@ impl StaticPrivKey {
         let encoded = <[u8; STATIC_PRIV_KEY_LEN]>::try_from(b.as_ref()).ok()?;
         let (pub_key, dk_pq) = encoded.split_at(STATIC_PUB_KEY_LEN);
         let (dk_pq, dk_c) = dk_pq.split_at(2400);
-        let (dk_c, sk) = dk_c.split_at(32);
+        let (dk_c, sk_pq) = dk_c.split_at(32);
+        let (sk_pq, sk_c) = sk_pq.split_at(DILITHIUM3_SK_LEN);
         let pub_key = StaticPubKey::from_canonical_bytes(pub_key)?;
         let dk_pq = ml_kem::kem::DecapsulationKey::<ml_kem::MlKem768Params>::from_bytes(
             &dk_pq.try_into().ok()?,
         );
         let dk_c = x25519_dalek::StaticSecret::from(<[u8; 32]>::try_from(dk_c).ok()?);
-        let sk_c = ed25519_zebra::SigningKey::from(<[u8; 32]>::try_from(sk).ok()?);
+        let sk_pq = dilithium3::SecretKey::from(ByteArray::new(sk_pq.try_into().ok()?));
+        let sk_c = ed25519_zebra::SigningKey::from(<[u8; 32]>::try_from(sk_c).ok()?);
 
-        Some(StaticPrivKey { dk_pq, dk_c, sk_c, pub_key, encoded })
+        Some(StaticPrivKey { dk_pq, dk_c, sk_pq, sk_c, pub_key, encoded })
     }
 }
 
@@ -142,6 +164,9 @@ pub struct EphemeralPubKey {
     /// The X25519 encrypting key.
     pub ek_c: x25519_dalek::PublicKey,
 
+    /// The Dilithium3 verifying key.
+    pub vk_pq: dilithium3::PublicKey,
+
     /// The Ed25519 verifying key.
     pub vk_c: ed25519_zebra::VerificationKey,
 
@@ -155,11 +180,13 @@ impl EphemeralPubKey {
     #[must_use]
     pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<EphemeralPubKey> {
         let encoded = <[u8; EPHEMERAL_PUB_KEY_LEN]>::try_from(b.as_ref()).ok()?;
-        let (ek_c, vk_c) = encoded.split_at(32);
+        let (ek_c, vk_pq) = encoded.split_at(32);
+        let (vk_pq, vk_c) = vk_pq.split_at(DILITHIUM3_PK_LEN);
         let ek_c = x25519_dalek::PublicKey::from(<[u8; 32]>::try_from(ek_c).ok()?);
+        let vk_pq = dilithium3::PublicKey::from(ByteArray::new(vk_pq.try_into().ok()?));
         let vk_c =
             ed25519_zebra::VerificationKey::try_from(<[u8; 32]>::try_from(vk_c).ok()?).ok()?;
-        Some(EphemeralPubKey { ek_c, vk_c, encoded })
+        Some(EphemeralPubKey { ek_c, vk_pq, vk_c, encoded })
     }
 }
 
@@ -182,6 +209,9 @@ pub struct EphemeralPrivKey {
     /// The X25519 decrypting key.
     pub dk_c: x25519_dalek::StaticSecret,
 
+    /// The Dilithium3 signing key.
+    pub sk_pq: dilithium3::SecretKey,
+
     /// The Ed25519 signing key.
     pub sk_c: ed25519_zebra::SigningKey,
 
@@ -195,18 +225,24 @@ impl EphemeralPrivKey {
     pub fn random(mut rng: impl CryptoRng + Rng) -> EphemeralPrivKey {
         let dk_c = x25519_dalek::StaticSecret::random_from_rng(&mut rng);
         let ek_c = x25519_dalek::PublicKey::from(&dk_c);
+        let mut vk_pq_seed = [0u8; 128];
+        rng.fill_bytes(&mut vk_pq_seed);
+        let (vk_pq, sk_pq) = dilithium3::generate_keypair(&mut vk_pq_seed);
         let sk_c = ed25519_zebra::SigningKey::new(&mut rng);
         let vk_c = ed25519_zebra::VerificationKey::from(&sk_c);
 
         let mut encoded = Vec::with_capacity(EPHEMERAL_PUB_KEY_LEN);
         encoded.extend_from_slice(ek_c.as_bytes());
+        encoded.extend_from_slice(vk_pq.as_ref());
         encoded.extend_from_slice(vk_c.as_ref());
 
         EphemeralPrivKey {
             dk_c,
+            sk_pq,
             sk_c,
             pub_key: EphemeralPubKey {
                 ek_c,
+                vk_pq,
                 vk_c,
                 encoded: encoded.try_into().expect("should be public key sized"),
             },

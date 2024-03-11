@@ -6,14 +6,14 @@ use rand::{CryptoRng, RngCore};
 
 use crate::{
     keys::{EphemeralPrivKey, EphemeralPubKey, StaticPrivKey, StaticPubKey, EPHEMERAL_PUB_KEY_LEN},
-    schnorr,
+    schnorr::{self, DET_SIGNATURE_LEN},
 };
 
 /// The recommended size of the nonce passed to [encrypt].
 pub const NONCE_LEN: usize = 16;
 
 /// The number of bytes added to plaintext by [encrypt].
-pub const OVERHEAD: usize = EPHEMERAL_PUB_KEY_LEN + 1088 + ed25519_zebra::Signature::BYTE_SIZE;
+pub const OVERHEAD: usize = EPHEMERAL_PUB_KEY_LEN + 1088 + DET_SIGNATURE_LEN;
 
 /// Given the sender's key pair, the ephemeral key pair, the receiver's public key, a nonce, and a
 /// plaintext, encrypts the given plaintext and returns the ciphertext.
@@ -82,7 +82,7 @@ pub fn encrypt(
 
     // Deterministically sign the protocol's state. The protocol's state is randomized with both
     // the nonce and the ephemeral key, so the risk of e.g. fault attacks is minimal.
-    let sig = schnorr::det_sign(&mut sres, &sender.sk_c);
+    let sig = schnorr::det_sign(&mut sres, (&sender.sk_pq, &sender.sk_c));
     out_sig.copy_from_slice(&sig);
 }
 
@@ -104,8 +104,7 @@ pub fn decrypt<'a>(
     // Split the ciphertext into its components.
     let (kem, ephemeral) = in_out.split_at_mut(1088);
     let (ephemeral, ciphertext) = ephemeral.split_at_mut(EPHEMERAL_PUB_KEY_LEN);
-    let (ciphertext, sig) =
-        ciphertext.split_at_mut(ciphertext.len() - ed25519_zebra::Signature::BYTE_SIZE);
+    let (ciphertext, sig) = ciphertext.split_at_mut(ciphertext.len() - DET_SIGNATURE_LEN);
 
     // Initialize a protocol.
     let mut sres = Protocol::new("veil.sres");
@@ -139,9 +138,13 @@ pub fn decrypt<'a>(
     sres.decrypt("message", ciphertext);
 
     // Verify the signature.
-    schnorr::det_verify(&mut sres, &sender.vk_c, sig.try_into().ok()?)
-        .is_some()
-        .then_some((ephemeral, ciphertext))
+    schnorr::det_verify(
+        &mut sres,
+        (&sender.vk_pq, &sender.vk_c),
+        sig.try_into().expect("should be signature sized"),
+    )
+    .is_some()
+    .then_some((ephemeral, ciphertext))
 }
 
 #[cfg(test)]
