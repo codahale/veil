@@ -134,6 +134,31 @@ pub fn det_sign(
     // Create an Ed25519 signature of the commitment value.
     sig_c.copy_from_slice(&sk_c.sign(&k).to_bytes());
 
+    /// An all-zero RNG which we need to ensure the ML-KEM-65 signature is actually deterministic. The
+    /// API in 0.1.1, at least, doesn't allow for not using the probabilistic version.
+    struct ZeroRng;
+
+    impl RngCore for ZeroRng {
+        fn next_u32(&mut self) -> u32 {
+            0
+        }
+
+        fn next_u64(&mut self) -> u64 {
+            0
+        }
+
+        fn fill_bytes(&mut self, dest: &mut [u8]) {
+            dest.fill(0);
+        }
+
+        fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
+            dest.fill(0);
+            Ok(())
+        }
+    }
+
+    impl CryptoRng for ZeroRng {}
+
     // Create an ML-DSA-65 signature of the Ed25519 signature.
     sig_pq.copy_from_slice(&sk_pq.try_sign_with_rng_ct(&mut ZeroRng, sig_c).expect("should sign"));
 
@@ -171,31 +196,6 @@ pub fn det_verify(
         .ok()?
         .then_some(())
 }
-
-/// An all-zero RNG which we need to ensure the ML-KEM-65 signature is actually deterministic. The
-/// API in 0.1.1, at least, doesn't allow for not using the probabilistic version.
-struct ZeroRng;
-
-impl RngCore for ZeroRng {
-    fn next_u32(&mut self) -> u32 {
-        0
-    }
-
-    fn next_u64(&mut self) -> u64 {
-        0
-    }
-
-    fn fill_bytes(&mut self, dest: &mut [u8]) {
-        dest.fill(0);
-    }
-
-    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
-        dest.fill(0);
-        Ok(())
-    }
-}
-
-impl CryptoRng for ZeroRng {}
 
 #[cfg(test)]
 mod tests {
