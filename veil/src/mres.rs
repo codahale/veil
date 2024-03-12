@@ -166,7 +166,7 @@ fn encrypt_message(
     // Deterministically sign the protocol's final state with the ephemeral private key and append
     // the signature. The protocol's state is randomized with both the nonce and the ephemeral key,
     // so the risk of e.g. fault attacks is minimal.
-    let sig = schnorr::det_sign(&mut mres, &mut rng, (&ephemeral.sk_pq, &ephemeral.sk_c));
+    let sig = schnorr::det_sign(&mut mres, (&ephemeral.sk_pq, &ephemeral.sk_c));
     writer.write_all(&sig).map_err(EncryptError::WriteIo)?;
     written += u64::try_from(sig.len()).expect("usize should be <= u64");
 
