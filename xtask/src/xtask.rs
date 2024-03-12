@@ -108,13 +108,13 @@ fn bench_cli(sh: &Shell, target: BenchmarkTarget, no_stash: bool, size: u64) -> 
     cmd!(sh, "bash -c './target/release/veil-control private-key -o /tmp/private-key-control --passphrase-fd=3 --time-cost=0 --memory-cost=0 3< <(echo -n 'secret')'").run()?;
     cmd!(sh, "bash -c './target/release/veil-experiment private-key -o /tmp/private-key-experiment --passphrase-fd=3 --time-cost=0 --memory-cost=0 3< <(echo -n secret)'").run()?;
 
-    let pk_control = cmd!(sh, "bash -c './target/release/veil-control public-key -k /tmp/private-key-control --passphrase-fd=3 3< <(echo -n secret)'").read()?;
-    let pk_experiment = cmd!(sh, "bash -c './target/release/veil-experiment public-key -k /tmp/private-key-experiment --passphrase-fd=3 3< <(echo -n secret)'").read()?;
+    cmd!(sh, "bash -c './target/release/veil-control public-key -k /tmp/private-key-control -o /tmp/public-key-control --passphrase-fd=3 3< <(echo -n secret)'").run()?;
+    cmd!(sh, "bash -c './target/release/veil-experiment public-key -k /tmp/private-key-experiment -o /tmp/public-key-experiment --passphrase-fd=3 3< <(echo -n secret)'").run()?;
 
     match target {
         BenchmarkTarget::Encrypt => {
-            let control = format!("head -c {size} /dev/zero | ./target/release/veil-control encrypt --passphrase-fd=3 -k /tmp/private-key-control -i - -o /dev/null -r {pk_control} --fakes 9 3< <(echo -n secret)");
-            let experiment = format!("head -c {size} /dev/zero | ./target/release/veil-experiment encrypt --passphrase-fd=3 -k /tmp/private-key-experiment -i - -o /dev/null -r {pk_experiment} --fakes 9 3< <(echo -n secret)");
+            let control = format!("head -c {size} /dev/zero | ./target/release/veil-control encrypt --passphrase-fd=3 -k /tmp/private-key-control -i - -o /dev/null -r /tmp/public-key-control --fakes 9 3< <(echo -n secret)");
+            let experiment = format!("head -c {size} /dev/zero | ./target/release/veil-experiment encrypt --passphrase-fd=3 -k /tmp/private-key-experiment -i - -o /dev/null -r /tmp/public-key-experiment --fakes 9 3< <(echo -n secret)");
             cmd!(sh, "hyperfine --warmup 10 -S /bin/bash -n control {control} -n experimental {experiment}").run()?;
         }
         BenchmarkTarget::Sign => {
@@ -128,8 +128,8 @@ fn bench_cli(sh: &Shell, target: BenchmarkTarget, no_stash: bool, size: u64) -> 
             let experiment_sig = format!("head -c {size} /dev/zero | ./target/release/veil-experiment sign --passphrase-fd=3 -k /tmp/private-key-experiment -i - 3< <(echo -n secret)");
             let experiment_sig = cmd!(sh, "bash -c {experiment_sig}").read()?;
 
-            let control = format!("head -c {size} /dev/zero | ./target/release/veil-control verify --signer {pk_control} -i - --signature {control_sig}");
-            let experiment = format!("head -c {size} /dev/zero | ./target/release/veil-experiment verify --signer {pk_experiment} -i - --signature {experiment_sig}");
+            let control = format!("head -c {size} /dev/zero | ./target/release/veil-control verify --signer /tmp/public-key-control -i - --signature {control_sig}");
+            let experiment = format!("head -c {size} /dev/zero | ./target/release/veil-experiment verify --signer /tmp/public-key-experiment -i - --signature {experiment_sig}");
             cmd!(sh, "hyperfine --warmup 10 -S /bin/bash -n control {control} -n experimental {experiment}").run()?;
         }
         BenchmarkTarget::Digest => {
