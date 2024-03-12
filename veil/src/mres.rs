@@ -10,7 +10,7 @@ use rand::{CryptoRng, Rng};
 
 use crate::{
     keys::{EphemeralPrivKey, EphemeralPubKey, StaticPrivKey, StaticPubKey},
-    schnorr,
+    sig,
     sres::{self, NONCE_LEN},
     DecryptError, EncryptError,
 };
@@ -166,7 +166,7 @@ fn encrypt_message(
     // Deterministically sign the protocol's final state with the ephemeral private key and append
     // the signature. The protocol's state is randomized with both the nonce and the ephemeral key,
     // so the risk of e.g. fault attacks is minimal.
-    let sig = schnorr::det_sign(&mut mres, (&ephemeral.sk_pq, &ephemeral.sk_c));
+    let sig = sig::det_sign(&mut mres, (&ephemeral.sk_pq, &ephemeral.sk_c));
     writer.write_all(&sig).map_err(EncryptError::WriteIo)?;
     written += u64::try_from(sig.len()).expect("usize should be <= u64");
 
@@ -201,7 +201,7 @@ pub fn decrypt(
     let (written, sig) = decrypt_message(&mut mres, &mut reader, &mut writer)?;
 
     // Verify the signature and return the number of bytes written.
-    schnorr::det_verify(
+    sig::det_verify(
         &mut mres,
         (&ephemeral.vk_pq, &ephemeral.vk_c),
         sig.try_into().expect("should be signature sized"),

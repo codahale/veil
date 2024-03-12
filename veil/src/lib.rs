@@ -56,13 +56,13 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-pub use self::{digest::*, errors::*, schnorr::Signature, veil::*};
+pub use self::{digest::*, errors::*, sig::Signature, veil::*};
 
 mod digest;
 mod errors;
 mod keys;
 mod mres;
 mod pbenc;
-mod schnorr;
+mod sig;
 mod sres;
 mod veil;

@@ -6,7 +6,7 @@ use rand::{CryptoRng, RngCore};
 
 use crate::{
     keys::{EphemeralPrivKey, EphemeralPubKey, StaticPrivKey, StaticPubKey, EPHEMERAL_PUB_KEY_LEN},
-    schnorr::{self, DET_SIGNATURE_LEN},
+    sig::{self, DET_SIGNATURE_LEN},
 };
 
 /// The recommended size of the nonce passed to [encrypt].
@@ -82,7 +82,7 @@ pub fn encrypt(
 
     // Deterministically sign the protocol's state. The protocol's state is randomized with both
     // the nonce and the ephemeral key, so the risk of e.g. fault attacks is minimal.
-    let sig = schnorr::det_sign(&mut sres, (&sender.sk_pq, &sender.sk_c));
+    let sig = sig::det_sign(&mut sres, (&sender.sk_pq, &sender.sk_c));
     out_sig.copy_from_slice(&sig);
 }
 
@@ -138,7 +138,7 @@ pub fn decrypt<'a>(
     sres.decrypt("message", ciphertext);
 
     // Verify the signature.
-    schnorr::det_verify(
+    sig::det_verify(
         &mut sres,
         (&sender.vk_pq, &sender.vk_c),
         sig.try_into().expect("should be signature sized"),

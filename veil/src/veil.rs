@@ -13,7 +13,7 @@ use rand::{prelude::SliceRandom, CryptoRng, Rng};
 
 use crate::{
     keys::{StaticPrivKey, StaticPubKey, STATIC_PRIV_KEY_LEN, STATIC_PUB_KEY_LEN},
-    mres, pbenc, schnorr, DecryptError, EncryptError, ParsePublicKeyError, Signature, VerifyError,
+    mres, pbenc, sig, DecryptError, EncryptError, ParsePublicKeyError, Signature, VerifyError,
 };
 
 /// A private key, used to encrypt, decrypt, and sign messages.
@@ -127,7 +127,7 @@ impl PrivateKey {
     ///
     /// If there is an error while reading from `message`, an [`io::Error`] will be returned.
     pub fn sign(&self, rng: impl Rng + CryptoRng, message: impl Read) -> io::Result<Signature> {
-        schnorr::sign(rng, &self.0, message)
+        sig::sign(rng, &self.0, message)
     }
 }
 
@@ -163,7 +163,7 @@ impl PublicKey {
     /// [`VerifyError::InvalidSignature`]. If there was an error reading from `message` or writing
     /// to `writer`, returns [`VerifyError::IoError`].
     pub fn verify(&self, message: impl Read, sig: &Signature) -> Result<(), VerifyError> {
-        schnorr::verify(&self.0, message, sig)
+        sig::verify(&self.0, message, sig)
     }
 }
 
