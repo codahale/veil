@@ -68,8 +68,7 @@ people you sent the message to.
 
 ## Decrypting A Message
 
-To decrypt a message, you'll need the key path of the public key the message was encrypted for, the
-encrypted message, and the sender's public key:
+To decrypt a message, you'll need the encrypted message and the sender's public key:
 
 ```shell
 veil decrypt -k ./my-private-key \
@@ -88,13 +87,11 @@ with.
 To sign a message, you'll just need the message:
 
 ```shell
-veil sign -k ./my-private-key -i announcement.txt
-
-#=>  xMSgptmRtVV1YGn1DZmjL8ivnjoYbVgsqwHyHuENi5SwaQTQWAsoHpjJaN4XV3ugzp2jbfaoDVwdP5zJHLWGkjt
+veil sign -k ./my-private-key -i announcement.txt -o announcement.txt.veil-sig
 ```
 
-You can then share `announcement.txt` and the signature and people will be able to verify that the
-message is from you and has not been modified.
+You can then share `announcement.txt` and `announement.txt.veil-sig` and people will be able to
+verify that the message is from you and has not been modified.
 
 ## Verifying A Message
 

@@ -117,12 +117,20 @@ fn sign_and_verify_message() -> Result<()> {
     fs::write(message_file, "this is a public message")?;
 
     // Alice signs the message.
-    let sig = veil_cmd!(sh, "sign -k {private_key_path:?} -i {message_file:?}", alice_passphrase)
-        .read()?;
+    let sig_file = &dir.path().join("message.sig");
+    veil_cmd!(
+        sh,
+        "sign -k {private_key_path:?} -i {message_file:?} -o {sig_file:?}",
+        alice_passphrase
+    )
+    .run()?;
 
     // Bea verifies the signature.
-    cmd!(sh, "{VEIL_PATH} verify --signer {public_key_path} -i {message_file} --signature {sig}")
-        .run()?;
+    cmd!(
+        sh,
+        "{VEIL_PATH} verify --signer {public_key_path} -i {message_file} --signature {sig_file}"
+    )
+    .run()?;
 
     Ok(())
 }

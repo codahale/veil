@@ -11,7 +11,10 @@ use clap_complete::{generate_to, Shell};
 use console::Term;
 use rand::rngs::OsRng;
 use thiserror::Error;
-use veil::{DecryptError, Digest, ParsePublicKeyError, PrivateKey, PublicKey, Signature};
+use veil::{
+    DecryptError, Digest, ParsePublicKeyError, ParseSignatureError, PrivateKey, PublicKey,
+    Signature,
+};
 
 fn main() {
     let opts = Opts::parse();
@@ -222,8 +225,8 @@ struct VerifyArgs {
     signer: PathBuf,
 
     /// The signature of the message.
-    #[arg(long, value_name = "SIG")]
-    signature: Signature,
+    #[arg(long, value_hint = ValueHint::FilePath, value_name = "PATH")]
+    signature: PathBuf,
 
     /// The path to the message file or '-' for stdin.
     #[arg(short, long, value_hint = ValueHint::FilePath, value_name = "PATH")]
@@ -234,8 +237,9 @@ impl Runnable for VerifyArgs {
     fn run(self) -> Result<(), CliError> {
         let input = open_input(&self.input)?;
         let signer = open_public_key(self.signer)?;
-        signer.verify(input, &self.signature).map_err(|e| match e {
-            veil::VerifyError::InvalidSignature => CliError::InvalidSignature,
+        let signature = open_signature(self.signature)?;
+        signer.verify(input, &signature).map_err(|e| match e {
+            veil::VerifyError::InvalidSignature => CliError::BadSignature,
             veil::VerifyError::ReadIo(e) => CliError::ReadIo(e, self.input),
         })?;
         Ok(())
@@ -360,6 +364,13 @@ impl PassphraseInput {
     }
 }
 
+fn open_signature(path: PathBuf) -> Result<Signature, CliError> {
+    let mut s = String::with_capacity(2048);
+    let mut f = File::open(&path).map_err(|e| CliError::ReadIo(e, path.clone()))?;
+    f.read_to_string(&mut s).map_err(|e| CliError::ReadIo(e, path.clone()))?;
+    s.parse().map_err(|e| CliError::InvalidSignature(e, path.clone()))
+}
+
 fn open_public_key(path: PathBuf) -> Result<PublicKey, CliError> {
     let mut s = String::with_capacity(2048);
     let mut f = File::open(&path).map_err(|e| CliError::ReadIo(e, path.clone()))?;
@@ -420,8 +431,11 @@ enum CliError {
     #[error("digest mismatch")]
     DigestMismatch,
 
-    #[error("invalid signature")]
-    InvalidSignature,
+    #[error("invalid signature at {1:?}")]
+    InvalidSignature(#[source] ParseSignatureError, PathBuf),
+
+    #[error("unable to verify signature")]
+    BadSignature,
 
     #[error("invalid ciphertext")]
     InvalidCiphertext,
