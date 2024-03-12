@@ -82,7 +82,7 @@ pub fn encrypt(
 
     // Deterministically sign the protocol's state. The protocol's state is randomized with both
     // the nonce and the ephemeral key, so the risk of e.g. fault attacks is minimal.
-    let sig = schnorr::det_sign(&mut sres, (&sender.sk_pq, &sender.sk_c));
+    let sig = schnorr::det_sign(&mut sres, &mut rng, (&sender.sk_pq, &sender.sk_c));
     out_sig.copy_from_slice(&sig);
 }
 

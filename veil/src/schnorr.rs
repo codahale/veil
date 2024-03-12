@@ -3,15 +3,15 @@
 use std::{
     fmt,
     io::{self, Read},
-    mem,
     str::FromStr,
 };
 
-use dilithium_raw::{
-    dilithium3, ffi::dilithium3::SIGNATUREBYTES as DILITHIUM3_SIG_LEN, util::ByteArrayVec,
+use fips204::{
+    ml_dsa_65,
+    traits::{Signer, Verifier},
 };
 use lockstitch::Protocol;
-use rand::{CryptoRng, Rng};
+use rand::{CryptoRng, RngCore};
 
 use crate::{
     keys::{StaticPrivKey, StaticPubKey},
@@ -20,8 +20,7 @@ use crate::{
 };
 
 /// The length of a deterministic signature, in bytes.
-pub const DET_SIGNATURE_LEN: usize =
-    ed25519_zebra::Signature::BYTE_SIZE + mem::size_of::<u16>() + DILITHIUM3_SIG_LEN;
+pub const DET_SIGNATURE_LEN: usize = ed25519_zebra::Signature::BYTE_SIZE + ml_dsa_65::SIG_LEN;
 
 /// The length of a signature, in bytes.
 pub const SIGNATURE_LEN: usize = NONCE_LEN + DET_SIGNATURE_LEN;
@@ -63,7 +62,7 @@ impl fmt::Display for Signature {
 
 /// Create a randomized Schnorr signature of the given message using the given key pair.
 pub fn sign(
-    mut rng: impl Rng + CryptoRng,
+    mut rng: impl RngCore + CryptoRng,
     signer: &StaticPrivKey,
     mut message: impl Read,
 ) -> io::Result<Signature> {
@@ -86,7 +85,11 @@ pub fn sign(
     let (mut schnorr, _) = writer.into_inner();
 
     // Calculate the encrypted commitment point and proof scalar.
-    sig[NONCE_LEN..].copy_from_slice(&det_sign(&mut schnorr, (&signer.sk_pq, &signer.sk_c)));
+    sig[NONCE_LEN..].copy_from_slice(&det_sign(
+        &mut schnorr,
+        &mut rng,
+        (&signer.sk_pq, &signer.sk_c),
+    ));
     Ok(Signature(sig))
 }
 
@@ -123,12 +126,12 @@ pub fn verify(
 /// key. The protocol's state must be randomized to mitigate fault attacks.
 pub fn det_sign(
     protocol: &mut Protocol,
-    (sk_pq, sk_c): (&dilithium3::SecretKey, &ed25519_zebra::SigningKey),
+    mut rng: impl RngCore + CryptoRng,
+    (sk_pq, sk_c): (&ml_dsa_65::PrivateKey, &ed25519_zebra::SigningKey),
 ) -> [u8; DET_SIGNATURE_LEN] {
     // Allocate a signature buffer.
     let mut sig = [0u8; DET_SIGNATURE_LEN];
-    let (sig_c, sig_pq_len) = sig.split_at_mut(ed25519_zebra::Signature::BYTE_SIZE);
-    let (sig_pq_len, sig_pq) = sig_pq_len.split_at_mut(mem::size_of::<u16>());
+    let (sig_c, sig_pq) = sig.split_at_mut(ed25519_zebra::Signature::BYTE_SIZE);
 
     // Derive a 256-bit commitment value.
     let k = protocol.derive_array::<32>("commitment");
@@ -136,11 +139,8 @@ pub fn det_sign(
     // Create an Ed25519 signature of the commitment value.
     sig_c.copy_from_slice(&sk_c.sign(&k).to_bytes());
 
-    // Create a Dilithium3 signature of the Ed25519 signature.
-    let s = dilithium3::sign(sig_c, sk_pq);
-    let s_len = <dilithium3::Signature as AsRef<[u8]>>::as_ref(&s).len();
-    sig_pq_len.copy_from_slice(&(s_len as u16).to_le_bytes());
-    sig_pq[..s_len].copy_from_slice(s.as_ref());
+    // Create an ML-DSA-65 signature of the Ed25519 signature.
+    sig_pq.copy_from_slice(&sk_pq.try_sign_with_rng_ct(&mut rng, sig_c).expect("should sign"));
 
     // Encrypt the signature.
     protocol.encrypt("signature", &mut sig);
@@ -153,7 +153,7 @@ pub fn det_sign(
 #[must_use]
 pub fn det_verify(
     protocol: &mut Protocol,
-    (vk_pq, vk_c): (&dilithium3::PublicKey, &ed25519_zebra::VerificationKey),
+    (vk_pq, vk_c): (&ml_dsa_65::PublicKey, &ed25519_zebra::VerificationKey),
     mut sig: [u8; DET_SIGNATURE_LEN],
 ) -> Option<()> {
     // Derive a 256-bit commitment value.
@@ -163,20 +163,18 @@ pub fn det_verify(
     protocol.decrypt("signature", &mut sig);
 
     // Split the signature up.
-    let (sig_c, sig_pq_len) = sig.split_at(ed25519_zebra::Signature::BYTE_SIZE);
-    let (sig_pq_len, sig_pq_raw) = sig_pq_len.split_at(mem::size_of::<u16>());
-    let sig_c =
-        ed25519_zebra::Signature::from_bytes(&sig_c.try_into().expect("should be 64 bytes"));
-    let sig_pq_len = u16::from_le_bytes(sig_pq_len.try_into().expect("should be 2 bytes")) as usize;
-    let sig_pq = dilithium3::Signature::from(ByteArrayVec::new(
-        sig_pq_raw.try_into().expect("should be signature sized"),
-        sig_pq_len,
-    ));
+    let (sig_c, sig_pq) = sig.split_at(ed25519_zebra::Signature::BYTE_SIZE);
 
     // Verify the signatures and ensure the padding bytes are unmodified.
-    vk_c.verify(&sig_c, &k).ok()?;
-    dilithium3::verify(sig_c.to_bytes(), &sig_pq, vk_pq).ok()?;
-    sig_pq_raw[sig_pq_len..].iter().all(|&b| b == 0).then_some(())
+    vk_c.verify(
+        &ed25519_zebra::Signature::from_bytes(&sig_c.try_into().expect("should be 64 bytes")),
+        &k,
+    )
+    .ok()?;
+    vk_pq
+        .try_verify_vt(sig_c, sig_pq.try_into().expect("should be ML-DSA-65 signature sized"))
+        .ok()?
+        .then_some(())
 }
 
 #[cfg(test)]
@@ -185,7 +183,7 @@ mod tests {
 
     use assert_matches::assert_matches;
     use expect_test::expect;
-    use rand::SeedableRng;
+    use rand::{Rng as _, SeedableRng};
     use rand_chacha::ChaChaRng;
 
     use super::*;
@@ -233,7 +231,7 @@ mod tests {
     #[test]
     fn signature_kat() {
         let (_, _, _, sig) = setup();
-        let expected = expect!["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"];
+        let expected = expect!["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"];
         expected.assert_eq(&sig.to_string());
     }
 
