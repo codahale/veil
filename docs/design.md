@@ -1,9 +1,9 @@
 # The Veil Cryptosystem
 
-Veil is a public-key cryptosystem that provides confidentiality, authenticity, and integrity
-services for messages of arbitrary sizes and multiple receivers. This document describes its
-cryptographic constructions, their security properties, and how they are combined to implement
-Veil's feature set.
+Veil is a hybrid post-quantum public-key cryptosystem that provides confidentiality, authenticity,
+and integrity services for messages of arbitrary sizes and multiple receivers. This document
+describes its cryptographic constructions, their security properties, and how they are combined to
+implement Veil's feature set.
 
 ## Contents
 
@@ -64,21 +64,6 @@ your future boss, encrypted with her public key.
 A modern system would use established, analyzed constructions with proofs in established models to
 achieve established notions with reasonable reductions to weak assumptions.
 
-### Non-Repudiation
-
-A standard property of digital signatures is that of _non-repudiation_, or the inability of the
-signer to deny they signed a message. Any possessor of the signer's public key, a message, and a
-signature can verify the signature for themselves. For explicitly signed, public messages, this is a
-very desirable property. For encrypted, confidential messages, this is not.
-
-Similar to the vindictive boss scenario above, an encrypted-then-signed PGP message can be decrypted
-by an intended receiver (or someone in possession of their private key) and presented to a third
-party as an unencrypted, signed message without having to reveal anything about themselves. The
-inability of PGP to preserve the privacy context of confidential messages should rightfully have a
-chilling effect on its users [[BGB04]](#bgb04).
-
-A modern system would be designed to provide some level of deniability to confidential messages.
-
 ### Global Passive Adversaries
 
 A new type of adversary which became immediately relevant to the post-Snowden era is the Global
@@ -96,14 +81,36 @@ patterns in the cryptography itself.
 
 A modern system would produce messages without recognizable metadata or patterns.
 
+### Quantum Adversaries
+
+Despite the current lack of viable quantum computers for cryptographic applications, the development
+of one poses an existential risk to modern cryptographic systems:
+
+> If we do not encrypt our data with a quantum-secure algorithm right now, an attacker who is able
+> to store current communication will be able to decrypt it in as soon as a decade. This
+> store-now-decrypt-later attack is the main motivator behind the current adoption of post-quantum
+> cryptography (PQC), but other future quantum computing threats also require a well-thought out
+> plan for migrating our current, classical cryptographic algorithms to PQC.
+>
+> – [Google's Threat model for Post-Quantum Cryptography](https://bughunters.google.com/blog/5108747984306176/google-s-threat-model-for-post-quantum-cryptography)
+
+While groups such as the NSA recommend wholesale migration to post-quantum algorithms like ML-KEM
+and ML-DSA, the relative newness of those algorithms and the number of entirely broken proposed
+post-quantum algorithms lend weight to the more conservative approach of _hybrid post-quantum_
+constructions. These combine classical algorithms and post-quantum algorithms such that a loss of
+security of one (i.e. due to either the development of a cryptographically-relevant quantum computer
+or novel cryptanalysis of a post-quantum algorithm) does not reduce the overall security of the
+system.
+
+A modern system would defend against both classical and quantum adversaries.
+
 ## Security Model And Notions
 
-Veil has three main security goals:
+Veil has two main security goals:
 
 1. Veil should be secure--i.e. provide both confidentiality and integrity--in the multi-user insider
    setting.
-2. Veil should provide as much deniability as possible.
-3. Veil ciphertexts should be entirely indistinguishable from random noise.
+2. Veil ciphertexts should be entirely indistinguishable from random noise.
 
 ### Multi-User Confidentiality
 
@@ -201,11 +208,11 @@ Indistinguishability from random noise is a critical property for censorship-res
 [[BHKL13]](#bhkl13):
 
 > Censorship-circumvention tools are in an arms race against censors. The censors study all traffic
-passing into and out of their controlled sphere, and try to disable censorship-circumvention tools
-without completely shutting down the Internet. Tools aim to shape their traffic patterns to match
-unblocked programs, so that simple traffic profiling cannot identify the tools within a reasonable
-number of traces; the censors respond by deploying firewalls with increasingly sophisticated
-deep-packet inspection.
+> passing into and out of their controlled sphere, and try to disable censorship-circumvention tools
+> without completely shutting down the Internet. Tools aim to shape their traffic patterns to match
+> unblocked programs, so that simple traffic profiling cannot identify the tools within a reasonable
+> number of traces; the censors respond by deploying firewalls with increasingly sophisticated
+> deep-packet inspection.
 >
 > Cryptography hides patterns in user data but does not evade censorship if the censor can recognize
 patterns in the cryptography itself.
@@ -215,8 +222,10 @@ patterns in the cryptography itself.
 In the interests of cryptographic minimalism, Veil uses the following cryptographic primitives:
 
 1. [Lockstitch](https://github.com/codahale/lockstitch) for all symmetric-key operations.
-2. [X25519](https://www.rfc-editor.org/rfc/rfc7748.html) for key agreement.
-3. [Ed25519](https://www.rfc-editor.org/rfc/rfc8032.html) for digital signatures.
+2. [X25519](https://www.rfc-editor.org/rfc/rfc7748.html) for classical key agreement.
+3. [ML-KEM-768](https://csrc.nist.gov/pubs/fips/203/ipd) for post-quantum key encapsulation.
+4. [Ed25519](https://www.rfc-editor.org/rfc/rfc8032.html) for digital signatures.
+5. [ML-DSA-65](https://csrc.nist.gov/pubs/fips/204/ipd) for post-quantum digital signatures.
 
 ### Lockstitch
 
@@ -226,34 +235,37 @@ complex protocols. It combines TurboSHAKE128 and AEGIS-128L to provide ~10 GiB/s
 modern processors at a 128-bit security level. More information on the design of Lockstitch can be
 found [here](https://github.com/codahale/lockstitch/blob/main/design.md).
 
-Veil's security assumes that Lockstitch's `Encrypt` operation is IND-CPA secure if the protocol's
-prior state is probabilistic, its `Derive` operation is sUF-CMA secure if the protocol's prior state
-is secret, and its `Seal` operation is IND-CCA2 secure.
+Veil's security assumes that Lockstitch's `Encrypt` operation is IND-CPA-secure if the protocol's
+prior state is probabilistic, its `Derive` operation is sUF-CMA-secure if the protocol's prior state
+is secret, and its `Seal` operation is IND-CCA2-secure.
 
 ### X25519
 
 X25519 implements elliptic curve Diffie-Hellman key agreement on the Montgomery form of Curve25519.
 
-Veil's security assumes that the Gap Diffie-Hellman problem is hard relative to Curve25519.
+Veil's security assumes that the Gap Diffie-Hellman problem is hard relative to Curve25519 for
+classical adversaries.
+
+### ML-KEM-768
+
+ML-KEM-768 implements a key encapsulation construction based on the hardness of the Module Learning
+With Errors problem.
+
+Veil's security assumes that ML-KEM-768 is IND-CCA2-secure.
 
 ### Ed25519
 
 Ed25519 implements a Schnorr-style digital signature on the Edwards form of Curve25519 using
 SHA-512.
 
-Veil's security assumes that Ed25519 is sUF-CMA-secure.
+Veil's security assumes that Ed25519 is sUF-CMA-secure for classical adversaries.
 
-### GLS254
+### ML-DSA-65
 
-Veil uses the 253-bit prime-order subgroup of the GLS254 binary curve for asymmetric-key
-cryptographic operations (e.g. key agreement and digital signatures). Per [[Por22]](#por22) and
-[[Por23]](#por23), GLS254 has complete, constant-time equations, a one-way hash-to-curve algorithm,
-canonical encoding of points with compression, and optimization of Schnorr signature creation and
-verification via endomorphism. On processors with support for carryless multiplication, it is the
-fastest known elliptic curve.
+ML-DSA-65 implements a digital signature construction based on the hardness of the Module Learning
+With Errors problem.
 
-Veil's security assumes that the Gap Discrete Logarithm and Gap Diffie-Hellman problems are hard
-relative to GLS254.
+Veil's security assumes that ML-DSA-65 is sUF-CMA-secure for quantum adversaries.
 
 ## Construction Techniques
 
@@ -278,10 +290,10 @@ order:
 
 ```text
 function HPKE(d_E, Q_R, p):
-  state ← Initialize("com.example.hpke") // Initialize a Lockstitch protocol with a domain string. 
-  state ← Mix(state, "ecdh", [d_E]Q_R)   // Mix the ECDH shared secret into the protocol's state.
-  (state, c) ← Seal(state, "message", p) // Seal the plaintext.
-  return c                               // Return ciphertext.
+  state ← Initialize("com.example.hpke")       // Initialize a Lockstitch protocol with a domain string. 
+  state ← Mix(state, "ecdh", X25519(d_E, Q_R)) // Mix the ECDH shared secret into the protocol's state.
+  (state, c) ← Seal(state, "message", p)       // Seal the plaintext.
+  return c                                     // Return ciphertext.
 ```
 
 The protocol is keyed with the shared secret point and used to seal the plaintext. Each operation
@@ -307,87 +319,67 @@ and thus unable to compute their forgery.
 
 ## Digital Signatures
 
-`veil.schnorr` implements an EdDSA-style Schnorr digital signature scheme using Pornin's scheme for
-fast Schnorr signatures [[Por23]](#por23).
+`veil.sig` implements a hybrid post-quantum digital signature scheme using Ed25519 and ML-DSA-65.
 
 ### Signing A Message
 
-Signing a message requires a signer's private key `d`, a signer's secret nonce `z`, and a message
-`m` of arbitrary length.
+Signing a message requires a signer's public key `pk`, a signer's Ed25519 private key `sk_c`, a
+signer's ML-DSA-65 private key `sk_pq`, and a message `m` of arbitrary length.
 
 ```text
-function Sign(d, z, m):
-  state ← Initialize("veil.schnorr")                     // Initialize a protocol.
-  state ← Mix(state, "signer", [d]G)                     // Mix the signer's public key into the protocol.
-  n ← Rand(16)                                           // Generate a random nonce.
-  state ← Mix(state, "nonce", n)                         // Mix the nonce into the protocol.
-  state ← Mix(state, "message", m)                       // Mix the message into the protocol.
-  clone ← Mix(state, "signer-nonce", z)                  // Mix the signer's nonce into a cloned protocol.
-  k ← Derive(clone, "commitment-scalar", 32) mod ℓ       // Derive a commitment scalar.
-  I ← [k]G                                               // Calculate the commitment point.
-  (state, S₀) ← Encrypt(state, "commitment-point", I)    // Encrypt the commitment point.
-  (state, r₀ǁr₁) ← Derive(state, "challenge-scalar", 16) // Derive two short challenge scalars.
-  r ← r₀ +️️ µ×r₁️                                          // Calculate the full challenge scalar using the zeta endomorphism.
-  s ← d×r + k                                            // Calculate the proof scalar.
-  (state, S₁) ← Encrypt(state, "proof-scalar", s)        // Encrypt the proof scalar.
-  return nǁS₀ǁS₁                                         // Return the nonce, commitment point, and proof scalar.
+function Sign(pk, sk_c, sk_pq, m):
+  state ← Initialize("veil.sig")                          // Initialize a protocol.
+  state ← Mix(state, "signer", pk)                        // Mix the signer's public key into the protocol.
+  n ← Rand(16)                                            // Generate a random nonce.
+  state ← Mix(state, "nonce", n)                          // Mix the nonce into the protocol.
+  state ← Mix(state, "message", m)                        // Mix the message into the protocol.
+  (state, d) ← Derive(state, "signature-digest", 64)      // Derive a 512-bit digest.
+  s₀ ← Ed25519::Sign(sk_c, d)                             // Sign the digest with Ed25519.
+  s₁ ← ML_DSA_65::Sign(sk_pq, d)                          // Sign the digest with ML-DSA-65.
+  (state, c₀) ← Encrypt(state, s₀)                        // Encrypt the Ed25519 signature.
+  (state, c₁) ← Encrypt(state, s₁)                        // Encrypt the ML-DSA-65 signature.
+  return nǁc₀ǁc₁
 ```
 
 ### Verifying A Signature
 
-Verifying a signature requires a signer's public key `Q`, a message `m`, and a signature
-`nǁS₀ǁS₁`.
+Verifying a signature requires a signer's public key `pk`, a message `m`, and a signature `nǁc₀ǁc₁`.
 
 ```text
-function Verify(Q, m, nǁS₀ǁS₁):
-  state ← Initialize("veil.schnorr")                       // Initialize a protocol.
-  state ← Mix(state, "signer", Q)                          // Mix the signer's public key into the protocol.
-  state ← Mix(state, "nonce", n)                           // Mix the nonce into the protocol.
-  state ← Mix(state, "message", m)                         // Mix the message into the protocol.
-  (state, I) ← Decrypt(state, "commitment-point", S₀)      // Decrypt the commitment point.
-  (state, r₀′ǁr₁′) ← Derive(state, "challenge-scalar", 16) // Derive two counterfactual short challenge scalars.
-  (state, s) ← Decrypt(state, "proof-scalar", S₁)          // Decrypt the proof scalar.
-  I′ ← [s]G - [r₀′]Q - [r₁'µ]Q                             // Calculate the counterfactual commitment point.
-  return I = I′                                            // The signature is valid if both points are equal.
+function Verify(pk, m, nǁc₀ǁc₁):
+  state ← Initialize("veil.sig")                     // Initialize a protocol.
+  state ← Mix(state, "signer", pk)                   // Mix the signer's public key into the protocol.
+  state ← Mix(state, "nonce", n)                     // Mix the nonce into the protocol.
+  state ← Mix(state, "message", m)                   // Mix the message into the protocol.
+  (state, d) ← Derive(state, "signature-digest", 64) // Derive a 512-bit digest.
+  (state, s₀) ← Encrypt(state, c₀)                   // Decrypt the Ed25519 signature.
+  (state, s₁) ← Encrypt(state, c₁)                   // Decrypt the ML-DSA-65 signature.
+  v₀ ← Ed25519::Verify(pk.vk_c, s₀, d)               // Verify the Ed25519 signature.
+  v₁ ← ML_DSA_65::Verify(pk.vk_pq, s₁, d)            // Verify the ML-DSA-65 signature.
+  return v₀ ∧ v₁                                     // The signature is valid iff both components are valid.
 ```
 
-### Constructive Analysis Of `veil.schnorr`
+### Constructive Analysis Of `veil.sig`
 
-The Schnorr signature scheme is the application of the Fiat-Shamir transform to the Schnorr
-identification scheme.
+Both Ed25519 and ML-DSA-65 are well-studied digital signature schemes. The novelty of `veil.sig`
+lies in its use of symmetric cryptography to pre-hash the inputs and to encrypt the two signatures.
 
-Unlike Construction 13.12 of [[KL20]](#kl20) (p. 482), `veil.schnorr` transmits the commitment point
-`I` as part of the signature and the verifier calculates `I′` vs transmitting the challenge scalar
-`r` and calculating `r′`. In this way, `veil.schnorr` is closer to EdDSA [[BCJZ21]](#bcjz21) or the
-Schnorr variant proposed by Hamburg [[Ham17]](#ham17).
+First, the signer's public key, the nonce, and the message are used to derive a 512-bit digest.
+Using the signer's public key strongly binds the signature to the signer's identity. Including the
+nonce ensures that the digest and the deterministic Ed25519 and ML-DSA-65 signatures of the digest
+are randomized, reducing the threat of fault-injection attacks.
 
-The use of short challenge scalars does not decrease the security margin of the construction but
-does allow for dramatic optimizations of signature creation and verification [[Por23]](#por23).
-
-### UF-CMA Security
-
-Per Theorem 13.10 of [[KL20]](#kl20) (p. 478), this construction is UF-CMA secure if the Schnorr
-identification scheme is secure and the hash function is secure:
-
-> Let `Π` be an identification scheme, and let `Π′` be the signature scheme that results by applying
-the Fiat-Shamir transform to it. If `Π` is secure and `H` is modeled as a random oracle, then `Π′`
-is secure.
-
-Per Theorem 13.11 of [[KL20]](#kl20) (p. 481), the security of the Schnorr identification scheme is
-conditioned on the hardness of the discrete logarithm problem:
-
-> If the discrete-logarithm problem is hard relative to `G`, then the Schnorr identification scheme
-is secure.
-
-Thus, `veil.schnorr` is UF-CMA if the discrete-logarithm problem is hard relative to GLS254 and
-TurboSHAKE128 is indistinguishable from a random oracle.
+Second, both Ed25519 and ML-DSA-65 signatures are encrypted with keys derived from the inputs to the
+protocol.
 
 ### sUF-CMA Security
 
-Some Schnorr/EdDSA implementations (e.g. Ed25519) suffer from malleability issues, allowing for
-multiple valid signatures for a given signer and message [[BCJZ21]](#bcjz21). [[CGN20]](#cgn20)
-describe a strict verification function for Ed25519 which achieves sUF-CMA security in addition to
-strong binding:
+#### Ed25519 sUF-CMA Security
+
+Some Ed25519 implementations suffer from malleability issues, allowing for multiple valid
+signatures for a given signer and message [[BCJZ21]](#bcjz21) (i.e. are eUF-CMA secure and not
+sUF-CMA secure). [[CGN20]](#cgn20) describe a strict verification function for Ed25519 which
+achieves sUF-CMA security in addition to strong binding:
 
 1. Reject the signature if `S ∉ {0,…,L-1}`.
 2. Reject the signature if the public key `A` is one of 8 small order points.
@@ -395,30 +387,23 @@ strong binding:
 4. Compute the hash `SHA2_512(RǁAǁM)` and reduce it mod `L` to get a scalar `h`.
 5. Accept if `8(S·B)-8R-8(h·A)=0`.
 
-Rejecting `S≥L` makes the scheme sUF-CMA secure, and rejecting small order `A` values makes the
-scheme strongly binding. `veil.schnorr`'s use of canonical point and scalar encoding routines
-obviate the need for these checks. Likewise, GLS254 is a prime order group, which obviates the need
-for cofactoring in verification.
+Strong binding in `veil.sig` is achieved by including the signer's public key as an input to the
+digest, therefore rejecting of signatures with `S≥L` the critical component to Ed25519's sUF-CMA
+security in the context of `veil.sig`.
 
-When implemented with a prime order group and canonical encoding routines, the Schnorr signature
-scheme is strongly unforgeable under chosen message attack (sUF-CMA) in the random oracle model and
-even with practical cryptographic hash functions [[PS00]](#ps00) [[NSW09]](#nsw09).
+#### ML-DSA-65 sUF-CMA Security
+
+ML-DSA claims sUF-CMA security.
 
 ### Key Privacy
 
-The EdDSA variant (i.e. `S=(I,s)` ) is used over the traditional Schnorr construction (i.e.
-`S=(r,s)`) to enable the variable-time computation of `I′=[s]G-[r]Q`, which provides a ~30%
-performance improvement. That construction, however, allows for the recovery of the signing public
-key given a signature and a message: given the commitment point `I`, one can calculate
-`Q=-[r^-1](I-[s]G)`.
+As the signer's public key is included as the inputs to a secure hash function, it is not possible
+to recover the public key given a signature and a message.
 
-For Veil, this behavior is not desirable. A global passive adversary should not be able to discover
-the identity of a signer from a signed message.
-
-To eliminate this possibility, `veil.schnorr` encrypts both components of the signature with a
-protocol effectively keyed with the signer's public key in addition to the message. An attack which
-recovers the plaintext of either signature component in the absence of the public key would imply
-that either TurboSHAKE128 is not collision-resistant or that AEGIS-128L is not PRF secure.
+Further, `veil.sig` encrypts both components of the signature with a protocol effectively keyed with
+the signer's public key in addition to the message. An attack which recovers the plaintext of either
+signature component in the absence of the public key would imply that either TurboSHAKE128 is not
+collision-resistant or that AEGIS-128L is not PRF secure.
 
 ### Resilience Against Fault Attacks
 
@@ -427,14 +412,14 @@ vulnerable to fault attacks, in which an adversary induces a signer to generate 
 signatures by injecting a fault (e.g. a random bit-flip via RowHammer attack, thus leaking bits of
 the private key.
 
-Because `veil.schnorr` messages are arbitrary bitstrings, a randomized nonce is added to the
+Because `veil.sig` messages are arbitrary bitstrings, a randomized nonce is added to the
 protocol's state in order to ensure that the signatures are probabilistic and thus immune to fault
 attacks.
 
 ### Indistinguishability From Random Noise
 
 Given that both signature components are encrypted with AEGIS-128L, an attack which distinguishes
-between a `veil.schnorr` and random noise would also imply that AEGIS-128L is distinguishable from
+between a `veil.sig` and random noise would also imply that AEGIS-128L is distinguishable from
 a random function over short messages.
 
 ## Encrypted Headers
@@ -508,7 +493,7 @@ EdDSA-style Schnorr signature scheme by multiplying the proof scalar `s` by the 
 key `Q_R` to produce a designated-verifier point `X` [[SWP04]](#swp04). The EdDSA-style Schnorr
 signature is sUF-CMA secure when implemented in a prime order group and a cryptographic hash
 function [[BCJZ21]](#bcjz21) [[CGN20]](#cgn20) [[PS00]](#ps00) [[NSW09]](#nsw09) (see also
-[`veil.schnorr`](#digital-signatures).
+[`veil.sig`](#digital-signatures).
 
 ### Multi-User Confidentiality Of Headers
 
@@ -583,12 +568,6 @@ setting.
 
 Because `veil.sres` is only ever used to encrypt unique messages, the use of a deterministic
 signature scheme is not vulnerable to fault injection attacks.
-
-### Limited Deniability Of Headers
-
-`veil.sres`'s use of a designated-verifier Schnorr scheme provides limited deniability for senders
-(see [Limited Deniability](#limited-deniability)). Without revealing `d_R`, the receiver cannot
-prove the authenticity of a message (including the identity of its sender) to a third party.
 
 ### Indistinguishability Of Headers From Random Noise Of Encrypted Headers
 
@@ -717,7 +696,7 @@ each encrypted with a sequence of Lockstitch `Seal` operations, which is IND-CCA
 The latter portion of `veil.mres` is an EdDSA-style Schnorr signature scheme. The EdDSA-style
 Schnorr signature is sUF-CMA secure when implemented in a prime order group and a cryptographic hash
 function [[BCJZ21]](#bcjz21) [[CGN20]](#cgn20) [[PS00]](#ps00) [[NSW09]](#nsw09) (see also
-[`veil.schnorr`](#digital-signatures)). In addition, this construction allows for the use of
+[`veil.sig`](#digital-signatures)). In addition, this construction allows for the use of
 variable-time optimizations during signature verification [[Por20]](#por20).
 
 ### Multi-User Confidentiality Of Messages
@@ -795,14 +774,6 @@ authenticity in the multi-user insider setting.
 Because `veil.mres` is only ever used to encrypt unique messages, the use of a deterministic
 signature scheme is not vulnerable to fault injection attacks.
 
-### Limited Deniability Of Messages
-
-The only portion of `veil.mres` ciphertexts which are creating using the sender's private key (and
-thus tying a particular message to their identity) are the `veil.sres`-encrypted headers. All other
-components are creating using the data encryption key or ephemeral private key, neither of which are
-bound to identity. `veil.sres` provides limited deniability (see [Limited
-Deniability](#limited-deniability)), therefore `veil.mres` does as well.
-
 ### Indistinguishability Of Messages From Random Noise
 
 `veil.mres` ciphertexts are indistinguishable from random noise. All components of an `veil.mres`
@@ -816,7 +787,7 @@ The division of the plaintext stream into blocks takes its inspiration from the 
 Instead of using the nonce and associated data to create a feed-forward ciphertext dependency, the
 Lockstitch protocol ensures all encryption operations are cryptographically dependent on the
 ciphertext of all previous encryption operations. Likewise, because the `veil.mres` ciphertext is
-terminated with a Schnorr signature (see [`veil.schnorr`](#digital-signatures)), using a special
+terminated with a Schnorr signature (see [`veil.sig`](#digital-signatures)), using a special
 operation for the final message block isn't required.
 
 The major limitation of such a system is the possibility of the partial decryption of invalid
@@ -970,13 +941,6 @@ Jacqueline Brendel, Cas Cremers, Dennis Jackson, and Mang Zhao.
 Mihir Bellare and Hannah Davis and Zijing Di.
 2023.
 [_Hardening Signature Schemes via Derive-then-Derandomize: Stronger Security Proofs for EdDSA_](https://eprint.iacr.org/2023/298)
-
-### BGB04
-
-Nikita Borisov, Ian Goldberg, and Eric Brewer.
-2004.
-[_Off-the-record communication, or, why not to use PGP._](https://otr.cypherpunks.ca/otr-wpes.pdf)
-[`DOI:10.1145/1029179.1029200`](https://doi.org/10.1145/1029179.1029200)
 
 ### BHKL13
 
