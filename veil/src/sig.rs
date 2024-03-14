@@ -15,23 +15,26 @@ use lockstitch::Protocol;
 use rand::{CryptoRng, RngCore};
 
 use crate::{
-    keys::{StaticPublicKey, StaticSecretKey},
+    keys::{
+        Ed25519SigningKey, Ed25519VerifyingKey, MlDsa65SigningKey, MlDsa65VerifyingKey,
+        StaticPublicKey, StaticSecretKey,
+    },
     sres::NONCE_LEN,
     ParseSignatureError, VerifyError,
 };
 
 /// The length of a deterministic signature, in bytes.
-pub const DET_SIGNATURE_LEN: usize = ed25519_dalek::SIGNATURE_LENGTH + ml_dsa_65::SIG_LEN;
+pub const DET_SIG_LEN: usize = ed25519_dalek::SIGNATURE_LENGTH + ml_dsa_65::SIG_LEN;
 
 /// The length of a signature, in bytes.
-pub const SIGNATURE_LEN: usize = NONCE_LEN + DET_SIGNATURE_LEN;
+pub const SIG_LEN: usize = NONCE_LEN + DET_SIG_LEN;
 
 /// A hybrid Ed25519/ML-DSA-65 signature.
 ///
 /// Consists of a 16-byte nonce,and an encrypted Ed25519 signature, and an encrypted ML-DSA-65
 /// signature.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Signature([u8; SIGNATURE_LEN]);
+pub struct Signature([u8; SIG_LEN]);
 
 impl Signature {
     /// Create a signature from a byte slice.
@@ -42,7 +45,7 @@ impl Signature {
 
     /// Encode the signature as a byte array.
     #[must_use]
-    pub const fn encode(&self) -> [u8; SIGNATURE_LEN] {
+    pub const fn encode(&self) -> [u8; SIG_LEN] {
         self.0
     }
 }
@@ -70,7 +73,7 @@ pub fn sign(
     mut message: impl Read,
 ) -> io::Result<Signature> {
     // Allocate an output buffer.
-    let mut out = [0u8; SIGNATURE_LEN];
+    let mut out = [0u8; SIG_LEN];
     let (out_nonce, out_sig) = out.split_at_mut(NONCE_LEN);
 
     // Initialize a protocol.
@@ -89,7 +92,7 @@ pub fn sign(
     let (mut schnorr, _) = writer.into_inner();
 
     // Create a deterministic hybrid Ed25519/ML-DSA-65 signature of the randomized protocol state.
-    out_sig.copy_from_slice(&det_sign(&mut schnorr, (&signer.sk_pq, &signer.sk_c)));
+    out_sig.copy_from_slice(&sign_protocol(&mut schnorr, signer));
 
     Ok(Signature(out))
 }
@@ -119,29 +122,25 @@ pub fn verify(
     let (mut schnorr, _) = writer.into_inner();
 
     // Verify the signature.
-    det_verify(
-        &mut schnorr,
-        (&signer.vk_pq, &signer.vk_c),
-        signature.try_into().expect("should be signature-sized"),
-    )
-    .ok_or(VerifyError::InvalidSignature)
+    verify_protocol(&mut schnorr, signer, signature.try_into().expect("should be signature-sized"))
+        .ok_or(VerifyError::InvalidSignature)
 }
 
 /// Create a deterministic hybrid Ed25519/ML-DSA-65 signature of the given protocol's state using
 /// the given secret key. The protocol's state must be randomized to mitigate fault attacks.
-pub fn det_sign(
+pub fn sign_protocol(
     protocol: &mut Protocol,
-    (sk_pq, sk_c): (&ml_dsa_65::PrivateKey, &ed25519_dalek::SigningKey),
-) -> [u8; DET_SIGNATURE_LEN] {
+    signer: impl AsRef<Ed25519SigningKey> + AsRef<MlDsa65SigningKey>,
+) -> [u8; DET_SIG_LEN] {
     // Allocate a signature buffer.
-    let mut sig = [0u8; DET_SIGNATURE_LEN];
+    let mut sig = [0u8; DET_SIG_LEN];
     let (sig_c, sig_pq) = sig.split_at_mut(ed25519_dalek::SIGNATURE_LENGTH);
 
     // Derive a 512-bit digest from the protocol state.
     let d = protocol.derive_array::<64>("signature-digest");
 
     // Create an Ed25519 signature of the commitment value and encrypt it.
-    sig_c.copy_from_slice(&sk_c.sign(&d).to_bytes());
+    sig_c.copy_from_slice(&AsRef::<Ed25519SigningKey>::as_ref(&signer).sign(&d).to_bytes());
     protocol.encrypt("ed25519-signature", sig_c);
 
     /// An all-zero RNG which we need to ensure the ML-KEM-65 signature is actually deterministic.
@@ -170,7 +169,11 @@ pub fn det_sign(
     impl CryptoRng for ZeroRng {}
 
     // Create an ML-DSA-65 signature of the second commitment value.
-    sig_pq.copy_from_slice(&sk_pq.try_sign_with_rng_ct(&mut ZeroRng, &d).expect("should sign"));
+    sig_pq.copy_from_slice(
+        &AsRef::<MlDsa65SigningKey>::as_ref(&signer)
+            .try_sign_with_rng_ct(&mut ZeroRng, &d)
+            .expect("should sign"),
+    );
 
     // Encrypt the ML-DSA-65 signature.
     protocol.encrypt("ml-dsa-65-signature", sig_pq);
@@ -181,10 +184,10 @@ pub fn det_sign(
 /// Verify a deterministic hybrid Ed25519/ML-DSA-65 signature of the given protocol's state using
 /// the given public key.
 #[must_use]
-pub fn det_verify(
+pub fn verify_protocol(
     protocol: &mut Protocol,
-    (vk_pq, vk_c): (&ml_dsa_65::PublicKey, &ed25519_dalek::VerifyingKey),
-    mut sig: [u8; DET_SIGNATURE_LEN],
+    signer: impl AsRef<Ed25519VerifyingKey> + AsRef<MlDsa65VerifyingKey>,
+    mut sig: [u8; DET_SIG_LEN],
 ) -> Option<()> {
     // Split the signature up.
     let (sig_c, sig_pq) = sig.split_at_mut(ed25519_dalek::SIGNATURE_LENGTH);
@@ -202,8 +205,9 @@ pub fn det_verify(
     let sig_pq = sig_pq.as_ref().try_into().expect("should be ML-DSA-65 signature sized");
 
     // The signature is valid iff both Ed25519 and ML-DSA-65 signatures are valid.
-    (vk_c.verify_strict(&d, &sig_c).is_ok() && vk_pq.try_verify_vt(&d, sig_pq).is_ok())
-        .then_some(())
+    (AsRef::<Ed25519VerifyingKey>::as_ref(&signer).verify_strict(&d, &sig_c).is_ok()
+        && AsRef::<MlDsa65VerifyingKey>::as_ref(&signer).try_verify_vt(&d, sig_pq).is_ok())
+    .then_some(())
 }
 
 #[cfg(test)]

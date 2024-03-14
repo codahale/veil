@@ -1,8 +1,11 @@
 use std::fmt::{Debug, Formatter};
 
-use fips204::{ml_dsa_65, traits::SerDes as _};
+use fips204::{
+    ml_dsa_65::{self},
+    traits::SerDes as _,
+};
 use ml_kem::{EncodedSizeUser as _, KemCore as _};
-use rand::{CryptoRng, Rng};
+use rand::{CryptoRng, Rng, RngCore};
 
 pub const EPHEMERAL_PK_LEN: usize = 32 + ml_dsa_65::PK_LEN + 32;
 
@@ -10,20 +13,36 @@ pub const STATIC_PK_LEN: usize = 1184 + 32 + ml_dsa_65::PK_LEN + 32;
 
 pub const STATIC_SK_LEN: usize = STATIC_PK_LEN + 2400 + 32 + ml_dsa_65::SK_LEN + 32;
 
+pub type Ed25519SigningKey = ed25519_dalek::SigningKey;
+
+pub type Ed25519VerifyingKey = ed25519_dalek::VerifyingKey;
+
+pub type MlDsa65SigningKey = ml_dsa_65::PrivateKey;
+
+pub type MlDsa65VerifyingKey = ml_dsa_65::PublicKey;
+
+type MlKem768EncryptingKey = ml_kem::kem::EncapsulationKey<ml_kem::MlKem768Params>;
+
+type MlKem768DecryptingKey = ml_kem::kem::DecapsulationKey<ml_kem::MlKem768Params>;
+
+type X25519PublicKey = x25519_dalek::PublicKey;
+
+type X25519SecretKey = x25519_dalek::StaticSecret;
+
 /// A static public key, including its canonical encoded form.
 #[derive(Clone)]
 pub struct StaticPublicKey {
     /// The ML-KEM-768 encrypting key.
-    pub ek_pq: ml_kem::kem::EncapsulationKey<ml_kem::MlKem768Params>,
+    pub ek_pq: MlKem768EncryptingKey,
 
     /// The X25519 encrypting key.
-    pub ek_c: x25519_dalek::PublicKey,
+    pub ek_c: X25519PublicKey,
 
     /// The ML-DSA-65 verifying key.
-    pub vk_pq: ml_dsa_65::PublicKey,
+    pub vk_pq: MlDsa65VerifyingKey,
 
     /// The Ed25519 verifying key.
-    pub vk_c: ed25519_dalek::VerifyingKey,
+    pub vk_c: Ed25519VerifyingKey,
 
     /// The public key's canonical encoded form.
     pub encoded: [u8; STATIC_PK_LEN],
@@ -38,18 +57,14 @@ impl StaticPublicKey {
         let (ek_pq, ek_c) = encoded.split_at(1184);
         let (ek_c, vk_pq) = ek_c.split_at(32);
         let (vk_pq, vk_c) = vk_pq.split_at(ml_dsa_65::PK_LEN);
-        let ek_pq = ml_kem::kem::EncapsulationKey::<ml_kem::MlKem768Params>::from_bytes(
-            &ek_pq.try_into().ok()?,
-        );
-        let ek_c = x25519_dalek::PublicKey::from(<[u8; 32]>::try_from(ek_c).ok()?);
-        let vk_pq = ml_dsa_65::PublicKey::try_from_bytes(
-            vk_pq.try_into().expect("should be ML-DSA-65 public key sized"),
-        )
-        .ok()?;
-        let vk_c = ed25519_dalek::VerifyingKey::from_bytes(
-            vk_c.try_into().expect("should be Ed25519 public key sized"),
-        )
-        .ok()?;
+        let ek_pq =
+            MlKem768EncryptingKey::from_bytes(&ek_pq.try_into().expect("should be 1184 bytes"));
+        let ek_c = X25519PublicKey::from(<[u8; 32]>::try_from(ek_c).expect("should be 32 bytes"));
+        let vk_pq =
+            MlDsa65VerifyingKey::try_from_bytes(vk_pq.try_into().expect("should be 2400 bytes"))
+                .ok()?;
+        let vk_c =
+            Ed25519VerifyingKey::from_bytes(vk_c.try_into().expect("should be 32 bytes")).ok()?;
         Some(StaticPublicKey { ek_pq, ek_c, vk_pq, vk_c, encoded })
     }
 }
@@ -68,19 +83,31 @@ impl PartialEq for StaticPublicKey {
     }
 }
 
+impl AsRef<Ed25519VerifyingKey> for &StaticPublicKey {
+    fn as_ref(&self) -> &Ed25519VerifyingKey {
+        &self.vk_c
+    }
+}
+
+impl AsRef<MlDsa65VerifyingKey> for &StaticPublicKey {
+    fn as_ref(&self) -> &MlDsa65VerifyingKey {
+        &self.vk_pq
+    }
+}
+
 /// A secret key, including its public key.
 pub struct StaticSecretKey {
     /// The ML-KEM decrypting key.
-    pub dk_pq: ml_kem::kem::DecapsulationKey<ml_kem::MlKem768Params>,
+    pub dk_pq: MlKem768DecryptingKey,
 
     /// The X25519 decrypting key.
-    pub dk_c: x25519_dalek::StaticSecret,
+    pub dk_c: X25519SecretKey,
 
     /// The ML-DSA-65 signing key.
-    pub sk_pq: ml_dsa_65::PrivateKey,
+    pub sk_pq: MlDsa65SigningKey,
 
     /// The Ed25519 signing key.
-    pub sk_c: ed25519_dalek::SigningKey,
+    pub sk_c: Ed25519SigningKey,
 
     /// The corresponding [`StaticPublicKey`] for the secret key.
     pub pub_key: StaticPublicKey,
@@ -92,12 +119,12 @@ pub struct StaticSecretKey {
 impl StaticSecretKey {
     /// Generates a random secret key.
     #[must_use]
-    pub fn random(mut rng: impl CryptoRng + Rng) -> StaticSecretKey {
+    pub fn random(mut rng: impl CryptoRng + RngCore) -> StaticSecretKey {
         let (dk_pq, ek_pq) = ml_kem::kem::Kem::<ml_kem::MlKem768Params>::generate(&mut rng);
-        let dk_c = x25519_dalek::StaticSecret::random_from_rng(&mut rng);
-        let ek_c = x25519_dalek::PublicKey::from(&dk_c);
+        let dk_c = X25519SecretKey::random_from_rng(&mut rng);
+        let ek_c = X25519PublicKey::from(&dk_c);
         let (vk_pq, sk_pq) = ml_dsa_65::try_keygen_with_rng_vt(&mut rng).expect("should generate");
-        let sk_c = ed25519_dalek::SigningKey::from_bytes(&rng.gen());
+        let sk_c = Ed25519SigningKey::from_bytes(&rng.gen());
         let vk_c = sk_c.verifying_key();
 
         let mut pub_encoded = Vec::with_capacity(STATIC_PK_LEN);
@@ -138,15 +165,13 @@ impl StaticSecretKey {
         let (dk_c, sk_pq) = dk_c.split_at(32);
         let (sk_pq, sk_c) = sk_pq.split_at(ml_dsa_65::SK_LEN);
         let pub_key = StaticPublicKey::from_canonical_bytes(pub_key)?;
-        let dk_pq = ml_kem::kem::DecapsulationKey::<ml_kem::MlKem768Params>::from_bytes(
-            &dk_pq.try_into().ok()?,
-        );
-        let dk_c = x25519_dalek::StaticSecret::from(<[u8; 32]>::try_from(dk_c).ok()?);
-        let sk_pq = ml_dsa_65::PrivateKey::try_from_bytes(
-            sk_pq.try_into().expect("should be ML-DSA-65 secret key sized"),
-        )
-        .ok()?;
-        let sk_c = ed25519_dalek::SigningKey::from(<[u8; 32]>::try_from(sk_c).ok()?);
+        let dk_pq =
+            MlKem768DecryptingKey::from_bytes(&dk_pq.try_into().expect("should be 2400 bytes"));
+        let dk_c = X25519SecretKey::from(<[u8; 32]>::try_from(dk_c).expect("should be 32 bytes"));
+        let sk_pq =
+            ml_dsa_65::PrivateKey::try_from_bytes(sk_pq.try_into().expect("should be 4032 bytes"))
+                .ok()?;
+        let sk_c = Ed25519SigningKey::from(<[u8; 32]>::try_from(sk_c).expect("should be 32 bytes"));
 
         Some(StaticSecretKey { dk_pq, dk_c, sk_pq, sk_c, pub_key, encoded })
     }
@@ -160,17 +185,42 @@ impl PartialEq for StaticSecretKey {
     }
 }
 
+impl Debug for StaticSecretKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StaticSecretKey")
+            .field("dk_pq", &"[redacted]")
+            .field("dk_c", &"[redacted]")
+            .field("sk_pq", &"[redacted]")
+            .field("sk_c", &"[redacted]")
+            .field("pub_key", &self.pub_key)
+            .field("encoded", &"[redacted]")
+            .finish()
+    }
+}
+
+impl AsRef<Ed25519SigningKey> for &StaticSecretKey {
+    fn as_ref(&self) -> &Ed25519SigningKey {
+        &self.sk_c
+    }
+}
+
+impl AsRef<MlDsa65SigningKey> for &StaticSecretKey {
+    fn as_ref(&self) -> &MlDsa65SigningKey {
+        &self.sk_pq
+    }
+}
+
 /// An ephemeral public key, including its canonical encoded form.
 #[derive(Clone)]
 pub struct EphemeralPublicKey {
     /// The X25519 encrypting key.
-    pub ek_c: x25519_dalek::PublicKey,
+    pub ek_c: X25519PublicKey,
 
     /// The ML-DSA-65 verifying key.
-    pub vk_pq: ml_dsa_65::PublicKey,
+    pub vk_pq: MlDsa65VerifyingKey,
 
     /// The Ed25519 verifying key.
-    pub vk_c: ed25519_dalek::VerifyingKey,
+    pub vk_c: Ed25519VerifyingKey,
 
     /// The public key's canonical encoded form.
     pub encoded: [u8; EPHEMERAL_PK_LEN],
@@ -184,15 +234,12 @@ impl EphemeralPublicKey {
         let encoded = <[u8; EPHEMERAL_PK_LEN]>::try_from(b.as_ref()).ok()?;
         let (ek_c, vk_pq) = encoded.split_at(32);
         let (vk_pq, vk_c) = vk_pq.split_at(ml_dsa_65::PK_LEN);
-        let ek_c = x25519_dalek::PublicKey::from(<[u8; 32]>::try_from(ek_c).ok()?);
-        let vk_pq = ml_dsa_65::PublicKey::try_from_bytes(
-            vk_pq.try_into().expect("should be ML-DSA-65 public key sized"),
-        )
-        .ok()?;
-        let vk_c = ed25519_dalek::VerifyingKey::from_bytes(
-            vk_c.try_into().expect("should be Ed25519 public key sized"),
-        )
-        .ok()?;
+        let ek_c = X25519PublicKey::from(<[u8; 32]>::try_from(ek_c).expect("should be 32 bytes"));
+        let vk_pq =
+            MlDsa65VerifyingKey::try_from_bytes(vk_pq.try_into().expect("should be 1952 bytes"))
+                .ok()?;
+        let vk_c =
+            Ed25519VerifyingKey::from_bytes(vk_c.try_into().expect("should be 32 bytes")).ok()?;
         Some(EphemeralPublicKey { ek_c, vk_pq, vk_c, encoded })
     }
 }
@@ -211,16 +258,28 @@ impl PartialEq for EphemeralPublicKey {
     }
 }
 
+impl AsRef<Ed25519VerifyingKey> for &EphemeralPublicKey {
+    fn as_ref(&self) -> &Ed25519VerifyingKey {
+        &self.vk_c
+    }
+}
+
+impl AsRef<MlDsa65VerifyingKey> for &EphemeralPublicKey {
+    fn as_ref(&self) -> &MlDsa65VerifyingKey {
+        &self.vk_pq
+    }
+}
+
 /// An ephemeral secret key, including its public key.
 pub struct EphemeralSecretKey {
     /// The X25519 decrypting key.
-    pub dk_c: x25519_dalek::StaticSecret,
+    pub dk_c: X25519SecretKey,
 
     /// The ML-DSA-65 signing key.
-    pub sk_pq: ml_dsa_65::PrivateKey,
+    pub sk_pq: MlDsa65SigningKey,
 
     /// The Ed25519 signing key.
-    pub sk_c: ed25519_dalek::SigningKey,
+    pub sk_c: Ed25519SigningKey,
 
     /// The corresponding [`EphemeralPublicKey`] for the secret key.
     pub pub_key: EphemeralPublicKey,
@@ -230,10 +289,10 @@ impl EphemeralSecretKey {
     /// Generates a random secret key.
     #[must_use]
     pub fn random(mut rng: impl CryptoRng + Rng) -> EphemeralSecretKey {
-        let dk_c = x25519_dalek::StaticSecret::random_from_rng(&mut rng);
-        let ek_c = x25519_dalek::PublicKey::from(&dk_c);
+        let dk_c = X25519SecretKey::random_from_rng(&mut rng);
+        let ek_c = X25519PublicKey::from(&dk_c);
         let (vk_pq, sk_pq) = ml_dsa_65::try_keygen_with_rng_vt(&mut rng).expect("should generate");
-        let sk_c = ed25519_dalek::SigningKey::from_bytes(&rng.gen());
+        let sk_c = Ed25519SigningKey::from_bytes(&rng.gen());
         let vk_c = sk_c.verifying_key();
 
         let mut encoded = Vec::with_capacity(EPHEMERAL_PK_LEN);
@@ -260,5 +319,28 @@ impl Eq for EphemeralSecretKey {}
 impl PartialEq for EphemeralSecretKey {
     fn eq(&self, other: &Self) -> bool {
         self.pub_key == other.pub_key
+    }
+}
+
+impl Debug for EphemeralSecretKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EphemeralSecretKey")
+            .field("dk_c", &"[redacted]")
+            .field("sk_pq", &"[redacted]")
+            .field("sk_c", &"[redacted]")
+            .field("pub_key", &self.pub_key)
+            .finish()
+    }
+}
+
+impl AsRef<Ed25519SigningKey> for &EphemeralSecretKey {
+    fn as_ref(&self) -> &Ed25519SigningKey {
+        &self.sk_c
+    }
+}
+
+impl AsRef<MlDsa65SigningKey> for &EphemeralSecretKey {
+    fn as_ref(&self) -> &MlDsa65SigningKey {
+        &self.sk_pq
     }
 }
