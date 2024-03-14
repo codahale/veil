@@ -12,14 +12,13 @@ use console::Term;
 use rand::rngs::OsRng;
 use thiserror::Error;
 use veil::{
-    DecryptError, Digest, ParsePublicKeyError, ParseSignatureError, PrivateKey, PublicKey,
-    Signature,
+    DecryptError, Digest, ParsePublicKeyError, ParseSignatureError, PublicKey, SecretKey, Signature,
 };
 
 fn main() {
     let opts = Opts::parse();
     if let Err(e) = match opts.cmd {
-        Cmd::PrivateKey(cmd) => cmd.run(),
+        Cmd::SecretKey(cmd) => cmd.run(),
         Cmd::PublicKey(cmd) => cmd.run(),
         Cmd::Encrypt(cmd) => cmd.run(),
         Cmd::Decrypt(cmd) => cmd.run(),
@@ -47,7 +46,7 @@ trait Runnable {
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Subcommand)]
 enum Cmd {
-    PrivateKey(PrivateKeyArgs),
+    SecretKey(SecretKeyArgs),
     PublicKey(PublicKeyArgs),
     Encrypt(EncryptArgs),
     Decrypt(DecryptArgs),
@@ -57,10 +56,10 @@ enum Cmd {
     Complete(CompleteArgs),
 }
 
-/// Generate a new private key.
+/// Generate a new secret key.
 #[derive(Debug, Parser)]
-struct PrivateKeyArgs {
-    /// The path to the encrypted private key file or '-' for stdout.
+struct SecretKeyArgs {
+    /// The path to the encrypted secret key file or '-' for stdout.
     #[arg(short, long, value_hint = ValueHint::FilePath, value_name = "PATH")]
     output: PathBuf,
 
@@ -76,23 +75,23 @@ struct PrivateKeyArgs {
     passphrase_input: PassphraseInput,
 }
 
-impl Runnable for PrivateKeyArgs {
+impl Runnable for SecretKeyArgs {
     fn run(self) -> Result<(), CliError> {
         let passphrase = self.passphrase_input.read_passphrase()?;
         let output = open_output(&self.output, true)?;
-        let private_key = PrivateKey::random(OsRng);
-        private_key
+        let secret_key = SecretKey::random(OsRng);
+        secret_key
             .store(output, OsRng, &passphrase, self.time_cost, self.memory_cost)
             .map_err(|e| CliError::WriteIo(e, self.output))?;
         Ok(())
     }
 }
 
-/// Derive a public key from a private key.
+/// Derive a public key from a secret key.
 #[derive(Debug, Parser)]
 struct PublicKeyArgs {
     #[command(flatten)]
-    private_key: PrivateKeyInput,
+    secret_key: SecretKeyInput,
 
     /// The path to the public key file or '-' for stdout.
     #[arg(short, long, value_hint = ValueHint::FilePath, default_value = "-", value_name = "PATH")]
@@ -101,9 +100,9 @@ struct PublicKeyArgs {
 
 impl Runnable for PublicKeyArgs {
     fn run(self) -> Result<(), CliError> {
-        let private_key = self.private_key.decrypt()?;
+        let secret_key = self.secret_key.decrypt()?;
         let mut output = open_output(&self.output, false)?;
-        let public_key = private_key.public_key();
+        let public_key = secret_key.public_key();
         write!(output, "{public_key}").map_err(|e| CliError::WriteIo(e, self.output))
     }
 }
@@ -112,7 +111,7 @@ impl Runnable for PublicKeyArgs {
 #[derive(Debug, Parser)]
 struct EncryptArgs {
     #[command(flatten)]
-    private_key: PrivateKeyInput,
+    secret_key: SecretKeyInput,
 
     /// The path to the input file or '-' for stdin.
     #[arg(short, long, value_hint = ValueHint::FilePath, value_name = "PATH")]
@@ -141,7 +140,7 @@ struct EncryptArgs {
 
 impl Runnable for EncryptArgs {
     fn run(self) -> Result<(), CliError> {
-        let private_key = self.private_key.decrypt()?;
+        let secret_key = self.secret_key.decrypt()?;
         let input = open_input(&self.input)?;
         let output = open_output(&self.output, true)?;
         let receivers = self
@@ -149,7 +148,7 @@ impl Runnable for EncryptArgs {
             .into_iter()
             .map(open_public_key)
             .collect::<Result<Vec<PublicKey>, CliError>>()?;
-        private_key.encrypt(OsRng, input, output, &receivers, self.fakes).map_err(|e| match e {
+        secret_key.encrypt(OsRng, input, output, &receivers, self.fakes).map_err(|e| match e {
             veil::EncryptError::ReadIo(e) => CliError::ReadIo(e, self.input),
             veil::EncryptError::WriteIo(e) => CliError::WriteIo(e, self.output),
         })?;
@@ -161,7 +160,7 @@ impl Runnable for EncryptArgs {
 #[derive(Debug, Parser)]
 struct DecryptArgs {
     #[command(flatten)]
-    private_key: PrivateKeyInput,
+    secret_key: SecretKeyInput,
 
     /// The path to the input file or '-' for stdin.
     #[arg(short, long, value_hint = ValueHint::FilePath, value_name = "PATH")]
@@ -180,9 +179,9 @@ impl Runnable for DecryptArgs {
     fn run(self) -> Result<(), CliError> {
         let input = open_input(&self.input)?;
         let output = open_output(&self.output, true)?;
-        let private_key = self.private_key.decrypt()?;
+        let secret_key = self.secret_key.decrypt()?;
         let sender = open_public_key(self.sender)?;
-        private_key.decrypt(input, output, &sender).map_err(|e| match e {
+        secret_key.decrypt(input, output, &sender).map_err(|e| match e {
             DecryptError::InvalidCiphertext => CliError::InvalidCiphertext,
             DecryptError::ReadIo(e) => CliError::ReadIo(e, self.input),
             DecryptError::WriteIo(e) => CliError::WriteIo(e, self.input),
@@ -195,7 +194,7 @@ impl Runnable for DecryptArgs {
 #[derive(Debug, Parser)]
 struct SignArgs {
     #[command(flatten)]
-    private_key: PrivateKeyInput,
+    secret_key: SecretKeyInput,
 
     /// The path to the message file or '-' for stdin.
     #[arg(short, long, value_hint = ValueHint::FilePath, value_name = "PATH")]
@@ -210,8 +209,8 @@ impl Runnable for SignArgs {
     fn run(self) -> Result<(), CliError> {
         let input = open_input(&self.input)?;
         let mut output = open_output(&self.output, false)?;
-        let private_key = self.private_key.decrypt()?;
-        let sig = private_key.sign(OsRng, input).map_err(|e| CliError::ReadIo(e, self.input))?;
+        let secret_key = self.secret_key.decrypt()?;
+        let sig = secret_key.sign(OsRng, input).map_err(|e| CliError::ReadIo(e, self.input))?;
         write!(output, "{sig}").map_err(|e| CliError::WriteIo(e, self.output))?;
         Ok(())
     }
@@ -305,21 +304,21 @@ impl Runnable for CompleteArgs {
 }
 
 #[derive(Debug, Parser)]
-struct PrivateKeyInput {
-    /// The path of the encrypted private key.
+struct SecretKeyInput {
+    /// The path of the encrypted secret key.
     #[arg(short = 'k', long, value_hint = ValueHint::FilePath, value_name = "PATH")]
-    private_key: PathBuf,
+    secret_key: PathBuf,
 
     #[command(flatten)]
     passphrase_input: PassphraseInput,
 }
 
-impl PrivateKeyInput {
-    fn decrypt(&self) -> Result<PrivateKey, CliError> {
+impl SecretKeyInput {
+    fn decrypt(&self) -> Result<SecretKey, CliError> {
         let passphrase = self.passphrase_input.read_passphrase()?;
-        let ciphertext = File::open(&self.private_key)
-            .map_err(|e| CliError::ReadIo(e, self.private_key.to_path_buf()))?;
-        PrivateKey::load(ciphertext, &passphrase).map_err(CliError::BadPassphrase)
+        let ciphertext = File::open(&self.secret_key)
+            .map_err(|e| CliError::ReadIo(e, self.secret_key.to_path_buf()))?;
+        SecretKey::load(ciphertext, &passphrase).map_err(CliError::BadPassphrase)
     }
 }
 
@@ -425,7 +424,7 @@ enum CliError {
     #[error("no passphrase entered")]
     EmptyPassphrase,
 
-    #[error("unable to decrypt private key")]
+    #[error("unable to decrypt secret key")]
     BadPassphrase(#[source] DecryptError),
 
     #[error("digest mismatch")]

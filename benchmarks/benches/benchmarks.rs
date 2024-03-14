@@ -6,7 +6,7 @@ use std::{
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
-use veil::{Digest, PrivateKey};
+use veil::{Digest, SecretKey};
 
 const LENS: &[(u64, &str)] = &[(0, "0B"), (1024 * 1024, "1MiB"), (10 * 1024 * 1024, "10MiB")];
 
@@ -16,8 +16,8 @@ fn encrypt(c: &mut Criterion) {
         g.throughput(Throughput::Bytes(len));
         g.bench_function(id, |b| {
             let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-            let pk_a = PrivateKey::random(&mut rng);
-            let pk_b = PrivateKey::random(&mut rng);
+            let pk_a = SecretKey::random(&mut rng);
+            let pk_b = SecretKey::random(&mut rng);
             b.iter(|| {
                 pk_a.encrypt(
                     &mut rng,
@@ -39,8 +39,8 @@ fn decrypt(c: &mut Criterion) {
         g.throughput(Throughput::Bytes(len));
         g.bench_function(id, |b| {
             let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-            let pk_a = PrivateKey::random(&mut rng);
-            let pk_b = PrivateKey::random(&mut rng);
+            let pk_a = SecretKey::random(&mut rng);
+            let pk_b = SecretKey::random(&mut rng);
             let mut ciphertext = Cursor::new(Vec::new());
             pk_a.encrypt(
                 &mut rng,
@@ -63,7 +63,7 @@ fn sign(c: &mut Criterion) {
         g.throughput(Throughput::Bytes(len));
         g.bench_function(id, |b| {
             let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-            let pk = PrivateKey::random(&mut rng);
+            let pk = SecretKey::random(&mut rng);
             b.iter(|| pk.sign(&mut rng, io::repeat(0).take(len)).unwrap());
         });
     }
@@ -76,7 +76,7 @@ fn verify(c: &mut Criterion) {
         g.throughput(Throughput::Bytes(len));
         g.bench_function(id, |b| {
             let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-            let pk = PrivateKey::random(&mut rng);
+            let pk = SecretKey::random(&mut rng);
             let sig = pk.sign(rng, io::repeat(0).take(len)).unwrap();
             b.iter(|| pk.public_key().verify(io::repeat(0).take(len), &sig).unwrap());
         });
@@ -101,7 +101,7 @@ fn pbenc(c: &mut Criterion) {
         for memory in [1, 2, 4, 8] {
             g.bench_function(format!("t={time}/m={memory}"), |b| {
                 let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-                let pk = PrivateKey::random(&mut rng);
+                let pk = SecretKey::random(&mut rng);
                 b.iter(|| pk.store(io::sink(), &mut rng, b"passphrase", time, memory));
             });
         }

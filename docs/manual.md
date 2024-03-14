@@ -27,34 +27,34 @@ practical tool.
 veil complete --shell zsh -o /usr/local/share/zsh/site-functions/
 ```
 
-## Creating A Private Key
+## Creating A Secret Key
 
-To create a private key, use the `private-key` command:
+To create a secret key, use the `secret-key` command:
 
 ```shell
-veil private-key -o ./my-private-key
+veil secret-key -o ./my-secret-key
 ```
 
-You'll be prompted for a passphrase, and `veil` will write the encrypted private key to
-`./my-private-key`. That's it. There's no user IDs, no key signing, no key servers, no banging on
+You'll be prompted for a passphrase, and `veil` will write the encrypted secret key to
+`./my-secret-key`. That's it. There's no user IDs, no key signing, no key servers, no banging on
 the keyboard to generate entropy.
 
 ## Generating A Public Key
 
-Now that you have a private key, you also have a public key to share with others:
+Now that you have a secret key, you also have a public key to share with others:
 
 ```shell
-veil public-key --private-key ./my-private-key --output ./contacts/me
+veil public-key --secret-key ./my-secret-key --output ./contacts/me
 ```
 
 You can then give this public key to people, so they can send you encrypted messages.
 
 ## Encrypting A Message
 
-To encrypt a message, you need your private key, the receivers' public keys, and the message:
+To encrypt a message, you need your secret key, the receivers' public keys, and the message:
 
 ```shell
-veil encrypt -k ./my-private-key \
+veil encrypt -k ./my-secret-key \
      -i message.txt \
      -o message.txt.veil \
      -r ./contacts/alice \
@@ -71,7 +71,7 @@ people you sent the message to.
 To decrypt a message, you'll need the encrypted message and the sender's public key:
 
 ```shell
-veil decrypt -k ./my-private-key \
+veil decrypt -k ./my-secret-key \
      -i reply.txt.veil \
      -o reply.txt \
      -s ./contacts/bob
@@ -87,7 +87,7 @@ with.
 To sign a message, you'll just need the message:
 
 ```shell
-veil sign -k ./my-private-key -i announcement.txt -o announcement.txt.veil-sig
+veil sign -k ./my-secret-key -i announcement.txt -o announcement.txt.veil-sig
 ```
 
 You can then share `announcement.txt` and `announement.txt.veil-sig` and people will be able to

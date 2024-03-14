@@ -104,28 +104,28 @@ fn bench_cli(sh: &Shell, target: BenchmarkTarget, no_stash: bool, size: u64) -> 
     cmd!(sh, "cargo build --release").env("RUSTFLAGS", RUSTFLAGS).run()?;
     cmd!(sh, "cp target/release/veil target/release/veil-control").run()?;
 
-    // create a private key with minimal KDF expansion, using both commands to make sure they work
-    cmd!(sh, "bash -c './target/release/veil-control private-key -o /tmp/private-key-control --passphrase-fd=3 --time-cost=0 --memory-cost=0 3< <(echo -n 'secret')'").run()?;
-    cmd!(sh, "bash -c './target/release/veil-experiment private-key -o /tmp/private-key-experiment --passphrase-fd=3 --time-cost=0 --memory-cost=0 3< <(echo -n secret)'").run()?;
+    // create a secret key with minimal KDF expansion, using both commands to make sure they work
+    cmd!(sh, "bash -c './target/release/veil-control secret-key -o /tmp/secret-key-control --passphrase-fd=3 --time-cost=0 --memory-cost=0 3< <(echo -n 'secret')'").run()?;
+    cmd!(sh, "bash -c './target/release/veil-experiment secret-key -o /tmp/secret-key-experiment --passphrase-fd=3 --time-cost=0 --memory-cost=0 3< <(echo -n secret)'").run()?;
 
-    cmd!(sh, "bash -c './target/release/veil-control public-key -k /tmp/private-key-control -o /tmp/public-key-control --passphrase-fd=3 3< <(echo -n secret)'").run()?;
-    cmd!(sh, "bash -c './target/release/veil-experiment public-key -k /tmp/private-key-experiment -o /tmp/public-key-experiment --passphrase-fd=3 3< <(echo -n secret)'").run()?;
+    cmd!(sh, "bash -c './target/release/veil-control public-key -k /tmp/secret-key-control -o /tmp/public-key-control --passphrase-fd=3 3< <(echo -n secret)'").run()?;
+    cmd!(sh, "bash -c './target/release/veil-experiment public-key -k /tmp/secret-key-experiment -o /tmp/public-key-experiment --passphrase-fd=3 3< <(echo -n secret)'").run()?;
 
     match target {
         BenchmarkTarget::Encrypt => {
-            let control = format!("head -c {size} /dev/zero | ./target/release/veil-control encrypt --passphrase-fd=3 -k /tmp/private-key-control -i - -o /dev/null -r /tmp/public-key-control --fakes 9 3< <(echo -n secret)");
-            let experiment = format!("head -c {size} /dev/zero | ./target/release/veil-experiment encrypt --passphrase-fd=3 -k /tmp/private-key-experiment -i - -o /dev/null -r /tmp/public-key-experiment --fakes 9 3< <(echo -n secret)");
+            let control = format!("head -c {size} /dev/zero | ./target/release/veil-control encrypt --passphrase-fd=3 -k /tmp/secret-key-control -i - -o /dev/null -r /tmp/public-key-control --fakes 9 3< <(echo -n secret)");
+            let experiment = format!("head -c {size} /dev/zero | ./target/release/veil-experiment encrypt --passphrase-fd=3 -k /tmp/secret-key-experiment -i - -o /dev/null -r /tmp/public-key-experiment --fakes 9 3< <(echo -n secret)");
             cmd!(sh, "hyperfine --warmup 10 -S /bin/bash -n control {control} -n experimental {experiment}").run()?;
         }
         BenchmarkTarget::Sign => {
-            let control = format!("head -c {size} /dev/zero | ./target/release/veil-control sign --passphrase-fd=3 -k /tmp/private-key-control -i - -o /dev/null 3< <(echo -n secret)");
-            let experiment = format!("head -c {size} /dev/zero | ./target/release/veil-experiment sign --passphrase-fd=3 -k /tmp/private-key-experiment -i - -o /dev/null 3< <(echo -n secret)");
+            let control = format!("head -c {size} /dev/zero | ./target/release/veil-control sign --passphrase-fd=3 -k /tmp/secret-key-control -i - -o /dev/null 3< <(echo -n secret)");
+            let experiment = format!("head -c {size} /dev/zero | ./target/release/veil-experiment sign --passphrase-fd=3 -k /tmp/secret-key-experiment -i - -o /dev/null 3< <(echo -n secret)");
             cmd!(sh, "hyperfine --warmup 10 -S /bin/bash -n control {control} -n experimental {experiment}").run()?;
         }
         BenchmarkTarget::Verify => {
-            let control_sig = format!("head -c {size} /dev/zero | ./target/release/veil-control sign --passphrase-fd=3 -k /tmp/private-key-control -i - 3< <(echo -n secret)");
+            let control_sig = format!("head -c {size} /dev/zero | ./target/release/veil-control sign --passphrase-fd=3 -k /tmp/secret-key-control -i - 3< <(echo -n secret)");
             let control_sig = cmd!(sh, "bash -c {control_sig}").read()?;
-            let experiment_sig = format!("head -c {size} /dev/zero | ./target/release/veil-experiment sign --passphrase-fd=3 -k /tmp/private-key-experiment -i - 3< <(echo -n secret)");
+            let experiment_sig = format!("head -c {size} /dev/zero | ./target/release/veil-experiment sign --passphrase-fd=3 -k /tmp/secret-key-experiment -i - 3< <(echo -n secret)");
             let experiment_sig = cmd!(sh, "bash -c {experiment_sig}").read()?;
 
             let control = format!("head -c {size} /dev/zero | ./target/release/veil-control verify --signer /tmp/public-key-control -i - --signature {control_sig}");

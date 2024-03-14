@@ -17,7 +17,7 @@ pub enum EncryptError {
 /// An error returned when decrypting a message was unsuccessful.
 #[derive(Debug, Error)]
 pub enum DecryptError {
-    /// Decryption was unsuccessful due to a message/private key/public key mismatch.
+    /// Decryption was unsuccessful due to a message/secret key/public key mismatch.
     ///
     /// The ciphertext may have been altered, the message may not have been encrypted by the given
     /// sender, or the message may not have been encrypted for the given receiver.

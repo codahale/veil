@@ -5,7 +5,9 @@ use ml_kem::{Decapsulate, Encapsulate};
 use rand::{CryptoRng, RngCore};
 
 use crate::{
-    keys::{EphemeralPrivKey, EphemeralPubKey, StaticPrivKey, StaticPubKey, EPHEMERAL_PUB_KEY_LEN},
+    keys::{
+        EphemeralPublicKey, EphemeralSecretKey, StaticPublicKey, StaticSecretKey, EPHEMERAL_PK_LEN,
+    },
     sig::{self, DET_SIGNATURE_LEN},
 };
 
@@ -13,15 +15,15 @@ use crate::{
 pub const NONCE_LEN: usize = 16;
 
 /// The number of bytes added to plaintext by [encrypt].
-pub const OVERHEAD: usize = EPHEMERAL_PUB_KEY_LEN + 1088 + DET_SIGNATURE_LEN;
+pub const OVERHEAD: usize = EPHEMERAL_PK_LEN + 1088 + DET_SIGNATURE_LEN;
 
 /// Given the sender's key pair, the ephemeral key pair, the receiver's public key, a nonce, and a
 /// plaintext, encrypts the given plaintext and returns the ciphertext.
 pub fn encrypt(
     mut rng: impl RngCore + CryptoRng,
-    sender: &StaticPrivKey,
-    ephemeral: &EphemeralPrivKey,
-    receiver: &StaticPubKey,
+    sender: &StaticSecretKey,
+    ephemeral: &EphemeralSecretKey,
+    receiver: &StaticPublicKey,
     nonce: &[u8],
     plaintext: &[u8],
     ciphertext: &mut [u8],
@@ -30,7 +32,7 @@ pub fn encrypt(
 
     // Split up the output buffer.
     let (out_kem, out_ephemeral) = ciphertext.split_at_mut(1088);
-    let (out_ephemeral, out_ciphertext) = out_ephemeral.split_at_mut(EPHEMERAL_PUB_KEY_LEN);
+    let (out_ephemeral, out_ciphertext) = out_ephemeral.split_at_mut(EPHEMERAL_PK_LEN);
     let (out_ciphertext, out_sig) = out_ciphertext.split_at_mut(plaintext.len());
 
     // Initialize a protocol.
@@ -50,7 +52,7 @@ pub fn encrypt(
 
     // Mix the static ECDH shared secret `[d_S]Q_R` into the protocol. This makes all following
     // outputs confidential against passive outsider adversaries (i.e. in possession of the sender
-    // and receiver's public keys but no private keys) but not active outsider adversaries.
+    // and receiver's public keys but no secret keys) but not active outsider adversaries.
     sres.mix("static-ecdh", sender.dk_c.diffie_hellman(&receiver.ek_c).as_bytes());
 
     // Encapsulate a shared secret with ML-KEM and encrypt it.
@@ -62,7 +64,7 @@ pub fn encrypt(
     sres.mix("kem-ss", &ss);
 
     // Encrypt the ephemeral public key. An insider adversary (i.e. in possession of either the
-    // sender or the receiver's private key) can recover this value. While this does represent a
+    // sender or the receiver's secret key) can recover this value. While this does represent a
     // distinguishing attack, ~12% of random 32-byte values successfully decode to GLS254 points,
     // which reduces the utility somewhat.
     out_ephemeral.copy_from_slice(&ephemeral.pub_key.encoded);
@@ -70,7 +72,7 @@ pub fn encrypt(
 
     // Mix the ephemeral ECDH shared secret `[d_E]Q_R` into the protocol. This makes all following
     // outputs confidential against passive insider adversaries (i.e. an adversary in possession of
-    // the sender's private key) a.k.a sender forward-secure.
+    // the sender's secret key) a.k.a sender forward-secure.
     sres.mix("ephemeral-ecdh", ephemeral.dk_c.diffie_hellman(&receiver.ek_c).as_bytes());
 
     // Encrypt the plaintext. By itself, this is confidential against passive insider adversaries
@@ -91,11 +93,11 @@ pub fn encrypt(
 /// encrypted for the receiver by the sender.
 #[must_use]
 pub fn decrypt<'a>(
-    receiver: &StaticPrivKey,
-    sender: &StaticPubKey,
+    receiver: &StaticSecretKey,
+    sender: &StaticPublicKey,
     nonce: &[u8],
     in_out: &'a mut [u8],
-) -> Option<(EphemeralPubKey, &'a [u8])> {
+) -> Option<(EphemeralPublicKey, &'a [u8])> {
     // Check for too-small ciphertexts.
     if in_out.len() < OVERHEAD {
         return None;
@@ -103,7 +105,7 @@ pub fn decrypt<'a>(
 
     // Split the ciphertext into its components.
     let (kem, ephemeral) = in_out.split_at_mut(1088);
-    let (ephemeral, ciphertext) = ephemeral.split_at_mut(EPHEMERAL_PUB_KEY_LEN);
+    let (ephemeral, ciphertext) = ephemeral.split_at_mut(EPHEMERAL_PK_LEN);
     let (ciphertext, sig) = ciphertext.split_at_mut(ciphertext.len() - DET_SIGNATURE_LEN);
 
     // Initialize a protocol.
@@ -129,7 +131,7 @@ pub fn decrypt<'a>(
 
     // Decrypt and decode the ephemeral public key.
     sres.decrypt("ephemeral-key", ephemeral);
-    let ephemeral = EphemeralPubKey::from_canonical_bytes(ephemeral)?;
+    let ephemeral = EphemeralPublicKey::from_canonical_bytes(ephemeral)?;
 
     // Mix the ephemeral ECDH shared secret into the protocol: [d_R]Q_E
     sres.mix("ephemeral-ecdh", receiver.dk_c.diffie_hellman(&ephemeral.ek_c).as_bytes());
@@ -168,7 +170,7 @@ mod tests {
     fn wrong_receiver() {
         let (mut rng, sender, _, _, _, nonce, mut ciphertext) = setup();
 
-        let wrong_receiver = StaticPrivKey::random(&mut rng);
+        let wrong_receiver = StaticSecretKey::random(&mut rng);
         assert_eq!(None, decrypt(&wrong_receiver, &sender.pub_key, &nonce, &mut ciphertext));
     }
 
@@ -176,7 +178,7 @@ mod tests {
     fn wrong_sender() {
         let (mut rng, _, receiver, _, _, nonce, mut ciphertext) = setup();
 
-        let wrong_sender = StaticPrivKey::random(&mut rng);
+        let wrong_sender = StaticSecretKey::random(&mut rng);
         assert_eq!(None, decrypt(&receiver, &wrong_sender.pub_key, &nonce, &mut ciphertext));
     }
 
@@ -190,18 +192,18 @@ mod tests {
 
     fn setup() -> (
         ChaChaRng,
-        StaticPrivKey,
-        StaticPrivKey,
-        EphemeralPrivKey,
+        StaticSecretKey,
+        StaticSecretKey,
+        EphemeralSecretKey,
         [u8; 64],
         [u8; NONCE_LEN],
         Vec<u8>,
     ) {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let sender = StaticPrivKey::random(&mut rng);
-        let receiver = StaticPrivKey::random(&mut rng);
-        let ephemeral = EphemeralPrivKey::random(&mut rng);
+        let sender = StaticSecretKey::random(&mut rng);
+        let receiver = StaticSecretKey::random(&mut rng);
+        let ephemeral = EphemeralSecretKey::random(&mut rng);
         let plaintext = rng.gen::<[u8; 64]>();
         let nonce = rng.gen::<[u8; NONCE_LEN]>();
 

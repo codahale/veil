@@ -9,7 +9,7 @@ use lockstitch::{Protocol, TAG_LEN};
 use rand::{CryptoRng, Rng};
 
 use crate::{
-    keys::{EphemeralPrivKey, EphemeralPubKey, StaticPrivKey, StaticPubKey},
+    keys::{EphemeralPublicKey, EphemeralSecretKey, StaticPublicKey, StaticSecretKey},
     sig,
     sres::{self, NONCE_LEN},
     DecryptError, EncryptError,
@@ -46,15 +46,15 @@ pub fn encrypt(
     mut rng: impl Rng + CryptoRng,
     reader: impl Read,
     mut writer: impl Write,
-    sender: &StaticPrivKey,
-    receivers: &[Option<StaticPubKey>],
+    sender: &StaticSecretKey,
+    receivers: &[Option<StaticPublicKey>],
 ) -> Result<u64, EncryptError> {
     // Initialize a protocol and mix the sender's public key into it.
     let mut mres = Protocol::new("veil.mres");
     mres.mix("sender", &sender.pub_key.encoded);
 
     // Generate a random ephemeral key pair, DEK, and nonce.
-    let ephemeral = EphemeralPrivKey::random(&mut rng);
+    let ephemeral = EphemeralSecretKey::random(&mut rng);
     let dek = rng.gen::<[u8; DEK_LEN]>();
     let nonce = rng.gen::<[u8; NONCE_LEN]>();
 
@@ -104,7 +104,7 @@ fn encrypt_message(
     mut mres: Protocol,
     mut reader: impl Read,
     mut writer: impl Write,
-    ephemeral: EphemeralPrivKey,
+    ephemeral: EphemeralSecretKey,
 ) -> Result<u64, EncryptError> {
     let mut block = Vec::with_capacity(BLOCK_LEN + TAG_LEN);
     let mut block_header = [0u8; ENC_BLOCK_HEADER_LEN];
@@ -163,7 +163,7 @@ fn encrypt_message(
     writer.write_all(&padding).map_err(EncryptError::WriteIo)?;
     written += u64::try_from(padding.len()).expect("usize should be <= u64");
 
-    // Deterministically sign the protocol's final state with the ephemeral private key and append
+    // Deterministically sign the protocol's final state with the ephemeral secret key and append
     // the signature. The protocol's state is randomized with both the nonce and the ephemeral key,
     // so the risk of e.g. fault attacks is minimal.
     let sig = sig::det_sign(&mut mres, (&ephemeral.sk_pq, &ephemeral.sk_c));
@@ -179,8 +179,8 @@ fn encrypt_message(
 pub fn decrypt(
     mut reader: impl Read,
     mut writer: impl Write,
-    receiver: &StaticPrivKey,
-    sender: &StaticPubKey,
+    receiver: &StaticSecretKey,
+    sender: &StaticPublicKey,
 ) -> Result<u64, DecryptError> {
     // Initialize a protocol and mix the sender's public key into it.
     let mut mres = Protocol::new("veil.mres");
@@ -257,9 +257,9 @@ fn decrypt_message(
 fn decrypt_header(
     mut mres: Protocol,
     mut reader: impl Read,
-    receiver: &StaticPrivKey,
-    sender: &StaticPubKey,
-) -> Result<(Protocol, EphemeralPubKey, [u8; DEK_LEN]), DecryptError> {
+    receiver: &StaticSecretKey,
+    sender: &StaticPublicKey,
+) -> Result<(Protocol, EphemeralPublicKey, [u8; DEK_LEN]), DecryptError> {
     let mut enc_header = [0u8; ENC_HEADER_LEN];
     let mut header = None;
     let mut i = 0u64;
@@ -380,7 +380,7 @@ mod tests {
     fn wrong_sender() {
         let (mut rng, _, receiver, _, ciphertext) = setup(64);
 
-        let wrong_sender = StaticPrivKey::random(&mut rng);
+        let wrong_sender = StaticSecretKey::random(&mut rng);
 
         assert_matches!(
             decrypt(
@@ -397,7 +397,7 @@ mod tests {
     fn wrong_receiver() {
         let (mut rng, sender, _, _, ciphertext) = setup(64);
 
-        let wrong_receiver = StaticPrivKey::random(&mut rng);
+        let wrong_receiver = StaticSecretKey::random(&mut rng);
 
         assert_matches!(
             decrypt(
@@ -434,10 +434,10 @@ mod tests {
         assert_eq!(plaintext.to_vec(), writer.into_inner(), "incorrect plaintext");
     }
 
-    fn setup(n: usize) -> (ChaChaRng, StaticPrivKey, StaticPrivKey, Vec<u8>, Vec<u8>) {
+    fn setup(n: usize) -> (ChaChaRng, StaticSecretKey, StaticSecretKey, Vec<u8>, Vec<u8>) {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let sender = StaticPrivKey::random(&mut rng);
-        let receiver = StaticPrivKey::random(&mut rng);
+        let sender = StaticSecretKey::random(&mut rng);
+        let receiver = StaticSecretKey::random(&mut rng);
         let mut plaintext = vec![0u8; n];
         rng.fill_bytes(&mut plaintext);
         let mut ciphertext = Vec::with_capacity(plaintext.len());

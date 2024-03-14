@@ -15,7 +15,7 @@ use lockstitch::Protocol;
 use rand::{CryptoRng, RngCore};
 
 use crate::{
-    keys::{StaticPrivKey, StaticPubKey},
+    keys::{StaticPublicKey, StaticSecretKey},
     sres::NONCE_LEN,
     ParseSignatureError, VerifyError,
 };
@@ -66,7 +66,7 @@ impl fmt::Display for Signature {
 /// pair.
 pub fn sign(
     mut rng: impl RngCore + CryptoRng,
-    signer: &StaticPrivKey,
+    signer: &StaticSecretKey,
     mut message: impl Read,
 ) -> io::Result<Signature> {
     // Allocate an output buffer.
@@ -97,7 +97,7 @@ pub fn sign(
 /// Verify a randomized hybrid Ed25519/ML-DSA-65 signature of the given message using the given
 /// public key.
 pub fn verify(
-    signer: &StaticPubKey,
+    signer: &StaticPublicKey,
     mut message: impl Read,
     signature: &Signature,
 ) -> Result<(), VerifyError> {
@@ -128,7 +128,7 @@ pub fn verify(
 }
 
 /// Create a deterministic hybrid Ed25519/ML-DSA-65 signature of the given protocol's state using
-/// the given private key. The protocol's state must be randomized to mitigate fault attacks.
+/// the given secret key. The protocol's state must be randomized to mitigate fault attacks.
 pub fn det_sign(
     protocol: &mut Protocol,
     (sk_pq, sk_c): (&ml_dsa_65::PrivateKey, &ed25519_dalek::SigningKey),
@@ -240,7 +240,7 @@ mod tests {
     #[test]
     fn wrong_signer() {
         let (mut rng, _, message, sig) = setup();
-        let wrong_signer = StaticPrivKey::random(&mut rng);
+        let wrong_signer = StaticSecretKey::random(&mut rng);
         assert_matches!(
             verify(&wrong_signer.pub_key, Cursor::new(message), &sig),
             Err(VerifyError::InvalidSignature)
@@ -280,9 +280,9 @@ mod tests {
         );
     }
 
-    fn setup() -> (ChaChaRng, StaticPrivKey, Vec<u8>, Signature) {
+    fn setup() -> (ChaChaRng, StaticSecretKey, Vec<u8>, Signature) {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let signer = StaticPrivKey::random(&mut rng);
+        let signer = StaticSecretKey::random(&mut rng);
         let message = rng.gen::<[u8; 64]>();
         let sig = sign(&mut rng, &signer, Cursor::new(message)).expect("signing should be ok");
         (rng, signer, message.to_vec(), sig)
