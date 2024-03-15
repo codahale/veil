@@ -24,7 +24,7 @@ practical tool.
 `veil` can generate its own shell completion scripts for Bash, Elvish, Fish, Powershell, and Zsh:
 
 ```shell
-veil complete --shell zsh -o /usr/local/share/zsh/site-functions/
+veil complete --shell zsh --output /usr/local/share/zsh/site-functions/
 ```
 
 ## Creating A Secret Key
@@ -32,7 +32,7 @@ veil complete --shell zsh -o /usr/local/share/zsh/site-functions/
 To create a secret key, use the `secret-key` command:
 
 ```shell
-veil secret-key -o ./my-secret-key
+veil secret-key --output ./my-secret-key
 ```
 
 You'll be prompted for a passphrase, and `veil` will write the encrypted secret key to
@@ -54,11 +54,11 @@ You can then give this public key to people, so they can send you encrypted mess
 To encrypt a message, you need your secret key, the receivers' public keys, and the message:
 
 ```shell
-veil encrypt -k ./my-secret-key \
-     -i message.txt \
-     -o message.txt.veil \
-     -r ./contacts/alice \
-     -r ./contacts/bob \
+veil encrypt --secret-key ./my-secret-key \
+     --input message.txt \
+     --output message.txt.veil \
+     --receiver ./contacts/alice \
+     --receiver ./contacts/bob \
      --fakes 18
 ```
 
@@ -71,10 +71,10 @@ people you sent the message to.
 To decrypt a message, you'll need the encrypted message and the sender's public key:
 
 ```shell
-veil decrypt -k ./my-secret-key \
-     -i reply.txt.veil \
-     -o reply.txt \
-     -s ./contacts/bob
+veil decrypt --secret-key ./my-secret-key \
+     --input reply.txt.veil \
+     --output reply.txt \
+     --sender ./contacts/bob
 ```
 
 This will decrypt and verify the message. If successful, you'll know that the owner of the public
@@ -87,10 +87,12 @@ with.
 To sign a message, you'll just need the message:
 
 ```shell
-veil sign -k ./my-secret-key -i announcement.txt -o announcement.txt.veil-sig
+veil sign --secret-key ./my-secret-key \
+     --input announcement.txt \
+     --output announcement.txt.veil-sig
 ```
 
-You can then share `announcement.txt` and `announement.txt.veil-sig` and people will be able to
+You can then share `announcement.txt` and `announcement.txt.veil-sig` and people will be able to
 verify that the message is from you and has not been modified.
 
 ## Verifying A Message
@@ -100,8 +102,8 @@ signature:
 
 ```shell
 veil verify --signer ./contacts/me \
-     --signature xMSgptmRtVV1YGn1DZmjL8ivnjoYbVgsqwHyHuENi5SwaQTQWAsoHpjJaN4XV3ugzp2jbfaoDVwdP5zJHLWGkjt \
-     -i announcement.txt
+     --signature announcement.txt.veil-sig \
+     --input announcement.txt
 ```
 
 If the signature is from the given public key and the message hasn't been altered, `veil` will exit
@@ -112,7 +114,7 @@ with a status of `0`.
 To create a digest of a message, you'll just need the message:
 
 ```shell
-veil digest -i announcement.txt
+veil digest --input announcement.txt
 
 #=> 5fQPsn8hoaVddFG26cWQ5QFdqxWtUPNaZ9zH2E6LYzFn
 ```
@@ -122,7 +124,7 @@ veil digest -i announcement.txt
 To check the digest of a message, you'll need the message and the digest:
 
 ```shell
-veil digest -i announcement.txt --check 5fQPsn8hoaVddFG26cWQ5QFdqxWtUPNaZ9zH2E6LYzFn
+veil digest --input announcement.txt --check '5fQPsn8hoaVddFG26cWQ5QFdqxWtUPNaZ9zH2E6LYzFn'
 ```
 
 If the digest of the message matches the given digest, `veil` will exit with a status of `0`.
@@ -133,7 +135,7 @@ The `digest` command accepts an optional sequence of metadata strings which are 
 calculation of the digest:
 
 ```shell
-veil digest -i announcement.txt \
+veil digest --input announcement.txt \
      --metadata 'announcement.txt' \
      --metadata 'made-with-veil'
 
@@ -145,7 +147,7 @@ veil digest -i announcement.txt \
 To create a MAC using a shared key, include the shared key as metadata:
 
 ```shell
-veil digest -i announcement.txt \
+veil digest --input announcement.txt \
      --metadata 'our special secret'
 
 #=> 9UH6dDyYZ5XrYyqn9DQvuzp1zz9wtiaVfaAPvwyhTZhT
