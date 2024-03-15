@@ -15,15 +15,15 @@
 //! use std::io;
 //! use std::io::Cursor;
 //! use rand::rngs::OsRng;
-//! use veil::PrivateKey;
+//! use veil::SecretKey;
 //! # use std::error::Error;
 //! #
 //! # fn main() -> Result<(), Box<dyn Error>> {
-//! // Alice generates a private key.
-//! let alice_priv = PrivateKey::random(OsRng);
+//! // Alice generates a secret key.
+//! let alice_priv = SecretKey::random(OsRng);
 //!
-//! // Bea generates a private key.
-//! let bea_priv = PrivateKey::random(OsRng);
+//! // Bea generates a secret key.
+//! let bea_priv = SecretKey::random(OsRng);
 //!
 //! // Alice and Bea share public keys.
 //! let alice_pub = alice_priv.public_key();
@@ -56,13 +56,13 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-pub use self::{digest::*, errors::*, schnorr::Signature, veil::*};
+pub use self::{digest::*, errors::*, sig::Signature, veil::*};
 
 mod digest;
 mod errors;
 mod keys;
 mod mres;
 mod pbenc;
-mod schnorr;
+mod sig;
 mod sres;
 mod veil;

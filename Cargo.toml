@@ -2,7 +2,7 @@
 members = ["benchmarks", "veil", "veil-cli", "xtask"]
 resolver = "2"
 
-[profile.dev.package.crrl]
+[profile.dev.package.curve25519-dalek]
 opt-level = 3
 
 [profile.fuzz]
