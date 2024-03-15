@@ -89,10 +89,10 @@ pub fn sign(
     // Mix the message into the protocol.
     let mut writer = sig.mix_writer("message", io::sink());
     io::copy(&mut message, &mut writer)?;
-    let (mut schnorr, _) = writer.into_inner();
+    let (mut sig, _) = writer.into_inner();
 
     // Create a deterministic hybrid Ed25519/ML-DSA-65 signature of the randomized protocol state.
-    out_sig.copy_from_slice(&sign_protocol(&mut schnorr, signer));
+    out_sig.copy_from_slice(&sign_protocol(&mut sig, signer));
 
     Ok(Signature(out))
 }
@@ -119,10 +119,10 @@ pub fn verify(
     // Mix the message into the protocol.
     let mut writer = sig.mix_writer("message", io::sink());
     io::copy(&mut message, &mut writer)?;
-    let (mut schnorr, _) = writer.into_inner();
+    let (mut sig, _) = writer.into_inner();
 
     // Verify the signature.
-    verify_protocol(&mut schnorr, signer, signature.try_into().expect("should be signature-sized"))
+    verify_protocol(&mut sig, signer, signature.try_into().expect("should be signature-sized"))
         .ok_or(VerifyError::InvalidSignature)
 }
 
