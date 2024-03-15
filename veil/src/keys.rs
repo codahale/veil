@@ -344,3 +344,36 @@ impl AsRef<MlDsa65SigningKey> for &EphemeralSecretKey {
         &self.sk_pq
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use rand::SeedableRng;
+    use rand_chacha::ChaChaRng;
+
+    use super::*;
+
+    #[test]
+    fn static_secret_key_round_trip() {
+        let rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let ssk = StaticSecretKey::random(rng);
+        let ssk_p = StaticSecretKey::from_canonical_bytes(ssk.encoded).expect("should deserialize");
+        assert_eq!(ssk.pub_key, ssk_p.pub_key);
+    }
+
+    #[test]
+    fn static_public_key_round_trip() {
+        let rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let spk = StaticSecretKey::random(rng).pub_key;
+        let spk_p = StaticPublicKey::from_canonical_bytes(spk.encoded).expect("should deserialize");
+        assert_eq!(spk, spk_p);
+    }
+
+    #[test]
+    fn ephemeral_public_key_round_trip() {
+        let rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
+        let epk = EphemeralSecretKey::random(rng).pub_key;
+        let epk_p =
+            EphemeralPublicKey::from_canonical_bytes(epk.encoded).expect("should deserialize");
+        assert_eq!(epk, epk_p);
+    }
+}
