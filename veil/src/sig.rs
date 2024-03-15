@@ -202,7 +202,7 @@ pub fn verify_protocol(
 
     // Decrypt and decode the ML-DSA-65 signature.
     protocol.decrypt("ml-dsa-65-signature", sig_pq);
-    let sig_pq = sig_pq.as_ref().try_into().expect("should be ML-DSA-65 signature sized");
+    let sig_pq = sig_pq.as_ref().try_into().expect("should be 3309 bytes");
 
     // The signature is valid iff both Ed25519 and ML-DSA-65 signatures are valid.
     (AsRef::<Ed25519VerifyingKey>::as_ref(&signer).verify_strict(&d, &sig_c).is_ok()
