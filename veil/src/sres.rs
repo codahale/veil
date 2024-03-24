@@ -8,14 +8,14 @@ use crate::{
     keys::{
         EphemeralPublicKey, EphemeralSecretKey, StaticPublicKey, StaticSecretKey, EPHEMERAL_PK_LEN,
     },
-    sig::{self, DET_SIG_LEN},
+    sig::{self, SIG_LEN},
 };
 
 /// The recommended size of the nonce passed to [encrypt].
 pub const NONCE_LEN: usize = 16;
 
 /// The number of bytes added to plaintext by [encrypt].
-pub const OVERHEAD: usize = EPHEMERAL_PK_LEN + 1088 + DET_SIG_LEN;
+pub const OVERHEAD: usize = EPHEMERAL_PK_LEN + 1088 + SIG_LEN;
 
 /// Given the sender's key pair, the ephemeral key pair, the receiver's public key, a nonce, and a
 /// plaintext, encrypts the given plaintext and returns the ciphertext.
@@ -87,9 +87,9 @@ pub fn encrypt(
     out_ciphertext.copy_from_slice(plaintext);
     sres.encrypt("message", out_ciphertext);
 
-    // Deterministically sign the protocol's state. The protocol's state is randomized with both
-    // the nonce and the ephemeral key, so the risk of e.g. fault attacks is minimal.
-    let sig = sig::sign_protocol(&mut sres, sender);
+    // Sign the protocol's state. The protocol's state is randomized with both the nonce and the
+    // ephemeral key, so the risk of e.g. fault attacks is minimal.
+    let sig = sig::sign_protocol(&mut rng, &mut sres, sender);
     out_sig.copy_from_slice(&sig);
 }
 
@@ -111,7 +111,7 @@ pub fn decrypt<'a>(
     // Split the ciphertext into its components.
     let (kem_ct, ephemeral) = in_out.split_at_mut(1088);
     let (ephemeral, ciphertext) = ephemeral.split_at_mut(EPHEMERAL_PK_LEN);
-    let (ciphertext, sig) = ciphertext.split_at_mut(ciphertext.len() - DET_SIG_LEN);
+    let (ciphertext, sig) = ciphertext.split_at_mut(ciphertext.len() - SIG_LEN);
 
     // Initialize a protocol.
     let mut sres = Protocol::new("veil.sres");

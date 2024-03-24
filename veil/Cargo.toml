@@ -9,7 +9,7 @@ description = "Stupid crypto tricks."
 
 [dependencies]
 bs58 = "0.5.1"
-ed25519-dalek = "2.1.1"
+ed25519-dalek = { version = "2.1.1", features = ["digest", "hazmat"] }
 fips204 = { version = "0.1.1", default-features = false, features = ["ml-dsa-65"] }
 lockstitch = "0.25.1"
 ml-kem = "0.1.0-alpha"

@@ -359,26 +359,23 @@ of arbitrary length.
 function Sign(pk, sk, m):
   state ← Initialize("veil.sig")                          // Initialize a protocol.
   state ← Mix(state, "signer", pk)                        // Mix the signer's public key into the protocol.
-  n ← Rand(16)                                            // Generate a random nonce.
-  state ← Mix(state, "nonce", n)                          // Mix the nonce into the protocol.
   state ← Mix(state, "message", m)                        // Mix the message into the protocol.
   (state, d) ← Derive(state, "signature-digest", 64)      // Derive a 512-bit digest.
-  s₀ ← Ed25519::Sign(sk.sk_c, d)                          // Sign the digest with Ed25519.
-  s₁ ← ML_DSA_65::Sign(sk.sk_pq, d)                       // Sign the digest with ML-DSA-65.
+  s₀ ← Ed25519::HedgedSign(sk.sk_c, d)                    // Sign the digest with Ed25519.
+  s₁ ← ML_DSA_65::HedgedSign(sk.sk_pq, d)                 // Sign the digest with ML-DSA-65.
   (state, c₀) ← Encrypt(state, "ed25519-signature", s₀)   // Encrypt the Ed25519 signature.
   (state, c₁) ← Encrypt(state, "ml-dsa-65-signature", s₁) // Encrypt the ML-DSA-65 signature.
-  return nǁc₀ǁc₁
+  return c₀ǁc₁
 ```
 
 ### Verifying A Signature
 
-Verifying a signature requires a signer's public key `pk`, a message `m`, and a signature `nǁc₀ǁc₁`.
+Verifying a signature requires a signer's public key `pk`, a message `m`, and a signature `c₀ǁc₁`.
 
 ```text
-function Verify(pk, m, nǁc₀ǁc₁):
+function Verify(pk, m, c₀ǁc₁):
   state ← Initialize("veil.sig")                     // Initialize a protocol.
   state ← Mix(state, "signer", pk)                   // Mix the signer's public key into the protocol.
-  state ← Mix(state, "nonce", n)                     // Mix the nonce into the protocol.
   state ← Mix(state, "message", m)                   // Mix the message into the protocol.
   (state, d) ← Derive(state, "signature-digest", 64) // Derive a 512-bit digest.
   (state, s₀) ← Encrypt(state, c₀)                   // Decrypt the Ed25519 signature.
@@ -393,10 +390,8 @@ function Verify(pk, m, nǁc₀ǁc₁):
 Both Ed25519 and ML-DSA-65 are well-studied digital signature schemes. The novelty of `veil.sig`
 lies in its use of symmetric cryptography to pre-hash the inputs and to encrypt the two signatures.
 
-First, the signer's public key, the nonce, and the message are used to derive a 512-bit digest.
-Using the signer's public key strongly binds the signature to the signer's identity. Including the
-nonce ensures that the digest and the deterministic Ed25519 and ML-DSA-65 signatures of the digest
-are randomized, reducing the threat of fault-injection attacks.
+First, the signer's public key and the message are used to derive a 512-bit digest. Using the
+signer's public key strongly binds the signature to the signer's identity.
 
 Second, both Ed25519 and ML-DSA-65 signatures are encrypted with keys derived from the inputs to the
 protocol.
@@ -441,9 +436,10 @@ vulnerable to fault attacks, in which an adversary induces a signer to generate 
 signatures by injecting a fault (e.g. a random bit-flip via RowHammer attack, thus leaking bits of
 the secret key.
 
-Because `veil.sig` messages are arbitrary bitstrings, a randomized nonce is added to the
-protocol's state in order to ensure that the signatures are probabilistic and thus immune to fault
-attacks.
+To protect against these types of attacks, `veil.sig` uses hedged variants of the Ed25519 and
+ML-DSA-65 signing algorithms. For Ed25519, the secret nonce portion of the signing key (i.e.
+bits `h_b,...,h_(2b-1)`) are replaced with the SHA-512 hash of those bits and an additional 32 bytes
+of random data. ML-DSA defines a hedged signing algorithm, which is used here.
 
 ### Indistinguishability From Random Noise
 
@@ -476,8 +472,8 @@ function EncryptHeader((pk_S, sk_S), (pk_E, sk_E), pk_R, N, P):
   state ← Mix(state, "x25519-ephemeral", X25519(sk_E.dk_c, pk_R.ek_c)) // Mix the ephemeral X25519 shared secret into the protocol.
   (state, c₂) ← Encrypt(state, "message", P)                           // Encrypt the plaintext.
   (state, d) ← Derive(state, "signature-digest", 64)                   // Derive a 512-bit digest.
-  s₀ ← Ed25519::Sign(sk_S.sk_c, d)                                     // Sign the digest with Ed25519.
-  s₁ ← ML_DSA_65::Sign(sk_S.sk_pq, d)                                  // Sign the digest with ML-DSA-65.
+  s₀ ← Ed25519::HedgedSign(sk_S.sk_c, d)                               // Sign the digest with Ed25519.
+  s₁ ← ML_DSA_65::HedgedSign(sk_S.sk_pq, d)                            // Sign the digest with ML-DSA-65.
   (state, c₃) ← Encrypt(state, "ed25519-signature", s₀)                // Encrypt the Ed25519 signature.
   (state, c₄) ← Encrypt(state, "ml-dsa-65-signature", s₁)              // Encrypt the ML-DSA-65 signature.
   return c₀ ǁ c₁ ǁ c₂ ǁ c₃ ǁ c₄
@@ -654,8 +650,8 @@ function EncryptMessage((pk_S, sk_S), [pk_R_0,…,pk_R_n], P):
 
   // Finally, append a signature of the message's contents.
   (state, d) ← Derive(state, "signature-digest", 64)                   // Derive a 512-bit digest.
-  s₀ ← Ed25519::Sign(sk_E.sk_c, d)                                     // Sign the digest with Ed25519.
-  s₁ ← ML_DSA_65::Sign(sk_E.sk_pq, d)                                  // Sign the digest with ML-DSA-65.
+  s₀ ← Ed25519::HedgedSign(sk_E.sk_c, d)                               // Sign the digest with Ed25519.
+  s₁ ← ML_DSA_65::HedgedSign(sk_E.sk_pq, d)                            // Sign the digest with ML-DSA-65.
   (state, c₃) ← Encrypt(state, "ed25519-signature", s₀)                // Encrypt the Ed25519 signature.
   (state, c₄) ← Encrypt(state, "ml-dsa-65-signature", s₁)              // Encrypt the ML-DSA-65 signature.
   C ← Cǁc₀ǁc₁

@@ -6,33 +6,28 @@ use std::{
     str::FromStr,
 };
 
-use ed25519_dalek::ed25519::signature::Signer as _;
+use ed25519_dalek::{hazmat as ed25519, Digest, Sha512};
 use fips204::{
     ml_dsa_65,
     traits::{Signer as _, Verifier as _},
 };
 use lockstitch::Protocol;
-use rand::{CryptoRng, RngCore};
+use rand::{CryptoRng, Rng};
 
 use crate::{
     keys::{
         Ed25519SigningKey, Ed25519VerifyingKey, MlDsa65SigningKey, MlDsa65VerifyingKey,
         StaticPublicKey, StaticSecretKey,
     },
-    sres::NONCE_LEN,
     ParseSignatureError, VerifyError,
 };
 
-/// The length of a deterministic signature, in bytes.
-pub const DET_SIG_LEN: usize = ed25519_dalek::SIGNATURE_LENGTH + ml_dsa_65::SIG_LEN;
-
 /// The length of a signature, in bytes.
-pub const SIG_LEN: usize = NONCE_LEN + DET_SIG_LEN;
+pub const SIG_LEN: usize = ed25519_dalek::SIGNATURE_LENGTH + ml_dsa_65::SIG_LEN;
 
 /// A hybrid Ed25519/ML-DSA-65 signature.
 ///
-/// Consists of a 16-byte nonce,and an encrypted Ed25519 signature, and an encrypted ML-DSA-65
-/// signature.
+/// Consists of an encrypted Ed25519 signature and an encrypted ML-DSA-65 signature.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Signature([u8; SIG_LEN]);
 
@@ -65,56 +60,38 @@ impl fmt::Display for Signature {
     }
 }
 
-/// Create a randomized hybrid Ed25519/ML-DSA-65 signature of the given message using the given key
-/// pair.
+/// Create a hybrid Ed25519/ML-DSA-65 signature of the given message using the given key pair.
 pub fn sign(
-    mut rng: impl RngCore + CryptoRng,
+    rng: impl Rng + CryptoRng,
     signer: &StaticSecretKey,
     mut message: impl Read,
 ) -> io::Result<Signature> {
-    // Allocate an output buffer.
-    let mut out = [0u8; SIG_LEN];
-    let (out_nonce, out_sig) = out.split_at_mut(NONCE_LEN);
-
     // Initialize a protocol.
     let mut sig = Protocol::new("veil.sig");
 
     // Mix the signer's public key into the protocol.
     sig.mix("signer", &signer.pub_key.encoded);
 
-    // Generate a random nonce and mix it into the protocol.
-    rng.fill_bytes(out_nonce);
-    sig.mix("nonce", out_nonce);
-
     // Mix the message into the protocol.
     let mut writer = sig.mix_writer("message", io::sink());
     io::copy(&mut message, &mut writer)?;
     let (mut sig, _) = writer.into_inner();
 
-    // Create a deterministic hybrid Ed25519/ML-DSA-65 signature of the randomized protocol state.
-    out_sig.copy_from_slice(&sign_protocol(&mut sig, signer));
-
-    Ok(Signature(out))
+    // Create a hybrid Ed25519/ML-DSA-65 signature of the protocol state.
+    Ok(Signature(sign_protocol(rng, &mut sig, signer)))
 }
 
-/// Verify a randomized hybrid Ed25519/ML-DSA-65 signature of the given message using the given
-/// public key.
+/// Verify a hybrid Ed25519/ML-DSA-65 signature of the given message using the given public key.
 pub fn verify(
     signer: &StaticPublicKey,
     mut message: impl Read,
     signature: &Signature,
 ) -> Result<(), VerifyError> {
-    // Split the signature into its nonce and signature.
-    let (nonce, signature) = signature.0.split_at(NONCE_LEN);
-
     // Initialize a protocol.
     let mut sig = Protocol::new("veil.sig");
 
     // Mix the signer's public key into the protocol.
     sig.mix("signer", &signer.encoded);
-
-    // Mix the nonce into the protocol.
-    sig.mix("nonce", nonce);
 
     // Mix the message into the protocol.
     let mut writer = sig.mix_writer("message", io::sink());
@@ -122,72 +99,58 @@ pub fn verify(
     let (mut sig, _) = writer.into_inner();
 
     // Verify the signature.
-    verify_protocol(&mut sig, signer, signature.try_into().expect("should be signature-sized"))
-        .ok_or(VerifyError::InvalidSignature)
+    verify_protocol(&mut sig, signer, signature.0).ok_or(VerifyError::InvalidSignature)
 }
 
-/// Create a deterministic hybrid Ed25519/ML-DSA-65 signature of the given protocol's state using
-/// the given secret key. The protocol's state must be randomized to mitigate fault attacks.
+/// Create a hybrid Ed25519/ML-DSA-65 signature of the given protocol's state using the given secret
+/// key.
 pub fn sign_protocol(
+    mut rng: impl Rng + CryptoRng,
     protocol: &mut Protocol,
     signer: impl AsRef<Ed25519SigningKey> + AsRef<MlDsa65SigningKey>,
-) -> [u8; DET_SIG_LEN] {
+) -> [u8; SIG_LEN] {
     // Allocate a signature buffer.
-    let mut sig = [0u8; DET_SIG_LEN];
+    let mut sig = [0u8; SIG_LEN];
     let (sig_c, sig_pq) = sig.split_at_mut(ed25519_dalek::SIGNATURE_LENGTH);
 
     // Derive a 512-bit digest from the protocol state.
     let d = protocol.derive_array::<64>("signature-digest");
 
-    // Create an Ed25519 signature of the commitment value and encrypt it.
-    sig_c.copy_from_slice(&AsRef::<Ed25519SigningKey>::as_ref(&signer).sign(&d).to_bytes());
-    protocol.encrypt("ed25519-signature", sig_c);
+    // Create a hedged Ed25519 signature of the commitment value. Here, we replace the deterministic
+    // nonce of the Ed25519 secret key with the first 32 bytes of the SHA-512 hash of the nonce and
+    // a random 32-byte value.
+    let sk_c = AsRef::<Ed25519SigningKey>::as_ref(&signer);
+    let mut esk_c = ed25519::ExpandedSecretKey::from(sk_c.as_bytes());
+    let h = Sha512::default()
+        .chain_update(esk_c.hash_prefix)
+        .chain_update(rng.gen::<[u8; 32]>())
+        .finalize();
+    esk_c.hash_prefix.copy_from_slice(&h[..32]);
+    sig_c.copy_from_slice(
+        &ed25519::raw_sign::<Sha512>(&esk_c, &d, &sk_c.verifying_key()).to_bytes(),
+    );
 
-    /// An all-zero RNG which we need to ensure the ML-KEM-65 signature is actually deterministic.
-    /// The API in 0.1.1, at least, doesn't allow for not using the probabilistic version.
-    struct ZeroRng;
-
-    impl RngCore for ZeroRng {
-        fn next_u32(&mut self) -> u32 {
-            0
-        }
-
-        fn next_u64(&mut self) -> u64 {
-            0
-        }
-
-        fn fill_bytes(&mut self, dest: &mut [u8]) {
-            dest.fill(0);
-        }
-
-        fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
-            dest.fill(0);
-            Ok(())
-        }
-    }
-
-    impl CryptoRng for ZeroRng {}
-
-    // Create an ML-DSA-65 signature of the second commitment value.
+    // Create a hedged ML-DSA-65 signature of the commitment value.
     sig_pq.copy_from_slice(
         &AsRef::<MlDsa65SigningKey>::as_ref(&signer)
-            .try_sign_with_rng_ct(&mut ZeroRng, &d)
+            .try_sign_with_rng_ct(&mut rng, &d)
             .expect("should sign"),
     );
 
-    // Encrypt the ML-DSA-65 signature.
+    // Encrypt the two signatures.
+    protocol.encrypt("ed25519-signature", sig_c);
     protocol.encrypt("ml-dsa-65-signature", sig_pq);
 
     sig
 }
 
-/// Verify a deterministic hybrid Ed25519/ML-DSA-65 signature of the given protocol's state using
-/// the given public key.
+/// Verify a hybrid Ed25519/ML-DSA-65 signature of the given protocol's state using the given public
+/// key.
 #[must_use]
 pub fn verify_protocol(
     protocol: &mut Protocol,
     signer: impl AsRef<Ed25519VerifyingKey> + AsRef<MlDsa65VerifyingKey>,
-    mut sig: [u8; DET_SIG_LEN],
+    mut sig: [u8; SIG_LEN],
 ) -> Option<()> {
     // Split the signature up.
     let (sig_c, sig_pq) = sig.split_at_mut(ed25519_dalek::SIGNATURE_LENGTH);
@@ -264,7 +227,7 @@ mod tests {
     #[test]
     fn signature_kat() {
         let (_, _, _, sig) = setup();
-        let expected = expect!["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"];
+        let expected = expect!["54u3RKdNJiJVqmnX8oU9JWqzNCJKxoZ8PHuYBEVWNNJ3mt1r1AyoAh7kFQDyzXTcfdxbTkkzZbAWURsAeXe2Li7CFY99JixE7bzsgs82kaxTmLawzV7oVAzAvuhGcuVRW1ZyPrW5P4LYFCSTYcCHTCHY7osNJdh3SdrgoFFRw53JTjY2yB7jjmy35doDxifbDu6smXJuj4HiyVBWBDCnSUrJ1SfC4o2JVdBTLDrFotBGsv1kjwVpkUnc5yBXdkSpnTubr4izxXxm6yRrquk5xP3DMpfaKSczroQdTshmshJ83ThCBJ5x4NjdZTDTXUwnRKKUiQxqNkjcTC5ZJCqjQX2kLeTaC6cWHmcd7BoSfJQBMueN7uSwAexnX68geeVwqhM8NDBbZKkb9eCFLfriYSndQYgL4tiTqqvg1JdonezxPrR9bRNFHsnw1TinwBdJrHRKNgLUQ18LW1m44UgfzBcPTXBExSDdMTorapDCdqSNyRvq1jRXr9hunZbocjFGGbxkzFntxVgZb7uo6mDDeYsw1WjebSsvUTCzh3YHmQ6jBHX3vWYnKKCm5SwExfvVU6JwjeSNaqVJqv1j44BCjRaxHfyG8i8TQNH4jEHiaNsQU3LQZgthNf5h5tDCyQpi3j7sUiri6k7cyMTwuEGSj6EcCGZPbDawirn7cGgp1HPoDb3SPMhztmMvgpUh7BQ5DNdr25PC17iVHLbTe42mUfysHbpDn3TUGR8jFCxb2YChfBG3TBqFQY3AkUo7ususG8pS5HxmQzyyjnU6fTzm4BQgQvqueJsnUuiBuurQfF1YCP2BJPmZeVS2ktWxRewKmBt2Bvee5QG3PWcZgvigj1fzdEaLh8wpvB8Bjm5n9rRckVB8RXC6GcSX8YSQbup5M8ekgfpzEd7NjCB96duyKWEeyYEGvXhRbqn9Lgh7EvZTQT2E8Gobth7xVJVS5vqCFvEBhRTLog66HacCMPRnurpAhS1hgK2kxocmGpNavwcBkj1EDkTUTvZ94Rfn9sWt6fc2SmKmzyjQ5h8CguNE59qrkFwFmHRTafdfLjqB5mSjg1QmE5siWoUebhBHx9UeMu4ae2yT3nucxfA3BqZjJ7GeUkCHxHQzyvBtLbmcbViK9WJss6LPKY1jrCyePyTDzHVZLx5DqqgtxxvtPQwpg9amaL7X5rJEyx9QqynKwWovVXPRbxbY2aZKUf5a54zSXikmb2ArQNDym5GrBsrZaN4iSFjoAcnwqPHKgCmBdSF67wimpTN9f1cVkqzNswJ17XRSQLE8E5GxDaRt18Uh3U7bnNujdBizGXNe4WN5zFewLsjRtKEv7bwofAx2shrremjin8X9CkWJuAgrGGsaW6uDjwhkj1ET5MEBnqiqJCu4iWzLwcCEYoNpkRdBqkW3fbXaw2ZPHLJzpaPs34U7GDqmUUHezb2xxKFtNmpro9rmTTHjMYQx1J3jeDNtgRHsXReFHCcUn886bYJFs3a2aF1VKTdBht2QunKNJXbPAUGrgr1PBxFshcTRdo1yJnAnyjQHzuvNVrXVT4HWwYYjQdoAAxmHmAHE3hqmLoKstrE8ayz4J57hcirpJVkHf9fEC8c7Pm7JA1s1QdvzeHce3MxSobixCv3pwScg5y6YHLZbf65TiXRknXfphcyUzu7DydfkLbxDwYNu5x2MVTm4kzaAkUCdJrUCmPUnGLwpaFYoFEr4SuLLn6hh4VGo6Zqv4npTXMLLGfqSC17zz3ayDQTSTEdt2WPLaQ2yqgtu3SXzYKTubKdwsBRJD1Vz2WCwdVA7ckUQ1jC4ukjQ4KwuhgkF6fxjdyfFd6eXmkaqbdBanyn2WCpNKQLYqVbD61vKiSmZJYR8MLZR9L5BxFFcoKUHbzUaTGwnrxFq3ptffpUHtFoFEx8BLimfEofrsGhSj6PitHg8z1wHfZF2BDo21cYaXYW5ZXJM9fKGRS67yQoFxvhD3BJJceTG2e5GCwL8rADPPEAUW5w76aDQPPBMLpqijNHYhbogLpHxY9aYDbHDX34LSZWDmzuvHzsW3WPP9EQDRx4JUThugD7c6wEPK7u295Zo6QAFSfn3hfup39QwpBGHWyE76Ptmb5XqM6gomjdPxHK1mmYXsm5tYdm378bUtvsHUaKr3ubj8xy4i3A3NNmKLY8asKUHApcyR2fFY4i7AHWb8NbQzGrtENVSikTyZy1GpA6vYWh4teHtifAfSHV1ARVZbhapjvj6eBDqdbxeEjvqgcstrHdhQEfaJj9x1LRsCt6vkTSqY2F6Z6ofQWgf7s8mDcPWkCbDrRhjwPFw9vncRFKwnjhyGRu3mS8tLvTj1Mt7cQNaitthULjU3esUvkkpA9cXTcZNfyMroV9HqLyaoFLQyDm1ibo97NnXw5tDaymk1kyL13aeLjS4AynhjuELqghyQom7uwrVxSiXMj8pd9EGZWcbmG5iGkZS89PTMco72n9swhzYgmH4f3ty1pcbS8ohCqi1tWPUCRdPaCmwcycWMM3Q2GAdPySHXeSUDV2pqp6t7V8Rz1YvAFgobzGrZuhBZ9jrCzyxTcDzU5qyumLdQUecLhKLwu9CmT8Pmjzo11W8wV71f2oKwimcH85cA3JHfiMUPXzyiWstFF6ZkrZrE7cdESQUuqe9uuYNkKM7AVzn6hPTUfsqN9ditLSeZhpFzYugyk8MJhGd5yDQw6jscU4DMYeygavnFoDJbpsKEcNH6oGN1z9b5xMDztbSc4y47rXiKtGQoQPKKU1mnU2BYaWQzVLvrPicMB5gnppLgdxxQPZA5zgL2EFhQKc51K75jCmi3xMftZiBdoLXEetqwVXGHEmiycPEbvAfczhhasRfiTgZTUGZuSJBQxAj6zmjzdR1E4QzzV6JBcjTezUHWpdzEcVwSLmsD7mz79H6SzRSAkjePAHZNLte6n7Rfbm7owcbzfYiDYynXXALB3erZdCraeawevACkx7WH9fLNhf5TsQWQTAs34LenNSqMWS7iSznQa8MEJN1usDiMsoqPFn1wFBsUiTuv4uL2wHCvRYuJJPQWfoRFHESxJr6BNjpMV8QK6G5oUtvZtEaL2uReJiM58oV6vCsFrAqfRfYZcmXpMCD47PFsgAsg17rJgtPngrrp3LEdVXbDz9KgCAcoi75wQzyYJZBvGBGYgwoE483RUBGztQvSuH6FKkK9wxLTEEyujMcLiaqSgZUML21p1EXRReEH64EMGPby41TgmqwsMcSrHLxemQfUfrNfPPBXBpfnA4Wu3RLqZ5MQBfgjvBQJnnZKNFfsjNBBtFqcXRoB6pc1bcbp7E5xSWFWYMSTUDnFwAKB9CxJaZiCRTnNWfYaZFr5oHP1kDJNzvAmUxxTkn1dgZDj9ULKBMBUs492pnfjuNRsaN2yySQssFdPdBJn1BkkbHRoX2LPbWwjEeZU3tAKqBS6LXZ4cTarodPoZgbfMx42yMEidCiGcimrrxi5TQhB8HZmuFs6Dy6MsEosfY3eHFYoJt6vssaUa4Z462Bi6wqjtDGLRqPQkjknvZCYhnFFk2v8HhAGbGYkku4LCUjv4wdQQnRdNAHjPBei9ZXcLC1nh9qF3gegrfHcCJf93WY82A8VBwyySkS36uRr9r9JNy8r8HeKWwBQGHRBserC8toQZHzJHkpScCDyC43oFYcnCE9pRe92xcP6iJKtvS3UpjQthAN6sEJCf4pqm3KY7n6cCCoCPKCtzAz298sTkYVQNaLQB8xAq8HqGBvpCyueTbkEm4LELtiJS4b9rAY2xUwUH5p4qXaJjtwRdu9cyFy67txvwZLQFi7vDhnu8u2PAJmSjMHdCpydG9fYGTYbVyAoMwfakU4n1aoNXeoiHqPBD4777mvYQ8PG8zkCKWbNbFT5pByutBhQXC3Ueo7jBkKQABPUmP41D7fGSTsQ8YrcCZ8sRvuXgMoNH7UZNHbUz8gdeimNsGRprPn9iXCukAUGaBmYyH1xLfteKZ2572Acx2EZiQE587cJ5zJXAKFgbaYDEMCyLs2mYyJyLAn4s6p1S9eMs5YeNvbUvaaHnSUry7KReP7jbjE1n4uGsXYxrSELp8USU1AteoXaaML3tjw94YHkRbCfLjLx71nSY4vd6XmmsQEXhvyd52JWjMkMGL8xDekNLPXbHvG4XBgtgK52J6Vno9xXymdMpWsG6LbDJedY3jwguYyVER78rf3xKMx219jVT41EWHp6Smkr8JoS2svfbmmQ2toxCaEMhVNBcvcbdXsAVku4MTjUuicUBarSU9D68VjC7NJZHeHJ2JtLoZwFBauk3gRLxm9XoH43ZnR4begxB3u1jfjp4CHtCT7BBkN4CCVAy9ZqganTxsitsP17a4QYLgiHuYxmcvxtfekXzaSFFQkWuA91io8ekFXpx5qFaxw5R9StweDDeafyyfHLnJpLwGBPvB787Hh2CSjfqR7FXzX8gWRfEw9whSh7EHhUhWtuNz7KaYiwbjURzPUkikozpWzBi5vY8NPkAFU1KKgcCC7Z82AgcvmX5MVPYo87pVX3Dkrx9zFE1pKJFe7gb4dYzBmjRQPTWtthsCPq6Ay389j1htUHYAUba71cxPG1aoBZhCMPSkgCGh"];
         expected.assert_eq(&sig.to_string());
     }
 
