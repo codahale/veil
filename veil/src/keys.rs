@@ -1,5 +1,6 @@
 use std::fmt::{Debug, Formatter};
 
+use arrayref::array_refs;
 use fips204::{
     ml_dsa_65::{self},
     traits::SerDes as _,
@@ -54,17 +55,11 @@ impl StaticPublicKey {
     #[must_use]
     pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<StaticPublicKey> {
         let encoded = <[u8; STATIC_PK_LEN]>::try_from(b.as_ref()).ok()?;
-        let (ek_pq, ek_c) = encoded.split_at(1184);
-        let (ek_c, vk_pq) = ek_c.split_at(32);
-        let (vk_pq, vk_c) = vk_pq.split_at(ml_dsa_65::PK_LEN);
-        let ek_pq =
-            MlKem768EncryptingKey::from_bytes(&ek_pq.try_into().expect("should be 1184 bytes"));
-        let ek_c = X25519PublicKey::from(<[u8; 32]>::try_from(ek_c).expect("should be 32 bytes"));
-        let vk_pq =
-            MlDsa65VerifyingKey::try_from_bytes(vk_pq.try_into().expect("should be 2400 bytes"))
-                .ok()?;
-        let vk_c =
-            Ed25519VerifyingKey::from_bytes(vk_c.try_into().expect("should be 32 bytes")).ok()?;
+        let (ek_pq, ek_c, vk_pq, vk_c) = array_refs![&encoded, 1184, 32, ml_dsa_65::PK_LEN, 32];
+        let ek_pq = MlKem768EncryptingKey::from_bytes(ek_pq.into());
+        let ek_c = X25519PublicKey::from(*ek_c);
+        let vk_pq = MlDsa65VerifyingKey::try_from_bytes(*vk_pq).ok()?;
+        let vk_c = Ed25519VerifyingKey::from_bytes(vk_c).ok()?;
         Some(StaticPublicKey { ek_pq, ek_c, vk_pq, vk_c, encoded })
     }
 }
@@ -160,18 +155,13 @@ impl StaticSecretKey {
     #[must_use]
     pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<StaticSecretKey> {
         let encoded = <[u8; STATIC_SK_LEN]>::try_from(b.as_ref()).ok()?;
-        let (pub_key, dk_pq) = encoded.split_at(STATIC_PK_LEN);
-        let (dk_pq, dk_c) = dk_pq.split_at(2400);
-        let (dk_c, sk_pq) = dk_c.split_at(32);
-        let (sk_pq, sk_c) = sk_pq.split_at(ml_dsa_65::SK_LEN);
+        let (pub_key, dk_pq, dk_c, sk_pq, sk_c) =
+            array_refs![&encoded, STATIC_PK_LEN, 2400, 32, ml_dsa_65::SK_LEN, 32];
         let pub_key = StaticPublicKey::from_canonical_bytes(pub_key)?;
-        let dk_pq =
-            MlKem768DecryptingKey::from_bytes(&dk_pq.try_into().expect("should be 2400 bytes"));
-        let dk_c = X25519SecretKey::from(<[u8; 32]>::try_from(dk_c).expect("should be 32 bytes"));
-        let sk_pq =
-            ml_dsa_65::PrivateKey::try_from_bytes(sk_pq.try_into().expect("should be 4032 bytes"))
-                .ok()?;
-        let sk_c = Ed25519SigningKey::from(<[u8; 32]>::try_from(sk_c).expect("should be 32 bytes"));
+        let dk_pq = MlKem768DecryptingKey::from_bytes(dk_pq.into());
+        let dk_c = X25519SecretKey::from(*dk_c);
+        let sk_pq = ml_dsa_65::PrivateKey::try_from_bytes(*sk_pq).ok()?;
+        let sk_c = Ed25519SigningKey::from(sk_c);
 
         Some(StaticSecretKey { dk_pq, dk_c, sk_pq, sk_c, pub_key, encoded })
     }
@@ -232,14 +222,10 @@ impl EphemeralPublicKey {
     #[must_use]
     pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<EphemeralPublicKey> {
         let encoded = <[u8; EPHEMERAL_PK_LEN]>::try_from(b.as_ref()).ok()?;
-        let (ek_c, vk_pq) = encoded.split_at(32);
-        let (vk_pq, vk_c) = vk_pq.split_at(ml_dsa_65::PK_LEN);
-        let ek_c = X25519PublicKey::from(<[u8; 32]>::try_from(ek_c).expect("should be 32 bytes"));
-        let vk_pq =
-            MlDsa65VerifyingKey::try_from_bytes(vk_pq.try_into().expect("should be 1952 bytes"))
-                .ok()?;
-        let vk_c =
-            Ed25519VerifyingKey::from_bytes(vk_c.try_into().expect("should be 32 bytes")).ok()?;
+        let (ek_c, vk_pq, vk_c) = array_refs![&encoded, 32, ml_dsa_65::PK_LEN, 32];
+        let ek_c = X25519PublicKey::from(*ek_c);
+        let vk_pq = MlDsa65VerifyingKey::try_from_bytes(*vk_pq).ok()?;
+        let vk_c = Ed25519VerifyingKey::from_bytes(vk_c).ok()?;
         Some(EphemeralPublicKey { ek_c, vk_pq, vk_c, encoded })
     }
 }

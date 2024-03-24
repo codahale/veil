@@ -8,6 +8,7 @@ include = ["src/**/*", "../LICENSE-MIT", "../LICENSE-APACHE", "../README.md"]
 description = "Stupid crypto tricks."
 
 [dependencies]
+arrayref = "0.3.7"
 bs58 = "0.5.1"
 ed25519-dalek = { version = "2.1.1", features = ["digest", "hazmat"] }
 fips204 = { version = "0.1.1", default-features = false, features = ["ml-dsa-65"] }
