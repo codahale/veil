@@ -54,8 +54,8 @@ oracle ([[AR10]](#ar10), p. 41):
 
 > In the StE scheme, the adversary `A` can easily break the sUF-CMA security in the outsider model.
 It can ask the encryption oracle to signcrypt a message `m` for `R′` and get
-`C=(Encrypt(pk_R′,mǁσ),ID_S,ID_R′)` where `σ=Sign(pk_S,m)`. Then, it can recover `mǁσ` using `sk_R′`
-and forge the signcryption ciphertext `C=(Encrypt(pk_R,mǁσ),ID_S,ID_R)`.
+`C=(Encrypt(pk_R′,m ǁ σ),ID_S,ID_R′)` where `σ=Sign(pk_S,m)`. Then, it can recover `m ǁ σ` using
+`sk_R′` and forge the signcryption ciphertext `C=(Encrypt(pk_R,m ǁ σ),ID_S,ID_R)`.
 
 This may seem like an academic distinction, but this attack is trivial to mount. If you send your
 boss an angry resignation letter signed and encrypted with PGP, your boss can re-transmit that to
@@ -356,33 +356,43 @@ Signing a message requires a signer's public key `pk`, a signer's secret key `sk
 of arbitrary length.
 
 ```text
-function Sign(pk, sk, m):
-  state ← Initialize("veil.sig")                          // Initialize a protocol.
-  state ← Mix(state, "signer", pk)                        // Mix the signer's public key into the protocol.
-  state ← Mix(state, "message", m)                        // Mix the message into the protocol.
-  (state, d) ← Derive(state, "signature-digest", 64)      // Derive a 512-bit digest.
-  s₀ ← Ed25519::HedgedSign(sk.sk_c, d)                    // Sign the digest with Ed25519.
-  s₁ ← ML_DSA_65::HedgedSign(sk.sk_pq, d)                 // Sign the digest with ML-DSA-65.
+function SignState(state, sk):
+  r ← Rand(16)                                            // Generate a random nonce.
+  state ← Mix(state, "signature-nonce", r)                // Mix the nonce into the protocol.
+  (state, h) ← Derive(state, "signature-digest", 32)      // Derive a 256-bit digest.
+  s₀ ← Ed25519::Sign(sk.sk_c, r ǁ h)                      // Sign the nonce and digest with Ed25519.
+  s₁ ← ML_DSA_65::Sign(sk.sk_pq, r ǁ h ǁ s₁)              // Sign the nonce, digest, and Ed25519 signature with ML-DSA-65.
   (state, c₀) ← Encrypt(state, "ed25519-signature", s₀)   // Encrypt the Ed25519 signature.
   (state, c₁) ← Encrypt(state, "ml-dsa-65-signature", s₁) // Encrypt the ML-DSA-65 signature.
-  return c₀ǁc₁
+  return r ǁ h ǁ c₀ ǁ c₁
+
+function Sign(pk, sk, m):
+  state ← Initialize("veil.sig")   // Initialize a protocol.
+  state ← Mix(state, "signer", pk) // Mix the signer's public key into the protocol.
+  state ← Mix(state, "message", m) // Mix the message into the protocol.
+  return SignState(state, sk)      // Sign the protocol's state.
 ```
 
 ### Verifying A Signature
 
-Verifying a signature requires a signer's public key `pk`, a message `m`, and a signature `c₀ǁc₁`.
+Verifying a signature requires a signer's public key `pk`, a message `m`, and a signature
+`r ǁ h ǁ c₀ ǁ c₁`.
 
 ```text
-function Verify(pk, m, c₀ǁc₁):
-  state ← Initialize("veil.sig")                     // Initialize a protocol.
-  state ← Mix(state, "signer", pk)                   // Mix the signer's public key into the protocol.
-  state ← Mix(state, "message", m)                   // Mix the message into the protocol.
-  (state, d) ← Derive(state, "signature-digest", 64) // Derive a 512-bit digest.
-  (state, s₀) ← Encrypt(state, c₀)                   // Decrypt the Ed25519 signature.
-  (state, s₁) ← Encrypt(state, c₁)                   // Decrypt the ML-DSA-65 signature.
-  v₀ ← Ed25519::Verify(pk.vk_c, s₀, d)               // Verify the Ed25519 signature.
-  v₁ ← ML_DSA_65::Verify(pk.vk_pq, s₁, d)            // Verify the ML-DSA-65 signature.
-  return v₀ ∧ v₁                                     // The signature is valid iff both components are valid.
+function VerifyState(state, pk, r ǁ h ǁ c₀ ǁ c₁):
+  state ← Mix(state, "signature-nonce", r)            // Mix the nonce into the protocol.
+  (state, h′) ← Derive(state, "signature-digest", 32) // Derive a counterfactual digest.
+  (state, s₀) ← Encrypt(state, c₀)                    // Decrypt the Ed25519 signature.
+  (state, s₁) ← Encrypt(state, c₁)                    // Decrypt the ML-DSA-65 signature.
+  v₀ ← Ed25519::Verify(pk.vk_c, s₀, r ǁ h)            // Verify the Ed25519 signature.
+  v₁ ← ML_DSA_65::Verify(pk.vk_pq, s₁, r ǁ h ǁ s₀)    // Verify the ML-DSA-65 signature.
+  return h=h′ ∧ v₀ ∧ v₁                               // The signature is valid iff all components are valid.
+
+function Verify(pk, m, r ǁ h ǁ c₀ ǁ c₁):
+  state ← Initialize("veil.sig")             // Initialize a protocol.
+  state ← Mix(state, "signer", pk)           // Mix the signer's public key into the protocol.
+  state ← Mix(state, "message", m)           // Mix the message into the protocol.
+  return VerifyState(state, r ǁ h ǁ c₀ ǁ c₁) // Verify the signature against the protocol's state.
 ```
 
 ### Constructive Analysis Of `veil.sig`
@@ -390,11 +400,13 @@ function Verify(pk, m, c₀ǁc₁):
 Both Ed25519 and ML-DSA-65 are well-studied digital signature schemes. The novelty of `veil.sig`
 lies in its use of symmetric cryptography to pre-hash the inputs and to encrypt the two signatures.
 
-First, the signer's public key and the message are used to derive a 512-bit digest. Using the
-signer's public key strongly binds the signature to the signer's identity.
-
-Second, both Ed25519 and ML-DSA-65 signatures are encrypted with keys derived from the inputs to the
-protocol.
+First, a random nonce `r` is mixed into the protocol state to provide protection from [fault
+attacks](#resilience-against-fault-attacks). Second, the BUFF Transformation from
+[[CDFFJ20]](#cdffj20) is used to provide exclusive ownership (M-S-UEO), message-bound signatures
+(MBS), and non-signability (NR) properties independently of the UF-CMA security of the underlying
+signature schemes. Third, the Ed25519 and ML-DSA-65 signature schemes are combined in a nested form
+to provide full security in the event of a total failure of either. Finally, the signatures
+themselves are encrypted, providing indistinguishability from random noise and full key privacy.
 
 ### sUF-CMA Security
 
@@ -408,7 +420,7 @@ achieves sUF-CMA security in addition to strong binding:
 1. Reject the signature if `S ∉ {0,…,L-1}`.
 2. Reject the signature if the public key `A` is one of 8 small order points.
 3. Reject the signature if `A` or `R` are non-canonical.
-4. Compute the hash `SHA2_512(RǁAǁM)` and reduce it mod `L` to get a scalar `h`.
+4. Compute the hash `SHA2_512(R ǁ A ǁ M)` and reduce it mod `L` to get a scalar `h`.
 5. Accept if `8(S·B)-8R-8(h·A)=0`.
 
 Strong binding in `veil.sig` is achieved by including the signer's public key as an input to the
@@ -436,16 +448,18 @@ vulnerable to fault attacks, in which an adversary induces a signer to generate 
 signatures by injecting a fault (e.g. a random bit-flip via RowHammer attack, thus leaking bits of
 the secret key.
 
-To protect against these types of attacks, `veil.sig` uses hedged variants of the Ed25519 and
-ML-DSA-65 signing algorithms. For Ed25519, the secret nonce portion of the signing key (i.e.
-bits `h_b,...,h_(2b-1)`) are replaced with the SHA-512 hash of those bits and an additional 32 bytes
-of random data. ML-DSA defines a hedged signing algorithm, which is used here.
+To protect against these types of attacks, `veil.sig` includes a random value `r` to hedge the
+Ed25519 signature. ML-DSA defines a hedged signing algorithm, which is used here, but the general
+construction does not require it.
 
 ### Indistinguishability From Random Noise
 
-Given that both signature components are encrypted with AEGIS-128L, an attack which distinguishes
-between a `veil.sig` and random noise would also imply that AEGIS-128L is distinguishable from
-a random function over short messages.
+Each `veil.sig` signature consists of four components: a random value `r`, a TurboSHAKE128 hash `h`,
+an encrypted Ed25519 signature, and an encrypted ML-DSA-65 signature.
+
+An attack which distinguishes between a `veil.sig` and random noise would either require a faulty
+random number generator, imply that TurboSHAKE128 is distinguishable from a random oracle, or imply
+that AEGIS-128L is distinguishable from a random function over short messages.
 
 ## Encrypted Headers
 
@@ -471,21 +485,17 @@ function EncryptHeader((pk_S, sk_S), (pk_E, sk_E), pk_R, N, P):
   (state, c₁) ← Encrypt(state, "ephemeral-key", pk_E)                  // Encrypt the ephemeral public key.
   state ← Mix(state, "x25519-ephemeral", X25519(sk_E.dk_c, pk_R.ek_c)) // Mix the ephemeral X25519 shared secret into the protocol.
   (state, c₂) ← Encrypt(state, "message", P)                           // Encrypt the plaintext.
-  (state, d) ← Derive(state, "signature-digest", 64)                   // Derive a 512-bit digest.
-  s₀ ← Ed25519::HedgedSign(sk_S.sk_c, d)                               // Sign the digest with Ed25519.
-  s₁ ← ML_DSA_65::HedgedSign(sk_S.sk_pq, d)                            // Sign the digest with ML-DSA-65.
-  (state, c₃) ← Encrypt(state, "ed25519-signature", s₀)                // Encrypt the Ed25519 signature.
-  (state, c₄) ← Encrypt(state, "ml-dsa-65-signature", s₁)              // Encrypt the ML-DSA-65 signature.
-  return c₀ ǁ c₁ ǁ c₂ ǁ c₃ ǁ c₄
+  (state, c₃) ← SignState(state, sk_S)                                 // Sign the protocol state with veil.sig.
+  return c₀ ǁ c₁ ǁ c₂ ǁ c₃
 ```
 
 ### Decrypting A Header
 
 Decrypting a header requires a receiver's key pair `(pk_R,sk_R)`, the sender's public key `pk_S`, a
-nonce `N`, and a ciphertext `c₀ ǁ c₁ ǁ c₂ ǁ c₃ ǁ c₄`.
+nonce `N`, and a ciphertext `c₀ ǁ c₁ ǁ c₂ ǁ c₃`.
 
 ```text
-function DecryptHeader((pk_R, sk_R), pk_S, N, c₀, c₁, c₂, c₃, c₄):
+function DecryptHeader((pk_R, sk_R), pk_S, N, c₀ ǁ c₁ ǁ c₂ ǁ c₃):
   state ← Initialize("veil.sres")                                      // Initialize a protocol.
   state ← Mix(state, "sender", pk_S)                                   // Mix the sender's public key into the protocol.
   state ← Mix(state, "receiver", pk_R)                                 // Mix the receiver's public key into the protocol.
@@ -497,12 +507,7 @@ function DecryptHeader((pk_R, sk_R), pk_S, N, c₀, c₁, c₂, c₃, c₄):
   (state, pk_E) ← Decrypt(state, "ephemeral-key", c₁)                  // Decrypt the ephemeral public key.
   state ← Mix(state, "x25519-ephemeral", X25519(sk_R.dk_c, pk_E.ek_c)) // Mix the ephemeral X25519 shared secret into the protocol.
   (state, P) ← Decrypt(state, "message", c₂)                           // Decrypt the plaintext.
-  (state, d) ← Derive(state, "signature-digest", 64)                   // Derive a 512-bit digest.
-  (state, s₀) ← Decrypt(state, "ed25519-signature", c₃)                // Decrypt the Ed25519 signature.
-  (state, s₁) ← Decrypt(state, "ml-dsa-65-signature", c₄)              // Decrypt the ML-DSA-65 signature.
-  v₀ ← Ed25519::Verify(pk_S.vk_c, s₀, d)                               // Verify the Ed25519 signature.
-  v₁ ← ML_DSA_65::Verify(pk_S.vk_pq, s₁, d)                            // Verify the ML-DSA-65 signature.
-  if ¬v₀ ∨ ¬v₁:                                                        // Return an error if either signature is invalid.
+  if ¬VerifyState(state, pk_S, c₃):                                    // Verify the signature and return an error if invalid.
     return ⊥
   return (pk_E, P)                                                     // Otherwise, return the ephemeral public key and plaintext.
 ```
@@ -556,7 +561,7 @@ secret. Knowledge of all three is required to decrypt the message.
 
 `A` also cannot trick the receiver into decrypting an equivalent message by replacing the signature,
 despite `A`'s ability to use `sk_S` to create new signatures. In order to generate a valid signature
-on a ciphertext `c′` (e.g. `c′=cǁ1`), `A` would have to derive a valid signature digest `d′` from
+on a ciphertext `c′` (e.g. `c′=c ǁ 1`), `A` would have to derive a valid signature digest `d′` from
 the protocol state. Unlike the signature hash function in the generic EtS composition, however, the
 protocol state is cryptographically dependent on values `A` does not know: the two X25519 shared
 secrets and the ML-KEM-768 shared secret.
@@ -626,37 +631,31 @@ function EncryptMessage((pk_S, sk_S), [pk_R_0,…,pk_R_n], P):
   N ← Rand(16)                       // Generate a random nonce.
   C ← N                              // Write the nonce.
   state ← Mix(state, "nonce", N)     // Mix the nonce into the protocol.
-  H ← Kǁn                            // Encode the DEK and receiver count in a header.
+  H ← K ǁ n                          // Encode the DEK and receiver count in a header.
 
   for pk_R_i in [pk_R_0,…,pk_R_n]:
     (state, N_i) ← Derive(state, "header-nonce", 16)                // Derive a nonce for each header.
     E_i ← EncryptHeader((pk_S, sk_S), (pk_E, sk_E), pk_R_i, N_i, H) // Encrypt the header for each receiver.
     state ← Mix(state, "header", E_i)                               // Mix the encrypted header into the protocol.
-    C ← CǁE_i
+    C ← C ǁ E_i
 
   state ← Mix(state, "dek", K) // Mix the DEK into the protocol.
 
   // Split the plaintext into blocks and encrypt them with per-block headers.
   for all blocks p in P:
-    H_i ← Seal(state, "block-header", 0x00ǁLE_24(|p|))
+    H_i ← Seal(state, "block-header", 0x00 ǁ LE_24(|p|))
     C_i ← Seal(state, "block", p)
-    C ← CǁH_iǁC_i
+    C ← C ǁ H_i ǁ C_i
 
   // Next, add a padding block of random data.
   N_P ← PADMÉ(|P|)
-  H_p ← Seal(state, "block-header", 0x01ǁLE_24(N_P))
+  H_p ← Seal(state, "block-header", 0x01 ǁ LE_24(N_P))
   C_p ← Seal(state, "block", Rand(N_P))
-  C ← CǁH_pǁC_p
+  C ← C ǁ H_p ǁ C_p
 
-  // Finally, append a signature of the message's contents.
-  (state, d) ← Derive(state, "signature-digest", 64)                   // Derive a 512-bit digest.
-  s₀ ← Ed25519::HedgedSign(sk_E.sk_c, d)                               // Sign the digest with Ed25519.
-  s₁ ← ML_DSA_65::HedgedSign(sk_E.sk_pq, d)                            // Sign the digest with ML-DSA-65.
-  (state, c₃) ← Encrypt(state, "ed25519-signature", s₀)                // Encrypt the Ed25519 signature.
-  (state, c₄) ← Encrypt(state, "ml-dsa-65-signature", s₁)              // Encrypt the ML-DSA-65 signature.
-  C ← Cǁc₀ǁc₁
-
-  return C
+  // Finally, append a signature of the message's contents made with the ephemeral key.
+  C_s ← SignState(state, sk_E)
+  return C ǁ C_S
 ```
 
 ### Decrypting A Message
@@ -675,31 +674,25 @@ function DecryptMessage((pk_R, sk_R), pk_S, C):
   while i < n:
   for each possible encrypted header E_i in C:
     (state, N_i) ← Derive(state, "header-nonce", 16)
-    (E_i, C) ← C[..HEADER_LEN]ǁC[HEADER_LEN..]
+    (E_i, C) ← C[..HEADER_LEN] ǁ C[HEADER_LEN..]
     state ← Mix(state, "header", E_i)
     x ← DecryptHeader((pk_R, sk_R), pk_S, N_i, E_i)
     if x ≠ ⊥:
-      (pk_E, Kǁn) ← x // Once a header is decrypted, process the remaining headers.
+      (pk_E, K ǁ n) ← x // Once a header is decrypted, process the remaining headers.
 
   state ← Mix(state, "dek", K)                 // Mix the DEK into the protocol.
 
   P ← ϵ
   for each encrypted block header E_i in C:    // Read and open each block header and block.
-      TǁN_i ← Open(state, "block_header", E_i)
+      T ǁ N_i ← Open(state, "block_header", E_i)
       (C_i, C) ← (C[..N_i], C[N_i..])
       P_i ← Open(state, "block", C_i)
       if t = 0x00:
-        P ← Pǁp_i
+        P ← P ǁ p_i
       else:
         break
 
-  c₀ǁc₁ ← C                                               // Split the last bytes of the message.
-  (state, d) ← Derive(state, "signature-digest", 64)      // Derive a 512-bit digest.
-  (state, s₀) ← Decrypt(state, "ed25519-signature", c₀)   // Decrypt the Ed25519 signature.
-  (state, s₁) ← Decrypt(state, "ml-dsa-65-signature", c₁) // Decrypt the ML-DSA-65 signature.
-  v₀ ← Ed25519::Verify(pk_E.vk_c, s₀, d)                  // Verify the Ed25519 signature.
-  v₁ ← ML_DSA_65::Verify(pk_E.vk_pq, s₁, d)               // Verify the ML-DSA-65 signature.
-  if ¬v₀ ∨ ¬v₁:                                           // Return an error if either signature is invalid.
+  if ¬VerifyState(state, pk_E, C): // Verify the signature with the ephemeral public key.
     return ⊥
   return P
 ```
@@ -757,7 +750,7 @@ message by themselves, as they do not know either `sk_E` or any `sk_R` and canno
 `veil.sres`-encrypted headers. As with [`veil.sres`](#multi-user-confidentiality-of-headers) `A`
 cannot trick the receiver into decrypting an equivalent message by replacing the signature, despite
 `A`'s ability to use `sk_S` to create new headers. In order to generate a valid signature on a
-ciphertext `c′` (e.g. `c′=cǁ1`), `A` would have to derive a valid signature digest `d′` from the
+ciphertext `c′` (e.g. `c′=c ǁ 1`), `A` would have to derive a valid signature digest `d′` from the
 protocol state. Unlike the signature hash function in the generic EtS composition, however, the
 protocol state is cryptographically dependent on a value `A` does not know, specifically the data
 encryption key `K` (via the `Mix` operation) and the plaintext blocks `p_{0..n}` (via the `Encrypt`
@@ -871,15 +864,15 @@ function EncryptSecretKey(P, N_T, N_S, sk):
   S ← Rand(16)                               // Generate a random salt.
   state ← InitFromPassphrase(P, S, N_T, N_S) // Perform the balloon hashing.
   (state, C) ← Seal(state, "secret", sk)     // Seal the secret key.
-  return N_TǁN_SǁSǁC
+  return N_T ǁ N_S ǁ S ǁ C
 ```
 
 ### Decrypting A Secret Key
 
-Decrypting a secret key requires a passphrase `P` and ciphertext `C=N_TǁN_SǁSǁCǁT`.
+Decrypting a secret key requires a passphrase `P` and ciphertext `N_T ǁ N_S ǁ S ǁ C`.
 
 ```text
-function DecryptSecretKey(P, N_T, N_S, C):
+function DecryptSecretKey(P, N_T ǁ N_S ǁ S ǁ C):
   state ← InitFromPassphrase(P, S, N_T, N_S) // Perform the balloon hashing.
   (state, sk) ← Open(state, "secret", C)     // Open the ciphertext.
   return sk
@@ -977,6 +970,13 @@ Jenny Blessing, Michael A. Specter, and Daniel J. Weitzner.
 2021.
 [_You really shouldn't roll your own crypto: an empirical study of vulnerabilities in cryptographic libraries._](https://arxiv.org/abs/2107.04940)
 [`DOI:10.48550/arXiv.2107.04940`](https://doi.org/10.48550/arXiv.2107.04940)
+
+### CDFFJ20
+
+Cas Cremers, Samed Düzlü, Rune Fiedler, Marc Fischlin, and Christian Janson.
+2020.
+[_BUFFing signature schemes beyond unforgeability and the case of post-quantum signatures_](https://eprint.iacr.org/2020/1525)
+[`DOI:10.1109/SP40001.2021.00093`](https://doi.org/10.1109/SP40001.2021.00093)
 
 ### CGN20
 
