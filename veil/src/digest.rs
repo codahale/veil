@@ -4,6 +4,9 @@ use lockstitch::Protocol;
 
 use crate::ParseDigestError;
 
+/// The length of a [`Digest`] in bytes.
+pub const DIGEST_LEN: usize = 32;
+
 /// The digest of a sequence of metadata values and a message.
 #[derive(Clone, Copy, Debug, Eq)]
 pub struct Digest([u8; DIGEST_LEN]);
@@ -65,8 +68,6 @@ impl PartialEq for Digest {
         lockstitch::ct_eq(&self.0, &other.0)
     }
 }
-
-const DIGEST_LEN: usize = 32;
 
 #[cfg(test)]
 mod tests {
