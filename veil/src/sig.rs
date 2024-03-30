@@ -6,7 +6,7 @@ use std::{
     str::FromStr,
 };
 
-use arrayref::mut_array_refs;
+use arrayref::{array_refs, mut_array_refs};
 use ed25519_dalek::ed25519::signature::Signer;
 use fips204::{
     ml_dsa_65,
@@ -204,8 +204,8 @@ pub fn verify_protocol(
 
     // Verify the Ed25519 signature.
     {
-        let (signed, sig_c, _) = mut_array_refs![
-            &mut sig,
+        let (signed, sig_c, _) = array_refs![
+            &sig,
             NONCE_LEN + DIGEST_LEN,
             ed25519_dalek::SIGNATURE_LENGTH,
             ml_dsa_65::SIG_LEN
@@ -218,8 +218,8 @@ pub fn verify_protocol(
 
     // Verify the ML-DSA-65 signature.
     {
-        let (signed, sig_pq) = mut_array_refs![
-            &mut sig,
+        let (signed, sig_pq) = array_refs![
+            &sig,
             NONCE_LEN + DIGEST_LEN + ed25519_dalek::SIGNATURE_LENGTH,
             ml_dsa_65::SIG_LEN
         ];
