@@ -21,11 +21,12 @@ use crate::{
         StaticPublicKey, StaticSecretKey,
     },
     sres::NONCE_LEN,
-    ParseSignatureError, VerifyError,
+    ParseSignatureError, VerifyError, DIGEST_LEN,
 };
 
 /// The length of a signature, in bytes.
-pub const SIG_LEN: usize = NONCE_LEN + 32 + ed25519_dalek::SIGNATURE_LENGTH + ml_dsa_65::SIG_LEN;
+pub const SIG_LEN: usize =
+    NONCE_LEN + DIGEST_LEN + ed25519_dalek::SIGNATURE_LENGTH + ml_dsa_65::SIG_LEN;
 
 /// A hybrid Ed25519/ML-DSA-65 signature.
 ///
@@ -115,12 +116,11 @@ pub fn sign_protocol(
 
     // Generate a random nonce and a digest.
     {
-        let (r, h, _, _) = mut_array_refs![
+        let (r, h, _) = mut_array_refs![
             &mut sig,
             NONCE_LEN,
-            32,
-            ed25519_dalek::SIGNATURE_LENGTH,
-            ml_dsa_65::SIG_LEN
+            DIGEST_LEN,
+            ed25519_dalek::SIGNATURE_LENGTH + ml_dsa_65::SIG_LEN
         ];
 
         // Generate a random nonce and mix it into the protocol.
@@ -135,7 +135,7 @@ pub fn sign_protocol(
     {
         let (signed, sig_c, _) = mut_array_refs![
             &mut sig,
-            NONCE_LEN + 32,
+            NONCE_LEN + DIGEST_LEN,
             ed25519_dalek::SIGNATURE_LENGTH,
             ml_dsa_65::SIG_LEN
         ];
@@ -147,7 +147,7 @@ pub fn sign_protocol(
     {
         let (signed, sig_pq) = mut_array_refs![
             &mut sig,
-            NONCE_LEN + 32 + ed25519_dalek::SIGNATURE_LENGTH,
+            NONCE_LEN + DIGEST_LEN + ed25519_dalek::SIGNATURE_LENGTH,
             ml_dsa_65::SIG_LEN
         ];
         sig_pq.copy_from_slice(
@@ -160,7 +160,7 @@ pub fn sign_protocol(
     // Encrypt the two signatures.
     let (_, sig_c, sig_pq) = mut_array_refs![
         &mut sig,
-        NONCE_LEN + 32,
+        NONCE_LEN + DIGEST_LEN,
         ed25519_dalek::SIGNATURE_LENGTH,
         ml_dsa_65::SIG_LEN
     ];
@@ -185,7 +185,7 @@ pub fn verify_protocol(
         let (r, h, sig_c, sig_pq) = mut_array_refs![
             &mut sig,
             NONCE_LEN,
-            32,
+            DIGEST_LEN,
             ed25519_dalek::SIGNATURE_LENGTH,
             ml_dsa_65::SIG_LEN
         ];
@@ -194,7 +194,7 @@ pub fn verify_protocol(
         protocol.mix("signature-nonce", r);
 
         // Check the signature's digest.
-        if h != &protocol.derive_array::<32>("signature-digest") {
+        if h != &protocol.derive_array::<DIGEST_LEN>("signature-digest") {
             return None;
         }
 
@@ -206,7 +206,7 @@ pub fn verify_protocol(
     {
         let (signed, sig_c, _) = mut_array_refs![
             &mut sig,
-            NONCE_LEN + 32,
+            NONCE_LEN + DIGEST_LEN,
             ed25519_dalek::SIGNATURE_LENGTH,
             ml_dsa_65::SIG_LEN
         ];
@@ -220,7 +220,7 @@ pub fn verify_protocol(
     {
         let (signed, sig_pq) = mut_array_refs![
             &mut sig,
-            NONCE_LEN + 32 + ed25519_dalek::SIGNATURE_LENGTH,
+            NONCE_LEN + DIGEST_LEN + ed25519_dalek::SIGNATURE_LENGTH,
             ml_dsa_65::SIG_LEN
         ];
         if AsRef::<MlDsa65VerifyingKey>::as_ref(&signer).try_verify_vt(signed, sig_pq).is_err() {
