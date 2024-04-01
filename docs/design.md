@@ -854,10 +854,12 @@ function ExpandKey(P, S, N_T, N_S, p):
   return B[N_S-1]                                                // Return the last block of the buffer.
 
 function InitFromPassphrase(P, S, N_T, N_S, N_P)
-  state ← Initialize("veil.pbenc")                                       // Initialize a protocol.
-  for p in 1..N_P:
-    k_n ← ExpandKey(P, S, N_T, N_S, p)          // Expand the key for the given thread.
-    state ← Mix(state, "expanded-key-{p}", k_n) // Mix the key into the protocol.
+  state ← Initialize("veil.pbenc")          // Initialize a protocol.
+  k ← ∅ 
+  for p in 1..N_P in parallel:
+    k[p] ← ExpandKey(P, S, N_T, N_S, p)     // Expand all sub-keys in parallel.
+  for k_n in k: 
+    state ← Mix(state, "expanded-key", k_n) // Mix sub-keys in ascending order.
   return state
 ```
 

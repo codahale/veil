@@ -1,9 +1,6 @@
 //! Passphrase-based encryption based on Balloon Hashing.
 
-use std::{
-    mem,
-    thread::{self, ScopedJoinHandle},
-};
+use std::{mem, thread};
 
 use lockstitch::{Protocol, TAG_LEN};
 use rand::{CryptoRng, Rng};
@@ -72,17 +69,19 @@ fn init(
     memory_cost: u8,
     parallelism: u8,
 ) -> Protocol {
-    let keys = thread::scope(|s| {
+    thread::scope(|s| {
+        // Spawn threads to expand each sub-key.
         let handles = (1..=(1 << parallelism))
             .map(|p| s.spawn(move || expand_key(passphrase, salt, time_cost, memory_cost, p)))
-            .collect::<Vec<ScopedJoinHandle<'_, [u8; N]>>>();
-        handles.into_iter().map(|h| h.join().expect("should expand key")).collect::<Vec<[u8; N]>>()
-    });
-    let mut pbenc = Protocol::new("veil.pbenc");
-    for (key_id, key) in keys.iter().enumerate() {
-        pbenc.mix(&format!("expanded-key-{key_id}"), key);
-    }
-    pbenc
+            .collect::<Vec<_>>();
+
+        // Mix the expanded sub-keys into the protocol in the order in which they were spawned.
+        let mut pbenc = Protocol::new("veil.pbenc");
+        for key in handles {
+            pbenc.mix("expanded-key", &key.join().expect("should expand sub-key"));
+        }
+        pbenc
+    })
 }
 
 fn expand_key(passphrase: &[u8], salt: &[u8], time_cost: u8, memory_cost: u8, p: u8) -> [u8; N] {
@@ -90,7 +89,6 @@ fn expand_key(passphrase: &[u8], salt: &[u8], time_cost: u8, memory_cost: u8, p:
     // accept both immutable references to blocks in the buffer as well as a mutable reference to a
     // block in the same buffer for output. Accepts a template protocol, a counter variable, an
     // output block, and a sequence of input blocks.
-
     macro_rules! hash {
         ($h:ident, $ctr:ident, $out:expr, $($block:expr),*) => {
             // Clone the template protocol's state, allowing us to avoid the cost of a single
