@@ -155,11 +155,8 @@ impl Runnable for EncryptArgs {
         let secret_key = self.secret_key.decrypt()?;
         let input = open_input(&self.input)?;
         let output = open_output(&self.output, true)?;
-        let receivers = self
-            .receivers
-            .into_iter()
-            .map(open_public_key)
-            .collect::<Result<Vec<PublicKey>, CliError>>()?;
+        let receivers =
+            self.receivers.into_iter().map(open_public_key).collect::<Result<Vec<_>, _>>()?;
         secret_key.encrypt(OsRng, input, output, &receivers, self.fakes).map_err(|e| match e {
             veil::EncryptError::ReadIo(e) => CliError::ReadIo(e, self.input),
             veil::EncryptError::WriteIo(e) => CliError::WriteIo(e, self.output),

@@ -103,7 +103,7 @@ impl SecretKey {
             .iter()
             .map(|pk| Some(pk.0.clone()))
             .chain(iter::repeat(None).take(fakes.unwrap_or_default()))
-            .collect::<Vec<Option<StaticPublicKey>>>();
+            .collect::<Vec<_>>();
 
         // Shuffle the receivers list.
         receivers.shuffle(&mut rng);
