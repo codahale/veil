@@ -1,12 +1,15 @@
 //! Passphrase-based encryption based on Balloon Hashing.
 
-use std::mem;
+use std::{
+    mem,
+    thread::{self, ScopedJoinHandle},
+};
 
 use lockstitch::{Protocol, TAG_LEN};
 use rand::{CryptoRng, Rng};
 
 /// The number of bytes encryption adds to a plaintext.
-pub const OVERHEAD: usize = mem::size_of::<u8>() + mem::size_of::<u8>() + SALT_LEN + TAG_LEN;
+pub const OVERHEAD: usize = (mem::size_of::<u8>() * 3) + SALT_LEN + TAG_LEN;
 
 /// Encrypt the given plaintext using the given passphrase.
 pub fn encrypt(
@@ -14,6 +17,7 @@ pub fn encrypt(
     passphrase: &[u8],
     time_cost: u8,
     memory_cost: u8,
+    parallelism: u8,
     plaintext: &[u8],
     ciphertext: &mut [u8],
 ) {
@@ -21,18 +25,20 @@ pub fn encrypt(
 
     // Split up the output buffer.
     let (t, m) = ciphertext.split_at_mut(mem::size_of::<u8>());
-    let (m, salt) = m.split_at_mut(mem::size_of::<u8>());
+    let (m, p) = m.split_at_mut(mem::size_of::<u8>());
+    let (p, salt) = p.split_at_mut(mem::size_of::<u8>());
     let (salt, ciphertext) = salt.split_at_mut(SALT_LEN);
 
-    // Encode the time and memory cost parameters.
+    // Encode the parameters.
     t[0] = time_cost;
     m[0] = memory_cost;
+    p[0] = parallelism;
 
     // Generate a random salt.
     rng.fill_bytes(salt);
 
     // Perform the balloon hashing.
-    let mut pbenc = init(passphrase, salt, time_cost, memory_cost);
+    let mut pbenc = init(passphrase, salt, time_cost, memory_cost, parallelism);
 
     // Encrypt the plaintext.
     ciphertext[..plaintext.len()].copy_from_slice(plaintext);
@@ -48,17 +54,38 @@ pub fn decrypt<'a>(passphrase: &[u8], in_out: &'a mut [u8]) -> Option<&'a [u8]> 
 
     // Split up the input buffer.
     let (t, m) = in_out.split_at_mut(mem::size_of::<u8>());
-    let (m, salt) = m.split_at_mut(mem::size_of::<u8>());
+    let (m, p) = m.split_at_mut(mem::size_of::<u8>());
+    let (p, salt) = p.split_at_mut(mem::size_of::<u8>());
     let (salt, ciphertext) = salt.split_at_mut(SALT_LEN);
 
     // Perform the balloon hashing.
-    let mut pbenc = init(passphrase, salt, t[0], m[0]);
+    let mut pbenc = init(passphrase, salt, t[0], m[0], p[0]);
 
     // Decrypt the ciphertext.
     pbenc.open("secret", ciphertext)
 }
 
-fn init(passphrase: &[u8], salt: &[u8], time_cost: u8, memory_cost: u8) -> Protocol {
+fn init(
+    passphrase: &[u8],
+    salt: &[u8],
+    time_cost: u8,
+    memory_cost: u8,
+    parallelism: u8,
+) -> Protocol {
+    let keys = thread::scope(|s| {
+        let handles = (1..=(1 << parallelism))
+            .map(|p| s.spawn(move || expand_key(passphrase, salt, time_cost, memory_cost, p)))
+            .collect::<Vec<ScopedJoinHandle<'_, [u8; N]>>>();
+        handles.into_iter().map(|h| h.join().expect("should expand key")).collect::<Vec<[u8; N]>>()
+    });
+    let mut pbenc = Protocol::new("veil.pbenc");
+    for (key_id, key) in keys.iter().enumerate() {
+        pbenc.mix(&format!("expanded-key-{key_id}"), key);
+    }
+    pbenc
+}
+
+fn expand_key(passphrase: &[u8], salt: &[u8], time_cost: u8, memory_cost: u8, p: u8) -> [u8; N] {
     // A macro for the common hash operations. This is a macro rather than a function so it can
     // accept both immutable references to blocks in the buffer as well as a mutable reference to a
     // block in the same buffer for output. Accepts a template protocol, a counter variable, an
@@ -70,8 +97,8 @@ fn init(passphrase: &[u8], salt: &[u8], time_cost: u8, memory_cost: u8) -> Proto
             // permutation.
             let mut h = $h.clone();
 
-            // Mix the counter as a Little Endian byte string into the protocol.
-            h.mix("counter", &$ctr.to_le_bytes());
+            // Mix the counter a right-encoded value into the protocol.
+            h.mix_int("counter", $ctr);
 
             // Increment the counter by one.
             $ctr = $ctr.wrapping_add(1);
@@ -90,7 +117,8 @@ fn init(passphrase: &[u8], salt: &[u8], time_cost: u8, memory_cost: u8) -> Proto
     let mut ctr = 0u64;
     let mut buf = vec![[0u8; N]; 1usize << memory_cost];
     let buf_len = u64::try_from(buf.len()).expect("usize should be <= u64");
-    let h = Protocol::new("veil.pbenc.iter");
+    let mut h = Protocol::new("veil.pbenc.iter");
+    h.mix_int("thread", p as u64);
 
     // Step 1: Expand input into buffer.
     hash!(h, ctr, &mut buf[0], passphrase, salt);
@@ -130,9 +158,7 @@ fn init(passphrase: &[u8], salt: &[u8], time_cost: u8, memory_cost: u8) -> Proto
     }
 
     // Step 3: Extract key from buffer.
-    let mut pbenc = Protocol::new("veil.pbenc");
-    pbenc.mix("expanded-key", &buf[buf.len() - 1]);
-    pbenc
+    buf[buf.len() - 1]
 }
 
 const SALT_LEN: usize = 16;
@@ -208,7 +234,7 @@ mod tests {
         let plaintext = rng.gen::<[u8; 64]>();
 
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
-        encrypt(&mut rng, &passphrase, 1, 6, &plaintext, &mut ciphertext);
+        encrypt(&mut rng, &passphrase, 1, 6, 4, &plaintext, &mut ciphertext);
 
         (rng, passphrase, plaintext, ciphertext)
     }

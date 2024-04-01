@@ -71,6 +71,10 @@ struct SecretKeyArgs {
     #[arg(long, default_value = "8")]
     memory_cost: u8,
 
+    /// The number of parallel tasks to use (in 2^p threads). [default: log2(NUM_CPU)]
+    #[arg(long)]
+    parallelism: Option<u8>,
+
     #[command(flatten)]
     passphrase_input: PassphraseInput,
 }
@@ -80,8 +84,16 @@ impl Runnable for SecretKeyArgs {
         let passphrase = self.passphrase_input.read_passphrase()?;
         let output = open_output(&self.output, true)?;
         let secret_key = SecretKey::random(OsRng);
+        let p = (num_cpus::get().min(255) as f64).log2() as u8;
         secret_key
-            .store(output, OsRng, &passphrase, self.time_cost, self.memory_cost)
+            .store(
+                output,
+                OsRng,
+                &passphrase,
+                self.time_cost,
+                self.memory_cost,
+                self.parallelism.unwrap_or(p),
+            )
             .map_err(|e| CliError::WriteIo(e, self.output))?;
         Ok(())
     }

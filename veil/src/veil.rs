@@ -47,9 +47,18 @@ impl SecretKey {
         passphrase: &[u8],
         time_cost: u8,
         memory_cost: u8,
+        parallelism: u8,
     ) -> io::Result<usize> {
         let mut enc_key = [0u8; STATIC_SK_LEN + pbenc::OVERHEAD];
-        pbenc::encrypt(rng, passphrase, time_cost, memory_cost, &self.0.encoded, &mut enc_key);
+        pbenc::encrypt(
+            rng,
+            passphrase,
+            time_cost,
+            memory_cost,
+            parallelism,
+            &self.0.encoded,
+            &mut enc_key,
+        );
         writer.write_all(&enc_key)?;
         Ok(enc_key.len())
     }
@@ -225,7 +234,7 @@ mod tests {
         let k = SecretKey::random(&mut rng);
 
         let mut ciphertext = Vec::new();
-        k.store(&mut ciphertext, &mut rng, b"hello world", 1, 1)
+        k.store(&mut ciphertext, &mut rng, b"hello world", 1, 1, 1)
             .expect("should store successfully");
 
         let k_p = SecretKey::load(Cursor::new(&ciphertext), b"hello world")

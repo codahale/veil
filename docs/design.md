@@ -822,59 +822,66 @@ Initializing a keyed protocol requires a passphrase `P`, salt `S`, time paramete
 parameter `N_S`, delta constant `D=3`, and block size constant `N_B=1024`.
 
 ```text
-function HashBlock(C, [B_0..B_n], N):
-  state ← Initialize("veil.pbenc.iter") // Initialize a protocol.
-  state ← Mix(state, "counter", C)      // Mix the counter into the protocol.
-  C ← C + 1                             // Increment the counter.
+function HashBlock(C, [B_0..B_n], N, p):
+  state ← Initialize("veil.pbenc.iter")          // Initialize a protocol.
+  state ← Mix(state, "thread", right_encode(p))  // Mix the thread ID into the protocol.
+  state ← Mix(state, "counter", right_encode(C)) // Mix the counter into the protocol.
+  C ← C + 1                                      // Increment the counter.
 
-  for B_i in [B_0..B_n]:                // Mix each input block into the protocol.
+  for B_i in [B_0..B_n]:                         // Mix each input block into the protocol.
     state ← Mix(state, "block", B_i)
 
-  return Derive(state, "output", N)     // Derive N bytes of output.
+  (_, out) ← Derive(state, "output", N)          // Derive N bytes of output.
+  return C, out                                  // Return the counter and the output. 
 
-procedure InitFromPassphrase(P, S, N_T, N_S):
-  C ← 0                                                  // Initialize a counter.
-  B ← [[0x00 ✕ N_B] ✕ N_S]                               // Initialize a buffer.
+function ExpandKey(P, S, N_T, N_S, p):
+  C ← 0                                                          // Initialize a counter.
+  B ← [[0x00 ✕ N_B] ✕ N_S]                                       // Initialize a buffer.
 
-  B[0] ← HashBlock(C, [P, S], N_B)                       // Expand input into buffer.
+  (C, B[0]) ← HashBlock(C, [P, S], N_B, p)                       // Expand input into buffer.
   for m in 1..N_S:
-    B[m] ← HashBlock(C, [B[m-1]], N_B)                   // Fill remainder of buffer with hash chain.
+    (C, B[m]) ← HashBlock(C, [B[m-1]], N_B, p)                   // Fill remainder of buffer with hash chain.
 
-  for t in 0..N_T:                                       // Mix buffer contents.
+  for t in 0..N_T:                                               // Mix buffer contents.
     for m in 0..N_S:
       m_prev ← (m-1) mod N_S
-      B[m] = HashBlock(C, [B[(m-1) mod N_S], B[m]], N_B) // Hash previous and current blocks.
+      (C, B[m]) = HashBlock(C, [B[(m-1) mod N_S], B[m]], N_B, p) // Hash previous and current blocks.
 
       for i in 0..D:
-        r ← HashBlock(C, [S, t, m, i], 8)                // Hash salt and loop indexes.
-        B[m] ← HashBlock(C, [[B[m], B[r]]], N_B)         // Hash pseudo-random and current blocks.
+        (C, r) ← HashBlock(C, [S, t, m, i], 8, p)                // Hash salt and loop indexes.
+        (C, B[m]) ← HashBlock(C, [[B[m], B[r]]], N_B, p)         // Hash pseudo-random and current blocks.
 
-  state ← Initialize("veil.pbenc")                       // Initialize a protocol.
-  state ← Mix(state, "expanded-key", B[N_S-1])           // Mix the last block into the protocol.
+  return B[N_S-1]                                                // Return the last block of the buffer.
+
+function InitFromPassphrase(P, S, N_T, N_S, N_P)
+  state ← Initialize("veil.pbenc")                                       // Initialize a protocol.
+  for p in 1..N_P:
+    k_n ← ExpandKey(P, S, N_T, N_S, p)          // Expand the key for the given thread.
+    state ← Mix(state, "expanded-key-{p}", k_n) // Mix the key into the protocol.
   return state
 ```
 
 ### Encrypting A Secret Key
 
-Encrypting a secret key requires a passphrase `P`, time parameter `N_T`, space parameter `N_S`, and
-secret key `sk`.
+Encrypting a secret key requires a passphrase `P`, time parameter `N_T`, space parameter `N_S`,
+parallelism parameter `N_P`, and secret key `sk`.
 
 ```text
-function EncryptSecretKey(P, N_T, N_S, sk):
-  S ← Rand(16)                               // Generate a random salt.
-  state ← InitFromPassphrase(P, S, N_T, N_S) // Perform the balloon hashing.
-  (state, C) ← Seal(state, "secret", sk)     // Seal the secret key.
-  return N_T ǁ N_S ǁ S ǁ C
+function EncryptSecretKey(P, N_T, N_S, N_P, sk):
+  S ← Rand(16)                                    // Generate a random salt.
+  state ← InitFromPassphrase(P, S, N_T, N_S, N_P) // Perform the balloon hashing.
+  (state, C) ← Seal(state, "secret", sk)          // Seal the secret key.
+  return N_T ǁ N_S ǁ N_P ǁ S ǁ C
 ```
 
 ### Decrypting A Secret Key
 
-Decrypting a secret key requires a passphrase `P` and ciphertext `N_T ǁ N_S ǁ S ǁ C`.
+Decrypting a secret key requires a passphrase `P` and ciphertext `N_T ǁ N_S ǁ N_P ǁ S ǁ C`.
 
 ```text
-function DecryptSecretKey(P, N_T ǁ N_S ǁ S ǁ C):
-  state ← InitFromPassphrase(P, S, N_T, N_S) // Perform the balloon hashing.
-  (state, sk) ← Open(state, "secret", C)     // Open the ciphertext.
+function DecryptSecretKey(P, N_T ǁ N_S ǁ N_P ǁ S ǁ C):
+  state ← InitFromPassphrase(P, S, N_T, N_S, N_P) // Perform the balloon hashing.
+  (state, sk) ← Open(state, "secret", C)          // Open the ciphertext.
   return sk
 ```
 
