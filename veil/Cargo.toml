@@ -15,7 +15,7 @@ fips204 = { version = "0.1.1", default-features = false, features = ["ml-dsa-65"
 lockstitch = "0.25.1"
 ml-kem = "0.1.0"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
-thiserror = "1.0.58"
+thiserror = "1.0.59"
 x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }
 
 [dev-dependencies]
