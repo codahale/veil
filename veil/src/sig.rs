@@ -1,4 +1,4 @@
-//! Hybrid Ed25519/ML-DSA-65 digital signatures.
+//! ML-DSA-65 digital signatures.
 
 use std::{
     fmt,
@@ -6,8 +6,6 @@ use std::{
     str::FromStr,
 };
 
-use arrayref::{array_refs, mut_array_refs};
-use ed25519_dalek::ed25519::signature::Signer;
 use fips204::{
     ml_dsa_65,
     traits::{Signer as _, Verifier as _},
@@ -16,21 +14,14 @@ use lockstitch::Protocol;
 use rand::{CryptoRng, Rng};
 
 use crate::{
-    keys::{
-        Ed25519SigningKey, Ed25519VerifyingKey, MlDsa65SigningKey, MlDsa65VerifyingKey,
-        StaticPublicKey, StaticSecretKey,
-    },
-    sres::NONCE_LEN,
+    keys::{MlDsa65SigningKey, MlDsa65VerifyingKey, StaticPublicKey, StaticSecretKey},
     ParseSignatureError, VerifyError, DIGEST_LEN,
 };
 
 /// The length of a signature, in bytes.
-pub const SIG_LEN: usize =
-    NONCE_LEN + DIGEST_LEN + ed25519_dalek::SIGNATURE_LENGTH + ml_dsa_65::SIG_LEN;
+pub const SIG_LEN: usize = ml_dsa_65::SIG_LEN;
 
-/// A hybrid Ed25519/ML-DSA-65 signature.
-///
-/// Consists of an encrypted Ed25519 signature and an encrypted ML-DSA-65 signature.
+/// An encrypted ML-DSA-65 signature.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Signature([u8; SIG_LEN]);
 
@@ -63,7 +54,7 @@ impl fmt::Display for Signature {
     }
 }
 
-/// Create a hybrid Ed25519/ML-DSA-65 signature of the given message using the given key pair.
+/// Create an encrypted ML-DSA-65 signature of the given message using the given key pair.
 pub fn sign(
     rng: impl Rng + CryptoRng,
     signer: &StaticSecretKey,
@@ -80,11 +71,11 @@ pub fn sign(
     io::copy(&mut message, &mut writer)?;
     let (mut sig, _) = writer.into_inner();
 
-    // Create a hybrid Ed25519/ML-DSA-65 signature of the protocol state.
-    Ok(Signature(sign_protocol(rng, &mut sig, signer)))
+    // Create an encrypted ML-DSA-65 signature of the protocol state.
+    Ok(Signature(sign_protocol(rng, &mut sig, &signer.sk)))
 }
 
-/// Verify a hybrid Ed25519/ML-DSA-65 signature of the given message using the given public key.
+/// Verify an encrypted ML-DSA-65 signature of the given message using the given public key.
 pub fn verify(
     signer: &StaticPublicKey,
     mut message: impl Read,
@@ -102,133 +93,44 @@ pub fn verify(
     let (mut sig, _) = writer.into_inner();
 
     // Verify the signature.
-    verify_protocol(&mut sig, signer, signature.0).ok_or(VerifyError::InvalidSignature)
+    verify_protocol(&mut sig, &signer.vk, signature.0).ok_or(VerifyError::InvalidSignature)
 }
 
-/// Create a hybrid Ed25519/ML-DSA-65 signature of the given protocol's state using the given secret
+/// Create an encrypted ML-DSA-65 signature of the given protocol's state using the given secret
 /// key.
 pub fn sign_protocol(
     mut rng: impl Rng + CryptoRng,
     protocol: &mut Protocol,
-    signer: impl AsRef<Ed25519SigningKey> + AsRef<MlDsa65SigningKey>,
+    signer: &MlDsa65SigningKey,
 ) -> [u8; SIG_LEN] {
-    let mut sig = [0u8; SIG_LEN];
+    // Derive a 256-bit digest from the protocol state.
+    let h = protocol.derive_array::<DIGEST_LEN>("signature-digest");
 
-    // Generate a random nonce and a digest.
-    {
-        let (r, h, _) = mut_array_refs![
-            &mut sig,
-            NONCE_LEN,
-            DIGEST_LEN,
-            ed25519_dalek::SIGNATURE_LENGTH + ml_dsa_65::SIG_LEN
-        ];
+    // Sign the digest with ML-DSA-65.
+    let mut sig = signer.try_sign_with_rng_ct(&mut rng, &h).expect("should sign");
 
-        // Generate a random nonce and mix it into the protocol.
-        rng.fill(r);
-        protocol.mix("signature-nonce", r);
+    // Encrypt the signature.
+    protocol.encrypt("ml-dsa-65-signature", &mut sig);
 
-        // Derive a 256-bit digest from the protocol state.
-        protocol.derive("signature-digest", h);
-    }
-
-    // Create a Ed25519 signature of the nonce and the digest.
-    {
-        let (signed, sig_c, _) = mut_array_refs![
-            &mut sig,
-            NONCE_LEN + DIGEST_LEN,
-            ed25519_dalek::SIGNATURE_LENGTH,
-            ml_dsa_65::SIG_LEN
-        ];
-
-        sig_c.copy_from_slice(&AsRef::<Ed25519SigningKey>::as_ref(&signer).sign(signed).to_bytes());
-    }
-
-    // Create a ML-DSA-65 signature of the nonce, the digest, and the Ed255919 signature.
-    {
-        let (signed, sig_pq) = mut_array_refs![
-            &mut sig,
-            NONCE_LEN + DIGEST_LEN + ed25519_dalek::SIGNATURE_LENGTH,
-            ml_dsa_65::SIG_LEN
-        ];
-        sig_pq.copy_from_slice(
-            &AsRef::<MlDsa65SigningKey>::as_ref(&signer)
-                .try_sign_with_rng_ct(&mut rng, signed)
-                .expect("should sign"),
-        );
-    }
-
-    // Encrypt the two signatures.
-    let (_, sig_c, sig_pq) = mut_array_refs![
-        &mut sig,
-        NONCE_LEN + DIGEST_LEN,
-        ed25519_dalek::SIGNATURE_LENGTH,
-        ml_dsa_65::SIG_LEN
-    ];
-    protocol.encrypt("ed25519-signature", sig_c);
-    protocol.encrypt("ml-dsa-65-signature", sig_pq);
-
-    // Return the nonce, the digest, the encrypted Ed25519 signature, and the encrypted ML-DSA-65
-    // signature.
+    // Return the encrypted ML-DSA-65 signature.
     sig
 }
 
-/// Verify a hybrid Ed25519/ML-DSA-65 signature of the given protocol's state using the given public
+/// Verify an encrypted ML-DSA-65 signature of the given protocol's state using the given public
 /// key.
 #[must_use]
 pub fn verify_protocol(
     protocol: &mut Protocol,
-    signer: impl AsRef<Ed25519VerifyingKey> + AsRef<MlDsa65VerifyingKey>,
+    signer: &MlDsa65VerifyingKey,
     mut sig: [u8; SIG_LEN],
 ) -> Option<()> {
-    // Mix the nonce into the protocol, check the digest, and decrypt the signatures.
-    {
-        let (r, h, sig_c, sig_pq) = mut_array_refs![
-            &mut sig,
-            NONCE_LEN,
-            DIGEST_LEN,
-            ed25519_dalek::SIGNATURE_LENGTH,
-            ml_dsa_65::SIG_LEN
-        ];
+    // Derive a 256-bit digest from the protocol state.
+    let d = protocol.derive_array::<DIGEST_LEN>("signature-digest");
 
-        // Mix the nonce into the protocol.
-        protocol.mix("signature-nonce", r);
+    // Decrypt the signature.
+    protocol.decrypt("ml-dsa-65-signature", &mut sig);
 
-        // Check the signature's digest.
-        if h != &protocol.derive_array::<DIGEST_LEN>("signature-digest") {
-            return None;
-        }
-
-        protocol.decrypt("ed25519-signature", sig_c);
-        protocol.decrypt("ml-dsa-65-signature", sig_pq);
-    }
-
-    // Verify the Ed25519 signature.
-    {
-        let (signed, sig_c, _) = array_refs![
-            &sig,
-            NONCE_LEN + DIGEST_LEN,
-            ed25519_dalek::SIGNATURE_LENGTH,
-            ml_dsa_65::SIG_LEN
-        ];
-        let sig_c = ed25519_dalek::Signature::from_bytes(sig_c);
-        if AsRef::<Ed25519VerifyingKey>::as_ref(&signer).verify_strict(signed, &sig_c).is_err() {
-            return None;
-        }
-    }
-
-    // Verify the ML-DSA-65 signature.
-    {
-        let (signed, sig_pq) = array_refs![
-            &sig,
-            NONCE_LEN + DIGEST_LEN + ed25519_dalek::SIGNATURE_LENGTH,
-            ml_dsa_65::SIG_LEN
-        ];
-        if AsRef::<MlDsa65VerifyingKey>::as_ref(&signer).try_verify_vt(signed, sig_pq).is_err() {
-            return None;
-        }
-    }
-
-    Some(())
+    signer.try_verify_vt(&d, &sig).is_ok().then_some(())
 }
 
 #[cfg(test)]
@@ -285,7 +187,7 @@ mod tests {
     #[test]
     fn signature_kat() {
         let (_, _, _, sig) = setup();
-        let expected = expect!["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"];
+        let expected = expect!["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"];
         expected.assert_eq(&sig.to_string());
     }
 

@@ -1,4 +1,4 @@
-//! An insider-secure hybrid signcryption implementation.
+//! An insider-secure signcryption implementation.
 
 use lockstitch::Protocol;
 use ml_kem::{Decapsulate, Encapsulate};
@@ -50,35 +50,23 @@ pub fn encrypt(
     // to the nonce.
     sres.mix("nonce", nonce);
 
-    // Mix the static X25519 shared secret into the protocol. This makes all following outputs
-    // confidential against classical passive outsider adversaries (i.e. in possession of the sender
-    // and receiver's public keys but no secret keys) but not active outsider adversaries or quantum
-    // adversaries.
-    sres.mix("x25519-static", sender.dk_c.diffie_hellman(&receiver.ek_c).as_bytes());
-
-    // Encapsulate a shared secret with ML-KEM and encrypt it. An insider adversary (i.e. in
-    // possession of either the sender or the receiver's secret key) or a quantum adversary can
-    // recover this value, which would represent a distinguishing attack.
-    let (kem_ct, kem_ss) = receiver.ek_pq.encapsulate(&mut rng).expect("should encapsulate");
+    // Encapsulate a shared secret with ML-KEM and encrypt it. A passive adversary not in possession
+    // of the sender and receiver's public keys will be unable to distinguish this from a random
+    // bitstring; one which has those keys will be able to mount a distinguishing attack by
+    // decrypting this value and examining it for statistical biases.
+    let (kem_ct, kem_ss) = receiver.ek.encapsulate(&mut rng).expect("should encapsulate");
     out_kem.copy_from_slice(&kem_ct);
     sres.encrypt("ml-kem-768-ct", out_kem);
 
     // Mix the ML-KEM shared secret into the protocol. This makes all following output confidential
-    // against quantum passive insider adversaries (i.e. in possession of the sender's secret key
-    // and the receiver's public key) but not active insider adversaries.
+    // against passive insider adversaries (i.e. in possession of the sender's secret key and the
+    // receiver's public key) but not active insider adversaries (which can modify the ciphertext).
     sres.mix("ml-kem-768-ss", &kem_ss);
 
     // Encrypt the ephemeral public key. An insider adversary (i.e. in possession of either the
-    // sender or the receiver's secret key) can recover this value. While this does represent a
-    // distinguishing attack, ~12% of random 32-byte values successfully decode to X25519 points,
-    // which reduces the utility somewhat.
+    // sender or the receiver's secret key) can recover this value.
     out_ephemeral.copy_from_slice(&ephemeral.pub_key.encoded);
     sres.encrypt("ephemeral-key", out_ephemeral);
-
-    // Mix the ephemeral X25519 shared secret into the protocol. This makes all following outputs
-    // confidential against passive insider adversaries (i.e. an adversary in possession of the
-    // sender's secret key) a.k.a sender forward-secure.
-    sres.mix("x25519-ephemeral", ephemeral.dk_c.diffie_hellman(&receiver.ek_c).as_bytes());
 
     // Encrypt the plaintext. By itself, this is confidential against passive insider adversaries
     // and implicitly authenticated as being from either the sender or the receiver but vulnerable
@@ -89,7 +77,7 @@ pub fn encrypt(
 
     // Sign the protocol's state. The protocol's state is randomized with both the nonce and the
     // ephemeral key, so the risk of e.g. fault attacks is minimal.
-    let sig = sig::sign_protocol(&mut rng, &mut sres, sender);
+    let sig = sig::sign_protocol(&mut rng, &mut sres, &sender.sk);
     out_sig.copy_from_slice(&sig);
 }
 
@@ -125,27 +113,21 @@ pub fn decrypt<'a>(
     // Mix the nonce into the protocol.
     sres.mix("nonce", nonce);
 
-    // Mix the static X25519 shared secret into the protocol.
-    sres.mix("x25519-static", receiver.dk_c.diffie_hellman(&sender.ek_c).as_bytes());
-
     // Decrypt and decapsulate the ML-KEM shared secret, then mix it into the protocol.
     sres.decrypt("ml-kem-768-ct", kem_ct);
     let kem_ct = <[u8; 1088]>::try_from(kem_ct).expect("should be 1088 bytes");
-    let kem_ss = receiver.dk_pq.decapsulate(&kem_ct.into()).ok()?;
+    let kem_ss = receiver.dk.decapsulate(&kem_ct.into()).ok()?;
     sres.mix("ml-kem-768-ss", &kem_ss);
 
     // Decrypt and decode the ephemeral public key.
     sres.decrypt("ephemeral-key", ephemeral);
     let ephemeral = EphemeralPublicKey::from_canonical_bytes(ephemeral)?;
 
-    // Mix the ephemeral X25519 shared secret into the protocol.
-    sres.mix("x25519-ephemeral", receiver.dk_c.diffie_hellman(&ephemeral.ek_c).as_bytes());
-
     // Decrypt the plaintext.
     sres.decrypt("message", ciphertext);
 
     // Verify the signature.
-    sig::verify_protocol(&mut sres, sender, sig.try_into().expect("should be 3373 bytes"))
+    sig::verify_protocol(&mut sres, &sender.vk, sig.try_into().expect("should be 3373 bytes"))
         .is_some()
         .then_some((ephemeral, ciphertext))
 }
