@@ -21,7 +21,6 @@ missing_debug_implementations = "warn"
 [workspace.lints.clippy]
 cognitive_complexity = "warn"
 missing_const_for_fn = "warn"
-doc_markdown = "warn"
 missing_errors_doc = "warn"
 semicolon_if_nothing_returned = "warn"
 ptr_offset_with_cast = "allow"         # required for arrayref
