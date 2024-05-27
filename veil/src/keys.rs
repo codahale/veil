@@ -118,7 +118,7 @@ impl StaticSecretKey {
         let (dk_pq, ek_pq) = ml_kem::kem::Kem::<ml_kem::MlKem768Params>::generate(&mut rng);
         let dk_c = X25519SecretKey::random_from_rng(&mut rng);
         let ek_c = X25519PublicKey::from(&dk_c);
-        let (vk_pq, sk_pq) = ml_dsa_65::try_keygen_with_rng_vt(&mut rng).expect("should generate");
+        let (vk_pq, sk_pq) = ml_dsa_65::try_keygen_with_rng(&mut rng).expect("should generate");
         let sk_c = Ed25519SigningKey::from_bytes(&rng.gen());
         let vk_c = sk_c.verifying_key();
 
@@ -277,7 +277,7 @@ impl EphemeralSecretKey {
     pub fn random(mut rng: impl CryptoRng + Rng) -> EphemeralSecretKey {
         let dk_c = X25519SecretKey::random_from_rng(&mut rng);
         let ek_c = X25519PublicKey::from(&dk_c);
-        let (vk_pq, sk_pq) = ml_dsa_65::try_keygen_with_rng_vt(&mut rng).expect("should generate");
+        let (vk_pq, sk_pq) = ml_dsa_65::try_keygen_with_rng(&mut rng).expect("should generate");
         let sk_c = Ed25519SigningKey::from_bytes(&rng.gen());
         let vk_c = sk_c.verifying_key();
 

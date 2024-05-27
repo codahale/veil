@@ -152,7 +152,7 @@ pub fn sign_protocol(
         ];
         sig_pq.copy_from_slice(
             &AsRef::<MlDsa65SigningKey>::as_ref(&signer)
-                .try_sign_with_rng_ct(&mut rng, signed)
+                .try_sign_with_rng(&mut rng, signed)
                 .expect("should sign"),
         );
     }
@@ -223,7 +223,7 @@ pub fn verify_protocol(
             NONCE_LEN + DIGEST_LEN + ed25519_dalek::SIGNATURE_LENGTH,
             ml_dsa_65::SIG_LEN
         ];
-        if AsRef::<MlDsa65VerifyingKey>::as_ref(&signer).try_verify_vt(signed, sig_pq).is_err() {
+        if AsRef::<MlDsa65VerifyingKey>::as_ref(&signer).try_verify(signed, sig_pq).is_err() {
             return None;
         }
     }
