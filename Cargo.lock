@@ -744,6 +744,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "kem"
+version = "0.3.0-pre.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b8645470337db67b01a7f966decf7d0bafedbae74147d33e641c67a91df239f"
+dependencies = [
+ "rand_core",
+ "zeroize",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -804,11 +814,12 @@ dependencies = [
 
 [[package]]
 name = "ml-kem"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a0cf27823a0aec20c7f67bf172275781a042a1f086a2134d8cbbf95e8843662"
+checksum = "860a7986a65e8b6c965082dfeba382302ddad057c21e0830373463e612e67217"
 dependencies = [
  "hybrid-array",
+ "kem",
  "rand_core",
  "sha3",
 ]
