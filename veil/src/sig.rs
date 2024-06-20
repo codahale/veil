@@ -223,7 +223,7 @@ pub fn verify_protocol(
             NONCE_LEN + DIGEST_LEN + ed25519_dalek::SIGNATURE_LENGTH,
             ml_dsa_65::SIG_LEN
         ];
-        if AsRef::<MlDsa65VerifyingKey>::as_ref(&signer).try_verify(signed, sig_pq).is_err() {
+        if !AsRef::<MlDsa65VerifyingKey>::as_ref(&signer).verify(signed, sig_pq) {
             return None;
         }
     }
