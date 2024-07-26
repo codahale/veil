@@ -60,6 +60,7 @@ pub use self::{digest::*, errors::*, sig::Signature, veil::*};
 
 mod digest;
 mod errors;
+mod kemeleon;
 mod keys;
 mod mres;
 mod pbenc;

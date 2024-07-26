@@ -26,9 +26,9 @@ pub type MlDsa65SigningKey = ml_dsa_65::PrivateKey;
 
 pub type MlDsa65VerifyingKey = ml_dsa_65::PublicKey;
 
-type MlKem768EncryptingKey = ml_kem::kem::EncapsulationKey<ml_kem::MlKem768Params>;
+pub type MlKem768EncryptingKey = ml_kem::kem::EncapsulationKey<ml_kem::MlKem768Params>;
 
-type MlKem768DecryptingKey = ml_kem::kem::DecapsulationKey<ml_kem::MlKem768Params>;
+pub type MlKem768DecryptingKey = ml_kem::kem::DecapsulationKey<ml_kem::MlKem768Params>;
 
 type X25519PublicKey = x25519_dalek::PublicKey;
 
