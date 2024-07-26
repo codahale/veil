@@ -1,9 +1,6 @@
 //! A multi-receiver, hybrid cryptosystem.
 
-use std::{
-    io::{self, Read, Write},
-    mem,
-};
+use std::io::{self, Read, Write};
 
 use lockstitch::{Protocol, TAG_LEN};
 use rand::{CryptoRng, Rng};
@@ -35,7 +32,7 @@ const BLOCK_LEN: usize = 64 * 1024;
 const DEK_LEN: usize = 32;
 
 /// The length of an encoded header.
-const HEADER_LEN: usize = DEK_LEN + mem::size_of::<u64>();
+const HEADER_LEN: usize = DEK_LEN + size_of::<u64>();
 
 /// The length of an encrypted header.
 const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
