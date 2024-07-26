@@ -1,12 +1,12 @@
 //! Passphrase-based encryption based on Balloon Hashing.
 
-use std::{mem, thread};
+use std::thread;
 
 use lockstitch::{Protocol, TAG_LEN};
 use rand::{CryptoRng, Rng};
 
 /// The number of bytes encryption adds to a plaintext.
-pub const OVERHEAD: usize = (mem::size_of::<u8>() * 3) + SALT_LEN + TAG_LEN;
+pub const OVERHEAD: usize = (size_of::<u8>() * 3) + SALT_LEN + TAG_LEN;
 
 /// Encrypt the given plaintext using the given passphrase.
 pub fn encrypt(
@@ -21,9 +21,9 @@ pub fn encrypt(
     debug_assert_eq!(ciphertext.len(), plaintext.len() + OVERHEAD);
 
     // Split up the output buffer.
-    let (t, m) = ciphertext.split_at_mut(mem::size_of::<u8>());
-    let (m, p) = m.split_at_mut(mem::size_of::<u8>());
-    let (p, salt) = p.split_at_mut(mem::size_of::<u8>());
+    let (t, m) = ciphertext.split_at_mut(size_of::<u8>());
+    let (m, p) = m.split_at_mut(size_of::<u8>());
+    let (p, salt) = p.split_at_mut(size_of::<u8>());
     let (salt, ciphertext) = salt.split_at_mut(SALT_LEN);
 
     // Encode the parameters.
@@ -50,9 +50,9 @@ pub fn decrypt<'a>(passphrase: &[u8], in_out: &'a mut [u8]) -> Option<&'a [u8]> 
     }
 
     // Split up the input buffer.
-    let (t, m) = in_out.split_at_mut(mem::size_of::<u8>());
-    let (m, p) = m.split_at_mut(mem::size_of::<u8>());
-    let (p, salt) = p.split_at_mut(mem::size_of::<u8>());
+    let (t, m) = in_out.split_at_mut(size_of::<u8>());
+    let (m, p) = m.split_at_mut(size_of::<u8>());
+    let (p, salt) = p.split_at_mut(size_of::<u8>());
     let (salt, ciphertext) = salt.split_at_mut(SALT_LEN);
 
     // Perform the balloon hashing.
@@ -134,7 +134,7 @@ fn expand_key(passphrase: &[u8], salt: &[u8], time_cost: u8, memory_cost: u8, p:
             // Step 2b: Hash in pseudo-randomly chosen blocks.
             for i in 0..DELTA {
                 // Hash the salt and the loop indexes as 64-bit integers.
-                let mut idx_block = [0u8; mem::size_of::<u64>()];
+                let mut idx_block = [0u8; size_of::<u64>()];
                 hash!(
                     h,
                     ctr,
