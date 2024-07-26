@@ -12,7 +12,6 @@ incremental = false
 codegen-units = 1
 
 [workspace.lints.rust]
-rust_2018_idioms = "warn"
 trivial_casts = "warn"
 unused_lifetimes = "warn"
 unused_qualifications = "warn"
