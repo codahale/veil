@@ -616,9 +616,9 @@ checksum = "1676f435fc1dadde4d03e43f5d62b259e1ce5f40bd4ffb21db2b42ebe59c1382"
 
 [[package]]
 name = "fips204"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a7a91da22e550a56b4ace2681cd344cc0c3fd1640235ac433a32561668d58b9"
+checksum = "8ea2461567040f75a882162ffe38f6dc35bf5a193e995ca3f8c1f5d3c101be1d"
 dependencies = [
  "rand_core",
  "sha3",
