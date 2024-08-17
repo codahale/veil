@@ -682,9 +682,9 @@ checksum = "5d3d0e0f38255e7fa3cf31335b3a56f05febd18025f4db5ef7a0cfb4f8da651f"
 
 [[package]]
 name = "hybrid-array"
-version = "0.2.0-rc.8"
+version = "0.2.0-rc.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53668f5da5a41d9eaf4bf7064be46d1ebe6a4e1ceed817f387587b18f2b51047"
+checksum = "4d306b679262030ad8813a82d4915fc04efff97776e4db7f8eb5137039d56400"
 dependencies = [
  "typenum",
 ]
@@ -814,9 +814,9 @@ dependencies = [
 
 [[package]]
 name = "ml-kem"
-version = "0.1.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "860a7986a65e8b6c965082dfeba382302ddad057c21e0830373463e612e67217"
+checksum = "cc5695bf2f33744e3bc3eb0faa27fc5ea4a5e54490d85041ffb18d26dd0ad659"
 dependencies = [
  "hybrid-array",
  "kem",
