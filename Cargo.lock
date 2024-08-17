@@ -1296,7 +1296,6 @@ dependencies = [
  "ed25519-dalek",
  "expect-test",
  "fips204",
- "kem",
  "lockstitch",
  "ml-kem",
  "rand",

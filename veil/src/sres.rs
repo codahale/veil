@@ -1,7 +1,7 @@
 //! An insider-secure hybrid signcryption implementation.
 
-use kem::{Decapsulate, Encapsulate};
 use lockstitch::Protocol;
+use ml_kem::kem::{Decapsulate, Encapsulate};
 use rand::{CryptoRng, RngCore};
 
 use crate::{
