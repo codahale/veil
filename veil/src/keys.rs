@@ -12,7 +12,7 @@ pub const EPHEMERAL_PK_LEN: usize = 32 + ml_dsa_65::PK_LEN + 32;
 
 pub const STATIC_PK_LEN: usize = 1184 + 32 + ml_dsa_65::PK_LEN + 32;
 
-pub const STATIC_SK_LEN: usize = STATIC_PK_LEN + 2400 + 32 + ml_dsa_65::SK_LEN + 32;
+pub const STATIC_SK_LEN: usize = STATIC_PK_LEN + 32 + 32 + 32 + ml_dsa_65::SK_LEN + 32;
 
 pub type Ed25519SigningKey = ed25519_dalek::SigningKey;
 
@@ -115,7 +115,12 @@ impl StaticSecretKey {
     /// Generates a random secret key.
     #[must_use]
     pub fn random(mut rng: impl CryptoRng + RngCore) -> StaticSecretKey {
-        let (dk_pq, ek_pq) = ml_kem::kem::Kem::<ml_kem::MlKem768Params>::generate(&mut rng);
+        let dk_pq_d = rng.gen::<[u8; 32]>();
+        let dk_pq_z = rng.gen::<[u8; 32]>();
+        let (dk_pq, ek_pq) = ml_kem::kem::Kem::<ml_kem::MlKem768Params>::generate_deterministic(
+            &dk_pq_d.into(),
+            &dk_pq_z.into(),
+        );
         let dk_c = X25519SecretKey::random_from_rng(&mut rng);
         let ek_c = X25519PublicKey::from(&dk_c);
         let (vk_pq, sk_pq) = ml_dsa_65::try_keygen_with_rng(&mut rng).expect("should generate");
@@ -130,7 +135,8 @@ impl StaticSecretKey {
 
         let mut sec_encoded = Vec::with_capacity(STATIC_SK_LEN);
         sec_encoded.extend_from_slice(&pub_encoded);
-        sec_encoded.extend_from_slice(&dk_pq.as_bytes());
+        sec_encoded.extend_from_slice(&dk_pq_d);
+        sec_encoded.extend_from_slice(&dk_pq_z);
         sec_encoded.extend_from_slice(dk_c.as_bytes());
         sec_encoded.extend_from_slice(&sk_pq.clone().into_bytes());
         sec_encoded.extend_from_slice(sk_c.as_bytes());
@@ -155,10 +161,14 @@ impl StaticSecretKey {
     #[must_use]
     pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<StaticSecretKey> {
         let encoded = <[u8; STATIC_SK_LEN]>::try_from(b.as_ref()).ok()?;
-        let (pub_key, dk_pq, dk_c, sk_pq, sk_c) =
-            array_refs![&encoded, STATIC_PK_LEN, 2400, 32, ml_dsa_65::SK_LEN, 32];
+        let (pub_key, dk_pq_d, dk_pq_z, dk_c, sk_pq, sk_c) =
+            array_refs![&encoded, STATIC_PK_LEN, 32, 32, 32, ml_dsa_65::SK_LEN, 32];
         let pub_key = StaticPublicKey::from_canonical_bytes(pub_key)?;
-        let dk_pq = MlKem768DecryptingKey::from_bytes(dk_pq.into());
+        // TODO once ML-DSA is converted to use seeds as secret keys, re-generate the public key
+        let (dk_pq, _) = ml_kem::kem::Kem::<ml_kem::MlKem768Params>::generate_deterministic(
+            dk_pq_d.into(),
+            dk_pq_z.into(),
+        );
         let dk_c = X25519SecretKey::from(*dk_c);
         let sk_pq = ml_dsa_65::PrivateKey::try_from_bytes(*sk_pq).ok()?;
         let sk_c = Ed25519SigningKey::from(sk_c);
