@@ -12,7 +12,11 @@ pub const EPHEMERAL_PK_LEN: usize = 32 + ml_dsa_65::PK_LEN + 32;
 
 pub const STATIC_PK_LEN: usize = 1184 + 32 + ml_dsa_65::PK_LEN + 32;
 
-pub const STATIC_SK_LEN: usize = STATIC_PK_LEN + 32 + 32 + 32 + ml_dsa_65::SK_LEN + 32;
+pub const STATIC_SK_LEN: usize = 32 + // ML-KEM seed d  
+   32 + // ML-KEM seed z */ 
+   32 + // X25519 secret key 
+   32  + // ML-DSA seed ξ
+   32; // Ed25519 secret key
 
 pub type Ed25519SigningKey = ed25519_dalek::SigningKey;
 
@@ -61,6 +65,27 @@ impl StaticPublicKey {
         let vk_pq = MlDsa65VerifyingKey::try_from_bytes(*vk_pq).ok()?;
         let vk_c = Ed25519VerifyingKey::from_bytes(vk_c).ok()?;
         Some(StaticPublicKey { ek_pq, ek_c, vk_pq, vk_c, encoded })
+    }
+
+    fn from_parts(
+        ek_pq: MlKem768EncryptingKey,
+        ek_c: X25519PublicKey,
+        vk_pq: MlDsa65VerifyingKey,
+        vk_c: Ed25519VerifyingKey,
+    ) -> StaticPublicKey {
+        let mut encoded = Vec::with_capacity(STATIC_PK_LEN);
+        encoded.extend_from_slice(&ek_pq.as_bytes());
+        encoded.extend_from_slice(ek_c.as_bytes());
+        encoded.extend_from_slice(&vk_pq.clone().into_bytes());
+        encoded.extend_from_slice(vk_c.as_bytes());
+
+        StaticPublicKey {
+            ek_pq,
+            ek_c,
+            vk_pq,
+            vk_c,
+            encoded: encoded.try_into().expect("should be public key sized"),
+        }
     }
 }
 
@@ -123,22 +148,17 @@ impl StaticSecretKey {
         );
         let dk_c = X25519SecretKey::random_from_rng(&mut rng);
         let ek_c = X25519PublicKey::from(&dk_c);
-        let (vk_pq, sk_pq) = ml_dsa_65::try_keygen_with_rng(&mut rng).expect("should generate");
+        let sk_pq_x = rng.gen::<[u8; 32]>();
+        let (vk_pq, sk_pq) =
+            ml_dsa_65::try_keygen_with_rng(&mut ConstRng::new(&sk_pq_x)).expect("should generate");
         let sk_c = Ed25519SigningKey::from_bytes(&rng.gen());
         let vk_c = sk_c.verifying_key();
 
-        let mut pub_encoded = Vec::with_capacity(STATIC_PK_LEN);
-        pub_encoded.extend_from_slice(&ek_pq.as_bytes());
-        pub_encoded.extend_from_slice(ek_c.as_bytes());
-        pub_encoded.extend_from_slice(&vk_pq.clone().into_bytes());
-        pub_encoded.extend_from_slice(vk_c.as_bytes());
-
         let mut sec_encoded = Vec::with_capacity(STATIC_SK_LEN);
-        sec_encoded.extend_from_slice(&pub_encoded);
         sec_encoded.extend_from_slice(&dk_pq_d);
         sec_encoded.extend_from_slice(&dk_pq_z);
         sec_encoded.extend_from_slice(dk_c.as_bytes());
-        sec_encoded.extend_from_slice(&sk_pq.clone().into_bytes());
+        sec_encoded.extend_from_slice(&sk_pq_x);
         sec_encoded.extend_from_slice(sk_c.as_bytes());
 
         StaticSecretKey {
@@ -146,13 +166,7 @@ impl StaticSecretKey {
             dk_c,
             sk_pq,
             sk_c,
-            pub_key: StaticPublicKey {
-                ek_pq,
-                ek_c,
-                vk_pq,
-                vk_c,
-                encoded: pub_encoded.try_into().expect("should be public key sized"),
-            },
+            pub_key: StaticPublicKey::from_parts(ek_pq, ek_c, vk_pq, vk_c),
             encoded: sec_encoded.try_into().expect("should be secret key sized"),
         }
     }
@@ -161,19 +175,26 @@ impl StaticSecretKey {
     #[must_use]
     pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<StaticSecretKey> {
         let encoded = <[u8; STATIC_SK_LEN]>::try_from(b.as_ref()).ok()?;
-        let (pub_key, dk_pq_d, dk_pq_z, dk_c, sk_pq, sk_c) =
-            array_refs![&encoded, STATIC_PK_LEN, 32, 32, 32, ml_dsa_65::SK_LEN, 32];
-        let pub_key = StaticPublicKey::from_canonical_bytes(pub_key)?;
-        // TODO once ML-DSA is converted to use seeds as secret keys, re-generate the public key
-        let (dk_pq, _) = ml_kem::kem::Kem::<ml_kem::MlKem768Params>::generate_deterministic(
+        let (dk_pq_d, dk_pq_z, dk_c, sk_pq_x, sk_c) = array_refs![&encoded, 32, 32, 32, 32, 32];
+        let (dk_pq, ek_pq) = ml_kem::kem::Kem::<ml_kem::MlKem768Params>::generate_deterministic(
             dk_pq_d.into(),
             dk_pq_z.into(),
         );
         let dk_c = X25519SecretKey::from(*dk_c);
-        let sk_pq = ml_dsa_65::PrivateKey::try_from_bytes(*sk_pq).ok()?;
+        let ek_c = X25519PublicKey::from(&dk_c);
+        let (vk_pq, sk_pq) =
+            ml_dsa_65::try_keygen_with_rng(&mut ConstRng::new(sk_pq_x)).expect("should generate");
         let sk_c = Ed25519SigningKey::from(sk_c);
+        let vk_c = sk_c.verifying_key();
 
-        Some(StaticSecretKey { dk_pq, dk_c, sk_pq, sk_c, pub_key, encoded })
+        Some(StaticSecretKey {
+            dk_pq,
+            dk_c,
+            sk_pq,
+            sk_c,
+            pub_key: StaticPublicKey::from_parts(ek_pq, ek_c, vk_pq, vk_c),
+            encoded,
+        })
     }
 }
 
@@ -338,6 +359,37 @@ impl AsRef<Ed25519SigningKey> for &EphemeralSecretKey {
 impl AsRef<MlDsa65SigningKey> for &EphemeralSecretKey {
     fn as_ref(&self) -> &MlDsa65SigningKey {
         &self.sk_pq
+    }
+}
+
+#[derive(Debug)]
+struct ConstRng<'a> {
+    x: Option<&'a [u8; 32]>,
+}
+
+impl<'a> CryptoRng for ConstRng<'a> {}
+impl<'a> RngCore for ConstRng<'a> {
+    fn next_u32(&mut self) -> u32 {
+        unreachable!()
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        unreachable!()
+    }
+
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        self.try_fill_bytes(dest).expect("should generate");
+    }
+
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
+        dest.copy_from_slice(self.x.take().expect("should only fill 32 bytes total"));
+        Ok(())
+    }
+}
+
+impl<'a> ConstRng<'a> {
+    const fn new(x: &'a [u8; 32]) -> ConstRng<'a> {
+        ConstRng { x: Some(x) }
     }
 }
 
