@@ -11,7 +11,7 @@ default-run = "veil"
 [dependencies]
 bunt = "0.2.8"
 clap = { version = "4.5.17", features = ["deprecated", "derive"] }
-clap_complete = "4.5.24"
+clap_complete = "4.5.25"
 console = "0.15.8"
 num_cpus = "1.16.0"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
