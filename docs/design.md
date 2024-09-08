@@ -479,8 +479,8 @@ function EncryptHeader((pk_S, sk_S), (pk_E, sk_E), pk_R, N, P):
   state ← Mix(state, "receiver", pk_R)                                 // Mix the receiver's public key into the protocol.
   state ← Mix(state, "nonce", N)                                       // Mix the nonce into the protocol.
   state ← Mix(state, "x25519-static", X25519(sk_S.dk_c, pk_R.ek_c))    // Mix the static X25519 shared secret into the protocol.
-  (kem_ct, kem_ss) ← ML_KEM_768::Encapsulate(pk_R.ek_pq)               // Encapsulate a key for the receiver with ML-KEM-768.
-  (state, c₀) ← Encrypt(state, "ml-kem-768-ct", kem_ct)                // Encrypt the ML-KEM-768 ciphertext.
+  (kem_ect, kem_ss) ← ML_KEM_768::EncapsulateObfuscated(pk_R.ek_pq)    // Encapsulate a key for the receiver with ML-KEM-768, obfuscated with Kemeleon.
+  (state, c₀) ← Encrypt(state, "ml-kem-768-ect", kem_ect)              // Encrypt the ML-KEM-768 ciphertext.
   state ← Mix(state, "ml-kem-768-ss", kem_ss)                          // Mix the ML-KEM-768 shared secret into the protocol.
   (state, c₁) ← Encrypt(state, "ephemeral-key", pk_E)                  // Encrypt the ephemeral public key.
   state ← Mix(state, "x25519-ephemeral", X25519(sk_E.dk_c, pk_R.ek_c)) // Mix the ephemeral X25519 shared secret into the protocol.
@@ -501,8 +501,8 @@ function DecryptHeader((pk_R, sk_R), pk_S, N, c₀ ǁ c₁ ǁ c₂ ǁ c₃):
   state ← Mix(state, "receiver", pk_R)                                 // Mix the receiver's public key into the protocol.
   state ← Mix(state, "nonce", N)                                       // Mix the nonce into the protocol.
   state ← Mix(state, "x25519-static", X25519(sk_R.dk_c, pk_S.ek_c))    // Mix the static X25519 shared secret into the protocol.
-  (state, kem_ct) ← Decrypt(state, "ml-kem-768-ct", c₀)                // Decrypt the ML-KEM-768 ciphertext.
-  kem_ss ← ML_KEM_768::Decapsulate(sk_R.dk_pq, kem_ct)                 // Encapsulate the key with ML-KEM-768.
+  (state, kem_ect) ← Decrypt(state, "ml-kem-768-ect", c₀)              // Decrypt the obfuscate ML-KEM-768 ciphertext.
+  kem_ss ← ML_KEM_768::DecapsulateObfuscated(sk_R.dk_pq, kem_ect)      // De-obfuscated with Kemeleon and decapsulate the key with ML-KEM-768.
   state ← Mix(state, "ml-kem-768-ss", kem_ss)                          // Mix the ML-KEM-768 shared secret into the protocol.
   (state, pk_E) ← Decrypt(state, "ephemeral-key", c₁)                  // Decrypt the ephemeral public key.
   state ← Mix(state, "x25519-ephemeral", X25519(sk_R.dk_c, pk_E.ek_c)) // Mix the ephemeral X25519 shared secret into the protocol.
@@ -518,9 +518,9 @@ function DecryptHeader((pk_R, sk_R), pk_S, N, c₀ ǁ c₁ ǁ c₂ ǁ c₃):
 encryption scheme and a digital signature scheme.
 
 The initial portion of `veil.sres` is equivalent to ECIES (see Construction 12.23 of
-[[KL20]](#kl20), p. 435), (addition of the ML-KEM-768 ciphertext, and the signature digest `d`
-serving as the authentication tag for the data encapsulation mechanism) and is IND-CCA2 secure (see
-Corollary 12.14 of [[KL20]](#kl20), p. 436).
+[[KL20]](#kl20), p. 435), (with the addition of the Kemeleon-obfuscated ML-KEM-768 ciphertext
+[[GSV24]](#gsv24), and the signature digest `d` serving as the authentication tag for the data
+encapsulation mechanism) and is IND-CCA2 secure (see Corollary 12.14 of [[KL20]](#kl20), p. 436).
 
 The latter portion of `veil.sres` is equivalent to [`veil.sig`](#digital-signatures).
 
@@ -601,7 +601,7 @@ is not vulnerable to fault injection attacks.
 ### Indistinguishability Of Headers From Random Noise Of Encrypted Headers
 
 All of the components of a `veil.sres` ciphertext are AEGIS-128L ciphertexts using keys derived via
-TurboSHAKE128. An adversary in the outsider setting (i.e.  knowing only public keys) is unable to
+TurboSHAKE128. An adversary in the outsider setting (i.e. knowing only public keys) is unable to
 calculate any of the key material used to produce the ciphertexts; a distinguishing attack would
 imply that either TurboSHAKE128 is not collision-resistant or that AEGIS-128L is not PRF secure.
 
@@ -1000,6 +1000,12 @@ Ran Canetti, Shai Halevi, and Jonathan Katz.
 2003.
 [_A forward-secure public-key encryption scheme._](https://eprint.iacr.org/2003/083)
 [`DOI:10.1007/3-540-39200-9_16`](https://doi.org/10.1007/3-540-39200-9_16)
+
+### GSV24
+
+Felix Günther, Douglas Stebila, and Shannon Veitch.
+2024.
+[_Obfuscated Key Exchange_](https://eprint.iacr.org/2024/1086)
 
 ### HRRV15
 
