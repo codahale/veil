@@ -45,7 +45,10 @@ fn encode_ct(mut rng: impl CryptoRng + Rng, c: [u8; 1088]) -> Option<[u8; 1252]>
         let mut a;
         loop {
             a = rng.gen_range(0..5);
-            if decompress(compress(*u_i + a, 10), 10) == *u_i {
+            if decompress(compress(fe_add(*u_i, a), 10), 10) == *u_i {
+                if *u_i == 3328 {
+                    panic!("{a}");
+                }
                 break;
             }
         }
@@ -130,6 +133,16 @@ const K: usize = 3;
 
 /// FieldElement is an integer modulo q, an element of ℤ_q. It is always reduced.
 type FieldElement = u16;
+
+/// Reduce a value `a < 2q`.
+const fn fe_reduce_once(a: u16) -> FieldElement {
+    let x = a.wrapping_sub(Q);
+    x.wrapping_add((x >> 15).wrapping_mul(Q))
+}
+
+const fn fe_add(a: FieldElement, b: FieldElement) -> FieldElement {
+    fe_reduce_once(a.wrapping_add(b))
+}
 
 // Maps a field element uniformly to the range 0 to 2ᵈ-1, according to FIPS 203 (DRAFT), Definition
 // 4.5.
