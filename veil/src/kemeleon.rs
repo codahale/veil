@@ -2,7 +2,6 @@
 //!
 //! https://eprint.iacr.org/2024/1086.pdf
 
-// TODO test output
 // TODO update docs
 
 use ml_kem::kem::{Decapsulate as _, Encapsulate as _};
