@@ -25,8 +25,8 @@ pub fn encapsulate(
     }
 }
 
-pub fn decapsulate(dk: &MlKem768DecryptingKey, e_ct: [u8; ENC_CT_LEN]) -> [u8; 32] {
-    let ct = decode_ct(e_ct);
+pub fn decapsulate(dk: &MlKem768DecryptingKey, ect: [u8; ENC_CT_LEN]) -> [u8; 32] {
+    let ct = decode_ct(ect);
     dk.decapsulate(&ct.into()).expect("should decapsulate").into()
 }
 
@@ -86,12 +86,12 @@ fn encode_ct(mut rng: impl CryptoRng + Rng, c: [u8; 1088]) -> Option<[u8; 1252]>
     Some(out)
 }
 
-fn decode_ct(mut e_ct: [u8; 1252]) -> [u8; 1088] {
+fn decode_ct(mut ect: [u8; 1252]) -> [u8; 1088] {
     // Unmask the top five bits of the encoded vector.
-    e_ct[1252 - 128 - 1] &= !BIT_MASK;
+    ect[1252 - 128 - 1] &= !BIT_MASK;
 
     // Decode the vector.
-    let r = BigUint::from_bytes_le(&e_ct[..1124]);
+    let r = BigUint::from_bytes_le(&ect[..1124]);
     let mut u = [[0u16; N]; K];
     let mut coeff = BigUint::from(1u64);
     let mut f = BigUint::ZERO;
@@ -109,7 +109,7 @@ fn decode_ct(mut e_ct: [u8; 1252]) -> [u8; 1088] {
         for (c, f) in ct.by_ref().zip(u.iter().copied()) {
             c.copy_from_slice(&ring_compress_and_encode10(f));
         }
-        ct.into_remainder().copy_from_slice(&e_ct[1124..]);
+        ct.into_remainder().copy_from_slice(&ect[1124..]);
     }
     ct
 }
