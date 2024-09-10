@@ -10,7 +10,6 @@ description = "Stupid crypto tricks."
 [dependencies]
 arrayref = "0.3.8"
 bs58 = "0.5.1"
-ed25519-dalek = "2.1.1"
 fips204 = { version = "0.2.2", default-features = false, features = ["ml-dsa-65"] }
 lockstitch = "0.25.1"
 ml-kem = { version = "0.2.1", features = ["deterministic"] }
