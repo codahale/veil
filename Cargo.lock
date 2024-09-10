@@ -1321,7 +1321,6 @@ dependencies = [
  "rand",
  "rand_chacha",
  "thiserror",
- "x25519-dalek",
 ]
 
 [[package]]
@@ -1530,18 +1529,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7cad8365489051ae9f054164e459304af2e7e9bb407c958076c8bf4aef52da5"
 dependencies = [
  "memchr",
-]
-
-[[package]]
-name = "x25519-dalek"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7e468321c81fb07fa7f4c636c3972b9100f0346e5b6a9f2bd0603a52f7ed277"
-dependencies = [
- "curve25519-dalek",
- "rand_core",
- "serde",
- "zeroize",
 ]
 
 [[package]]

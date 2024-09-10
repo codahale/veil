@@ -5,9 +5,7 @@ use rand::{CryptoRng, RngCore};
 
 use crate::{
     kemeleon::{self, ENC_CT_LEN},
-    keys::{
-        EphemeralPublicKey, EphemeralSecretKey, StaticPublicKey, StaticSecretKey, EPHEMERAL_PK_LEN,
-    },
+    keys::{StaticPublicKey, StaticSecretKey},
     sig::{self, SIG_LEN},
 };
 
@@ -15,7 +13,7 @@ use crate::{
 pub const NONCE_LEN: usize = 16;
 
 /// The number of bytes added to plaintext by [encrypt].
-pub const OVERHEAD: usize = EPHEMERAL_PK_LEN + ENC_CT_LEN + SIG_LEN;
+pub const OVERHEAD: usize = ENC_CT_LEN + SIG_LEN;
 
 /// Given the sender's key pair, the ephemeral key pair, the receiver's public key, a nonce, and a
 /// plaintext, encrypts the given plaintext and returns the ciphertext.
@@ -30,12 +28,8 @@ pub fn encrypt(
     debug_assert_eq!(ciphertext.len(), plaintext.len() + OVERHEAD);
 
     // Split up the output buffer.
-    let (out_kem, out_ephemeral) = ciphertext.split_at_mut(ENC_CT_LEN);
-    let (out_ephemeral, out_ciphertext) = out_ephemeral.split_at_mut(EPHEMERAL_PK_LEN);
+    let (out_kem, out_ciphertext) = ciphertext.split_at_mut(ENC_CT_LEN);
     let (out_ciphertext, out_sig) = out_ciphertext.split_at_mut(plaintext.len());
-
-    // Generate an ephemeral key pair.
-    let ephemeral = EphemeralSecretKey::random(&mut rng);
 
     // Initialize a protocol.
     let mut sres = Protocol::new("veil.sres");
@@ -52,35 +46,16 @@ pub fn encrypt(
     // to the nonce.
     sres.mix("nonce", nonce);
 
-    // Mix the static X25519 shared secret into the protocol. This makes all following outputs
-    // confidential against classical passive outsider adversaries (i.e. in possession of the sender
-    // and receiver's public keys but no secret keys) but not active outsider adversaries or quantum
-    // adversaries.
-    sres.mix("x25519-static", sender.dk_c.diffie_hellman(&receiver.ek_c).as_bytes());
-
-    // Encapsulate a shared secret with ML-KEM and encrypt it. An insider adversary (i.e. in
-    // possession of either the sender or the receiver's secret key) or a quantum adversary can
-    // recover this value, which would represent a distinguishing attack.
-    let (kem_ect, kem_ss) = kemeleon::encapsulate(&receiver.ek_pq, &mut rng);
+    // Encapsulate a shared secret with ML-KEM and mix it into the protocol's state. Because the
+    // ML-KEM-768 ciphertext is encoded with Kemeleon, it is indistinguishable from random noise.
+    let (kem_ect, kem_ss) = kemeleon::encapsulate(&receiver.ek, &mut rng);
     out_kem.copy_from_slice(&kem_ect);
-    sres.encrypt("ml-kem-768-ect", out_kem);
+    sres.mix("ml-kem-768-ect", out_kem);
 
     // Mix the ML-KEM shared secret into the protocol. This makes all following output confidential
     // against quantum passive insider adversaries (i.e. in possession of the sender's secret key
     // and the receiver's public key) but not active insider adversaries.
     sres.mix("ml-kem-768-ss", &kem_ss);
-
-    // Encrypt the ephemeral public key. An insider adversary (i.e. in possession of either the
-    // sender or the receiver's secret key) can recover this value. While this does represent a
-    // distinguishing attack, ~12% of random 32-byte values successfully decode to X25519 points,
-    // which reduces the utility somewhat.
-    out_ephemeral.copy_from_slice(&ephemeral.pub_key.encoded);
-    sres.encrypt("ephemeral-key", out_ephemeral);
-
-    // Mix the ephemeral X25519 shared secret into the protocol. This makes all following outputs
-    // confidential against passive insider adversaries (i.e. an adversary in possession of the
-    // sender's secret key) a.k.a sender forward-secure.
-    sres.mix("x25519-ephemeral", ephemeral.dk_c.diffie_hellman(&receiver.ek_c).as_bytes());
 
     // Encrypt the plaintext. By itself, this is confidential against passive insider adversaries
     // and implicitly authenticated as being from either the sender or the receiver but vulnerable
@@ -111,8 +86,7 @@ pub fn decrypt<'a>(
     }
 
     // Split the ciphertext into its components.
-    let (kem_ect, ephemeral) = in_out.split_at_mut(ENC_CT_LEN);
-    let (ephemeral, ciphertext) = ephemeral.split_at_mut(EPHEMERAL_PK_LEN);
+    let (kem_ect, ciphertext) = in_out.split_at_mut(ENC_CT_LEN);
     let (ciphertext, sig) = ciphertext.split_at_mut(ciphertext.len() - SIG_LEN);
 
     // Initialize a protocol.
@@ -127,21 +101,12 @@ pub fn decrypt<'a>(
     // Mix the nonce into the protocol.
     sres.mix("nonce", nonce);
 
-    // Mix the static X25519 shared secret into the protocol.
-    sres.mix("x25519-static", receiver.dk_c.diffie_hellman(&sender.ek_c).as_bytes());
-
-    // Decrypt and decapsulate the ML-KEM shared secret, then mix it into the protocol.
-    sres.decrypt("ml-kem-768-ect", kem_ect);
-    let kem_ect = <[u8; ENC_CT_LEN]>::try_from(kem_ect).expect("should be 1088 bytes");
-    let kem_ss = kemeleon::decapsulate(&receiver.dk_pq, kem_ect);
+    // Mix the ML-KEM ciphertext into the protocol, decapsulate the ML-KEM shared secret, then mix
+    // the shared secret into the protocol.
+    sres.mix("ml-kem-768-ect", kem_ect);
+    let kem_ss =
+        kemeleon::decapsulate(&receiver.dk, kem_ect.try_into().expect("should be 1252 bytes"));
     sres.mix("ml-kem-768-ss", &kem_ss);
-
-    // Decrypt and decode the ephemeral public key.
-    sres.decrypt("ephemeral-key", ephemeral);
-    let ephemeral = EphemeralPublicKey::from_canonical_bytes(ephemeral)?;
-
-    // Mix the ephemeral X25519 shared secret into the protocol.
-    sres.mix("x25519-ephemeral", receiver.dk_c.diffie_hellman(&ephemeral.ek_c).as_bytes());
 
     // Decrypt the plaintext.
     sres.decrypt("message", ciphertext);

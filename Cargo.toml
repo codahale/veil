@@ -2,9 +2,6 @@
 members = ["benchmarks", "veil", "veil-cli", "xtask"]
 resolver = "2"
 
-[profile.dev.package.curve25519-dalek]
-opt-level = 3
-
 [profile.fuzz]
 inherits = "dev"
 opt-level = 3

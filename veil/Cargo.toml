@@ -17,7 +17,6 @@ ml-kem = { version = "0.2.1", features = ["deterministic"] }
 num-bigint = "0.4.6"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 thiserror = "1.0.63"
-x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }
 
 [dev-dependencies]
 assert_matches = "1.5.0"
