@@ -4,9 +4,8 @@ _Stupid crypto tricks._
 
 WARNING: You should, under no circumstances, use this.
 
-Veil is an incredibly experimental post-quantum hybrid cryptosystem for sending and receiving
-confidential, authentic multi-receiver messages which are indistinguishable from random noise by an
-attacker.
+Veil is an incredibly experimental post-quantum cryptosystem for sending and receiving confidential,
+authentic multi-receiver messages which are indistinguishable from random noise by an attacker.
 
 Unlike e.g. GPG messages, Veil messages contain no metadata or format details which are not
 encrypted. As a result, a global passive adversary would be unable to gain any information from a

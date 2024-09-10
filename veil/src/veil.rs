@@ -1,4 +1,4 @@
-//! The Veil hybrid cryptosystem.
+//! The Veil cryptosystem.
 
 use std::{
     fmt,

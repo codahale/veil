@@ -1,6 +1,6 @@
-//! The Veil hybrid cryptosystem.
+//! The Veil cryptosystem.
 //!
-//! Veil is an incredibly experimental hybrid cryptosystem for sending and receiving confidential,
+//! Veil is an incredibly experimental cryptosystem for sending and receiving confidential,
 //! authentic multi-receiver messages which are indistinguishable from random noise by an attacker.
 //! Unlike e.g. GPG messages, Veil messages contain no metadata or format details which are not
 //! encrypted. As a result, a global passive adversary would be unable to gain any information from

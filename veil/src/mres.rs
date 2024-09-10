@@ -1,4 +1,4 @@
-//! A multi-receiver, hybrid cryptosystem.
+//! A multi-receiver cryptosystem.
 
 use std::io::{self, Read, Write};
 

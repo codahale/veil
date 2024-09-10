@@ -1,4 +1,4 @@
-//! An insider-secure hybrid signcryption implementation.
+//! An insider-secure signcryption implementation.
 
 use lockstitch::Protocol;
 use rand::{CryptoRng, RngCore};
