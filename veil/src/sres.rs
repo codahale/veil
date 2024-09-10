@@ -22,7 +22,6 @@ pub const OVERHEAD: usize = EPHEMERAL_PK_LEN + ENC_CT_LEN + SIG_LEN;
 pub fn encrypt(
     mut rng: impl RngCore + CryptoRng,
     sender: &StaticSecretKey,
-    ephemeral: &EphemeralSecretKey,
     receiver: &StaticPublicKey,
     nonce: &[u8],
     plaintext: &[u8],
@@ -34,6 +33,9 @@ pub fn encrypt(
     let (out_kem, out_ephemeral) = ciphertext.split_at_mut(ENC_CT_LEN);
     let (out_ephemeral, out_ciphertext) = out_ephemeral.split_at_mut(EPHEMERAL_PK_LEN);
     let (out_ciphertext, out_sig) = out_ciphertext.split_at_mut(plaintext.len());
+
+    // Generate an ephemeral key pair.
+    let ephemeral = EphemeralSecretKey::random(&mut rng);
 
     // Initialize a protocol.
     let mut sres = Protocol::new("veil.sres");
@@ -159,7 +161,7 @@ mod tests {
 
     #[test]
     fn round_trip() {
-        let (_, sender, receiver, _, plaintext, nonce, mut ciphertext) = setup();
+        let (_, sender, receiver, plaintext, nonce, mut ciphertext) = setup();
 
         assert_eq!(
             Some(plaintext.as_slice()),
@@ -169,7 +171,7 @@ mod tests {
 
     #[test]
     fn wrong_receiver() {
-        let (mut rng, sender, _, _, _, nonce, mut ciphertext) = setup();
+        let (mut rng, sender, _, _, nonce, mut ciphertext) = setup();
 
         let wrong_receiver = StaticSecretKey::random(&mut rng);
         assert_eq!(None, decrypt(&wrong_receiver, &sender.pub_key, &nonce, &mut ciphertext));
@@ -177,7 +179,7 @@ mod tests {
 
     #[test]
     fn wrong_sender() {
-        let (mut rng, _, receiver, _, _, nonce, mut ciphertext) = setup();
+        let (mut rng, _, receiver, _, nonce, mut ciphertext) = setup();
 
         let wrong_sender = StaticSecretKey::random(&mut rng);
         assert_eq!(None, decrypt(&receiver, &wrong_sender.pub_key, &nonce, &mut ciphertext));
@@ -185,40 +187,24 @@ mod tests {
 
     #[test]
     fn wrong_nonce() {
-        let (mut rng, sender, receiver, _, _, _, mut ciphertext) = setup();
+        let (mut rng, sender, receiver, _, _, mut ciphertext) = setup();
 
         let wrong_nonce = rng.gen::<[u8; NONCE_LEN]>();
         assert_eq!(None, decrypt(&receiver, &sender.pub_key, &wrong_nonce, &mut ciphertext));
     }
 
-    fn setup() -> (
-        ChaChaRng,
-        StaticSecretKey,
-        StaticSecretKey,
-        EphemeralSecretKey,
-        [u8; 64],
-        [u8; NONCE_LEN],
-        Vec<u8>,
-    ) {
+    fn setup() -> (ChaChaRng, StaticSecretKey, StaticSecretKey, [u8; 64], [u8; NONCE_LEN], Vec<u8>)
+    {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let sender = StaticSecretKey::random(&mut rng);
         let receiver = StaticSecretKey::random(&mut rng);
-        let ephemeral = EphemeralSecretKey::random(&mut rng);
         let plaintext = rng.gen::<[u8; 64]>();
         let nonce = rng.gen::<[u8; NONCE_LEN]>();
 
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
-        encrypt(
-            &mut rng,
-            &sender,
-            &ephemeral,
-            &receiver.pub_key,
-            &nonce,
-            &plaintext,
-            &mut ciphertext,
-        );
+        encrypt(&mut rng, &sender, &receiver.pub_key, &nonce, &plaintext, &mut ciphertext);
 
-        (rng, sender, receiver, ephemeral, plaintext, nonce, ciphertext)
+        (rng, sender, receiver, plaintext, nonce, ciphertext)
     }
 }

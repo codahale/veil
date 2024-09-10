@@ -6,7 +6,7 @@ use lockstitch::{Protocol, TAG_LEN};
 use rand::{CryptoRng, Rng};
 
 use crate::{
-    keys::{EphemeralSecretKey, StaticPublicKey, StaticSecretKey},
+    keys::{StaticPublicKey, StaticSecretKey},
     sig,
     sres::{self, NONCE_LEN},
     DecryptError, EncryptError,
@@ -50,8 +50,7 @@ pub fn encrypt(
     let mut mres = Protocol::new("veil.mres");
     mres.mix("sender", &sender.pub_key.encoded);
 
-    // Generate a random ephemeral key pair, DEK, and nonce.
-    let ephemeral = EphemeralSecretKey::random(&mut rng);
+    // Generate a random DEK and nonce.
     let dek = rng.gen::<[u8; DEK_LEN]>();
     let nonce = rng.gen::<[u8; NONCE_LEN]>();
 
@@ -72,7 +71,7 @@ pub fn encrypt(
         // Encrypt the header for the given receiver, if any, or use random data to create a fake
         // recipient.
         if let Some(receiver) = receiver {
-            sres::encrypt(&mut rng, sender, &ephemeral, receiver, &nonce, &header, &mut enc_header);
+            sres::encrypt(&mut rng, sender, receiver, &nonce, &header, &mut enc_header);
         } else {
             rng.fill_bytes(&mut enc_header);
         }

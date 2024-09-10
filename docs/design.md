@@ -469,11 +469,12 @@ ephemeral X25519 key agreement, a Lockstich DEM, and finally a `veil.sig` digita
 
 ### Encrypting A Header
 
-Encrypting a header requires the sender's key pair `(pk_S,sk_S)`, an ephemeral key pair
-`(pk_E,sk_E)`, the receiver's public key `pk_R`, a nonce `N`, and a plaintext `P`.
+Encrypting a header requires the sender's key pair `(pk_S,sk_S)`, the receiver's public key `pk_R`,
+a nonce `N`, and a plaintext `P`.
 
 ```text
-function EncryptHeader((pk_S, sk_S), (pk_E, sk_E), pk_R, N, P):
+function EncryptHeader((pk_S, sk_S), pk_R, N, P):
+  (pk_E, sk_E) ← EphemeralSecretKey::Generate()                        // Generate an ephemeral secret key.
   state ← Initialize("veil.sres")                                      // Initialize a protocol.
   state ← Mix(state, "sender", pk_S)                                   // Mix the sender's public key into the protocol.
   state ← Mix(state, "receiver", pk_R)                                 // Mix the receiver's public key into the protocol.
@@ -605,14 +606,6 @@ TurboSHAKE128. An adversary in the outsider setting (i.e. knowing only public ke
 calculate any of the key material used to produce the ciphertexts; a distinguishing attack would
 imply that either TurboSHAKE128 is not collision-resistant or that AEGIS-128L is not PRF secure.
 
-### Re-use Of Ephemeral Keys
-
-The re-use of an ephemeral key pair `(pk_E,sk_E` across multiple ciphertexts does not impair the
-confidentiality of the scheme provided `(N,pk_R)` pairs are not re-used [[BBS03]](#bbs03).
-
-An adversary who recovers an ephemeral secret key would need to also recover `sk_R` to decrypt the
-message which uses it.
-
 ## Encrypted Messages
 
 `veil.mres` implements a multi-receiver signcryption scheme.
@@ -626,7 +619,6 @@ Encrypting a message requires a sender's key pair `(pk_S,sk_S)`, receiver public
 function EncryptMessage((pk_S, sk_S), [pk_R_0,…,pk_R_n], P):
   state ← Initialize("veil.mres")    // Initialize a protocol.
   state ← Mix(state, "sender", pk_S) // Mix the sender's public key into the protocol.
-  (pk_E, sk_E) ← EphemeralKeyGen()   // Generate a random ephemeral key pair.
   K ← Rand(32)                       // Generate a random data encryption key.
   N ← Rand(16)                       // Generate a random nonce.
   C ← N                              // Write the nonce.
@@ -634,9 +626,9 @@ function EncryptMessage((pk_S, sk_S), [pk_R_0,…,pk_R_n], P):
   H ← K ǁ n                          // Encode the DEK and receiver count in a header.
 
   for pk_R_i in [pk_R_0,…,pk_R_n]:
-    (state, N_i) ← Derive(state, "header-nonce", 16)                // Derive a nonce for each header.
-    E_i ← EncryptHeader((pk_S, sk_S), (pk_E, sk_E), pk_R_i, N_i, H) // Encrypt the header for each receiver.
-    state ← Mix(state, "header", E_i)                               // Mix the encrypted header into the protocol.
+    (state, N_i) ← Derive(state, "header-nonce", 16)  // Derive a nonce for each header.
+    E_i ← EncryptHeader((pk_S, sk_S), pk_R_i, N_i, H) // Encrypt the header for each receiver.
+    state ← Mix(state, "header", E_i)                 // Mix the encrypted header into the protocol.
     C ← C ǁ E_i
 
   state ← Mix(state, "dek", K) // Mix the DEK into the protocol.
@@ -678,7 +670,7 @@ function DecryptMessage((pk_R, sk_R), pk_S, C):
     state ← Mix(state, "header", E_i)
     x ← DecryptHeader((pk_R, sk_R), pk_S, N_i, E_i)
     if x ≠ ⊥:
-      (pk_E, K ǁ n) ← x // Once a header is decrypted, process the remaining headers.
+      K ǁ n ← x // Once a header is decrypted, process the remaining headers.
 
   state ← Mix(state, "dek", K)                 // Mix the DEK into the protocol.
 
@@ -931,13 +923,6 @@ Mihir Bellare, Alexandra Boldyreva, Kaoru Kurosawa, and Jessica Staddon.
 Christian Badertscher, Fabio Banfi, and Ueli Maurer.
 2018.
 [_A constructive perspective on signcryption security._](https://eprint.iacr.org/2018/050)
-
-### BBS03
-
-Mihir Bellare, Alexandra Boldyreva, and Jessica Staddon.
-2003.
-[_Randomness re-use in multi-recipient encryption schemeas._](https://www.iacr.org/archive/pkc2003/25670085/25670085.pdf)
-[`DOI:10.1007/3-540-36288-6_7`](https://doi.org/10.1007/3-540-36288-6_7)
 
 ### BCGS16
 
