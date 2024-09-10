@@ -1,9 +1,9 @@
 # The Veil Cryptosystem
 
-Veil is a hybrid post-quantum public-key cryptosystem that provides confidentiality, authenticity,
-and integrity services for messages of arbitrary sizes and multiple receivers. This document
-describes its cryptographic constructions, their security properties, and how they are combined to
-implement Veil's feature set.
+Veil is a post-quantum public-key cryptosystem that provides confidentiality, authenticity, and
+integrity services for messages of arbitrary sizes and multiple receivers. This document describes
+its cryptographic constructions, their security properties, and how they are combined to implement
+Veil's feature set.
 
 ## Contents
 
@@ -93,14 +93,6 @@ of one poses an existential risk to modern cryptographic systems:
 > plan for migrating our current, classical cryptographic algorithms to PQC.
 >
 > – [Google's Threat model for Post-Quantum Cryptography](https://bughunters.google.com/blog/5108747984306176/google-s-threat-model-for-post-quantum-cryptography)
-
-While groups such as the NSA recommend wholesale migration to post-quantum algorithms like ML-KEM
-and ML-DSA, the relative newness of those algorithms and the number of entirely broken proposed
-post-quantum algorithms lend weight to the more conservative approach of _hybrid post-quantum_
-constructions. These combine classical algorithms and post-quantum algorithms such that a loss of
-security of one (i.e. due to either the development of a cryptographically-relevant quantum computer
-or novel cryptanalysis of a post-quantum algorithm) does not reduce the overall security of the
-system.
 
 A modern system would defend against both classical and quantum adversaries.
 
@@ -222,10 +214,8 @@ patterns in the cryptography itself.
 In the interests of cryptographic minimalism, Veil uses the following cryptographic primitives:
 
 1. [Lockstitch](https://github.com/codahale/lockstitch) for all symmetric-key operations.
-2. [X25519](https://www.rfc-editor.org/rfc/rfc7748.html) for classical key agreement.
-3. [ML-KEM-768](https://csrc.nist.gov/pubs/fips/203/ipd) for post-quantum key encapsulation.
-4. [Ed25519](https://www.rfc-editor.org/rfc/rfc8032.html) for digital signatures.
-5. [ML-DSA-65](https://csrc.nist.gov/pubs/fips/204/ipd) for post-quantum digital signatures.
+2. [ML-KEM-768](https://csrc.nist.gov/pubs/fips/203/ipd) for key encapsulation.
+3. [ML-DSA-65](https://csrc.nist.gov/pubs/fips/204/ipd) for digital signatures.
 
 ### Lockstitch
 
@@ -239,13 +229,6 @@ Veil's security assumes that Lockstitch's `Encrypt` operation is IND-CPA-secure 
 prior state is probabilistic, its `Derive` operation is sUF-CMA-secure if the protocol's prior state
 is secret, and its `Seal` operation is IND-CCA2-secure.
 
-### X25519
-
-X25519 implements elliptic curve Diffie-Hellman key agreement on the Montgomery form of Curve25519.
-
-Veil's security assumes that the Gap Diffie-Hellman problem is hard relative to Curve25519 for
-classical adversaries.
-
 ### ML-KEM-768
 
 ML-KEM-768 implements a key encapsulation construction based on the hardness of the Module Learning
@@ -253,19 +236,12 @@ With Errors problem.
 
 Veil's security assumes that ML-KEM-768 is IND-CCA2-secure.
 
-### Ed25519
-
-Ed25519 implements a Schnorr-style digital signature on the Edwards form of Curve25519 using
-SHA-512.
-
-Veil's security assumes that Ed25519 is sUF-CMA-secure for classical adversaries.
-
 ### ML-DSA-65
 
 ML-DSA-65 implements a digital signature construction based on the hardness of the Module Learning
 With Errors problem.
 
-Veil's security assumes that ML-DSA-65 is sUF-CMA-secure for quantum adversaries.
+Veil's security assumes that ML-DSA-65 is sUF-CMA-secure.
 
 ## Construction Techniques
 
@@ -319,36 +295,20 @@ and thus unable to compute their forgery.
 
 ## Keys
 
-Veil keys come in two types: static and ephemeral. Static keys are owned by principals (e.g. humans),
-have long lifetimes, and are used to authenticate principals to each other. Ephemeral keys are used
-to provide sender forward secrecy and insider-secure authentication for single messages.
+A Veil key has two types of sub-key: ML-KEM-768 and ML-DSA-65.
 
-### Static Keys
+A public key has an ML-KEM-768
+encapsulating key `ek` an ML-DSA-65 verifying key `vk`. Its encoded form is the concatenation of the
+encoded forms of each sub-key in that order: `ek ǁ vk`.
 
-A static Veil key has four types of sub-key: X25519, ML-KEM-768, Ed25519, ML-DSA-65. A static public
-key has an X25519 encrypting key `ek_c`, an ML-KEM-768 encapsulating key `ek_pq`, an Ed25519
-verifying key `vk_c`, and an ML-DSA-65 verifying key `vk_pq`. Its encoded form is the concatenation
-of the encoded forms of each sub-key in that order: `ek_c ǁ ek_pq ǁ vk_c ǁ vk_pq`.
-
-A static secret key has an X25519 decrypting key `dk_c`, an ML-KEM-768 decapsulating key `dk_pq`, an
-Ed25519 signing key `sk_c`, and an ML-DSA signing key `sk_pq`. Its encoded form is the concatenation
-of the corresponding public key and the encoded form of each sub-key in that order:
-`ek_c ǁ ek_pq ǁ vk_c ǁ vk_pq ǁ dk_c ǁ dk_pq ǁ sk_c ǁ sk_pq`.
-
-### Ephemeral Keys
-
-An ephemeral Veil key has three types of sub-key: X25519, Ed25519, ML-DSA-65. An ephemeral public
-key has an X25519 encrypting key `ek_c`, an Ed25519 verifying key `vk_c`, and an ML-DSA-65 verifying
-key `vk_pq`. Its encoded form is the concatenation of the encoded forms of each sub-key in that
-order: `ek_c ǁ vk_c ǁ vk_pq`.
-
-An ephemeral secret key has an X25519 decrypting key `dk_c`, an Ed25519 signing key `sk_c`, and an
-ML-DSA signing key `sk_pq`. It has no encoded form; ephemeral secret keys are discarded once the
-message is encrypted.
+A secret key has an ML-KEM-768 decapsulating key `dk` and an ML-DSA-65 signing key `sk`. Its encoded
+form is the concatenation of the ML-KEM-768 seeds `dk_d` and `dk_z` and the ML-DSA-65 seed `sk_x` in
+that order: `dk_d ǁ dk_z ǁ sk_x`. Decoding a secret key requires re-generating the ML-KEM-768 and
+ML-DSA-65 key pairs from the seeds.
 
 ## Digital Signatures
 
-`veil.sig` implements a hybrid post-quantum digital signature scheme using Ed25519 and ML-DSA-65.
+`veil.sig` implements a digital signature scheme using ML-DSA-65.
 
 ### Signing A Message
 
@@ -357,14 +317,12 @@ of arbitrary length.
 
 ```text
 function SignState(state, sk):
-  r ← Rand(16)                                            // Generate a random nonce.
-  state ← Mix(state, "signature-nonce", r)                // Mix the nonce into the protocol.
-  (state, h) ← Derive(state, "signature-digest", 32)      // Derive a 256-bit digest.
-  s₀ ← Ed25519::Sign(sk.sk_c, r ǁ h)                      // Sign the nonce and digest with Ed25519.
-  s₁ ← ML_DSA_65::Sign(sk.sk_pq, r ǁ h ǁ s₁)              // Sign the nonce, digest, and Ed25519 signature with ML-DSA-65.
-  (state, c₀) ← Encrypt(state, "ed25519-signature", s₀)   // Encrypt the Ed25519 signature.
-  (state, c₁) ← Encrypt(state, "ml-dsa-65-signature", s₁) // Encrypt the ML-DSA-65 signature.
-  return r ǁ h ǁ c₀ ǁ c₁
+  r ← Rand(16)                                 // Generate a random nonce.
+  state ← Mix(state, "nonce", r)               // Mix the nonce into the protocol.
+  (state, h) ← Derive(state, "digest", 32)     // Derive a 256-bit digest.
+  s ← ML_DSA_65::Sign(sk.sk, r ǁ h)            // Sign the nonce and digest with ML-DSA-65.
+  (state, c) ← Encrypt(state, "signature", s₁) // Encrypt the ML-DSA-65 signature.
+  return r ǁ h ǁ c
 
 function Sign(pk, sk, m):
   state ← Initialize("veil.sig")   // Initialize a protocol.
@@ -379,55 +337,32 @@ Verifying a signature requires a signer's public key `pk`, a message `m`, and a 
 `r ǁ h ǁ c₀ ǁ c₁`.
 
 ```text
-function VerifyState(state, pk, r ǁ h ǁ c₀ ǁ c₁):
-  state ← Mix(state, "signature-nonce", r)            // Mix the nonce into the protocol.
-  (state, h′) ← Derive(state, "signature-digest", 32) // Derive a counterfactual digest.
-  (state, s₀) ← Encrypt(state, c₀)                    // Decrypt the Ed25519 signature.
-  (state, s₁) ← Encrypt(state, c₁)                    // Decrypt the ML-DSA-65 signature.
-  v₀ ← Ed25519::Verify(pk.vk_c, s₀, r ǁ h)            // Verify the Ed25519 signature.
-  v₁ ← ML_DSA_65::Verify(pk.vk_pq, s₁, r ǁ h ǁ s₀)    // Verify the ML-DSA-65 signature.
-  return h=h′ ∧ v₀ ∧ v₁                               // The signature is valid iff all components are valid.
+function VerifyState(state, pk, r ǁ h ǁ c):
+  (state, h′) ← Derive(state, "digest", 32) // Derive a counterfactual digest.
+  (state, s) ← Encrypt(state, c)            // Decrypt the ML-DSA-65 signature.
+  v ← ML_DSA_65::Verify(pk.vk, s, r ǁ h)    // Verify the ML-DSA-65 signature.
+  return h=h′ ∧ v                           // The signature is valid iff all components are valid.
 
-function Verify(pk, m, r ǁ h ǁ c₀ ǁ c₁):
-  state ← Initialize("veil.sig")             // Initialize a protocol.
-  state ← Mix(state, "signer", pk)           // Mix the signer's public key into the protocol.
-  state ← Mix(state, "message", m)           // Mix the message into the protocol.
-  return VerifyState(state, r ǁ h ǁ c₀ ǁ c₁) // Verify the signature against the protocol's state.
+function Verify(pk, m, r ǁ h ǁ c₁):
+  state ← Initialize("veil.sig")       // Initialize a protocol.
+  state ← Mix(state, "signer", pk)     // Mix the signer's public key into the protocol.
+  state ← Mix(state, "message", m)     // Mix the message into the protocol.
+  return VerifyState(state, r ǁ h ǁ c) // Verify the signature against the protocol's state.
 ```
 
 ### Constructive Analysis Of `veil.sig`
 
-Both Ed25519 and ML-DSA-65 are well-studied digital signature schemes. The novelty of `veil.sig`
-lies in its use of symmetric cryptography to pre-hash the inputs and to encrypt the two signatures.
+ML-DSA-65 is a well-studied digital signature scheme. The novelty of `veil.sig` lies in its use of
+symmetric cryptography to pre-hash the inputs and to encrypt the signature.
 
 First, a random nonce `r` is mixed into the protocol state to provide protection from [fault
 attacks](#resilience-against-fault-attacks). Second, the BUFF Transformation from
 [[CDFFJ20]](#cdffj20) is used to provide exclusive ownership (M-S-UEO), message-bound signatures
 (MBS), and non-signability (NR) properties independently of the UF-CMA security of the underlying
-signature schemes. Third, the Ed25519 and ML-DSA-65 signature schemes are combined in a nested form
-to provide full security in the event of a total failure of either. Finally, the signatures
-themselves are encrypted, providing indistinguishability from random noise and full key privacy.
+signature schemes.  Finally, the signature itself is encrypted, providing indistinguishability from
+random noise and full key privacy.
 
 ### sUF-CMA Security
-
-#### Ed25519 sUF-CMA Security
-
-Some Ed25519 implementations suffer from malleability issues, allowing for multiple valid
-signatures for a given signer and message [[BCJZ21]](#bcjz21) (i.e. are eUF-CMA secure and not
-sUF-CMA secure). [[CGN20]](#cgn20) describe a strict verification function for Ed25519 which
-achieves sUF-CMA security in addition to strong binding:
-
-1. Reject the signature if `S ∉ {0,…,L-1}`.
-2. Reject the signature if the public key `A` is one of 8 small order points.
-3. Reject the signature if `A` or `R` are non-canonical.
-4. Compute the hash `SHA2_512(R ǁ A ǁ M)` and reduce it mod `L` to get a scalar `h`.
-5. Accept if `8(S·B)-8R-8(h·A)=0`.
-
-Strong binding in `veil.sig` is achieved by including the signer's public key as an input to the
-digest, therefore rejecting of signatures with `S≥L` the critical component to Ed25519's sUF-CMA
-security in the context of `veil.sig`.
-
-#### ML-DSA-65 sUF-CMA Security
 
 ML-DSA claims sUF-CMA security.
 
@@ -443,19 +378,18 @@ collision-resistant or that AEGIS-128L is not PRF secure.
 
 ### Resilience Against Fault Attacks
 
-Per [[PSSLR17]](#psslr17), purely deterministic signature schemes like RFC 6979 and EdDSA are
-vulnerable to fault attacks, in which an adversary induces a signer to generate multiple invalid
-signatures by injecting a fault (e.g. a random bit-flip via RowHammer attack, thus leaking bits of
-the secret key.
+Per [[PSSLR17]](#psslr17), purely deterministic signature schemes are vulnerable to fault attacks,
+in which an adversary induces a signer to generate multiple invalid signatures by injecting a fault
+(e.g. a random bit-flip via RowHammer attack, thus leaking bits of the secret key.
 
 To protect against these types of attacks, `veil.sig` includes a random value `r` to hedge the
-Ed25519 signature. ML-DSA defines a hedged signing algorithm, which is used here, but the general
+signature. ML-DSA defines a hedged signing algorithm, which is used here, but the general
 construction does not require it.
 
 ### Indistinguishability From Random Noise
 
 Each `veil.sig` signature consists of four components: a random value `r`, a TurboSHAKE128 hash `h`,
-an encrypted Ed25519 signature, and an encrypted ML-DSA-65 signature.
+and an encrypted ML-DSA-65 signature `s`.
 
 An attack which distinguishes between a `veil.sig` and random noise would either require a faulty
 random number generator, imply that TurboSHAKE128 is distinguishable from a random oracle, or imply
@@ -463,9 +397,9 @@ that AEGIS-128L is distinguishable from a random function over short messages.
 
 ## Encrypted Headers
 
-`veil.sres` implements a single-receiver signcryption scheme which Veil uses to encrypt
-message headers. It integrates a static X25519 key agreement, an ML-KEM-768 key encapsulation, an
-ephemeral X25519 key agreement, a Lockstich DEM, and finally a `veil.sig` digital signature.
+`veil.sres` implements a single-receiver signcryption scheme which Veil uses to encrypt message
+headers. It integrates ML-KEM-768 key encapsulation, a Lockstitch DEM, and finally a `veil.sig`
+digital signature.
 
 ### Encrypting A Header
 
@@ -474,41 +408,34 @@ a nonce `N`, and a plaintext `P`.
 
 ```text
 function EncryptHeader((pk_S, sk_S), pk_R, N, P):
-  (pk_E, sk_E) ← EphemeralSecretKey::Generate()                        // Generate an ephemeral secret key.
   state ← Initialize("veil.sres")                                      // Initialize a protocol.
   state ← Mix(state, "sender", pk_S)                                   // Mix the sender's public key into the protocol.
   state ← Mix(state, "receiver", pk_R)                                 // Mix the receiver's public key into the protocol.
   state ← Mix(state, "nonce", N)                                       // Mix the nonce into the protocol.
-  state ← Mix(state, "x25519-static", X25519(sk_S.dk_c, pk_R.ek_c))    // Mix the static X25519 shared secret into the protocol.
-  (kem_ect, kem_ss) ← ML_KEM_768::EncapsulateObfuscated(pk_R.ek_pq)    // Encapsulate a key for the receiver with ML-KEM-768, obfuscated with Kemeleon.
-  (state, c₀) ← Encrypt(state, "ml-kem-768-ect", kem_ect)              // Encrypt the ML-KEM-768 ciphertext.
+  (c₀, kem_ss) ← ML_KEM_768::EncapsulateObfuscated(pk_R.ek_pq)         // Encapsulate a key for the receiver with ML-KEM-768, obfuscated with Kemeleon.
+  state ← Mix(state, "ml-kem-768-ect", c₀)                             // Encrypt the ML-KEM-768 ciphertext.
   state ← Mix(state, "ml-kem-768-ss", kem_ss)                          // Mix the ML-KEM-768 shared secret into the protocol.
-  (state, c₁) ← Encrypt(state, "ephemeral-key", pk_E)                  // Encrypt the ephemeral public key.
-  state ← Mix(state, "x25519-ephemeral", X25519(sk_E.dk_c, pk_R.ek_c)) // Mix the ephemeral X25519 shared secret into the protocol.
-  (state, c₂) ← Encrypt(state, "message", P)                           // Encrypt the plaintext.
-  (state, c₃) ← SignState(state, sk_S)                                 // Sign the protocol state with veil.sig.
-  return c₀ ǁ c₁ ǁ c₂ ǁ c₃
+  (state, c₁) ← Encrypt(state, "message", P)                           // Encrypt the plaintext.
+  (state, c₂) ← SignState(state, sk_S)                                 // Sign the protocol state with veil.sig.
+  return c₀ ǁ c₁ ǁ c₂
 ```
 
 ### Decrypting A Header
 
 Decrypting a header requires a receiver's key pair `(pk_R,sk_R)`, the sender's public key `pk_S`, a
-nonce `N`, and a ciphertext `c₀ ǁ c₁ ǁ c₂ ǁ c₃`.
+nonce `N`, and a ciphertext `c₀ ǁ c₁ ǁ c₂`.
 
 ```text
-function DecryptHeader((pk_R, sk_R), pk_S, N, c₀ ǁ c₁ ǁ c₂ ǁ c₃):
+function DecryptHeader((pk_R, sk_R), pk_S, N, c₀ ǁ c₁ ǁ c₂):
   state ← Initialize("veil.sres")                                      // Initialize a protocol.
   state ← Mix(state, "sender", pk_S)                                   // Mix the sender's public key into the protocol.
   state ← Mix(state, "receiver", pk_R)                                 // Mix the receiver's public key into the protocol.
   state ← Mix(state, "nonce", N)                                       // Mix the nonce into the protocol.
-  state ← Mix(state, "x25519-static", X25519(sk_R.dk_c, pk_S.ek_c))    // Mix the static X25519 shared secret into the protocol.
-  (state, kem_ect) ← Decrypt(state, "ml-kem-768-ect", c₀)              // Decrypt the obfuscate ML-KEM-768 ciphertext.
-  kem_ss ← ML_KEM_768::DecapsulateObfuscated(sk_R.dk_pq, kem_ect)      // De-obfuscated with Kemeleon and decapsulate the key with ML-KEM-768.
+  state ← Mix(state, "ml-kem-768-ect", c₀)                             // Mix the obfuscated ML-KEM-768 ciphertext into the protocol.
+  kem_ss ← ML_KEM_768::DecapsulateObfuscated(sk_R.dk_pq, kem_ect)      // De-obfuscate with Kemeleon and decapsulate the key with ML-KEM-768.
   state ← Mix(state, "ml-kem-768-ss", kem_ss)                          // Mix the ML-KEM-768 shared secret into the protocol.
-  (state, pk_E) ← Decrypt(state, "ephemeral-key", c₁)                  // Decrypt the ephemeral public key.
-  state ← Mix(state, "x25519-ephemeral", X25519(sk_R.dk_c, pk_E.ek_c)) // Mix the ephemeral X25519 shared secret into the protocol.
-  (state, P) ← Decrypt(state, "message", c₂)                           // Decrypt the plaintext.
-  if ¬VerifyState(state, pk_S, c₃):                                    // Verify the signature and return an error if invalid.
+  (state, P) ← Decrypt(state, "message", c₁)                           // Decrypt the plaintext.
+  if ¬VerifyState(state, pk_S, c₂):                                    // Verify the signature and return an error if invalid.
     return ⊥
   return P                                                             // Otherwise, return the plaintext.
 ```
@@ -556,16 +483,14 @@ Next, we evaluate the confidentiality of `veil.sres` in the multi-user insider s
 Confidentiality](#insider-confidentiality), in which the adversary `A` knows the sender's secret
 key `sk_S` in addition to the public keys of both users ([[BS10]](#bs10), p. 45-46).
 
-Without knowing `sk_R`, `A` can neither recover the X25519 static shared secret nor decapsulate the
-ML-KEM-768 shared secret. Without knowing `sk_E`, `A` cannot recover the X25519 ephemeral shared
-secret. Knowledge of all three is required to decrypt the message.
+Without knowing `sk_R` itself, `A` cannot recover the ML-KEM-768 shared secret.
 
 `A` also cannot trick the receiver into decrypting an equivalent message by replacing the signature,
 despite `A`'s ability to use `sk_S` to create new signatures. In order to generate a valid signature
 on a ciphertext `c′` (e.g. `c′=c ǁ 1`), `A` would have to derive a valid signature digest `d′` from
 the protocol state. Unlike the signature hash function in the generic EtS composition, however, the
-protocol state is cryptographically dependent on values `A` does not know: the two X25519 shared
-secrets and the ML-KEM-768 shared secret.
+protocol state is cryptographically dependent on a value `A` does not know: the ML-KEM-768 shared
+secret.
 
 Therefore, `veil.sres` provides confidentiality in the multi-user insider setting.
 
@@ -581,9 +506,9 @@ First, we evaluate the authenticity of `veil.sres` in the multi-user outsider se
 Authenticity](#outsider-authenticity)), in which the adversary `A` knows the public keys of all
 users but none of their secret keys ([[BS10]](#bs10), p. 47).
 
-Because both Ed25519 and ML-DSA-65 are sUF-CMA secure (see [`veil.sig`](#digital-signatures)), it is
-infeasible for `A` to forge a signature for a new message or modify an existing signature for an
-existing message. Therefore, `veil.sres` provides authenticity in the multi-user outsider setting.
+Because ML-DSA-65 is sUF-CMA secure (see [`veil.sig`](#digital-signatures)), it is infeasible for
+`A` to forge a signature for a new message or modify an existing signature for an existing message.
+Therefore, `veil.sres` provides authenticity in the multi-user outsider setting.
 
 #### Insider Authenticity Of Headers
 
@@ -591,20 +516,21 @@ Next, we evaluate the authenticity of `veil.sres` in the multi-user insider sett
 Authenticity](#insider-authenticity)), in which the adversary `A` knows the receiver's secret key
 `sk_R` in addition to the public keys of both users ([[BS10]](#bs10), p. 48).
 
-Again, both Ed25519 and ML-DSA-65 are sUF-CMA secure and the signature is created using the signer's
-secret key, which `A` does not know. The receiver (or `A` in possession of the receiver's secret
-key) cannot forge signatures for new messages. Therefore, `veil.sres` provides authenticity in the
-multi-user insider setting.
-
-Because `veil.sres` is parameterized with a nonce `N`, the use of a deterministic signature scheme
-is not vulnerable to fault injection attacks.
+Again, ML-DSA-65 is sUF-CMA secure and the signature is created using the signer's secret key, which
+`A` does not know. The receiver (or `A` in possession of the receiver's secret key) cannot forge
+signatures for new messages. Therefore, `veil.sres` provides authenticity in the multi-user insider
+setting.
 
 ### Indistinguishability Of Headers From Random Noise Of Encrypted Headers
 
-All of the components of a `veil.sres` ciphertext are AEGIS-128L ciphertexts using keys derived via
-TurboSHAKE128. An adversary in the outsider setting (i.e. knowing only public keys) is unable to
-calculate any of the key material used to produce the ciphertexts; a distinguishing attack would
-imply that either TurboSHAKE128 is not collision-resistant or that AEGIS-128L is not PRF secure.
+All of the components of a `veil.sres` ciphertext except for the ML-KEM-768 ciphertext are
+AEGIS-128L ciphertexts using keys derived via TurboSHAKE128. An adversary in the outsider setting
+(i.e. knowing only public keys) is unable to calculate any of the key material used to produce the
+ciphertexts; a distinguishing attack would imply that either TurboSHAKE128 is not
+collision-resistant or that AEGIS-128L is not PRF secure.
+
+The ML-KEM-768 ciphertext is encoded with the Kemeleon obfuscation scheme, which is
+indistinguishable from random noise [[GSV24]](#gsv24).
 
 ## Encrypted Messages
 
@@ -930,13 +856,6 @@ Dan Boneh, Henry Corrigan-Gibbs, and Stuart Schechter.
 2016.
 [_Balloon hashing: A memory-hard function providing provable protection against sequential attacks._](https://eprint.iacr.org/2016/027)
 [`DOI:10.1007/978-3-662-53887-6_8`](https://doi.org/10.1007/978-3-662-53887-6_8)
-
-### BCJZ21
-
-Jacqueline Brendel, Cas Cremers, Dennis Jackson, and Mang Zhao.
-2021.
-[_The provable security of Ed25519: Theory and practice._](https://eprint.iacr.org/2020/823)
-[`DOI:10.1109/SP40001.2021.00042`](https://doi.org/10.1109/SP40001.2021.00042)
 
 ### BDD23
 
