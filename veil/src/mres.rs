@@ -6,7 +6,7 @@ use lockstitch::{Protocol, TAG_LEN};
 use rand::{CryptoRng, Rng};
 
 use crate::{
-    keys::{EphemeralPublicKey, EphemeralSecretKey, StaticPublicKey, StaticSecretKey},
+    keys::{EphemeralSecretKey, StaticPublicKey, StaticSecretKey},
     sig,
     sres::{self, NONCE_LEN},
     DecryptError, EncryptError,
@@ -89,19 +89,20 @@ pub fn encrypt(
     mres.mix("dek", &dek);
 
     // Encrypt the plaintext in blocks and write them, then sign the message.
-    written += encrypt_message(&mut rng, mres, reader, writer, ephemeral)?;
+    written += encrypt_message(&mut rng, mres, reader, writer, sender)?;
 
     Ok(written)
 }
 
 /// Given a protocol keyed with the DEK, read the entire contents of `reader` in blocks and write
-/// the encrypted blocks and authentication tags to `writer`.
+/// the encrypted blocks and authentication tags to `writer`, then add a signature of the protocol's
+/// final state.
 fn encrypt_message(
     mut rng: impl Rng + CryptoRng,
     mut mres: Protocol,
     mut reader: impl Read,
     mut writer: impl Write,
-    ephemeral: EphemeralSecretKey,
+    sender: &StaticSecretKey,
 ) -> Result<u64, EncryptError> {
     let mut block = Vec::with_capacity(BLOCK_LEN + TAG_LEN);
     let mut block_header = [0u8; ENC_BLOCK_HEADER_LEN];
@@ -163,7 +164,7 @@ fn encrypt_message(
     // Sign the protocol's final state with the ephemeral secret key and append the signature. The
     // protocol's state is randomized with both the nonce and the ephemeral key, so the risk of e.g.
     // fault attacks is minimal.
-    let sig = sig::sign_protocol(&mut rng, &mut mres, &ephemeral);
+    let sig = sig::sign_protocol(&mut rng, &mut mres, sender);
     writer.write_all(&sig).map_err(EncryptError::WriteIo)?;
     written += u64::try_from(sig.len()).expect("usize should be <= u64");
 
@@ -189,7 +190,7 @@ pub fn decrypt(
     mres.mix("nonce", &nonce);
 
     // Find a header, decrypt it, and mix the entirety of the headers and padding into the protocol.
-    let (mut mres, ephemeral, dek) = decrypt_header(mres, &mut reader, receiver, sender)?;
+    let (mut mres, dek) = decrypt_header(mres, &mut reader, receiver, sender)?;
 
     // Mix the DEK into the protocol.
     mres.mix("dek", &dek);
@@ -198,7 +199,7 @@ pub fn decrypt(
     let (written, sig) = decrypt_message(&mut mres, &mut reader, &mut writer)?;
 
     // Verify the signature and return the number of bytes written.
-    sig::verify_protocol(&mut mres, &ephemeral, sig.try_into().expect("should be signature sized"))
+    sig::verify_protocol(&mut mres, sender, sig.try_into().expect("should be signature sized"))
         .and(Some(written))
         .ok_or(DecryptError::InvalidCiphertext)
 }
@@ -252,7 +253,7 @@ fn decrypt_header(
     mut reader: impl Read,
     receiver: &StaticSecretKey,
     sender: &StaticPublicKey,
-) -> Result<(Protocol, EphemeralPublicKey, [u8; DEK_LEN]), DecryptError> {
+) -> Result<(Protocol, [u8; DEK_LEN]), DecryptError> {
     let mut enc_header = [0u8; ENC_HEADER_LEN];
     let mut header = None;
     let mut i = 0u64;
@@ -279,13 +280,12 @@ fn decrypt_header(
 
         // If a header hasn't been decrypted yet, try to decrypt this one.
         if header.is_none() {
-            if let Some((ephemeral, hdr)) = sres::decrypt(receiver, sender, &nonce, &mut enc_header)
-            {
+            if let Some(hdr) = sres::decrypt(receiver, sender, &nonce, &mut enc_header) {
                 // If the header was successfully decrypted, keep the ephemeral public key and DEK
                 // and update the loop variable to not be effectively infinite.
                 let hdr = Header::decode(hdr);
                 recv_count = hdr.recv_count;
-                header = Some((ephemeral, hdr));
+                header = Some(hdr);
             }
         }
 
@@ -293,10 +293,10 @@ fn decrypt_header(
     }
 
     // Unpack the header values, if any.
-    let (ephemeral, header) = header.ok_or(DecryptError::InvalidCiphertext)?;
+    let header = header.ok_or(DecryptError::InvalidCiphertext)?;
 
-    // Return the ephemeral public key and DEK.
-    Ok((mres, ephemeral, header.dek))
+    // Return the protocol and DEK.
+    Ok((mres, header.dek))
 }
 
 struct Header {

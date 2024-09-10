@@ -94,15 +94,15 @@ pub fn encrypt(
 }
 
 /// Given the receiver's key pair, the sender's public key, a nonce, and a ciphertext, decrypts the
-/// given ciphertext and returns the ephemeral public key and plaintext iff the ciphertext was
-/// encrypted for the receiver by the sender.
+/// given ciphertext and returns the plaintext iff the ciphertext was encrypted for the receiver by
+/// the sender.
 #[must_use]
 pub fn decrypt<'a>(
     receiver: &StaticSecretKey,
     sender: &StaticPublicKey,
     nonce: &[u8],
     in_out: &'a mut [u8],
-) -> Option<(EphemeralPublicKey, &'a [u8])> {
+) -> Option<&'a [u8]> {
     // Check for too-small ciphertexts.
     if in_out.len() < OVERHEAD {
         return None;
@@ -147,7 +147,7 @@ pub fn decrypt<'a>(
     // Verify the signature.
     sig::verify_protocol(&mut sres, sender, sig.try_into().expect("should be 3373 bytes"))
         .is_some()
-        .then_some((ephemeral, ciphertext))
+        .then_some(ciphertext)
 }
 
 #[cfg(test)]
@@ -159,10 +159,10 @@ mod tests {
 
     #[test]
     fn round_trip() {
-        let (_, sender, receiver, ephemeral, plaintext, nonce, mut ciphertext) = setup();
+        let (_, sender, receiver, _, plaintext, nonce, mut ciphertext) = setup();
 
         assert_eq!(
-            Some((ephemeral.pub_key, plaintext.as_slice())),
+            Some(plaintext.as_slice()),
             decrypt(&receiver, &sender.pub_key, &nonce, &mut ciphertext)
         );
     }

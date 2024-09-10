@@ -509,7 +509,7 @@ function DecryptHeader((pk_R, sk_R), pk_S, N, c₀ ǁ c₁ ǁ c₂ ǁ c₃):
   (state, P) ← Decrypt(state, "message", c₂)                           // Decrypt the plaintext.
   if ¬VerifyState(state, pk_S, c₃):                                    // Verify the signature and return an error if invalid.
     return ⊥
-  return (pk_E, P)                                                     // Otherwise, return the ephemeral public key and plaintext.
+  return P                                                             // Otherwise, return the plaintext.
 ```
 
 ### Constructive Analysis Of `veil.sres`
@@ -653,8 +653,8 @@ function EncryptMessage((pk_S, sk_S), [pk_R_0,…,pk_R_n], P):
   C_p ← Seal(state, "block", Rand(N_P))
   C ← C ǁ H_p ǁ C_p
 
-  // Finally, append a signature of the message's contents made with the ephemeral key.
-  C_s ← SignState(state, sk_E)
+  // Finally, append a signature of the message's contents made with the sender's key.
+  C_s ← SignState(state, sk_S)
   return C ǁ C_S
 ```
 
@@ -692,7 +692,7 @@ function DecryptMessage((pk_R, sk_R), pk_S, C):
       else:
         break
 
-  if ¬VerifyState(state, pk_E, C): // Verify the signature with the ephemeral public key.
+  if ¬VerifyState(state, pk_S, C): // Verify the signature with the sender's public key.
     return ⊥
   return P
 ```
