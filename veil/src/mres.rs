@@ -160,9 +160,7 @@ fn encrypt_message(
     writer.write_all(&padding).map_err(EncryptError::WriteIo)?;
     written += u64::try_from(padding.len()).expect("usize should be <= u64");
 
-    // Sign the protocol's final state with the ephemeral secret key and append the signature. The
-    // protocol's state is randomized with both the nonce and the ephemeral key, so the risk of e.g.
-    // fault attacks is minimal.
+    // Sign the protocol's final state with the sender's secret key and append the signature.
     let sig = sig::sign_protocol(&mut rng, &mut mres, sender);
     writer.write_all(&sig).map_err(EncryptError::WriteIo)?;
     written += u64::try_from(sig.len()).expect("usize should be <= u64");
@@ -280,8 +278,8 @@ fn decrypt_header(
         // If a header hasn't been decrypted yet, try to decrypt this one.
         if header.is_none() {
             if let Some(hdr) = sres::decrypt(receiver, sender, &nonce, &mut enc_header) {
-                // If the header was successfully decrypted, keep the ephemeral public key and DEK
-                // and update the loop variable to not be effectively infinite.
+                // If the header was successfully decrypted, keep the DEK and update the loop
+                // variable to not be effectively infinite.
                 let hdr = Header::decode(hdr);
                 recv_count = hdr.recv_count;
                 header = Some(hdr);

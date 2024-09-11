@@ -15,8 +15,8 @@ pub const NONCE_LEN: usize = 16;
 /// The number of bytes added to plaintext by [encrypt].
 pub const OVERHEAD: usize = ENC_CT_LEN + SIG_LEN;
 
-/// Given the sender's key pair, the ephemeral key pair, the receiver's public key, a nonce, and a
-/// plaintext, encrypts the given plaintext and returns the ciphertext.
+/// Given the sender's key pair, the receiver's public key, a nonce, and a plaintext, encrypts the
+/// given plaintext and returns the ciphertext.
 pub fn encrypt(
     mut rng: impl RngCore + CryptoRng,
     sender: &StaticSecretKey,
@@ -64,8 +64,7 @@ pub fn encrypt(
     out_ciphertext.copy_from_slice(plaintext);
     sres.encrypt("message", out_ciphertext);
 
-    // Sign the protocol's state. The protocol's state is randomized with both the nonce and the
-    // ephemeral key, so the risk of e.g. fault attacks is minimal.
+    // Sign the protocol's state.
     let sig = sig::sign_protocol(&mut rng, &mut sres, sender);
     out_sig.copy_from_slice(&sig);
 }

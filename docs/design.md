@@ -653,11 +653,11 @@ new ciphertext they can then trick the receiver into decrypting for them. Again,
 decryption making this infeasible.
 
 `A` is unable to forge valid signatures for existing ciphertexts, limiting them to passive attacks.
-`veil.mres` ciphertexts consist of ephemeral keys, encrypted headers, encrypted block headers,
-encrypted message blocks, and an encrypted signature. Each component of the ciphertext is dependent
-on the previous inputs (including the headers, which use `Derive`-derived nonce to link the
-`veil.sres` ciphertexts to the `veil.mres` state). A passive attack on any of those would only be
-possible if either TurboSHAKE128 is not collision-resistant or AEGIS-128L is not PRF secure.
+`veil.mres` ciphertexts consist of encrypted headers, encrypted block headers, encrypted message
+blocks, and an encrypted signature. Each component of the ciphertext is dependent on the previous
+inputs (including the headers, which use `Derive`-derived nonce to link the `veil.sres` ciphertexts
+to the `veil.mres` state). A passive attack on any of those would only be possible if either
+TurboSHAKE128 is not collision-resistant or AEGIS-128L is not PRF secure.
 
 #### Insider Confidentiality Of Messages
 
@@ -699,7 +699,7 @@ Authenticity](#insider-authenticity)), in which the adversary `A` knows some rec
 in addition to the public keys of both users ([[BS10]](#bs10), p. 47).
 
 Again, the [`veil.sig`](#digital-signatures) signature scheme is sUF-CMA secure and the signature is
-created using the ephemeral secret key, which `A` does not possess. The receiver (or `A` in
+created using the sender's secret key, which `A` does not possess. The receiver (or `A` in
 possession of the receiver's secret key) cannot forge signatures for new messages. Therefore,
 `veil.mres` provides authenticity in the multi-user insider setting.
 
