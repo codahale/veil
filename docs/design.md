@@ -243,6 +243,21 @@ With Errors problem.
 
 Veil's security assumes that ML-DSA-65 is sUF-CMA-secure.
 
+### Why Not Hybrid Post-Quantum Algorithms?
+
+Most of the current discourse around post-quantum cryptography involves _hybrid constructions_,
+which combine a newer post-quantum algorithm (e.g. ML-KEM) with a more well-studied classical
+algorithm (e.g. X25519) to create a new construction which offers the benefits of both. These seek
+to hedge the risks of post-quantum algorithms (i.e. the relative lack of cryptanalysis of the
+algorithms in the abstract and the potential for implementation vulnerabilities in the concrete)
+with the certainties of classical algorithms.
+
+Veil takes a different approach, building on top of exclusively post-quantum algorithms like ML-KEM
+and ML-DSA. This exposes it to the risk of future cryptanalytic results on those algorithms and
+possible vulnerabilities in the implementations of those algorithms, but allows for a dramatically
+simpler design, eliminating the under-discussed risks inherent in adopting novel hybrid combiner
+constructions as well as any possible vulnerabilities in their implementations.
+
 ## Construction Techniques
 
 Veil uses a few common construction techniques in its design which bear specific mention.
