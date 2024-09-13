@@ -141,8 +141,7 @@ const fn fe_add(a: FieldElement, b: FieldElement) -> FieldElement {
     fe_reduce_once(a.wrapping_add(b))
 }
 
-// Maps a field element uniformly to the range 0 to 2ᵈ-1, according to FIPS 203 (DRAFT), Definition
-// 4.5.
+// Maps a field element uniformly to the range 0 to 2ᵈ-1, according to FIPS 203, Definition 4.7.
 const fn compress(x: FieldElement, d: u8) -> u16 {
     // We want to compute (x * 2ᵈ) / q, rounded to nearest integer, with 1/2
     // rounding up (see FIPS 203 (DRAFT), Section 2.3).
@@ -175,7 +174,7 @@ const fn compress(x: FieldElement, d: u8) -> u16 {
 }
 
 // Maps a number x between 0 and 2ᵈ-1 uniformly to the full range of field elements, according to
-// FIPS 203 (DRAFT), Definition 4.6.
+// FIPS 203, Definition 4.8.
 const fn decompress(y: u16, d: u8) -> FieldElement {
     // We want to compute (y * q) / 2ᵈ, rounded to nearest integer, with 1/2
     // rounding up (see FIPS 203 (DRAFT), Section 2.3).
@@ -192,15 +191,15 @@ const fn decompress(y: u16, d: u8) -> FieldElement {
     quotient as u16
 }
 
-// RingElement is a polynomial, an element of R_q, represented as an array according to FIPS 203
-// (DRAFT), Section 2.4.
+// RingElement is a polynomial, an element of R_q, represented as an array according to FIPS 203,
+// Section 2.4.4.
 type RingElement = [FieldElement; N];
 
 /// Decodes a 128-byte encoding of a ring element where each four bits are mapped to an equidistant
 /// distribution.
 ///
-/// It implements ByteDecode₄, according to FIPS 203 (DRAFT), Algorithm 5, followed by Decompress₄,
-/// according to FIPS 203 (DRAFT), Definition 4.6.
+/// It implements ByteDecode₄, according to FIPS 203, Algorithm 6, followed by Decompress₄,
+/// according to FIPS 203, Definition 4.8.
 fn ring_decode_and_decompress4(b: [u8; 128]) -> RingElement {
     let mut f = [0; N];
     for (f, b) in f.chunks_exact_mut(2).zip(b) {
@@ -212,8 +211,8 @@ fn ring_decode_and_decompress4(b: [u8; 128]) -> RingElement {
 
 /// Returns a 320-byte encoding of a ring element, compressing four coefficients per five bytes.
 ///
-/// It implements Compress₁₀, according to FIPS 203 (DRAFT), Definition 4.5, followed by
-/// ByteEncode₁₀, according to FIPS 203 (DRAFT), Algorithm 4.
+/// It implements Compress₁₀, according to FIPS 203, Definition 4.7, followed by ByteEncode₁₀,
+/// according to FIPS 203, Algorithm 5.
 fn ring_compress_and_encode10(f: RingElement) -> [u8; 320] {
     let mut b = [0; 320];
     for (f, b) in f.chunks_exact(4).zip(b.chunks_exact_mut(5)) {
@@ -234,8 +233,8 @@ fn ring_compress_and_encode10(f: RingElement) -> [u8; 320] {
 /// Decode a 320-byte encoding of a ring element where each ten bits are mapped to an equidistant
 /// distribution.
 ///
-/// It implements ByteDecode₁₀, according to FIPS 203 (DRAFT), Algorithm 5, followed by
-/// Decompress₁₀, according to FIPS 203 (DRAFT), Definition 4.6.
+/// It implements ByteDecode₁₀, according to FIPS 203, Algorithm 6, followed by Decompress₁₀,
+/// according to FIPS 203, Definition 4.8.
 fn ring_decode_and_decompress10(b: [u8; 320]) -> RingElement {
     let mut f = [0; N];
     for (f, b) in f.chunks_exact_mut(4).zip(b.chunks_exact(5)) {
