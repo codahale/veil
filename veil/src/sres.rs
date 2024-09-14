@@ -5,7 +5,7 @@ use rand::{CryptoRng, RngCore};
 
 use crate::{
     kemeleon::{self, ENC_CT_LEN},
-    keys::{StaticPublicKey, StaticSecretKey},
+    keys::{PubKey, SecKey},
     sig::{self, SIG_LEN},
 };
 
@@ -19,8 +19,8 @@ pub const OVERHEAD: usize = ENC_CT_LEN + SIG_LEN;
 /// given plaintext and returns the ciphertext.
 pub fn encrypt(
     mut rng: impl RngCore + CryptoRng,
-    sender: &StaticSecretKey,
-    receiver: &StaticPublicKey,
+    sender: &SecKey,
+    receiver: &PubKey,
     nonce: &[u8],
     plaintext: &[u8],
     ciphertext: &mut [u8],
@@ -74,8 +74,8 @@ pub fn encrypt(
 /// the sender.
 #[must_use]
 pub fn decrypt<'a>(
-    receiver: &StaticSecretKey,
-    sender: &StaticPublicKey,
+    receiver: &SecKey,
+    sender: &PubKey,
     nonce: &[u8],
     in_out: &'a mut [u8],
 ) -> Option<&'a [u8]> {
@@ -137,7 +137,7 @@ mod tests {
     fn wrong_receiver() {
         let (mut rng, sender, _, _, nonce, mut ciphertext) = setup();
 
-        let wrong_receiver = StaticSecretKey::random(&mut rng);
+        let wrong_receiver = SecKey::random(&mut rng);
         assert_eq!(None, decrypt(&wrong_receiver, &sender.pub_key, &nonce, &mut ciphertext));
     }
 
@@ -145,7 +145,7 @@ mod tests {
     fn wrong_sender() {
         let (mut rng, _, receiver, _, nonce, mut ciphertext) = setup();
 
-        let wrong_sender = StaticSecretKey::random(&mut rng);
+        let wrong_sender = SecKey::random(&mut rng);
         assert_eq!(None, decrypt(&receiver, &wrong_sender.pub_key, &nonce, &mut ciphertext));
     }
 
@@ -157,12 +157,11 @@ mod tests {
         assert_eq!(None, decrypt(&receiver, &sender.pub_key, &wrong_nonce, &mut ciphertext));
     }
 
-    fn setup() -> (ChaChaRng, StaticSecretKey, StaticSecretKey, [u8; 64], [u8; NONCE_LEN], Vec<u8>)
-    {
+    fn setup() -> (ChaChaRng, SecKey, SecKey, [u8; 64], [u8; NONCE_LEN], Vec<u8>) {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
-        let sender = StaticSecretKey::random(&mut rng);
-        let receiver = StaticSecretKey::random(&mut rng);
+        let sender = SecKey::random(&mut rng);
+        let receiver = SecKey::random(&mut rng);
         let plaintext = rng.gen::<[u8; 64]>();
         let nonce = rng.gen::<[u8; NONCE_LEN]>();
 

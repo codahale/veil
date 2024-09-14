@@ -6,12 +6,12 @@ use ml_kem::kem::{Decapsulate as _, Encapsulate as _};
 use num_bigint::BigUint;
 use rand::{CryptoRng, Rng};
 
-use crate::keys::{self, MlKem768DecryptingKey};
+use crate::keys::{self, DecapsulationKey};
 
 pub const ENC_CT_LEN: usize = 1252;
 
 pub fn encapsulate(
-    ek: &keys::MlKem768EncryptingKey,
+    ek: &keys::EncapsulationKey,
     mut rng: impl CryptoRng + Rng,
 ) -> ([u8; ENC_CT_LEN], [u8; 32]) {
     loop {
@@ -22,7 +22,7 @@ pub fn encapsulate(
     }
 }
 
-pub fn decapsulate(dk: &MlKem768DecryptingKey, ect: [u8; ENC_CT_LEN]) -> [u8; 32] {
+pub fn decapsulate(dk: &DecapsulationKey, ect: [u8; ENC_CT_LEN]) -> [u8; 32] {
     let ct = decode_ct(ect);
     dk.decapsulate(&ct.into()).expect("should decapsulate").into()
 }

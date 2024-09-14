@@ -8,93 +8,93 @@ use fips204::{
 use ml_kem::{EncodedSizeUser as _, KemCore as _};
 use rand::{CryptoRng, Rng, RngCore};
 
-pub const STATIC_PK_LEN: usize = 1184 + ml_dsa_65::PK_LEN;
+pub const PK_LEN: usize = 1184 + ml_dsa_65::PK_LEN;
 
-pub const STATIC_SK_LEN: usize = 32 + // ML-KEM seed d  
-   32 + // ML-KEM seed z */ 
+pub const SK_LEN: usize = 32 + // ML-KEM seed d
+   32 + // ML-KEM seed z
    32; // ML-DSA seed ξ
 
-pub type MlDsa65SigningKey = ml_dsa_65::PrivateKey;
+pub type SigningKey = ml_dsa_65::PrivateKey;
 
-pub type MlDsa65VerifyingKey = ml_dsa_65::PublicKey;
+pub type VerifyingKey = ml_dsa_65::PublicKey;
 
-pub type MlKem768EncryptingKey = ml_kem::kem::EncapsulationKey<ml_kem::MlKem768Params>;
+pub type EncapsulationKey = ml_kem::kem::EncapsulationKey<ml_kem::MlKem768Params>;
 
-pub type MlKem768DecryptingKey = ml_kem::kem::DecapsulationKey<ml_kem::MlKem768Params>;
+pub type DecapsulationKey = ml_kem::kem::DecapsulationKey<ml_kem::MlKem768Params>;
 
-/// A static public key, including its canonical encoded form.
+/// A public key, including its canonical encoded form.
 #[derive(Clone)]
-pub struct StaticPublicKey {
-    /// The ML-KEM-768 encrypting key.
-    pub ek: MlKem768EncryptingKey,
+pub struct PubKey {
+    /// The ML-KEM-768 encapsulation key.
+    pub ek: EncapsulationKey,
 
     /// The ML-DSA-65 verifying key.
-    pub vk: MlDsa65VerifyingKey,
+    pub vk: VerifyingKey,
 
     /// The public key's canonical encoded form.
-    pub encoded: [u8; STATIC_PK_LEN],
+    pub encoded: [u8; PK_LEN],
 }
 
-impl StaticPublicKey {
+impl PubKey {
     /// Decodes the given slice as a public key, if possible. Returns `None` if the slice is not a
     /// canonically-encoded point or if it encodes the neutral point.
     #[must_use]
-    pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<StaticPublicKey> {
-        let encoded = <[u8; STATIC_PK_LEN]>::try_from(b.as_ref()).ok()?;
+    pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<PubKey> {
+        let encoded = <[u8; PK_LEN]>::try_from(b.as_ref()).ok()?;
         let (ek, vk) = array_refs![&encoded, 1184, ml_dsa_65::PK_LEN];
-        let ek = MlKem768EncryptingKey::from_bytes(ek.into());
-        let vk = MlDsa65VerifyingKey::try_from_bytes(*vk).ok()?;
-        Some(StaticPublicKey { ek, vk, encoded })
+        let ek = EncapsulationKey::from_bytes(ek.into());
+        let vk = VerifyingKey::try_from_bytes(*vk).ok()?;
+        Some(PubKey { ek, vk, encoded })
     }
 
-    fn from_parts(ek: MlKem768EncryptingKey, vk: MlDsa65VerifyingKey) -> StaticPublicKey {
-        let mut encoded = Vec::with_capacity(STATIC_PK_LEN);
+    fn from_parts(ek: EncapsulationKey, vk: VerifyingKey) -> PubKey {
+        let mut encoded = Vec::with_capacity(PK_LEN);
         encoded.extend_from_slice(&ek.as_bytes());
         encoded.extend_from_slice(&vk.clone().into_bytes());
 
-        StaticPublicKey { ek, vk, encoded: encoded.try_into().expect("should be public key sized") }
+        PubKey { ek, vk, encoded: encoded.try_into().expect("should be public key sized") }
     }
 }
 
-impl Debug for StaticPublicKey {
+impl Debug for PubKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:02x?}", self.encoded)
     }
 }
 
-impl Eq for StaticPublicKey {}
+impl Eq for PubKey {}
 
-impl PartialEq for StaticPublicKey {
+impl PartialEq for PubKey {
     fn eq(&self, other: &Self) -> bool {
         self.encoded == other.encoded
     }
 }
 
-impl AsRef<MlDsa65VerifyingKey> for &StaticPublicKey {
-    fn as_ref(&self) -> &MlDsa65VerifyingKey {
+impl AsRef<VerifyingKey> for &PubKey {
+    fn as_ref(&self) -> &VerifyingKey {
         &self.vk
     }
 }
 
 /// A secret key, including its public key.
-pub struct StaticSecretKey {
-    /// The ML-KEM-768 decrypting key.
-    pub dk: MlKem768DecryptingKey,
+pub struct SecKey {
+    /// The ML-KEM-768 decapsulation key.
+    pub dk: DecapsulationKey,
 
     /// The ML-DSA-65 signing key.
-    pub sk: MlDsa65SigningKey,
+    pub sk: SigningKey,
 
-    /// The corresponding [`StaticPublicKey`] for the secret key.
-    pub pub_key: StaticPublicKey,
+    /// The corresponding [`PubKey`] for the secret key.
+    pub pub_key: PubKey,
 
     /// The secret key's canonical encoded form.
-    pub encoded: [u8; STATIC_SK_LEN],
+    pub encoded: [u8; SK_LEN],
 }
 
-impl StaticSecretKey {
+impl SecKey {
     /// Generates a random secret key.
     #[must_use]
-    pub fn random(mut rng: impl CryptoRng + RngCore) -> StaticSecretKey {
+    pub fn random(mut rng: impl CryptoRng + RngCore) -> SecKey {
         let dk_d = rng.gen::<[u8; 32]>();
         let dk_z = rng.gen::<[u8; 32]>();
         let (dk, ek) = ml_kem::kem::Kem::<ml_kem::MlKem768Params>::generate_deterministic(
@@ -105,23 +105,23 @@ impl StaticSecretKey {
         let (vk, sk) =
             ml_dsa_65::try_keygen_with_rng(&mut ConstRng::new(&sk_x)).expect("should generate");
 
-        let mut sec_encoded = Vec::with_capacity(STATIC_SK_LEN);
+        let mut sec_encoded = Vec::with_capacity(SK_LEN);
         sec_encoded.extend_from_slice(&dk_d);
         sec_encoded.extend_from_slice(&dk_z);
         sec_encoded.extend_from_slice(&sk_x);
 
-        StaticSecretKey {
+        SecKey {
             dk,
             sk,
-            pub_key: StaticPublicKey::from_parts(ek, vk),
+            pub_key: PubKey::from_parts(ek, vk),
             encoded: sec_encoded.try_into().expect("should be secret key sized"),
         }
     }
 
     /// Decodes the given slice as a secret key, if possible.
     #[must_use]
-    pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<StaticSecretKey> {
-        let encoded = <[u8; STATIC_SK_LEN]>::try_from(b.as_ref()).ok()?;
+    pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<SecKey> {
+        let encoded = <[u8; SK_LEN]>::try_from(b.as_ref()).ok()?;
         let (dk_d, dk_z, sk_x) = array_refs![&encoded, 32, 32, 32];
         let (dk, ek) = ml_kem::kem::Kem::<ml_kem::MlKem768Params>::generate_deterministic(
             dk_d.into(),
@@ -130,21 +130,21 @@ impl StaticSecretKey {
         let (vk, sk) =
             ml_dsa_65::try_keygen_with_rng(&mut ConstRng::new(sk_x)).expect("should generate");
 
-        Some(StaticSecretKey { dk, sk, pub_key: StaticPublicKey::from_parts(ek, vk), encoded })
+        Some(SecKey { dk, sk, pub_key: PubKey::from_parts(ek, vk), encoded })
     }
 }
 
-impl Eq for StaticSecretKey {}
+impl Eq for SecKey {}
 
-impl PartialEq for StaticSecretKey {
+impl PartialEq for SecKey {
     fn eq(&self, other: &Self) -> bool {
         self.pub_key == other.pub_key
     }
 }
 
-impl Debug for StaticSecretKey {
+impl Debug for SecKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("StaticSecretKey")
+        f.debug_struct("SecKey")
             .field("dk", &"[redacted]")
             .field("sk", &"[redacted]")
             .field("pub_key", &self.pub_key)
@@ -153,8 +153,8 @@ impl Debug for StaticSecretKey {
     }
 }
 
-impl AsRef<MlDsa65SigningKey> for &StaticSecretKey {
-    fn as_ref(&self) -> &MlDsa65SigningKey {
+impl AsRef<SigningKey> for &SecKey {
+    fn as_ref(&self) -> &SigningKey {
         &self.sk
     }
 }
@@ -198,18 +198,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn static_secret_key_round_trip() {
+    fn sec_key_round_trip() {
         let rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let ssk = StaticSecretKey::random(rng);
-        let ssk_p = StaticSecretKey::from_canonical_bytes(ssk.encoded).expect("should deserialize");
+        let ssk = SecKey::random(rng);
+        let ssk_p = SecKey::from_canonical_bytes(ssk.encoded).expect("should deserialize");
         assert_eq!(ssk.pub_key, ssk_p.pub_key);
     }
 
     #[test]
-    fn static_public_key_round_trip() {
+    fn pub_key_round_trip() {
         let rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let spk = StaticSecretKey::random(rng).pub_key;
-        let spk_p = StaticPublicKey::from_canonical_bytes(spk.encoded).expect("should deserialize");
+        let spk = SecKey::random(rng).pub_key;
+        let spk_p = PubKey::from_canonical_bytes(spk.encoded).expect("should deserialize");
         assert_eq!(spk, spk_p);
     }
 }

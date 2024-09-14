@@ -6,7 +6,7 @@ use lockstitch::{Protocol, TAG_LEN};
 use rand::{CryptoRng, Rng};
 
 use crate::{
-    keys::{StaticPublicKey, StaticSecretKey},
+    keys::{PubKey, SecKey},
     sig,
     sres::{self, NONCE_LEN},
     DecryptError, EncryptError,
@@ -43,8 +43,8 @@ pub fn encrypt(
     mut rng: impl Rng + CryptoRng,
     reader: impl Read,
     mut writer: impl Write,
-    sender: &StaticSecretKey,
-    receivers: &[Option<StaticPublicKey>],
+    sender: &SecKey,
+    receivers: &[Option<PubKey>],
 ) -> Result<u64, EncryptError> {
     // Initialize a protocol and mix the sender's public key into it.
     let mut mres = Protocol::new("veil.mres");
@@ -101,7 +101,7 @@ fn encrypt_message(
     mut mres: Protocol,
     mut reader: impl Read,
     mut writer: impl Write,
-    sender: &StaticSecretKey,
+    sender: &SecKey,
 ) -> Result<u64, EncryptError> {
     let mut block = Vec::with_capacity(BLOCK_LEN + TAG_LEN);
     let mut block_header = [0u8; ENC_BLOCK_HEADER_LEN];
@@ -174,8 +174,8 @@ fn encrypt_message(
 pub fn decrypt(
     mut reader: impl Read,
     mut writer: impl Write,
-    receiver: &StaticSecretKey,
-    sender: &StaticPublicKey,
+    receiver: &SecKey,
+    sender: &PubKey,
 ) -> Result<u64, DecryptError> {
     // Initialize a protocol and mix the sender's public key into it.
     let mut mres = Protocol::new("veil.mres");
@@ -248,8 +248,8 @@ fn decrypt_message(
 fn decrypt_header(
     mut mres: Protocol,
     mut reader: impl Read,
-    receiver: &StaticSecretKey,
-    sender: &StaticPublicKey,
+    receiver: &SecKey,
+    sender: &PubKey,
 ) -> Result<(Protocol, [u8; DEK_LEN]), DecryptError> {
     let mut enc_header = [0u8; ENC_HEADER_LEN];
     let mut header = None;
@@ -370,7 +370,7 @@ mod tests {
     fn wrong_sender() {
         let (mut rng, _, receiver, _, ciphertext) = setup(64);
 
-        let wrong_sender = StaticSecretKey::random(&mut rng);
+        let wrong_sender = SecKey::random(&mut rng);
 
         assert_matches!(
             decrypt(
@@ -387,7 +387,7 @@ mod tests {
     fn wrong_receiver() {
         let (mut rng, sender, _, _, ciphertext) = setup(64);
 
-        let wrong_receiver = StaticSecretKey::random(&mut rng);
+        let wrong_receiver = SecKey::random(&mut rng);
 
         assert_matches!(
             decrypt(
@@ -424,10 +424,10 @@ mod tests {
         assert_eq!(plaintext.to_vec(), writer.into_inner(), "incorrect plaintext");
     }
 
-    fn setup(n: usize) -> (ChaChaRng, StaticSecretKey, StaticSecretKey, Vec<u8>, Vec<u8>) {
+    fn setup(n: usize) -> (ChaChaRng, SecKey, SecKey, Vec<u8>, Vec<u8>) {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let sender = StaticSecretKey::random(&mut rng);
-        let receiver = StaticSecretKey::random(&mut rng);
+        let sender = SecKey::random(&mut rng);
+        let receiver = SecKey::random(&mut rng);
         let mut plaintext = vec![0u8; n];
         rng.fill_bytes(&mut plaintext);
         let mut ciphertext = Vec::with_capacity(plaintext.len());

@@ -12,19 +12,19 @@ use std::{
 use rand::{prelude::SliceRandom, CryptoRng, Rng};
 
 use crate::{
-    keys::{StaticPublicKey, StaticSecretKey, STATIC_PK_LEN, STATIC_SK_LEN},
+    keys::{PubKey, SecKey, PK_LEN, SK_LEN},
     mres, pbenc, sig, DecryptError, EncryptError, ParsePublicKeyError, Signature, VerifyError,
 };
 
 /// A secret key, used to encrypt, decrypt, and sign messages.
 #[derive(PartialEq, Eq)]
-pub struct SecretKey(StaticSecretKey);
+pub struct SecretKey(SecKey);
 
 impl SecretKey {
     /// Creates a randomly generated secret key.
     #[must_use]
     pub fn random(rng: impl Rng + CryptoRng) -> SecretKey {
-        SecretKey(StaticSecretKey::random(rng))
+        SecretKey(SecKey::random(rng))
     }
 
     /// Returns the corresponding public key.
@@ -49,7 +49,7 @@ impl SecretKey {
         memory_cost: u8,
         parallelism: u8,
     ) -> io::Result<usize> {
-        let mut enc_key = [0u8; STATIC_SK_LEN + pbenc::OVERHEAD];
+        let mut enc_key = [0u8; SK_LEN + pbenc::OVERHEAD];
         pbenc::encrypt(
             rng,
             passphrase,
@@ -71,12 +71,12 @@ impl SecretKey {
     /// [`DecryptError::InvalidCiphertext`] error will be returned. If an error occurred while
     /// reading, a [`DecryptError::IoError`] error will be returned.
     pub fn load(mut reader: impl Read, passphrase: &[u8]) -> Result<SecretKey, DecryptError> {
-        let mut b = Vec::with_capacity(STATIC_SK_LEN + pbenc::OVERHEAD);
+        let mut b = Vec::with_capacity(SK_LEN + pbenc::OVERHEAD);
         reader.read_to_end(&mut b).map_err(DecryptError::ReadIo)?;
 
         // Decrypt the ciphertext and use the plaintext as the secret key.
         pbenc::decrypt(passphrase, &mut b)
-            .and_then(StaticSecretKey::from_canonical_bytes)
+            .and_then(SecKey::from_canonical_bytes)
             .map(SecretKey)
             .ok_or(DecryptError::InvalidCiphertext)
     }
@@ -148,18 +148,18 @@ impl Debug for SecretKey {
 
 /// A public key, used to verify messages.
 #[derive(Clone, PartialEq, Eq)]
-pub struct PublicKey(StaticPublicKey);
+pub struct PublicKey(PubKey);
 
 impl PublicKey {
     /// Decode a public key from a 32-byte slice.
     #[must_use]
     pub fn decode(b: impl AsRef<[u8]>) -> Option<PublicKey> {
-        StaticPublicKey::from_canonical_bytes(b).map(PublicKey)
+        PubKey::from_canonical_bytes(b).map(PublicKey)
     }
 
     /// Encode the public key as a 32-byte array.
     #[must_use]
-    pub const fn encode(&self) -> [u8; STATIC_PK_LEN] {
+    pub const fn encode(&self) -> [u8; PK_LEN] {
         self.0.encoded
     }
 

@@ -15,7 +15,7 @@ use lockstitch::Protocol;
 use rand::{CryptoRng, Rng};
 
 use crate::{
-    keys::{StaticPublicKey, StaticSecretKey},
+    keys::{PubKey, SecKey},
     sres::NONCE_LEN,
     ParseSignatureError, VerifyError, DIGEST_LEN,
 };
@@ -59,7 +59,7 @@ impl fmt::Display for Signature {
 /// Create an encrypted ML-DSA-65 signature of the given message using the given key pair.
 pub fn sign(
     rng: impl Rng + CryptoRng,
-    signer: &StaticSecretKey,
+    signer: &SecKey,
     mut message: impl Read,
 ) -> io::Result<Signature> {
     // Initialize a protocol.
@@ -79,7 +79,7 @@ pub fn sign(
 
 /// Verify a ML-DSA-65 signature of the given message using the given public key.
 pub fn verify(
-    signer: &StaticPublicKey,
+    signer: &PubKey,
     mut message: impl Read,
     signature: &Signature,
 ) -> Result<(), VerifyError> {
@@ -103,7 +103,7 @@ pub fn verify(
 pub fn sign_protocol(
     mut rng: impl Rng + CryptoRng,
     protocol: &mut Protocol,
-    signer: &StaticSecretKey,
+    signer: &SecKey,
 ) -> [u8; SIG_LEN] {
     let mut sig = [0u8; SIG_LEN];
 
@@ -136,7 +136,7 @@ pub fn sign_protocol(
 #[must_use]
 pub fn verify_protocol(
     protocol: &mut Protocol,
-    signer: &StaticPublicKey,
+    signer: &PubKey,
     mut sig: [u8; SIG_LEN],
 ) -> Option<()> {
     // Mix the nonce into the protocol, check the digest, and decrypt the signature.
@@ -199,7 +199,7 @@ mod tests {
     #[test]
     fn wrong_signer() {
         let (mut rng, _, message, sig) = setup();
-        let wrong_signer = StaticSecretKey::random(&mut rng);
+        let wrong_signer = SecKey::random(&mut rng);
         assert_matches!(
             verify(&wrong_signer.pub_key, Cursor::new(message), &sig),
             Err(VerifyError::InvalidSignature)
@@ -239,9 +239,9 @@ mod tests {
         );
     }
 
-    fn setup() -> (ChaChaRng, StaticSecretKey, Vec<u8>, Signature) {
+    fn setup() -> (ChaChaRng, SecKey, Vec<u8>, Signature) {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let signer = StaticSecretKey::random(&mut rng);
+        let signer = SecKey::random(&mut rng);
         let message = rng.gen::<[u8; 64]>();
         let sig = sign(&mut rng, &signer, Cursor::new(message)).expect("signing should be ok");
         (rng, signer, message.to_vec(), sig)
