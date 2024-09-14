@@ -333,9 +333,8 @@ of arbitrary length.
 ```text
 function SignState(state, sk):
   r ← Rand(16)                                 // Generate a random nonce.
-  state ← Mix(state, "nonce", r)               // Mix the nonce into the protocol.
   (state, h) ← Derive(state, "digest", 32)     // Derive a 256-bit digest.
-  s ← ML_DSA_65::Sign(sk.sk, r ǁ h)            // Sign the nonce and digest with ML-DSA-65.
+  s ← ML_DSA_65::Sign(sk.sk, h)                // Sign the digest with ML-DSA-65.
   (state, c) ← Encrypt(state, "signature", s₁) // Encrypt the ML-DSA-65 signature.
   return r ǁ h ǁ c
 
@@ -348,21 +347,20 @@ function Sign(pk, sk, m):
 
 ### Verifying A Signature
 
-Verifying a signature requires a signer's public key `pk`, a message `m`, and a signature
-`r ǁ h ǁ c₀ ǁ c₁`.
+Verifying a signature requires a signer's public key `pk`, a message `m`, and an encrypted signature
+`c`.
 
 ```text
-function VerifyState(state, pk, r ǁ h ǁ c):
+function VerifyState(state, pk, c):
   (state, h′) ← Derive(state, "digest", 32) // Derive a counterfactual digest.
-  (state, s) ← Encrypt(state, c)            // Decrypt the ML-DSA-65 signature.
-  v ← ML_DSA_65::Verify(pk.vk, s, r ǁ h)    // Verify the ML-DSA-65 signature.
-  return h=h′ ∧ v                           // The signature is valid iff all components are valid.
+  (state, s) ← Decrypt(state, c)            // Decrypt the ML-DSA-65 signature.
+  return ML_DSA_65::Verify(pk.vk, s, h′)    // Verify the ML-DSA-65 signature.
 
 function Verify(pk, m, r ǁ h ǁ c₁):
   state ← Initialize("veil.sig")       // Initialize a protocol.
   state ← Mix(state, "signer", pk)     // Mix the signer's public key into the protocol.
   state ← Mix(state, "message", m)     // Mix the message into the protocol.
-  return VerifyState(state, r ǁ h ǁ c) // Verify the signature against the protocol's state.
+  return VerifyState(state, c)         // Verify the signature against the protocol's state.
 ```
 
 ### Constructive Analysis Of `veil.sig`
@@ -370,16 +368,15 @@ function Verify(pk, m, r ǁ h ǁ c₁):
 ML-DSA-65 is a well-studied digital signature scheme. The novelty of `veil.sig` lies in its use of
 symmetric cryptography to pre-hash the inputs and to encrypt the signature.
 
-First, a random nonce `r` is mixed into the protocol state to provide protection from [fault
-attacks](#resilience-against-fault-attacks). Second, the BUFF Transformation from
-[[CDFFJ20]](#cdffj20) is used to provide exclusive ownership (M-S-UEO), message-bound signatures
-(MBS), and non-signability (NR) properties independently of the UF-CMA security of the underlying
-signature schemes.  Finally, the signature itself is encrypted, providing indistinguishability from
-random noise and full key privacy.
+First, the signer's public key and messages are mixed into the protocol state. Second, a 256-bit
+digest is derived from the protocol state. Third, ML-DSA_65 is used to create a signature of the
+digest. Finally, the signature itself is encrypted, providing indistinguishability from random noise
+and full key privacy.
 
 ### sUF-CMA Security
 
-ML-DSA claims sUF-CMA security.
+ML-DSA claims sUF-CMA security and has exclusive ownership (M-S-UEO), message-bound signatures
+(MBS), and non-signability (NR) properties [[CDFFJ20]](#cdffj20).
 
 ### Key Privacy
 
@@ -397,18 +394,14 @@ Per [[PSSLR17]](#psslr17), purely deterministic signature schemes are vulnerable
 in which an adversary induces a signer to generate multiple invalid signatures by injecting a fault
 (e.g. a random bit-flip via RowHammer attack, thus leaking bits of the secret key.
 
-To protect against these types of attacks, `veil.sig` includes a random value `r` to hedge the
-signature. ML-DSA defines a hedged signing algorithm, which is used here, but the general
-construction does not require it.
+To protect against these types of attacks, `veil.sig`  uses probabilistic ML-DSA-65 signatures.
 
 ### Indistinguishability From Random Noise
 
-Each `veil.sig` signature consists of four components: a random value `r`, a TurboSHAKE128 hash `h`,
-and an encrypted ML-DSA-65 signature `s`.
+Each `veil.sig` signature consists of an encrypted ML-DSA-65 signature `s`.
 
-An attack which distinguishes between a `veil.sig` and random noise would either require a faulty
-random number generator, imply that TurboSHAKE128 is distinguishable from a random oracle, or imply
-that AEGIS-128L is distinguishable from a random function over short messages.
+An attack which distinguishes between a `veil.sig` and random noise would imply that AEGIS-128L is
+distinguishable from a random function over short messages.
 
 ## Encrypted Headers
 
