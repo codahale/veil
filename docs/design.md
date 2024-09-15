@@ -342,11 +342,10 @@ of arbitrary length.
 
 ```text
 function SignState(state, sk):
-  r ← Rand(16)                                 // Generate a random nonce.
   (state, h) ← Derive(state, "digest", 32)     // Derive a 256-bit digest.
   s ← ML_DSA_65::Sign(sk.sk, h)                // Sign the digest with ML-DSA-65.
   (state, c) ← Encrypt(state, "signature", s₁) // Encrypt the ML-DSA-65 signature.
-  return r ǁ h ǁ c
+  return c
 
 function Sign(pk, sk, m):
   state ← Initialize("veil.sig")   // Initialize a protocol.
