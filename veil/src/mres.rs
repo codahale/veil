@@ -7,9 +7,7 @@ use rand::{CryptoRng, Rng};
 
 use crate::{
     keys::{PubKey, SecKey},
-    sig,
-    sres::{self, NONCE_LEN},
-    DecryptError, EncryptError,
+    sig, sres, DecryptError, EncryptError,
 };
 
 /// The length of a plaintext block header. The first byte signifies the block type, the next three
@@ -50,28 +48,20 @@ pub fn encrypt(
     let mut mres = Protocol::new("veil.mres");
     mres.mix("sender", &sender.pub_key.encoded);
 
-    // Generate a random DEK and nonce.
+    // Generate a random DEK.
     let dek = rng.gen::<[u8; DEK_LEN]>();
-    let nonce = rng.gen::<[u8; NONCE_LEN]>();
-
-    // Write the nonce and mix it into the protocol.
-    writer.write_all(&nonce).map_err(EncryptError::WriteIo)?;
-    let mut written = u64::try_from(NONCE_LEN).expect("usize should be <= u64");
-    mres.mix("nonce", &nonce);
 
     // Encode a header with the DEK and receiver count.
     let header = Header::new(dek, receivers.len()).encode();
 
     // For each receiver, encrypt a copy of the header with veil.sres.
+    let mut written = 0;
     let mut enc_header = [0u8; ENC_HEADER_LEN];
     for receiver in receivers {
-        // Derive a nonce for each header.
-        let nonce = mres.derive_array::<NONCE_LEN>("header-nonce");
-
         // Encrypt the header for the given receiver, if any, or use random data to create a fake
         // recipient.
         if let Some(receiver) = receiver {
-            sres::encrypt(&mut rng, sender, receiver, &nonce, &header, &mut enc_header);
+            sres::encrypt(&mut rng, sender, receiver, &header, &mut enc_header);
         } else {
             rng.fill_bytes(&mut enc_header);
         }
@@ -181,11 +171,6 @@ pub fn decrypt(
     let mut mres = Protocol::new("veil.mres");
     mres.mix("sender", &sender.encoded);
 
-    // Read the nonce and mix it into the protocol.
-    let mut nonce = [0u8; NONCE_LEN];
-    reader.read_exact(&mut nonce).map_err(DecryptError::ReadIo)?;
-    mres.mix("nonce", &nonce);
-
     // Find a header, decrypt it, and mix the entirety of the headers and padding into the protocol.
     let (mut mres, dek) = decrypt_header(mres, &mut reader, receiver, sender)?;
 
@@ -268,16 +253,12 @@ fn decrypt_header(
             }
         })?;
 
-        // Derive a nonce regardless of whether we need to in order to keep the protocol state
-        // consistent.
-        let nonce = mres.derive_array::<NONCE_LEN>("header-nonce");
-
         // Mix the encrypted header into the protocol.
         mres.mix("header", &enc_header);
 
         // If a header hasn't been decrypted yet, try to decrypt this one.
         if header.is_none() {
-            if let Some(hdr) = sres::decrypt(receiver, sender, &nonce, &mut enc_header) {
+            if let Some(hdr) = sres::decrypt(receiver, sender, &mut enc_header) {
                 // If the header was successfully decrypted, keep the DEK and update the loop
                 // variable to not be effectively infinite.
                 let hdr = Header::decode(hdr);

@@ -9,19 +9,15 @@ use crate::{
     sig::{self, SIG_LEN},
 };
 
-/// The recommended size of the nonce passed to [encrypt].
-pub const NONCE_LEN: usize = 16;
-
 /// The number of bytes added to plaintext by [encrypt].
 pub const OVERHEAD: usize = ENC_CT_LEN + SIG_LEN;
 
-/// Given the sender's key pair, the receiver's public key, a nonce, and a plaintext, encrypts the
-/// given plaintext and returns the ciphertext.
+/// Given the sender's key pair, the receiver's public key, and a plaintext, encrypts the given
+/// plaintext and returns the ciphertext.
 pub fn encrypt(
     mut rng: impl RngCore + CryptoRng,
     sender: &SecKey,
     receiver: &PubKey,
-    nonce: &[u8],
     plaintext: &[u8],
     ciphertext: &mut [u8],
 ) {
@@ -42,12 +38,9 @@ pub fn encrypt(
     // receiver's identity, preventing unknown key-share attacks with respect to the receiver.
     sres.mix("receiver", &receiver.encoded);
 
-    // Mix the nonce into the protocol. This makes all following outputs probabilistic with respect
-    // to the nonce.
-    sres.mix("nonce", nonce);
-
     // Encapsulate a shared secret with ML-KEM and mix it into the protocol's state. Because the
     // ML-KEM-768 ciphertext is encoded with Kemeleon, it is indistinguishable from random noise.
+    // This makes all following outputs probabilistic with respect to the ciphertext.
     let (kem_ect, kem_ss) = kemeleon::encapsulate(&receiver.ek, &mut rng);
     out_kem.copy_from_slice(&kem_ect);
     sres.mix("ml-kem-768-ect", out_kem);
@@ -69,16 +62,11 @@ pub fn encrypt(
     out_sig.copy_from_slice(&sig);
 }
 
-/// Given the receiver's key pair, the sender's public key, a nonce, and a ciphertext, decrypts the
-/// given ciphertext and returns the plaintext iff the ciphertext was encrypted for the receiver by
-/// the sender.
+/// Given the receiver's key pair, the sender's public key, and a ciphertext, decrypts the given
+/// ciphertext and returns the plaintext iff the ciphertext was encrypted for the receiver by the
+/// sender.
 #[must_use]
-pub fn decrypt<'a>(
-    receiver: &SecKey,
-    sender: &PubKey,
-    nonce: &[u8],
-    in_out: &'a mut [u8],
-) -> Option<&'a [u8]> {
+pub fn decrypt<'a>(receiver: &SecKey, sender: &PubKey, in_out: &'a mut [u8]) -> Option<&'a [u8]> {
     // Check for too-small ciphertexts.
     if in_out.len() < OVERHEAD {
         return None;
@@ -96,9 +84,6 @@ pub fn decrypt<'a>(
 
     // Mix the receiver's public key into the protocol.
     sres.mix("receiver", &receiver.pub_key.encoded);
-
-    // Mix the nonce into the protocol.
-    sres.mix("nonce", nonce);
 
     // Mix the ML-KEM ciphertext into the protocol, decapsulate the ML-KEM shared secret, then mix
     // the shared secret into the protocol.
@@ -125,49 +110,40 @@ mod tests {
 
     #[test]
     fn round_trip() {
-        let (_, sender, receiver, plaintext, nonce, mut ciphertext) = setup();
+        let (_, sender, receiver, plaintext, mut ciphertext) = setup();
 
         assert_eq!(
             Some(plaintext.as_slice()),
-            decrypt(&receiver, &sender.pub_key, &nonce, &mut ciphertext)
+            decrypt(&receiver, &sender.pub_key, &mut ciphertext)
         );
     }
 
     #[test]
     fn wrong_receiver() {
-        let (mut rng, sender, _, _, nonce, mut ciphertext) = setup();
+        let (mut rng, sender, _, _, mut ciphertext) = setup();
 
         let wrong_receiver = SecKey::random(&mut rng);
-        assert_eq!(None, decrypt(&wrong_receiver, &sender.pub_key, &nonce, &mut ciphertext));
+        assert_eq!(None, decrypt(&wrong_receiver, &sender.pub_key, &mut ciphertext));
     }
 
     #[test]
     fn wrong_sender() {
-        let (mut rng, _, receiver, _, nonce, mut ciphertext) = setup();
+        let (mut rng, _, receiver, _, mut ciphertext) = setup();
 
         let wrong_sender = SecKey::random(&mut rng);
-        assert_eq!(None, decrypt(&receiver, &wrong_sender.pub_key, &nonce, &mut ciphertext));
+        assert_eq!(None, decrypt(&receiver, &wrong_sender.pub_key, &mut ciphertext));
     }
 
-    #[test]
-    fn wrong_nonce() {
-        let (mut rng, sender, receiver, _, _, mut ciphertext) = setup();
-
-        let wrong_nonce = rng.gen::<[u8; NONCE_LEN]>();
-        assert_eq!(None, decrypt(&receiver, &sender.pub_key, &wrong_nonce, &mut ciphertext));
-    }
-
-    fn setup() -> (ChaChaRng, SecKey, SecKey, [u8; 64], [u8; NONCE_LEN], Vec<u8>) {
+    fn setup() -> (ChaChaRng, SecKey, SecKey, [u8; 64], Vec<u8>) {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
 
         let sender = SecKey::random(&mut rng);
         let receiver = SecKey::random(&mut rng);
         let plaintext = rng.gen::<[u8; 64]>();
-        let nonce = rng.gen::<[u8; NONCE_LEN]>();
 
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
-        encrypt(&mut rng, &sender, &receiver.pub_key, &nonce, &plaintext, &mut ciphertext);
+        encrypt(&mut rng, &sender, &receiver.pub_key, &plaintext, &mut ciphertext);
 
-        (rng, sender, receiver, plaintext, nonce, ciphertext)
+        (rng, sender, receiver, plaintext, ciphertext)
     }
 }

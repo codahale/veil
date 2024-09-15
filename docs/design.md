@@ -421,17 +421,16 @@ digital signature.
 ### Encrypting A Header
 
 Encrypting a header requires the sender's key pair `(pk_S,sk_S)`, the receiver's public key `pk_R`,
-a nonce `N`, and a plaintext `P`.
+and a plaintext `P`.
 
 ```text
-function EncryptHeader((pk_S, sk_S), pk_R, N, P):
+function EncryptHeader((pk_S, sk_S), pk_R, P):
   state ← Initialize("veil.sres")                                      // Initialize a protocol.
   state ← Mix(state, "sender", pk_S)                                   // Mix the sender's public key into the protocol.
   state ← Mix(state, "receiver", pk_R)                                 // Mix the receiver's public key into the protocol.
-  state ← Mix(state, "nonce", N)                                       // Mix the nonce into the protocol.
   (c₀, kem_ss) ← ML_KEM_768::EncapsulateObfuscated(pk_R.ek_pq)         // Encapsulate a key for the receiver with ML-KEM-768, obfuscated with Kemeleon.
-  state ← Mix(state, "ml-kem-768-ect", c₀)                             // Encrypt the ML-KEM-768 ciphertext.
-  state ← Mix(state, "ml-kem-768-ss", kem_ss)                          // Mix the ML-KEM-768 shared secret into the protocol.
+  state ← Mix(state, "ml-kem-768-ect", c₀)                             // Mix the ML-KEM-768 ciphertext and shared secret into the protocol.
+  state ← Mix(state, "ml-kem-768-ss", kem_ss)
   (state, c₁) ← Encrypt(state, "message", P)                           // Encrypt the plaintext.
   (state, c₂) ← SignState(state, sk_S)                                 // Sign the protocol state with veil.sig.
   return c₀ ǁ c₁ ǁ c₂
@@ -439,15 +438,14 @@ function EncryptHeader((pk_S, sk_S), pk_R, N, P):
 
 ### Decrypting A Header
 
-Decrypting a header requires a receiver's key pair `(pk_R,sk_R)`, the sender's public key `pk_S`, a
-nonce `N`, and a ciphertext `c₀ ǁ c₁ ǁ c₂`.
+Decrypting a header requires a receiver's key pair `(pk_R,sk_R)`, the sender's public key `pk_S`,
+and a ciphertext `c₀ ǁ c₁ ǁ c₂`.
 
 ```text
-function DecryptHeader((pk_R, sk_R), pk_S, N, c₀ ǁ c₁ ǁ c₂):
+function DecryptHeader((pk_R, sk_R), pk_S, c₀ ǁ c₁ ǁ c₂):
   state ← Initialize("veil.sres")                                      // Initialize a protocol.
   state ← Mix(state, "sender", pk_S)                                   // Mix the sender's public key into the protocol.
   state ← Mix(state, "receiver", pk_R)                                 // Mix the receiver's public key into the protocol.
-  state ← Mix(state, "nonce", N)                                       // Mix the nonce into the protocol.
   state ← Mix(state, "ml-kem-768-ect", c₀)                             // Mix the obfuscated ML-KEM-768 ciphertext into the protocol.
   kem_ss ← ML_KEM_768::DecapsulateObfuscated(sk_R.dk_pq, kem_ect)      // De-obfuscate with Kemeleon and decapsulate the key with ML-KEM-768.
   state ← Mix(state, "ml-kem-768-ss", kem_ss)                          // Mix the ML-KEM-768 shared secret into the protocol.
@@ -563,15 +561,11 @@ function EncryptMessage((pk_S, sk_S), [pk_R_0,…,pk_R_n], P):
   state ← Initialize("veil.mres")    // Initialize a protocol.
   state ← Mix(state, "sender", pk_S) // Mix the sender's public key into the protocol.
   K ← Rand(32)                       // Generate a random data encryption key.
-  N ← Rand(16)                       // Generate a random nonce.
-  C ← N                              // Write the nonce.
-  state ← Mix(state, "nonce", N)     // Mix the nonce into the protocol.
   H ← K ǁ n                          // Encode the DEK and receiver count in a header.
 
   for pk_R_i in [pk_R_0,…,pk_R_n]:
-    (state, N_i) ← Derive(state, "header-nonce", 16)  // Derive a nonce for each header.
-    E_i ← EncryptHeader((pk_S, sk_S), pk_R_i, N_i, H) // Encrypt the header for each receiver.
-    state ← Mix(state, "header", E_i)                 // Mix the encrypted header into the protocol.
+    E_i ← EncryptHeader((pk_S, sk_S), pk_R_i, H) // Encrypt the header for each receiver.
+    state ← Mix(state, "header", E_i)            // Mix the encrypted header into the protocol.
     C ← C ǁ E_i
 
   state ← Mix(state, "dek", K) // Mix the DEK into the protocol.
@@ -602,16 +596,13 @@ ciphertext `C`.
 function DecryptMessage((pk_R, sk_R), pk_S, C):
   state ← Initialize("veil.mres")       // Initialize a protocol.
   state ← Mix(state, "sender", pk_S)    // Mix the sender's public key into the protocol.
-  state ← Mix(state, "nonce", C[0..16]) // Mix the nonce into the protocol.
-  C ← C[16..]
 
   (i, n) ← (0, ∞)                     // Go through ciphertext looking for a decryptable header.
   while i < n:
   for each possible encrypted header E_i in C:
-    (state, N_i) ← Derive(state, "header-nonce", 16)
     (E_i, C) ← C[..HEADER_LEN] ǁ C[HEADER_LEN..]
     state ← Mix(state, "header", E_i)
-    x ← DecryptHeader((pk_R, sk_R), pk_S, N_i, E_i)
+    x ← DecryptHeader((pk_R, sk_R), pk_S, E_i)
     if x ≠ ⊥:
       K ǁ n ← x // Once a header is decrypted, process the remaining headers.
 
@@ -642,9 +633,9 @@ copies of a symmetric data encryption key (DEK) encrypted in headers with the re
 [[Kur02]](#kur02) [[BBS03]](#bbs03) [[BBKS07]](#bbks07) [[RFC4880]](#rfc4880). The headers are
 encrypted with the `veil.sres` construction (see [`veil.sres`](#encrypted-headers)), which provides
 full insider security (i.e. IND-CCA2 and sUF-CMA in the multi-user insider setting), using a
-per-header `Derive` value as a nonce. The message itself is divided into a sequence of block headers
-and message blocks, each encrypted with a sequence of Lockstitch `Seal` operations, which is
-IND-CCA2 secure.
+per-header `Derive` value as an ID which binds the header ciphertexts to this specific message. The
+message itself is divided into a sequence of block headers and message blocks, each encrypted with a
+sequence of Lockstitch `Seal` operations, which is IND-CCA2 secure.
 
 The final portion of `veil.mres` is equivalent to [`veil.sig`](#digital-signatures).
 
@@ -672,9 +663,8 @@ decryption making this infeasible.
 `A` is unable to forge valid signatures for existing ciphertexts, limiting them to passive attacks.
 `veil.mres` ciphertexts consist of encrypted headers, encrypted block headers, encrypted message
 blocks, and an encrypted signature. Each component of the ciphertext is dependent on the previous
-inputs (including the headers, which use `Derive`-derived nonce to link the `veil.sres` ciphertexts
-to the `veil.mres` state). A passive attack on any of those would only be possible if either
-TurboSHAKE128 is not collision-resistant or AEGIS-128L is not PRF secure.
+inputs. A passive attack on any of those would only be possible if either TurboSHAKE128 is not
+collision-resistant or AEGIS-128L is not PRF secure.
 
 #### Insider Confidentiality Of Messages
 
