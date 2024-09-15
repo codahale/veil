@@ -6,14 +6,14 @@ use ml_kem::kem::{Decapsulate as _, Encapsulate as _};
 use num_bigint::BigUint;
 use rand::{CryptoRng, Rng};
 
-use crate::keys::{self, DecapsulationKey};
+use crate::keys::{self, DecapsulationKey, ML_KEM_CT_LEN, ML_KEM_SS_LEN};
 
 pub const ENC_CT_LEN: usize = 1252;
 
 pub fn encapsulate(
     ek: &keys::EncapsulationKey,
     mut rng: impl CryptoRng + Rng,
-) -> ([u8; ENC_CT_LEN], [u8; 32]) {
+) -> ([u8; ENC_CT_LEN], [u8; ML_KEM_SS_LEN]) {
     loop {
         let (kem_ct, kem_ss) = ek.encapsulate(&mut rng).expect("should encapsulate");
         if let Some(kem_ect) = encode_ct(&mut rng, kem_ct.into()) {
@@ -22,12 +22,12 @@ pub fn encapsulate(
     }
 }
 
-pub fn decapsulate(dk: &DecapsulationKey, ect: [u8; ENC_CT_LEN]) -> [u8; 32] {
+pub fn decapsulate(dk: &DecapsulationKey, ect: [u8; ENC_CT_LEN]) -> [u8; ML_KEM_SS_LEN] {
     let ct = decode_ct(ect);
     dk.decapsulate(&ct.into()).expect("should decapsulate").into()
 }
 
-fn encode_ct(mut rng: impl CryptoRng + Rng, c: [u8; 1088]) -> Option<[u8; 1252]> {
+fn encode_ct(mut rng: impl CryptoRng + Rng, c: [u8; ML_KEM_CT_LEN]) -> Option<[u8; ENC_CT_LEN]> {
     // Split the ciphertext into pieces and decode them.
     let mut u = [[0; N]; K];
     let mut chunks = c.chunks_exact(320);
@@ -66,13 +66,13 @@ fn encode_ct(mut rng: impl CryptoRng + Rng, c: [u8; 1088]) -> Option<[u8; 1252]>
     }
 
     // Copy the bits of the encoded vector.
-    let mut out = [0u8; 1252];
+    let mut out = [0u8; ENC_CT_LEN];
     let bits = r.to_bytes_le();
     out[..bits.len()].copy_from_slice(&bits);
 
     // Mask the top five bits of the encoded vector.
     let mask = BIT_MASK & rng.gen::<u8>();
-    out[1252 - 128 - 1] |= mask;
+    out[ENC_CT_LEN - 128 - 1] |= mask;
 
     // Perform rejection sampling based on the second part.
     for v_i in v.iter() {
@@ -86,9 +86,9 @@ fn encode_ct(mut rng: impl CryptoRng + Rng, c: [u8; 1088]) -> Option<[u8; 1252]>
     Some(out)
 }
 
-fn decode_ct(mut ect: [u8; 1252]) -> [u8; 1088] {
+fn decode_ct(mut ect: [u8; ENC_CT_LEN]) -> [u8; ML_KEM_CT_LEN] {
     // Unmask the top five bits of the encoded vector.
-    ect[1252 - 128 - 1] &= !BIT_MASK;
+    ect[ENC_CT_LEN - 128 - 1] &= !BIT_MASK;
 
     // Decode the vector.
     let r = BigUint::from_bytes_le(&ect[..1124]);
@@ -103,7 +103,7 @@ fn decode_ct(mut ect: [u8; 1252]) -> [u8; 1088] {
     }
 
     // Re-compress u and append v verbatim.
-    let mut ct = [0; 1088];
+    let mut ct = [0; ML_KEM_CT_LEN];
     {
         let mut ct = ct.chunks_exact_mut(320);
         for (c, f) in ct.by_ref().zip(u.iter().copied()) {

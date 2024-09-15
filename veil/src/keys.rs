@@ -9,8 +9,10 @@ use ml_kem::{EncodedSizeUser, KemCore};
 use rand::{CryptoRng, Rng, RngCore};
 use typenum::Unsigned;
 
-const ML_KEM_PK_LEN: usize =
+pub(crate) const ML_KEM_PK_LEN: usize =
     <<ml_kem::MlKem768 as KemCore>::EncapsulationKey as EncodedSizeUser>::EncodedSize::USIZE;
+pub(crate) const ML_KEM_CT_LEN: usize = <ml_kem::MlKem768 as KemCore>::CiphertextSize::USIZE;
+pub(crate) const ML_KEM_SS_LEN: usize = <ml_kem::MlKem768 as KemCore>::SharedKeySize::USIZE;
 
 pub const PK_LEN: usize = ML_KEM_PK_LEN + ml_dsa_65::PK_LEN;
 
@@ -45,8 +47,7 @@ impl PubKey {
         let encoded = <[u8; PK_LEN]>::try_from(b.as_ref()).ok()?;
         let (ek, vk) = encoded.split_at(ML_KEM_PK_LEN);
         let ek = EncapsulationKey::from_bytes(ek.try_into().expect("should be 1184 bytes"));
-        let vk =
-            VerifyingKey::try_from_bytes(vk.try_into().expect("should be PK_LEN bytes")).ok()?;
+        let vk = VerifyingKey::try_from_bytes(vk.try_into().expect("should be 1952 bytes")).ok()?;
         Some(PubKey { ek, vk, encoded })
     }
 
