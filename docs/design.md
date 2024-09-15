@@ -312,14 +312,24 @@ and thus unable to compute their forgery.
 
 A Veil key has two types of sub-key: ML-KEM-768 and ML-DSA-65.
 
-A public key has an ML-KEM-768
-encapsulating key `ek` an ML-DSA-65 verifying key `vk`. Its encoded form is the concatenation of the
-encoded forms of each sub-key in that order: `ek ǁ vk`.
+A public key has an ML-KEM-768 encapsulating key `ek` an ML-DSA-65 verifying key `vk`. Its encoded
+form is the concatenation of the encoded forms of each sub-key in that order: `ek ǁ vk`.
 
 A secret key has an ML-KEM-768 decapsulating key `dk` and an ML-DSA-65 signing key `sk`. Its encoded
-form is the concatenation of the ML-KEM-768 seeds `dk_d` and `dk_z` and the ML-DSA-65 seed `sk_x` in
-that order: `dk_d ǁ dk_z ǁ sk_x`. Decoding a secret key requires re-generating the ML-KEM-768 and
-ML-DSA-65 key pairs from the seeds.
+form is a 256-byte seed from which the ML-KEM-768 seeds `dk_d` and `dk_z` and the ML-DSA-65 seed
+`sk_x` are derived:
+
+```text
+function DeriveSecretKey(seed):
+  state ← Initialize("veil.key")                // Initialize a protocol.
+  state ← Mix(state, "seed", seed)              // Mix the seed into the protocol.
+  (state, dk_d) ← Derive(state, "ml-kem-768-d") // Derive the ML-KEM-768 seeds.
+  (state, dk_z) ← Derive(state, "ml-kem-768-z")
+  (state, sk_x) ← Derive(state, "ml-dsa-65-x")  // Derive the ML-DSA-65 seed.
+  (dk, ek) ← ML_KEM_768::KeyGen(dk_d, dk_z)     // Deterministically generate the ML-KEM-768 key pair.
+  (sk, vk) ← ML_DSA_65::KeyGen(sk_z)            // Deterministically generate the ML-DSA-65 key pair.
+  return dk, ek, sk, vk
+```
 
 ## Digital Signatures
 

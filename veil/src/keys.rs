@@ -5,14 +5,13 @@ use fips204::{
     ml_dsa_65::{self},
     traits::SerDes as _,
 };
+use lockstitch::Protocol;
 use ml_kem::{EncodedSizeUser as _, KemCore as _};
 use rand::{CryptoRng, Rng, RngCore};
 
 pub const PK_LEN: usize = 1184 + ml_dsa_65::PK_LEN;
 
-pub const SK_LEN: usize = 32 + // ML-KEM seed d
-   32 + // ML-KEM seed z
-   32; // ML-DSA seed ξ
+pub const SK_LEN: usize = 256;
 
 pub type SigningKey = ml_dsa_65::PrivateKey;
 
@@ -87,50 +86,36 @@ pub struct SecKey {
     /// The corresponding [`PubKey`] for the secret key.
     pub pub_key: PubKey,
 
-    /// The secret key's canonical encoded form.
-    pub encoded: [u8; SK_LEN],
+    /// The secret key seed.
+    pub seed: [u8; SK_LEN],
 }
 
 impl SecKey {
     /// Generates a random secret key.
     #[must_use]
     pub fn random(mut rng: impl CryptoRng + RngCore) -> SecKey {
-        let dk_d = rng.gen::<[u8; 32]>();
-        let dk_z = rng.gen::<[u8; 32]>();
-        let (dk, ek) = ml_kem::kem::Kem::<ml_kem::MlKem768Params>::generate_deterministic(
-            &dk_d.into(),
-            &dk_z.into(),
-        );
-        let sk_x = rng.gen::<[u8; 32]>();
-        let (vk, sk) =
-            ml_dsa_65::try_keygen_with_rng(&mut ConstRng::new(&sk_x)).expect("should generate");
-
-        let mut sec_encoded = Vec::with_capacity(SK_LEN);
-        sec_encoded.extend_from_slice(&dk_d);
-        sec_encoded.extend_from_slice(&dk_z);
-        sec_encoded.extend_from_slice(&sk_x);
-
-        SecKey {
-            dk,
-            sk,
-            pub_key: PubKey::from_parts(ek, vk),
-            encoded: sec_encoded.try_into().expect("should be secret key sized"),
-        }
+        Self::from_canonical_bytes(rng.gen::<[u8; SK_LEN]>()).expect("should parse")
     }
 
     /// Decodes the given slice as a secret key, if possible.
     #[must_use]
     pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<SecKey> {
-        let encoded = <[u8; SK_LEN]>::try_from(b.as_ref()).ok()?;
-        let (dk_d, dk_z, sk_x) = array_refs![&encoded, 32, 32, 32];
-        let (dk, ek) = ml_kem::kem::Kem::<ml_kem::MlKem768Params>::generate_deterministic(
-            dk_d.into(),
-            dk_z.into(),
-        );
-        let (vk, sk) =
-            ml_dsa_65::try_keygen_with_rng(&mut ConstRng::new(sk_x)).expect("should generate");
+        let seed = <[u8; SK_LEN]>::try_from(b.as_ref()).ok()?;
 
-        Some(SecKey { dk, sk, pub_key: PubKey::from_parts(ek, vk), encoded })
+        let mut key = Protocol::new("veil.key");
+        key.mix("seed", &seed);
+
+        let dk_d = key.derive_array::<32>("ml-kem-768-d");
+        let dk_z = key.derive_array::<32>("ml-kem-768-z");
+        let (dk, ek) = ml_kem::kem::Kem::<ml_kem::MlKem768Params>::generate_deterministic(
+            &dk_d.into(),
+            &dk_z.into(),
+        );
+        let sk_x = key.derive_array::<32>("ml-dsa-65-x");
+        let (vk, sk) =
+            ml_dsa_65::try_keygen_with_rng(&mut ConstRng::new(&sk_x)).expect("should generate");
+
+        Some(SecKey { dk, sk, pub_key: PubKey::from_parts(ek, vk), seed })
     }
 }
 
@@ -201,7 +186,7 @@ mod tests {
     fn sec_key_round_trip() {
         let rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let ssk = SecKey::random(rng);
-        let ssk_p = SecKey::from_canonical_bytes(ssk.encoded).expect("should deserialize");
+        let ssk_p = SecKey::from_canonical_bytes(ssk.seed).expect("should deserialize");
         assert_eq!(ssk.pub_key, ssk_p.pub_key);
     }
 
