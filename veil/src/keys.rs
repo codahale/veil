@@ -1,15 +1,18 @@
 use std::fmt::{Debug, Formatter};
 
-use arrayref::array_refs;
 use fips204::{
     ml_dsa_65::{self},
     traits::SerDes as _,
 };
 use lockstitch::Protocol;
-use ml_kem::{EncodedSizeUser as _, KemCore as _};
+use ml_kem::{EncodedSizeUser, KemCore};
 use rand::{CryptoRng, Rng, RngCore};
+use typenum::Unsigned;
 
-pub const PK_LEN: usize = 1184 + ml_dsa_65::PK_LEN;
+const ML_KEM_PK_LEN: usize =
+    <<ml_kem::MlKem768 as KemCore>::EncapsulationKey as EncodedSizeUser>::EncodedSize::USIZE;
+
+pub const PK_LEN: usize = ML_KEM_PK_LEN + ml_dsa_65::PK_LEN;
 
 pub const SK_LEN: usize = 256;
 
@@ -40,18 +43,20 @@ impl PubKey {
     #[must_use]
     pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<PubKey> {
         let encoded = <[u8; PK_LEN]>::try_from(b.as_ref()).ok()?;
-        let (ek, vk) = array_refs![&encoded, 1184, ml_dsa_65::PK_LEN];
-        let ek = EncapsulationKey::from_bytes(ek.into());
-        let vk = VerifyingKey::try_from_bytes(*vk).ok()?;
+        let (ek, vk) = encoded.split_at(ML_KEM_PK_LEN);
+        let ek = EncapsulationKey::from_bytes(ek.try_into().expect("should be 1184 bytes"));
+        let vk =
+            VerifyingKey::try_from_bytes(vk.try_into().expect("should be PK_LEN bytes")).ok()?;
         Some(PubKey { ek, vk, encoded })
     }
 
     fn from_parts(ek: EncapsulationKey, vk: VerifyingKey) -> PubKey {
-        let mut encoded = Vec::with_capacity(PK_LEN);
-        encoded.extend_from_slice(&ek.as_bytes());
-        encoded.extend_from_slice(&vk.clone().into_bytes());
+        let mut encoded = [0u8; PK_LEN];
+        let (enc_ek, enc_vk) = encoded.split_at_mut(ML_KEM_PK_LEN);
+        enc_ek.copy_from_slice(&ek.as_bytes());
+        enc_vk.copy_from_slice(&vk.clone().into_bytes());
 
-        PubKey { ek, vk, encoded: encoded.try_into().expect("should be public key sized") }
+        PubKey { ek, vk, encoded }
     }
 }
 
