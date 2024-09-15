@@ -312,8 +312,8 @@ and thus unable to compute their forgery.
 
 A Veil key has two types of sub-key: ML-KEM-768 and ML-DSA-65.
 
-A public key has an ML-KEM-768 encapsulating key `ek` an ML-DSA-65 verifying key `vk`. Its encoded
-form is the concatenation of the encoded forms of each sub-key in that order: `ek ǁ vk`.
+A public key has an ML-KEM-768 encapsulating key `ek` and an ML-DSA-65 verifying key `vk`. Its
+encoded form is the concatenation of the encoded forms of each sub-key in that order: `ek ǁ vk`.
 
 A secret key has an ML-KEM-768 decapsulating key `dk` and an ML-DSA-65 signing key `sk`. Its encoded
 form is a 256-byte seed from which the ML-KEM-768 seeds `dk_d` and `dk_z` and the ML-DSA-65 seed
