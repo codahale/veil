@@ -13,7 +13,7 @@ use rand::{prelude::SliceRandom, CryptoRng, Rng};
 
 use crate::{
     keys::{PubKey, SecKey, PK_LEN, SK_LEN},
-    mres, pbenc, sig, DecryptError, EncryptError, ParsePublicKeyError, Signature, VerifyError,
+    message, pbenc, sig, DecryptError, EncryptError, ParsePublicKeyError, Signature, VerifyError,
 };
 
 /// A secret key, used to encrypt, decrypt, and sign messages.
@@ -109,7 +109,7 @@ impl SecretKey {
         receivers.shuffle(&mut rng);
 
         // Finally, encrypt.
-        mres::encrypt(&mut rng, reader, writer, &self.0, &receivers)
+        message::encrypt(&mut rng, reader, writer, &self.0, &receivers)
     }
 
     /// Decrypts the contents of `reader`, if possible, and writes the plaintext to `writer`.
@@ -127,7 +127,7 @@ impl SecretKey {
         writer: impl Write,
         sender: &PublicKey,
     ) -> Result<u64, DecryptError> {
-        mres::decrypt(reader, writer, &self.0, &sender.0)
+        message::decrypt(reader, writer, &self.0, &sender.0)
     }
 
     /// Reads the contents of the reader and returns a digital signature.

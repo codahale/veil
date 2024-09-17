@@ -3,11 +3,12 @@
 use std::io::{self, Read, Write};
 
 use lockstitch::{Protocol, TAG_LEN};
-use rand::{CryptoRng, Rng};
+use rand::{CryptoRng, Rng, RngCore};
 
 use crate::{
+    kemeleon::{self, ENC_CT_LEN},
     keys::{PubKey, SecKey},
-    sig, sres, DecryptError, EncryptError,
+    sig, DecryptError, EncryptError,
 };
 
 /// The length of a plaintext block header. The first byte signifies the block type, the next three
@@ -33,7 +34,7 @@ const DEK_LEN: usize = 32;
 const HEADER_LEN: usize = DEK_LEN + size_of::<u64>();
 
 /// The length of an encrypted header.
-const ENC_HEADER_LEN: usize = HEADER_LEN + sres::OVERHEAD;
+const ENC_HEADER_LEN: usize = ENC_CT_LEN + HEADER_LEN + TAG_LEN;
 
 /// Encrypt the contents of `reader` such that they can be decrypted and verified by all members of
 /// `receivers` and write the ciphertext to `writer` with some padding bytes of random data added.
@@ -45,8 +46,8 @@ pub fn encrypt(
     receivers: &[Option<PubKey>],
 ) -> Result<u64, EncryptError> {
     // Initialize a protocol and mix the sender's public key into it.
-    let mut mres = Protocol::new("veil.mres");
-    mres.mix("sender", &sender.pub_key.encoded);
+    let mut message = Protocol::new("veil.message");
+    message.mix("sender", &sender.pub_key.encoded);
 
     // Generate a random DEK.
     let dek = rng.gen::<[u8; DEK_LEN]>();
@@ -54,20 +55,20 @@ pub fn encrypt(
     // Encode a header with the DEK and receiver count.
     let header = Header::new(dek, receivers.len()).encode();
 
-    // For each receiver, encrypt a copy of the header with veil.sres.
+    // For each receiver, encrypt a copy of the header.
     let mut written = 0;
     let mut enc_header = [0u8; ENC_HEADER_LEN];
     for receiver in receivers {
         // Encrypt the header for the given receiver, if any, or use random data to create a fake
         // recipient.
         if let Some(receiver) = receiver {
-            sres::encrypt(&mut rng, sender, receiver, &header, &mut enc_header);
+            encrypt_header(message.clone(), &mut rng, receiver, &header, &mut enc_header);
         } else {
             rng.fill_bytes(&mut enc_header);
         }
 
         // Mix the encrypted header into the protocol.
-        mres.mix("header", &enc_header);
+        message.mix("header", &enc_header);
 
         // Write the encrypted header.
         writer.write_all(&enc_header).map_err(EncryptError::WriteIo)?;
@@ -75,12 +76,42 @@ pub fn encrypt(
     }
 
     // Mix the DEK into the protocol.
-    mres.mix("dek", &dek);
+    message.mix("dek", &dek);
 
     // Encrypt the plaintext in blocks and write them, then sign the message.
-    written += encrypt_message(&mut rng, mres, reader, writer, sender)?;
+    written += encrypt_message(&mut rng, message, reader, writer, sender)?;
 
     Ok(written)
+}
+
+/// Given an initialized protocol, the receiver's public key and a plaintext, encrypts the given
+/// plaintext and returns the ciphertext.
+fn encrypt_header(
+    mut protocol: Protocol,
+    mut rng: impl RngCore + CryptoRng,
+    receiver: &PubKey,
+    plaintext: &[u8],
+    ciphertext: &mut [u8],
+) {
+    debug_assert_eq!(ciphertext.len(), ENC_CT_LEN + plaintext.len() + TAG_LEN);
+
+    // Split up the output buffer.
+    let (out_kem, out_ciphertext) = ciphertext.split_at_mut(ENC_CT_LEN);
+
+    // Mix the receiver's public key into the protocol.
+    protocol.mix("receiver", &receiver.encoded);
+
+    // Encapsulate a shared secret with ML-KEM and mix it into the protocol's state.
+    let (kem_ect, kem_ss) = kemeleon::encapsulate(&receiver.ek, &mut rng);
+    out_kem.copy_from_slice(&kem_ect);
+    protocol.mix("ml-kem-768-ect", out_kem);
+
+    // Mix the ML-KEM shared secret into the protocol.
+    protocol.mix("ml-kem-768-ss", &kem_ss);
+
+    // Seal the plaintext.
+    out_ciphertext[..plaintext.len()].copy_from_slice(plaintext);
+    protocol.seal("message", out_ciphertext);
 }
 
 /// Given a protocol keyed with the DEK, read the entire contents of `reader` in blocks and write
@@ -88,7 +119,7 @@ pub fn encrypt(
 /// final state.
 fn encrypt_message(
     mut rng: impl Rng + CryptoRng,
-    mut mres: Protocol,
+    mut message: Protocol,
     mut reader: impl Read,
     mut writer: impl Write,
     sender: &SecKey,
@@ -114,13 +145,13 @@ fn encrypt_message(
         // Encode, seal, and write a data block header.
         block_header[0] = DATA_BLOCK;
         block_header[1..4].copy_from_slice(&(n as u32).to_le_bytes()[..3]);
-        mres.seal("block-header", &mut block_header);
+        message.seal("block-header", &mut block_header);
         writer.write_all(&block_header).map_err(EncryptError::WriteIo)?;
         written += u64::try_from(block_header.len()).expect("usize should be <= u64");
 
         // Seal the block and write it.
         block.resize(n + TAG_LEN, 0);
-        mres.seal("block", &mut block);
+        message.seal("block", &mut block);
         writer.write_all(&block).map_err(EncryptError::WriteIo)?;
         written += u64::try_from(block.len()).expect("usize should be <= u64");
 
@@ -139,19 +170,19 @@ fn encrypt_message(
     // Encode, seal, and write a padding block header.
     block_header[0] = PADDING_BLOCK;
     block_header[1..4].copy_from_slice(&(padding_len as u32).to_le_bytes()[..3]);
-    mres.seal("block-header", &mut block_header);
+    message.seal("block-header", &mut block_header);
     writer.write_all(&block_header).map_err(EncryptError::WriteIo)?;
     written += u64::try_from(block_header.len()).expect("usize should be <= u64");
 
     // Seal and write the padding block.
     let mut padding = vec![0u8; padding_len + TAG_LEN];
     rng.fill_bytes(&mut padding[..padding_len]);
-    mres.seal("block", &mut padding);
+    message.seal("block", &mut padding);
     writer.write_all(&padding).map_err(EncryptError::WriteIo)?;
     written += u64::try_from(padding.len()).expect("usize should be <= u64");
 
     // Sign the protocol's final state with the sender's secret key and append the signature.
-    let sig = sig::sign_protocol(&mut rng, &mut mres, sender);
+    let sig = sig::sign_protocol(&mut rng, &mut message, sender);
     writer.write_all(&sig).map_err(EncryptError::WriteIo)?;
     written += u64::try_from(sig.len()).expect("usize should be <= u64");
 
@@ -168,20 +199,20 @@ pub fn decrypt(
     sender: &PubKey,
 ) -> Result<u64, DecryptError> {
     // Initialize a protocol and mix the sender's public key into it.
-    let mut mres = Protocol::new("veil.mres");
-    mres.mix("sender", &sender.encoded);
+    let mut message = Protocol::new("veil.message");
+    message.mix("sender", &sender.encoded);
 
     // Find a header, decrypt it, and mix the entirety of the headers and padding into the protocol.
-    let (mut mres, dek) = decrypt_header(mres, &mut reader, receiver, sender)?;
+    let (mut message, dek) = decrypt_headers(message, &mut reader, receiver)?;
 
     // Mix the DEK into the protocol.
-    mres.mix("dek", &dek);
+    message.mix("dek", &dek);
 
     // Decrypt the message.
-    let (written, sig) = decrypt_message(&mut mres, &mut reader, &mut writer)?;
+    let (written, sig) = decrypt_message(&mut message, &mut reader, &mut writer)?;
 
     // Verify the signature and return the number of bytes written.
-    sig::verify_protocol(&mut mres, sender, sig.try_into().expect("should be signature sized"))
+    sig::verify_protocol(&mut message, sender, sig.try_into().expect("should be signature sized"))
         .and(Some(written))
         .ok_or(DecryptError::InvalidCiphertext)
 }
@@ -189,7 +220,7 @@ pub fn decrypt(
 /// Given a protocol keyed with the DEK, read the entire contents of `reader` in blocks and write
 /// the decrypted blocks `writer`.
 fn decrypt_message(
-    mres: &mut Protocol,
+    message: &mut Protocol,
     mut reader: impl Read,
     mut writer: impl Write,
 ) -> Result<(u64, Vec<u8>), DecryptError> {
@@ -201,7 +232,7 @@ fn decrypt_message(
         // Read and open a block header.
         reader.read_exact(&mut header).map_err(DecryptError::ReadIo)?;
         let header =
-            mres.open("block-header", &mut header).ok_or(DecryptError::InvalidCiphertext)?;
+            message.open("block-header", &mut header).ok_or(DecryptError::InvalidCiphertext)?;
         let block_len = (header[1] as usize)
             + ((header[2] as usize) << 8)
             + ((header[3] as usize) << 16)
@@ -211,7 +242,7 @@ fn decrypt_message(
         // Read and open the block.
         reader.read_exact(&mut buf[..block_len]).map_err(DecryptError::ReadIo)?;
         let plaintext =
-            mres.open("block", &mut buf[..block_len]).ok_or(DecryptError::InvalidCiphertext)?;
+            message.open("block", &mut buf[..block_len]).ok_or(DecryptError::InvalidCiphertext)?;
         if header[0] == DATA_BLOCK {
             // Write the plaintext.
             writer.write_all(plaintext).map_err(DecryptError::WriteIo)?;
@@ -230,11 +261,10 @@ fn decrypt_message(
 
 /// Iterate through the contents of `reader` looking for a header which was encrypted by the given
 /// sender for the given receiver.
-fn decrypt_header(
-    mut mres: Protocol,
+fn decrypt_headers(
+    mut message: Protocol,
     mut reader: impl Read,
     receiver: &SecKey,
-    sender: &PubKey,
 ) -> Result<(Protocol, [u8; DEK_LEN]), DecryptError> {
     let mut enc_header = [0u8; ENC_HEADER_LEN];
     let mut header = None;
@@ -253,12 +283,15 @@ fn decrypt_header(
             }
         })?;
 
+        // Clone the protocol at its state before this header is processed.
+        let clone = message.clone();
+
         // Mix the encrypted header into the protocol.
-        mres.mix("header", &enc_header);
+        message.mix("header", &enc_header);
 
         // If a header hasn't been decrypted yet, try to decrypt this one.
         if header.is_none() {
-            if let Some(hdr) = sres::decrypt(receiver, sender, &mut enc_header) {
+            if let Some(hdr) = decrypt_header(clone, receiver, &mut enc_header) {
                 // If the header was successfully decrypted, keep the DEK and update the loop
                 // variable to not be effectively infinite.
                 let hdr = Header::decode(hdr);
@@ -274,7 +307,37 @@ fn decrypt_header(
     let header = header.ok_or(DecryptError::InvalidCiphertext)?;
 
     // Return the protocol and DEK.
-    Ok((mres, header.dek))
+    Ok((message, header.dek))
+}
+
+/// Given the receiver's key pair and a ciphertext, decrypts the given ciphertext and returns the
+/// plaintext iff the ciphertext was encrypted for the receiver.
+#[must_use]
+fn decrypt_header<'a>(
+    mut message: Protocol,
+    receiver: &SecKey,
+    in_out: &'a mut [u8],
+) -> Option<&'a [u8]> {
+    // Check for too-small ciphertexts.
+    if in_out.len() < ENC_CT_LEN + TAG_LEN {
+        return None;
+    }
+
+    // Split the ciphertext into its components.
+    let (kem_ect, ciphertext) = in_out.split_at_mut(ENC_CT_LEN);
+
+    // Mix the receiver's public key into the protocol.
+    message.mix("receiver", &receiver.pub_key.encoded);
+
+    // Mix the ML-KEM ciphertext into the protocol, decapsulate the ML-KEM shared secret, then mix
+    // the shared secret into the protocol.
+    message.mix("ml-kem-768-ect", kem_ect);
+    let kem_ss =
+        kemeleon::decapsulate(&receiver.dk, kem_ect.try_into().expect("should be 1252 bytes"));
+    message.mix("ml-kem-768-ss", &kem_ss);
+
+    // Open the plaintext.
+    message.open("message", ciphertext)
 }
 
 struct Header {

@@ -12,7 +12,6 @@ Veil's feature set.
 * [Cryptographic Primitives](#cryptographic-primitives)
 * [Construction Techniques](#construction-techniques)
 * [Digital Signatures](#digital-signatures)
-* [Encrypted Headers](#encrypted-headers)
 * [Encrypted Messages](#encrypted-messages)
 * [Passphrase-Based Encryption](#passphrase-based-encryption)
 * [References](#references)
@@ -412,144 +411,9 @@ Each `veil.sig` signature consists of an encrypted ML-DSA-65 signature `s`.
 An attack which distinguishes between a `veil.sig` and random noise would imply that AEGIS-128L is
 distinguishable from a random function over short messages.
 
-## Encrypted Headers
-
-`veil.sres` implements a single-receiver signcryption scheme which Veil uses to encrypt message
-headers. It integrates ML-KEM-768 key encapsulation, a Lockstitch DEM, and finally a `veil.sig`
-digital signature.
-
-### Encrypting A Header
-
-Encrypting a header requires the sender's key pair `(pk_S,sk_S)`, the receiver's public key `pk_R`,
-and a plaintext `P`.
-
-```text
-function EncryptHeader((pk_S, sk_S), pk_R, P):
-  state ← Initialize("veil.sres")                                      // Initialize a protocol.
-  state ← Mix(state, "sender", pk_S)                                   // Mix the sender's public key into the protocol.
-  state ← Mix(state, "receiver", pk_R)                                 // Mix the receiver's public key into the protocol.
-  (c₀, kem_ss) ← ML_KEM_768::EncapsulateObfuscated(pk_R.ek_pq)         // Encapsulate a key for the receiver with ML-KEM-768, obfuscated with Kemeleon.
-  state ← Mix(state, "ml-kem-768-ect", c₀)                             // Mix the ML-KEM-768 ciphertext and shared secret into the protocol.
-  state ← Mix(state, "ml-kem-768-ss", kem_ss)
-  (state, c₁) ← Encrypt(state, "message", P)                           // Encrypt the plaintext.
-  (state, c₂) ← SignState(state, sk_S)                                 // Sign the protocol state with veil.sig.
-  return c₀ ǁ c₁ ǁ c₂
-```
-
-### Decrypting A Header
-
-Decrypting a header requires a receiver's key pair `(pk_R,sk_R)`, the sender's public key `pk_S`,
-and a ciphertext `c₀ ǁ c₁ ǁ c₂`.
-
-```text
-function DecryptHeader((pk_R, sk_R), pk_S, c₀ ǁ c₁ ǁ c₂):
-  state ← Initialize("veil.sres")                                      // Initialize a protocol.
-  state ← Mix(state, "sender", pk_S)                                   // Mix the sender's public key into the protocol.
-  state ← Mix(state, "receiver", pk_R)                                 // Mix the receiver's public key into the protocol.
-  state ← Mix(state, "ml-kem-768-ect", c₀)                             // Mix the obfuscated ML-KEM-768 ciphertext into the protocol.
-  kem_ss ← ML_KEM_768::DecapsulateObfuscated(sk_R.dk_pq, kem_ect)      // De-obfuscate with Kemeleon and decapsulate the key with ML-KEM-768.
-  state ← Mix(state, "ml-kem-768-ss", kem_ss)                          // Mix the ML-KEM-768 shared secret into the protocol.
-  (state, P) ← Decrypt(state, "message", c₁)                           // Decrypt the plaintext.
-  if ¬VerifyState(state, pk_S, c₂):                                    // Verify the signature and return an error if invalid.
-    return ⊥
-  return P                                                             // Otherwise, return the plaintext.
-```
-
-### Constructive Analysis Of `veil.sres`
-
-`veil.sres` is the integration of two well-known constructions: a KEM/DEM hybrid public key
-encryption scheme and a digital signature scheme.
-
-The initial portion of `veil.sres` is equivalent to ECIES (see Construction 12.23 of
-[[KL20]](#kl20), p. 435), (with the addition of the Kemeleon-obfuscated ML-KEM-768 ciphertext
-[[GSV24]](#gsv24), and the signature digest `d` serving as the authentication tag for the data
-encapsulation mechanism) and is IND-CCA2 secure (see Corollary 12.14 of [[KL20]](#kl20), p. 436).
-
-The latter portion of `veil.sres` is equivalent to [`veil.sig`](#digital-signatures).
-
-### Multi-User Confidentiality Of Headers
-
-One of the two main goals of the `veil.sres` is confidentiality in the multi-user setting (see
-[Multi-User Confidentiality](#multi-user-confidentiality)), or the inability of an adversary `A` to
-learn information about plaintexts.
-
-#### Outsider Confidentiality Of Headers
-
-First, we evaluate the confidentiality of `veil.sres` in the multi-user outsider setting (see
-[Outsider Confidentiality](#outsider-confidentiality)), in which the adversary `A` knows the public
-keys of all users but none of their secret keys ([[BS10]](#bs10), p. 44).
-
-The classic multi-user attack on the generic Encrypt-Then-Sign (EtS) construction sees `A` strip the
-signature `σ` from the challenge ciphertext `C=(c,σ,Q_S,Q_R)` and replace it with `σ ← Sign(d_A,c)`
-to produce an attacker ciphertext `C′=(c,σ′,Q_A,Q_R)` at which point `A` can trick the receiver into
-decrypting the result and giving `A` the randomly-chosen plaintext `m₀ ⊕ m₁` [[AR10]](#ar10). This
-attack is not possible with `veil.sres`, as the sender's public key is strongly bound during
-encryption and decryption.
-
-`A` is unable to forge valid signatures for existing ciphertexts, limiting them to passive attacks.
-A passive attack on any of the components of a `veil.sres` ciphertext would only be possible if
-either TurboSHAKE128 is not collision-resistant or AEGIS-128L is not PRF secure.
-
-Therefore, `veil.sres` provides confidentiality in the multi-user outsider setting.
-
-#### Insider Confidentiality Of Headers
-
-Next, we evaluate the confidentiality of `veil.sres` in the multi-user insider setting (see [Insider
-Confidentiality](#insider-confidentiality), in which the adversary `A` knows the sender's secret
-key `sk_S` in addition to the public keys of both users ([[BS10]](#bs10), p. 45-46).
-
-Without knowing `sk_R` itself, `A` cannot recover the ML-KEM-768 shared secret.
-
-`A` also cannot trick the receiver into decrypting an equivalent message by replacing the signature,
-despite `A`'s ability to use `sk_S` to create new signatures. In order to generate a valid signature
-on a ciphertext `c′` (e.g. `c′=c ǁ 1`), `A` would have to derive a valid signature digest `d′` from
-the protocol state. Unlike the signature hash function in the generic EtS composition, however, the
-protocol state is cryptographically dependent on a value `A` does not know: the ML-KEM-768 shared
-secret.
-
-Therefore, `veil.sres` provides confidentiality in the multi-user insider setting.
-
-### Multi-User Authenticity Of Headers
-
-The second of the two main goals of the `veil.sres` is authenticity in the multi-user setting (see
-[Multi-User Authenticity](#multi-user-authenticity)), or the inability of an adversary `A` to forge
-valid ciphertexts.
-
-#### Outsider Authenticity Of Headers
-
-First, we evaluate the authenticity of `veil.sres` in the multi-user outsider setting (see [Outsider
-Authenticity](#outsider-authenticity)), in which the adversary `A` knows the public keys of all
-users but none of their secret keys ([[BS10]](#bs10), p. 47).
-
-Because ML-DSA-65 is sUF-CMA secure (see [`veil.sig`](#digital-signatures)), it is infeasible for
-`A` to forge a signature for a new message or modify an existing signature for an existing message.
-Therefore, `veil.sres` provides authenticity in the multi-user outsider setting.
-
-#### Insider Authenticity Of Headers
-
-Next, we evaluate the authenticity of `veil.sres` in the multi-user insider setting (see [Insider
-Authenticity](#insider-authenticity)), in which the adversary `A` knows the receiver's secret key
-`sk_R` in addition to the public keys of both users ([[BS10]](#bs10), p. 48).
-
-Again, ML-DSA-65 is sUF-CMA secure and the signature is created using the signer's secret key, which
-`A` does not know. The receiver (or `A` in possession of the receiver's secret key) cannot forge
-signatures for new messages. Therefore, `veil.sres` provides authenticity in the multi-user insider
-setting.
-
-### Indistinguishability Of Headers From Random Noise Of Encrypted Headers
-
-All of the components of a `veil.sres` ciphertext except for the ML-KEM-768 ciphertext are
-AEGIS-128L ciphertexts using keys derived via TurboSHAKE128. An adversary in the outsider setting
-(i.e. knowing only public keys) is unable to calculate any of the key material used to produce the
-ciphertexts; a distinguishing attack would imply that either TurboSHAKE128 is not
-collision-resistant or that AEGIS-128L is not PRF secure.
-
-The ML-KEM-768 ciphertext is encoded with the Kemeleon obfuscation scheme, which is
-indistinguishable from random noise [[GSV24]](#gsv24).
-
 ## Encrypted Messages
 
-`veil.mres` implements a multi-receiver signcryption scheme.
+`veil.message` implements a multi-receiver signcryption scheme.
 
 ### Encrypting A Message
 
@@ -557,14 +421,22 @@ Encrypting a message requires a sender's key pair `(pk_S,sk_S)`, receiver public
 `[pk_R_0,…,pk_R_n]`, and plaintext `P`.
 
 ```text
+function EncryptHeader(state, pk_R, P):
+  state ← Mix(state, "receiver", pk_R)                      // Mix the receiver's public key into the protocol.
+  (c₀, kem_ss) ← ML_KEM_768::EncapsulateObfuscated(pk_R.ek) // Encapsulate a key for the receiver with ML-KEM-768, obfuscated with Kemeleon.
+  state ← Mix(state, "ml-kem-768-ect", c₀)                  // Mix the ML-KEM-768 ciphertext and shared secret into the protocol.
+  state ← Mix(state, "ml-kem-768-ss", kem_ss)
+  (state, c₁) ← Seal(state, "message", P)                   // Seal the plaintext.
+  return c₀ ǁ c₁
+
 function EncryptMessage((pk_S, sk_S), [pk_R_0,…,pk_R_n], P):
-  state ← Initialize("veil.mres")    // Initialize a protocol.
+  state ← Initialize("veil.message")    // Initialize a protocol.
   state ← Mix(state, "sender", pk_S) // Mix the sender's public key into the protocol.
   K ← Rand(32)                       // Generate a random data encryption key.
   H ← K ǁ n                          // Encode the DEK and receiver count in a header.
 
   for pk_R_i in [pk_R_0,…,pk_R_n]:
-    E_i ← EncryptHeader((pk_S, sk_S), pk_R_i, H) // Encrypt the header for each receiver.
+    E_i ← EncryptHeader(Clone(state), pk_R_i, H) // Encrypt the header for each receiver.
     state ← Mix(state, "header", E_i)            // Mix the encrypted header into the protocol.
     C ← C ǁ E_i
 
@@ -593,16 +465,24 @@ Decrypting a message requires a receiver's key pair `(pk_R,sk_R)`, sender's publ
 ciphertext `C`.
 
 ```text
+function DecryptHeader(state, (sk_R, pk_R), c₀ ǁ c₁):
+  state ← Mix(state, "receiver", pk_R)                    // Mix the receiver's public key into the protocol.
+  kem_ss ← ML_KEM_768::DecapsulateObfuscated(pk_R.dk, c₀) // Decapsulate a key for the receiver with ML-KEM-768, obfuscated with Kemeleon.
+  state ← Mix(state, "ml-kem-768-ect", c₀)                // Mix the ML-KEM-768 ciphertext and shared secret into the protocol.
+  state ← Mix(state, "ml-kem-768-ss", kem_ss)
+  (state, P) ← Open(state, "message", c₁)                 // Open the plaintext.
+  return P                                                // Return the plaintext or an error.
+
 function DecryptMessage((pk_R, sk_R), pk_S, C):
-  state ← Initialize("veil.mres")       // Initialize a protocol.
+  state ← Initialize("veil.message")       // Initialize a protocol.
   state ← Mix(state, "sender", pk_S)    // Mix the sender's public key into the protocol.
 
   (i, n) ← (0, ∞)                     // Go through ciphertext looking for a decryptable header.
   while i < n:
   for each possible encrypted header E_i in C:
     (E_i, C) ← C[..HEADER_LEN] ǁ C[HEADER_LEN..]
+    x ← DecryptHeader(Clone(state), (pk_R, sk_R), E_i)
     state ← Mix(state, "header", E_i)
-    x ← DecryptHeader((pk_R, sk_R), pk_S, E_i)
     if x ≠ ⊥:
       K ǁ n ← x // Once a header is decrypted, process the remaining headers.
 
@@ -623,101 +503,105 @@ function DecryptMessage((pk_R, sk_R), pk_S, C):
   return P
 ```
 
-### Constructive Analysis Of `veil.mres`
+### Constructive Analysis Of `veil.message`
 
-`veil.mres` is an integration of two well-known constructions: a multi-receiver hybrid encryption
-scheme and a signature scheme.
+`veil.message` is an integration of three well-known constructions: an HPKE-style hybrid public key
+encryption scheme, a symmetric DEM, and a digital signature.
 
-The initial portion of `veil.mres` is a multi-receiver hybrid encryption scheme, with per-receiver
-copies of a symmetric data encryption key (DEK) encrypted in headers with the receivers' public keys
-[[Kur02]](#kur02) [[BBS03]](#bbs03) [[BBKS07]](#bbks07) [[RFC4880]](#rfc4880). The headers are
-encrypted with the `veil.sres` construction (see [`veil.sres`](#encrypted-headers)), which provides
-full insider security (i.e. IND-CCA2 and sUF-CMA in the multi-user insider setting), using a
-per-header `Derive` value as an ID which binds the header ciphertexts to this specific message. The
-message itself is divided into a sequence of block headers and message blocks, each encrypted with a
-sequence of Lockstitch `Seal` operations, which is IND-CCA2 secure.
+The header encryption of `veil.message` is an HPKE-style encryption scheme, combining ML-KEM key
+encapsulation and a Lockstitch-based AEAD. ML-KEM claims IND-CCA2 security, as does Lockstitch's
+`Seal` operation, therefore the combination of the two is IND-CCA2-secure per Theorem 12.14 of
+[[KL20]](#kl20) (p. 425). The use of the Kemeleon encoding scheme to obfuscate the ML-KEM
+ciphertexts provides indistinguishability from random noise, and the inclusion of the encoded
+ciphertext as a protocol input eliminates any possible malleability concerns.
 
-The final portion of `veil.mres` is equivalent to [`veil.sig`](#digital-signatures).
+The message itself is divided into a sequence of block headers and message blocks, each encrypted
+with a sequence of Lockstitch `Seal` operations, which is IND-CCA2 secure.
+
+The final portion of `veil.message` is equivalent to [`veil.sig`](#digital-signatures), performed
+over the entirety of the message's ciphertext, providing full insider security (i.e. IND-CCA2 and
+sUF-CMA in the multi-user insider setting).
 
 ### Multi-User Confidentiality Of Messages
 
-One of the two main goals of the `veil.mres` is confidentiality in the multi-user setting (see
+One of the two main goals of the `veil.message` is confidentiality in the multi-user setting (see
 [Multi-User Confidentiality](#multi-user-confidentiality)), or the inability of an adversary `A` to
-learn information about plaintexts. As `veil.mres` is a multi-receiver scheme, we adopt Bellare et
+learn information about plaintexts. As `veil.message` is a multi-receiver scheme, we adopt Bellare et
 al.'s adaptation of the multi-user setting, in which `A` may compromise any subset of receivers
 [[BBKS]](#bbks07).
 
 #### Outsider Confidentiality Of Messages
 
-First, we evaluate the confidentiality of `veil.mres` in the multi-user outsider setting (see
+First, we evaluate the confidentiality of `veil.message` in the multi-user outsider setting (see
 [Outsider Confidentiality](#outsider-confidentiality)), in which the adversary `A` knows the public
 keys of all users but none of their secret keys ([[BS10]](#bs10), p. 44).
 
-As with [`veil.sres`](#encrypted-headers), `veil.mres` superficially resembles an Encrypt-Then-Sign
-(EtS) scheme, which are vulnerable to an attack where by `A` strips the signature from the challenge
-ciphertext and either signs it themselves or tricks the sender into signing it, thereby creating a
-new ciphertext they can then trick the receiver into decrypting for them. Again, as with
-`veil.sres`, the identity of the sender is strongly bound during encryption encryption and
-decryption making this infeasible.
+The classic multi-user attack on the generic Encrypt-Then-Sign (EtS) construction sees `A` strip the
+signature `σ` from the challenge ciphertext `C=(c,σ,Q_S,Q_R)` and replace it with `σ ← Sign(d_A,c)`
+to produce an attacker ciphertext `C′=(c,σ′,Q_A,Q_R)` at which point `A` can trick the receiver into
+decrypting the result and giving `A` the randomly-chosen plaintext `m₀ ⊕ m₁` [[AR10]](#ar10). This
+attack is not possible with `veil.message`, as the sender's public key is strongly bound during
+encryption and decryption.
 
 `A` is unable to forge valid signatures for existing ciphertexts, limiting them to passive attacks.
-`veil.mres` ciphertexts consist of encrypted headers, encrypted block headers, encrypted message
+`veil.message` ciphertexts consist of encrypted headers, encrypted block headers, encrypted message
 blocks, and an encrypted signature. Each component of the ciphertext is dependent on the previous
 inputs. A passive attack on any of those would only be possible if either TurboSHAKE128 is not
 collision-resistant or AEGIS-128L is not PRF secure.
 
+Therefore, `veil.message` provides confidentiality in the multi-user outsider setting.
+
 #### Insider Confidentiality Of Messages
 
-Next, we evaluate the confidentiality of `veil.mres` in the multi-user insider setting (see [Insider
-Confidentiality](#insider-confidentiality)), in which the adversary `A` knows the sender's secret
-key in addition to the public keys of all users ([[BS10]](#bs10), p. 45-46). `A` cannot decrypt the
-message by themselves, as they do not know either `sk_E` or any `sk_R` and cannot decrypt any of the
-`veil.sres`-encrypted headers. As with [`veil.sres`](#multi-user-confidentiality-of-headers) `A`
-cannot trick the receiver into decrypting an equivalent message by replacing the signature, despite
-`A`'s ability to use `sk_S` to create new headers. In order to generate a valid signature on a
-ciphertext `c′` (e.g. `c′=c ǁ 1`), `A` would have to derive a valid signature digest `d′` from the
-protocol state. Unlike the signature hash function in the generic EtS composition, however, the
-protocol state is cryptographically dependent on a value `A` does not know, specifically the data
-encryption key `K` (via the `Mix` operation) and the plaintext blocks `p_{0..n}` (via the `Encrypt`
-operation).
+Next, we evaluate the confidentiality of `veil.message` in the multi-user insider setting (see
+[Insider Confidentiality](#insider-confidentiality)), in which the adversary `A` knows the sender's
+secret key in addition to the public keys of all users ([[BS10]](#bs10), p. 45-46).
 
-Therefore, `veil.mres` provides confidentiality in the multi-user insider setting.
+Without the secret key of a recipient, `A` is unable to decapsulate the ML-KEM shared secret used to
+encrypt the corresponding header and thus cannot recover the data encryption key `K`.
+
+`A` also cannot trick the receiver into decrypting an equivalent message by replacing the signature,
+despite `A`'s ability to use `sk_S` to create new signatures. In order to generate a valid signature
+on a ciphertext `c′` (e.g. `c′=c ǁ 1`), `A` would have to derive a valid signature digest `d′` from
+the protocol state. Unlike the signature hash function in the generic EtS composition, however, the
+protocol state is cryptographically dependent on a value `A` does not know: the data encryption key
+`K`.
+
+Therefore, `veil.message` provides confidentiality in the multi-user insider setting.
 
 ### Multi-User Authenticity Of Messages
 
-The second of the two main goals of the `veil.mres` is authenticity in the multi-user setting (see
-[Multi-User Authenticity](#multi-user-authenticity)), or the inability of an adversary `A` to forge
-valid ciphertexts.
+The second of the two main goals of the `veil.message` is authenticity in the multi-user setting
+(see [Multi-User Authenticity](#multi-user-authenticity)), or the inability of an adversary `A` to
+forge valid ciphertexts.
 
 #### Outsider Authenticity Of Messages
 
-First, we evaluate the authenticity of `veil.mres` in the multi-user outsider setting (see [Outsider
-Authenticity](#outsider-authenticity)), in which the adversary `A` knows the public keys of all
-users but none of their secret keys ([[BS10]](#bs10), p. 47).
+First, we evaluate the authenticity of `veil.message` in the multi-user outsider setting (see
+[Outsider Authenticity](#outsider-authenticity)), in which the adversary `A` knows the public keys
+of all users but none of their secret keys ([[BS10]](#bs10), p. 47).
 
 Because the [`veil.sig`](#digital-signatures) signature scheme is sUF-CMA secure, it is infeasible
 for `A` to forge a signature for a new message or modify an existing signature for an existing
-message. Therefore, `veil.mres` provides authenticity in the multi-user outsider setting.
+message. Therefore, `veil.message` provides authenticity in the multi-user outsider setting.
 
 #### Insider Authenticity Of Messages
 
-Next, we evaluate the authenticity of `veil.mres` in the multi-user insider setting (see [Insider
+Next, we evaluate the authenticity of `veil.message` in the multi-user insider setting (see [Insider
 Authenticity](#insider-authenticity)), in which the adversary `A` knows some receivers' secret keys
 in addition to the public keys of both users ([[BS10]](#bs10), p. 47).
 
 Again, the [`veil.sig`](#digital-signatures) signature scheme is sUF-CMA secure and the signature is
 created using the sender's secret key, which `A` does not possess. The receiver (or `A` in
 possession of the receiver's secret key) cannot forge signatures for new messages. Therefore,
-`veil.mres` provides authenticity in the multi-user insider setting.
-
-Because `veil.mres` is only ever used to encrypt unique messages, the use of a deterministic
-signature scheme is not vulnerable to fault injection attacks.
+`veil.message` provides authenticity in the multi-user insider setting.
 
 ### Indistinguishability Of Messages From Random Noise
 
-`veil.mres` ciphertexts are indistinguishable from random noise. All components of an `veil.mres`
-ciphertext are AEGIS-128L ciphertexts; a successful distinguishing attack on them would imply that
-TurboSHAKE128 is not collision-resistant or AEGIS-128L is not PRF secure.
+`veil.message` ciphertexts are indistinguishable from random noise. The components of a
+`veil.message` ciphertext are either Kemeleon-encoded ML-KEM ciphertexts, which are
+indistinguishable from random noise ([[GSV24]](#gsv24)), or AEGIS-128L ciphertexts, which should be
+PRF-secure.
 
 ### Partial Decryption
 
@@ -725,12 +609,12 @@ The division of the plaintext stream into blocks takes its inspiration from the 
 [[HRRV]](#hrrv15), but the use of Lockstitch allows for a significant reduction in complexity.
 Instead of using the nonce and associated data to create a feed-forward ciphertext dependency, the
 Lockstitch protocol ensures all encryption operations are cryptographically dependent on the
-ciphertext of all previous encryption operations. Likewise, because the `veil.mres` ciphertext is
+ciphertext of all previous encryption operations. Likewise, because the `veil.message` ciphertext is
 terminated with a digital signature (see [`veil.sig`](#digital-signatures)), using a special
 operation for the final message block isn't required.
 
 The major limitation of such a system is the possibility of the partial decryption of invalid
-ciphertexts. If an attacker flips a bit on the fourth block of a ciphertext, `veil.mres` will
+ciphertexts. If an attacker flips a bit on the fourth block of a ciphertext, `veil.message` will
 successfully decrypt the first three before returning an error. If the end-user interface displays
 that, the attacker may be successful in radically altering the semantics of an encrypted message
 without the user's awareness. The first three blocks of a message, for example, could say
