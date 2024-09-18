@@ -267,7 +267,7 @@ fn decrypt_headers(
     receiver: &SecKey,
 ) -> Result<(Protocol, [u8; DEK_LEN]), DecryptError> {
     let mut enc_header = [0u8; ENC_HEADER_LEN];
-    let mut header = None;
+    let mut dek = None;
     let mut i = 0u64;
     let mut recv_count = u64::MAX;
 
@@ -290,24 +290,21 @@ fn decrypt_headers(
         message.mix("header", &enc_header);
 
         // If a header hasn't been decrypted yet, try to decrypt this one.
-        if header.is_none() {
+        if dek.is_none() {
             if let Some(hdr) = decrypt_header(clone, receiver, &mut enc_header) {
                 // If the header was successfully decrypted, keep the DEK and update the loop
                 // variable to not be effectively infinite.
                 let hdr = Header::decode(hdr);
                 recv_count = hdr.recv_count;
-                header = Some(hdr);
+                dek = Some(hdr.dek);
             }
         }
 
         i += 1;
     }
 
-    // Unpack the header values, if any.
-    let header = header.ok_or(DecryptError::InvalidCiphertext)?;
-
     // Return the protocol and DEK.
-    Ok((message, header.dek))
+    Ok((message, dek.ok_or(DecryptError::InvalidCiphertext)?))
 }
 
 /// Given the receiver's key pair and a ciphertext, decrypts the given ciphertext and returns the
