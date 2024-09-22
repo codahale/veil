@@ -111,7 +111,7 @@ fn encrypt_header(
 
     // Seal the plaintext.
     out_ciphertext[..plaintext.len()].copy_from_slice(plaintext);
-    protocol.seal("message", out_ciphertext);
+    protocol.seal("header", out_ciphertext);
 }
 
 /// Given a protocol keyed with the DEK, read the entire contents of `reader` in blocks and write
@@ -334,7 +334,7 @@ fn decrypt_header<'a>(
     message.mix("ml-kem-768-ss", &kem_ss);
 
     // Open the plaintext.
-    message.open("message", ciphertext)
+    message.open("header", ciphertext)
 }
 
 struct Header {

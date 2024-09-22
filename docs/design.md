@@ -426,7 +426,7 @@ function EncryptHeader(state, pk_R, P):
   (c₀, kem_ss) ← ML_KEM_768::EncapsulateObfuscated(pk_R.ek) // Encapsulate a key for the receiver with ML-KEM-768, obfuscated with Kemeleon.
   state ← Mix(state, "ml-kem-768-ect", c₀)                  // Mix the ML-KEM-768 ciphertext and shared secret into the protocol.
   state ← Mix(state, "ml-kem-768-ss", kem_ss)
-  (state, c₁) ← Seal(state, "message", P)                   // Seal the plaintext.
+  (state, c₁) ← Seal(state, "header", P)                    // Seal the plaintext.
   return c₀ ǁ c₁
 
 function EncryptMessage((pk_S, sk_S), [pk_R_0,…,pk_R_n], P):
@@ -470,7 +470,7 @@ function DecryptHeader(state, (sk_R, pk_R), c₀ ǁ c₁):
   kem_ss ← ML_KEM_768::DecapsulateObfuscated(pk_R.dk, c₀) // Decapsulate a key for the receiver with ML-KEM-768, obfuscated with Kemeleon.
   state ← Mix(state, "ml-kem-768-ect", c₀)                // Mix the ML-KEM-768 ciphertext and shared secret into the protocol.
   state ← Mix(state, "ml-kem-768-ss", kem_ss)
-  (state, P) ← Open(state, "message", c₁)                 // Open the plaintext.
+  (state, P) ← Open(state, "header", c₁)                  // Open the ciphertext.
   return P                                                // Return the plaintext or an error.
 
 function DecryptMessage((pk_R, sk_R), pk_S, C):
