@@ -84,17 +84,15 @@ pub fn encrypt(
     Ok(written)
 }
 
-/// Given an initialized protocol, the receiver's public key and a plaintext, encrypts the given
-/// plaintext and returns the ciphertext.
+/// Given an initialized protocol, the receiver's public key and a plaintext header, encrypts the
+/// given header and returns the ciphertext.
 fn encrypt_header(
     mut protocol: Protocol,
     mut rng: impl RngCore + CryptoRng,
     receiver: &PubKey,
-    plaintext: &[u8],
-    ciphertext: &mut [u8],
+    plaintext: &[u8; HEADER_LEN],
+    ciphertext: &mut [u8; ENC_HEADER_LEN],
 ) {
-    debug_assert_eq!(ciphertext.len(), ENC_CT_LEN + plaintext.len() + TAG_LEN);
-
     // Split up the output buffer.
     let (out_kem, out_ciphertext) = ciphertext.split_at_mut(ENC_CT_LEN);
 
@@ -307,19 +305,14 @@ fn decrypt_headers(
     Ok((message, dek.ok_or(DecryptError::InvalidCiphertext)?))
 }
 
-/// Given the receiver's key pair and a ciphertext, decrypts the given ciphertext and returns the
+/// Given the receiver's key pair and an encrypted header, decrypts the ciphertext and returns the
 /// plaintext iff the ciphertext was encrypted for the receiver.
 #[must_use]
 fn decrypt_header<'a>(
     mut message: Protocol,
     receiver: &SecKey,
-    in_out: &'a mut [u8],
+    in_out: &'a mut [u8; ENC_HEADER_LEN],
 ) -> Option<&'a [u8]> {
-    // Check for too-small ciphertexts.
-    if in_out.len() < ENC_CT_LEN + TAG_LEN {
-        return None;
-    }
-
     // Split the ciphertext into its components.
     let (kem_ect, ciphertext) = in_out.split_at_mut(ENC_CT_LEN);
 
