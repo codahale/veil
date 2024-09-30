@@ -2,7 +2,7 @@ use std::fmt::{Debug, Formatter};
 
 use fips204::{
     ml_dsa_65::{self},
-    traits::SerDes as _,
+    traits::{KeyGen as _, SerDes as _},
 };
 use lockstitch::Protocol;
 use ml_kem::{EncodedSizeUser, KemCore};
@@ -118,8 +118,7 @@ impl SecKey {
             &dk_z.into(),
         );
         let sk_x = key.derive_array::<32>("ml-dsa-65-x");
-        let (vk, sk) =
-            ml_dsa_65::try_keygen_with_rng(&mut ConstRng::new(&sk_x)).expect("should generate");
+        let (vk, sk) = ml_dsa_65::KG::keygen_from_seed(&sk_x);
 
         Some(SecKey { dk, sk, pub_key: PubKey::from_parts(ek, vk), seed })
     }
@@ -147,37 +146,6 @@ impl Debug for SecKey {
 impl AsRef<SigningKey> for &SecKey {
     fn as_ref(&self) -> &SigningKey {
         &self.sk
-    }
-}
-
-#[derive(Debug)]
-struct ConstRng<'a> {
-    x: Option<&'a [u8; 32]>,
-}
-
-impl<'a> CryptoRng for ConstRng<'a> {}
-impl<'a> RngCore for ConstRng<'a> {
-    fn next_u32(&mut self) -> u32 {
-        unreachable!()
-    }
-
-    fn next_u64(&mut self) -> u64 {
-        unreachable!()
-    }
-
-    fn fill_bytes(&mut self, dest: &mut [u8]) {
-        self.try_fill_bytes(dest).expect("should generate");
-    }
-
-    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
-        dest.copy_from_slice(self.x.take().expect("should only fill 32 bytes total"));
-        Ok(())
-    }
-}
-
-impl<'a> ConstRng<'a> {
-    const fn new(x: &'a [u8; 32]) -> ConstRng<'a> {
-        ConstRng { x: Some(x) }
     }
 }
 
