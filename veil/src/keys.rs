@@ -113,10 +113,7 @@ impl SecKey {
 
         let dk_d = key.derive_array::<32>("ml-kem-768-d");
         let dk_z = key.derive_array::<32>("ml-kem-768-z");
-        let (dk, ek) = ml_kem::kem::Kem::<ml_kem::MlKem768Params>::generate_deterministic(
-            &dk_d.into(),
-            &dk_z.into(),
-        );
+        let (dk, ek) = ml_kem::MlKem768::generate_deterministic(&dk_d.into(), &dk_z.into());
         let sk_x = key.derive_array::<32>("ml-dsa-65-x");
         let (vk, sk) = ml_dsa_65::KG::keygen_from_seed(&sk_x);
 
