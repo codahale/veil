@@ -531,11 +531,12 @@ dependencies = [
 
 [[package]]
 name = "fips204"
-version = "0.2.2"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ea2461567040f75a882162ffe38f6dc35bf5a193e995ca3f8c1f5d3c101be1d"
+checksum = "5d4e8bf5f3e766650dba7f66a7db314ac8aff42e90d249bc0de38e5bf62bd3af"
 dependencies = [
  "rand_core",
+ "sha2",
  "sha3",
  "zeroize",
 ]
@@ -1017,6 +1018,17 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "sha2"
+version = "0.10.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "793db75ad2bcafc3ffa7c68b215fee268f537982cd901d132f89c6343f3a3dc8"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+ "digest",
 ]
 
 [[package]]

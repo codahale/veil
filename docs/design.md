@@ -342,7 +342,7 @@ of arbitrary length.
 ```text
 function SignState(state, sk):
   (state, h) ← Derive(state, "digest", 32)     // Derive a 256-bit digest.
-  s ← ML_DSA_65::Sign(sk.sk, h)                // Sign the digest with ML-DSA-65.
+  s ← ML_DSA_65::Sign(sk.sk, h, "veil")        // Sign the digest with ML-DSA-65.
   (state, c) ← Encrypt(state, "signature", s₁) // Encrypt the ML-DSA-65 signature.
   return c
 
@@ -360,9 +360,9 @@ Verifying a signature requires a signer's public key `pk`, a message `m`, and an
 
 ```text
 function VerifyState(state, pk, c):
-  (state, h′) ← Derive(state, "digest", 32) // Derive a counterfactual digest.
-  (state, s) ← Decrypt(state, c)            // Decrypt the ML-DSA-65 signature.
-  return ML_DSA_65::Verify(pk.vk, s, h′)    // Verify the ML-DSA-65 signature.
+  (state, h′) ← Derive(state, "digest", 32)      // Derive a counterfactual digest.
+  (state, s) ← Decrypt(state, c)                 // Decrypt the ML-DSA-65 signature.
+  return ML_DSA_65::Verify(pk.vk, s, h′, "veil") // Verify the ML-DSA-65 signature.
 
 function Verify(pk, m, r ǁ h ǁ c₁):
   state ← Initialize("veil.sig")       // Initialize a protocol.
