@@ -194,6 +194,7 @@ impl Runnable for DecryptArgs {
             DecryptError::InvalidCiphertext => CliError::InvalidCiphertext,
             DecryptError::ReadIo(e) => CliError::ReadIo(e, self.input),
             DecryptError::WriteIo(e) => CliError::WriteIo(e, self.input),
+            DecryptError::InvalidBlockType(b) => CliError::InvalidBlockType(b),
         })?;
         Ok(())
     }
@@ -447,6 +448,9 @@ enum CliError {
 
     #[error("invalid ciphertext")]
     InvalidCiphertext,
+
+    #[error("invalid block type: {0:02x}")]
+    InvalidBlockType(u8),
 
     #[error("invalid public key at {1:?}")]
     InvalidPublicKey(#[source] ParsePublicKeyError, PathBuf),

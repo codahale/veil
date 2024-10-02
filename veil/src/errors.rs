@@ -24,6 +24,10 @@ pub enum DecryptError {
     #[error("invalid ciphertext")]
     InvalidCiphertext,
 
+    /// Decryption was unsuccessful due to an invalid block type.
+    #[error("invalid block type: {0:02x}")]
+    InvalidBlockType(u8),
+
     /// Decryption was unsuccessful due to an IO error reading the ciphertext.
     #[error("error reading ciphertext")]
     ReadIo(#[source] io::Error),

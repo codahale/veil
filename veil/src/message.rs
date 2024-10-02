@@ -18,12 +18,6 @@ const BLOCK_HEADER_LEN: usize = 4;
 /// The length of an encrypted block header and authentication tag.
 const ENC_BLOCK_HEADER_LEN: usize = BLOCK_HEADER_LEN + TAG_LEN;
 
-/// A block of message data.
-const DATA_BLOCK: u8 = 0x00;
-
-/// A block of random padding.
-const PADDING_BLOCK: u8 = 0x01;
-
 /// The length of a plaintext block.
 const BLOCK_LEN: usize = 64 * 1024;
 
@@ -141,7 +135,7 @@ fn encrypt_message(
         }
 
         // Encode, seal, and write a data block header.
-        block_header[0] = DATA_BLOCK;
+        block_header[0] = BlockType::Data as u8;
         block_header[1..4].copy_from_slice(&(n as u32).to_le_bytes()[..3]);
         message.seal("block-header", &mut block_header);
         writer.write_all(&block_header).map_err(EncryptError::WriteIo)?;
@@ -166,7 +160,7 @@ fn encrypt_message(
     let padding_len = padding_len(read);
 
     // Encode, seal, and write a padding block header.
-    block_header[0] = PADDING_BLOCK;
+    block_header[0] = BlockType::Padding as u8;
     block_header[1..4].copy_from_slice(&(padding_len as u32).to_le_bytes()[..3]);
     message.seal("block-header", &mut block_header);
     writer.write_all(&block_header).map_err(EncryptError::WriteIo)?;
@@ -241,18 +235,22 @@ fn decrypt_message(
         reader.read_exact(&mut buf[..block_len]).map_err(DecryptError::ReadIo)?;
         let plaintext =
             message.open("block", &mut buf[..block_len]).ok_or(DecryptError::InvalidCiphertext)?;
-        if header[0] == DATA_BLOCK {
-            // Write the plaintext.
-            writer.write_all(plaintext).map_err(DecryptError::WriteIo)?;
-            written += u64::try_from(plaintext.len()).expect("usize should be <= u64");
-        } else {
-            // Ignore the padding and read the final signature.
-            buf.truncate(0);
-            reader.read_to_end(&mut buf).map_err(DecryptError::ReadIo)?;
-            buf.shrink_to_fit();
+        match BlockType::try_from(header[0]) {
+            Ok(BlockType::Data) => {
+                // Write the plaintext.
+                writer.write_all(plaintext).map_err(DecryptError::WriteIo)?;
+                written += u64::try_from(plaintext.len()).expect("usize should be <= u64");
+            }
+            Ok(BlockType::Padding) => {
+                // Ignore the padding and read the final signature.
+                buf.truncate(0);
+                reader.read_to_end(&mut buf).map_err(DecryptError::ReadIo)?;
+                buf.shrink_to_fit();
 
-            // Return the number of written bytes and the signature.
-            return Ok((written, buf));
+                // Return the number of written bytes and the signature.
+                return Ok((written, buf));
+            }
+            Err(b) => return Err(DecryptError::InvalidBlockType(b)),
         }
     }
 }
@@ -375,6 +373,28 @@ fn padding_len(len: u64) -> usize {
     let z = e - s;
     let mask = (1u64 << z) - 1;
     usize::try_from(((len + mask) & !mask) - len).expect("should be <= usize")
+}
+
+#[derive(Debug)]
+#[repr(u8)]
+enum BlockType {
+    Data = 0x00,
+    Padding = 0x01,
+}
+
+impl TryFrom<u8> for BlockType {
+    type Error = u8;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        // inline when inline_const_pat lands
+        const DATA: u8 = BlockType::Data as u8;
+        const PADDING: u8 = BlockType::Padding as u8;
+        match value {
+            DATA => Ok(BlockType::Data),
+            PADDING => Ok(BlockType::Padding),
+            _ => Err(value),
+        }
+    }
 }
 
 #[cfg(test)]
