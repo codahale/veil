@@ -37,7 +37,6 @@ jobs:
       matrix:
         rust:
           - stable
-          - beta
     env:
       RUSTFLAGS: "-C target-feature=+aes,+ssse3"
     steps:
