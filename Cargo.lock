@@ -531,9 +531,9 @@ dependencies = [
 
 [[package]]
 name = "fips204"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5fe76563b5e37c8df3a1f912fbf6673e37ba338f1a3e7f493dfdf13a3253e22"
+checksum = "af2fc0841e1128019535007318059427a8a355742ff02c72fdba4d9afa148fd8"
 dependencies = [
  "rand_core",
  "sha2",
