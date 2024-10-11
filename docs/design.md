@@ -257,6 +257,25 @@ possible vulnerabilities in the implementations of those algorithms, but allows 
 simpler design, eliminating the under-discussed risks inherent in adopting novel hybrid combiner
 constructions as well as any possible vulnerabilities in their implementations.
 
+Ultimately, this decision reduces to an assessment of the probability of two events.
+
+First, one must consider the probability that a cryptographically-relevant quantum computer (CRQC)
+will be developed within the service lifetime of this project and the communications protected by
+it. If this probability is negligible, then the project should be designed with any of the existing,
+well-studied classical algorithms. The consensus is developing, however, that the fielding of a CRQC
+is a long-term inevitability and thus cryptographic adversaries should be modeled as having quantum
+capabilities.
+
+Second, one must consider the probability that a practical weakness is found in a given post-quantum
+algorithm (in the case of Veil, ML-KEM and ML-DSA). If one considers this a relevant threat _and_
+one assumes that one's adversaries may have quantum capabilities, the use of a hybrid construction
+cannot mitigate that risk. If ML-KEM fails to provide IND-CCA2 security against a quantum adversary,
+neither will X25519/ML-KEM.
+
+Hybrid post-quantum algorithms are only a rational choice if one's assessment is that CRQCs are not
+likely be developed during the service lifetime of a project and that practical weaknesses are
+likely to be found in a given set of post-quantum algorithms.
+
 ## Construction Techniques
 
 Veil uses a few common construction techniques in its design which bear specific mention.
