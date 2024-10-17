@@ -99,13 +99,13 @@ pub struct SecKey {
 impl SecKey {
     /// Generates a random secret key.
     #[must_use]
-    pub fn random(mut rng: impl CryptoRng + RngCore) -> SecKey {
+    pub fn random(mut rng: impl CryptoRng + RngCore) -> Box<SecKey> {
         Self::from_canonical_bytes(rng.gen::<[u8; SK_LEN]>()).expect("should parse")
     }
 
     /// Decodes the given slice as a secret key, if possible.
     #[must_use]
-    pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<SecKey> {
+    pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<Box<SecKey>> {
         let seed = <[u8; SK_LEN]>::try_from(b.as_ref()).ok()?;
 
         let mut key = Protocol::new("veil.key");
@@ -117,7 +117,7 @@ impl SecKey {
         let sk_x = key.derive_array::<32>("ml-dsa-65-x");
         let (vk, sk) = ml_dsa_65::KG::keygen_from_seed(&sk_x);
 
-        Some(SecKey { dk, sk, pub_key: PubKey::from_parts(ek, vk), seed })
+        Some(SecKey { dk, sk, pub_key: PubKey::from_parts(ek, vk), seed }.into())
     }
 }
 

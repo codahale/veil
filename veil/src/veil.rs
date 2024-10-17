@@ -18,7 +18,7 @@ use crate::{
 
 /// A secret key, used to encrypt, decrypt, and sign messages.
 #[derive(PartialEq, Eq)]
-pub struct SecretKey(SecKey);
+pub struct SecretKey(Box<SecKey>);
 
 impl SecretKey {
     /// Creates a randomly generated secret key.
