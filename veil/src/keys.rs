@@ -1,4 +1,7 @@
-use std::fmt::{Debug, Formatter};
+use std::{
+    fmt::{Debug, Formatter},
+    rc::Rc,
+};
 
 use fips204::{
     ml_dsa_65::{self},
@@ -30,10 +33,10 @@ pub type DecapsulationKey = ml_kem::kem::DecapsulationKey<ml_kem::MlKem768Params
 #[derive(Clone)]
 pub struct PubKey {
     /// The ML-KEM-768 encapsulation key.
-    pub ek: EncapsulationKey,
+    pub ek: Rc<EncapsulationKey>,
 
     /// The ML-DSA-65 verifying key.
-    pub vk: VerifyingKey,
+    pub vk: Rc<VerifyingKey>,
 
     /// The public key's canonical encoded form.
     pub encoded: [u8; PK_LEN],
@@ -47,7 +50,7 @@ impl PubKey {
         let (ek, vk) = encoded.split_at(ML_KEM_PK_LEN);
         let ek = EncapsulationKey::from_bytes(ek.try_into().expect("should be 1184 bytes"));
         let vk = VerifyingKey::try_from_bytes(vk.try_into().expect("should be 1952 bytes")).ok()?;
-        Some(PubKey { ek, vk, encoded })
+        Some(PubKey { ek: Rc::new(ek), vk: Rc::new(vk), encoded })
     }
 
     fn from_parts(ek: EncapsulationKey, vk: VerifyingKey) -> PubKey {
@@ -56,7 +59,7 @@ impl PubKey {
         enc_ek.copy_from_slice(&ek.as_bytes());
         enc_vk.copy_from_slice(&vk.clone().into_bytes());
 
-        PubKey { ek, vk, encoded }
+        PubKey { ek: Rc::new(ek), vk: Rc::new(vk), encoded }
     }
 }
 
@@ -83,10 +86,10 @@ impl AsRef<VerifyingKey> for &PubKey {
 /// A secret key, including its public key.
 pub struct SecKey {
     /// The ML-KEM-768 decapsulation key.
-    pub dk: DecapsulationKey,
+    pub dk: Rc<DecapsulationKey>,
 
     /// The ML-DSA-65 signing key.
-    pub sk: SigningKey,
+    pub sk: Rc<SigningKey>,
 
     /// The corresponding [`PubKey`] for the secret key.
     pub pub_key: PubKey,
@@ -98,13 +101,13 @@ pub struct SecKey {
 impl SecKey {
     /// Generates a random secret key.
     #[must_use]
-    pub fn random(mut rng: impl CryptoRng + RngCore) -> Box<SecKey> {
+    pub fn random(mut rng: impl CryptoRng + RngCore) -> SecKey {
         Self::from_canonical_bytes(rng.gen::<[u8; SK_LEN]>()).expect("should parse")
     }
 
     /// Decodes the given slice as a secret key, if possible.
     #[must_use]
-    pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<Box<SecKey>> {
+    pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<SecKey> {
         let seed = <[u8; SK_LEN]>::try_from(b.as_ref()).ok()?;
 
         let mut key = Protocol::new("veil.key");
@@ -116,7 +119,7 @@ impl SecKey {
         let sk_x = key.derive_array::<32>("ml-dsa-65-x");
         let (vk, sk) = ml_dsa_65::KG::keygen_from_seed(&sk_x);
 
-        Some(SecKey { dk, sk, pub_key: PubKey::from_parts(ek, vk), seed }.into())
+        Some(SecKey { dk: Rc::new(dk), sk: Rc::new(sk), pub_key: PubKey::from_parts(ek, vk), seed })
     }
 }
 

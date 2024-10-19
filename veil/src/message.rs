@@ -37,7 +37,7 @@ pub fn encrypt(
     reader: impl Read,
     mut writer: impl Write,
     sender: &SecKey,
-    receivers: &[Option<&PubKey>],
+    receivers: &[Option<PubKey>],
 ) -> Result<u64, EncryptError> {
     // Initialize a protocol and mix the sender's public key into it.
     let mut message = Protocol::new("veil.message");
@@ -478,7 +478,7 @@ mod tests {
         assert_eq!(plaintext.to_vec(), writer.into_inner(), "incorrect plaintext");
     }
 
-    fn setup(n: usize) -> (ChaChaRng, Box<SecKey>, Box<SecKey>, Vec<u8>, Vec<u8>) {
+    fn setup(n: usize) -> (ChaChaRng, SecKey, SecKey, Vec<u8>, Vec<u8>) {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let sender = SecKey::random(&mut rng);
         let receiver = SecKey::random(&mut rng);
@@ -491,7 +491,7 @@ mod tests {
             Cursor::new(&plaintext),
             Cursor::new(&mut ciphertext),
             &sender,
-            &[Some(&sender.pub_key), Some(&receiver.pub_key), None],
+            &[Some(sender.pub_key.clone()), Some(receiver.pub_key.clone()), None],
         )
         .expect("encryption should be ok");
 

@@ -211,7 +211,7 @@ mod tests {
         );
     }
 
-    fn setup() -> (ChaChaRng, Box<SecKey>, Vec<u8>, Signature) {
+    fn setup() -> (ChaChaRng, SecKey, Vec<u8>, Signature) {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let signer = SecKey::random(&mut rng);
         let message = rng.gen::<[u8; 64]>();
