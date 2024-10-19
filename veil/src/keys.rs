@@ -40,8 +40,7 @@ pub struct PubKey {
 }
 
 impl PubKey {
-    /// Decodes the given slice as a public key, if possible. Returns `None` if the slice is not a
-    /// canonically-encoded point or if it encodes the neutral point.
+    /// Decodes the given slice as a public key, if possible.
     #[must_use]
     pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<PubKey> {
         let encoded = <[u8; PK_LEN]>::try_from(b.as_ref()).ok()?;
