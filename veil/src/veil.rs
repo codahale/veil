@@ -30,7 +30,7 @@ impl SecretKey {
     /// Returns the corresponding public key.
     #[must_use]
     pub fn public_key(&self) -> PublicKey {
-        PublicKey(self.0.pub_key.clone())
+        PublicKey(Box::new(self.0.pub_key.clone()))
     }
 
     /// Encrypts the secret key with the given passphrase and `veil.pbenc` parameters and writes it
@@ -101,7 +101,7 @@ impl SecretKey {
     ) -> Result<u64, EncryptError> {
         let mut receivers = receivers
             .iter()
-            .map(|pk| Some(pk.0.clone()))
+            .map(|pk| Some(pk.0.as_ref()))
             .chain(iter::repeat(None).take(fakes.unwrap_or_default()))
             .collect::<Vec<_>>();
 
@@ -148,13 +148,13 @@ impl Debug for SecretKey {
 
 /// A public key, used to verify messages.
 #[derive(Clone, PartialEq, Eq)]
-pub struct PublicKey(PubKey);
+pub struct PublicKey(Box<PubKey>);
 
 impl PublicKey {
     /// Decode a public key from a 32-byte slice.
     #[must_use]
     pub fn decode(b: impl AsRef<[u8]>) -> Option<PublicKey> {
-        PubKey::from_canonical_bytes(b).map(PublicKey)
+        PubKey::from_canonical_bytes(b).map(Box::new).map(PublicKey)
     }
 
     /// Encode the public key as a 32-byte array.

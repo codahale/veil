@@ -37,7 +37,7 @@ pub fn encrypt(
     reader: impl Read,
     mut writer: impl Write,
     sender: &SecKey,
-    receivers: &[Option<PubKey>],
+    receivers: &[Option<&PubKey>],
 ) -> Result<u64, EncryptError> {
     // Initialize a protocol and mix the sender's public key into it.
     let mut message = Protocol::new("veil.message");
@@ -491,7 +491,7 @@ mod tests {
             Cursor::new(&plaintext),
             Cursor::new(&mut ciphertext),
             &sender,
-            &[Some(sender.pub_key.clone()), Some(receiver.pub_key.clone()), None],
+            &[Some(&sender.pub_key), Some(&receiver.pub_key), None],
         )
         .expect("encryption should be ok");
 
