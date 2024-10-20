@@ -1,7 +1,4 @@
-use std::{
-    fmt::{Debug, Formatter},
-    rc::Rc,
-};
+use std::fmt::{Debug, Formatter};
 
 use fips204::{
     ml_dsa_65::{self},
@@ -33,10 +30,10 @@ pub type DecapsulationKey = ml_kem::kem::DecapsulationKey<ml_kem::MlKem768Params
 #[derive(Clone)]
 pub struct PubKey {
     /// The ML-KEM-768 encapsulation key.
-    pub ek: Rc<EncapsulationKey>,
+    pub ek: Box<EncapsulationKey>,
 
     /// The ML-DSA-65 verifying key.
-    pub vk: Rc<VerifyingKey>,
+    pub vk: Box<VerifyingKey>,
 
     /// The public key's canonical encoded form.
     pub encoded: [u8; PK_LEN],
@@ -50,7 +47,7 @@ impl PubKey {
         let (ek, vk) = encoded.split_at(ML_KEM_PK_LEN);
         let ek = EncapsulationKey::from_bytes(ek.try_into().expect("should be 1184 bytes"));
         let vk = VerifyingKey::try_from_bytes(vk.try_into().expect("should be 1952 bytes")).ok()?;
-        Some(PubKey { ek: Rc::new(ek), vk: Rc::new(vk), encoded })
+        Some(PubKey { ek: ek.into(), vk: vk.into(), encoded })
     }
 
     fn from_parts(ek: EncapsulationKey, vk: VerifyingKey) -> PubKey {
@@ -59,7 +56,7 @@ impl PubKey {
         enc_ek.copy_from_slice(&ek.as_bytes());
         enc_vk.copy_from_slice(&vk.clone().into_bytes());
 
-        PubKey { ek: Rc::new(ek), vk: Rc::new(vk), encoded }
+        PubKey { ek: ek.into(), vk: vk.into(), encoded }
     }
 }
 
@@ -86,10 +83,10 @@ impl AsRef<VerifyingKey> for &PubKey {
 /// A secret key, including its public key.
 pub struct SecKey {
     /// The ML-KEM-768 decapsulation key.
-    pub dk: Rc<DecapsulationKey>,
+    pub dk: Box<DecapsulationKey>,
 
     /// The ML-DSA-65 signing key.
-    pub sk: Rc<SigningKey>,
+    pub sk: Box<SigningKey>,
 
     /// The corresponding [`PubKey`] for the secret key.
     pub pub_key: PubKey,
@@ -119,7 +116,7 @@ impl SecKey {
         let sk_x = key.derive_array::<32>("ml-dsa-65-x");
         let (vk, sk) = ml_dsa_65::KG::keygen_from_seed(&sk_x);
 
-        Some(SecKey { dk: Rc::new(dk), sk: Rc::new(sk), pub_key: PubKey::from_parts(ek, vk), seed })
+        Some(SecKey { dk: dk.into(), sk: sk.into(), pub_key: PubKey::from_parts(ek, vk), seed })
     }
 }
 
