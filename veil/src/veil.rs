@@ -38,8 +38,7 @@ impl SecretKey {
     ///
     /// # Errors
     ///
-    /// If any of the `m_cost`, `t_cost`, or `p_cost` parameters are invalid, returns an error with
-    /// more details. Returns any error returned by operations on `writer`.
+    /// Returns any error returned by operations on `writer`.
     pub fn store(
         &self,
         mut writer: impl Write,
@@ -69,7 +68,7 @@ impl SecretKey {
     ///
     /// If the passphrase is incorrect and/or the ciphertext has been modified, a
     /// [`DecryptError::InvalidCiphertext`] error will be returned. If an error occurred while
-    /// reading, a [`DecryptError::IoError`] error will be returned.
+    /// reading, a [`DecryptError::ReadIo`] error will be returned.
     pub fn load(mut reader: impl Read, passphrase: &[u8]) -> Result<SecretKey, DecryptError> {
         let mut b = Vec::with_capacity(SK_LEN + pbenc::OVERHEAD);
         reader.read_to_end(&mut b).map_err(DecryptError::ReadIo)?;
@@ -89,7 +88,7 @@ impl SecretKey {
     ///
     /// # Errors
     ///
-    /// If there is an error while reading from `reader` or writing to `writer`, an [`io::Error`]
+    /// If there is an error while reading from `reader` or writing to `writer`, an [`EncryptError`]
     /// will be returned.
     pub fn encrypt(
         &self,
@@ -120,7 +119,8 @@ impl SecretKey {
     ///
     /// If the ciphertext has been modified, was not sent by the sender, or was not encrypted for
     /// this secret key, returns [`DecryptError::InvalidCiphertext`]. If there was an error reading
-    /// from `reader` or writing to `writer`, returns [`DecryptError::IoError`].
+    /// from `reader` or writing to `writer`, returns [`DecryptError::ReadIo`] or
+    /// [`DecryptError::WriteIo`].
     pub fn decrypt(
         &self,
         reader: impl Read,
@@ -151,13 +151,13 @@ impl Debug for SecretKey {
 pub struct PublicKey(PubKey);
 
 impl PublicKey {
-    /// Decode a public key from a 32-byte slice.
+    /// Decode a public key from a byte slice.
     #[must_use]
     pub fn decode(b: impl AsRef<[u8]>) -> Option<PublicKey> {
         PubKey::from_canonical_bytes(b).map(PublicKey)
     }
 
-    /// Encode the public key as a 32-byte array.
+    /// Encode the public key as a byte array.
     #[must_use]
     pub const fn encode(&self) -> [u8; PK_LEN] {
         self.0.encoded
@@ -169,8 +169,8 @@ impl PublicKey {
     /// # Errors
     ///
     /// If the message has been modified or was not signed by the owner of this public key, returns
-    /// [`VerifyError::InvalidSignature`]. If there was an error reading from `message` or writing
-    /// to `writer`, returns [`VerifyError::IoError`].
+    /// [`VerifyError::InvalidSignature`]. If there was an error reading from `message`, returns
+    /// [`VerifyError::ReadIo`].
     pub fn verify(&self, message: impl Read, sig: &Signature) -> Result<(), VerifyError> {
         sig::verify(&self.0, message, sig)
     }
