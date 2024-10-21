@@ -8,6 +8,7 @@ use lockstitch::Protocol;
 use ml_kem::{EncodedSizeUser, KemCore};
 use rand::{CryptoRng, Rng, RngCore};
 use typenum::Unsigned;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 pub(crate) const ML_KEM_PK_LEN: usize =
     <<ml_kem::MlKem768 as KemCore>::EncapsulationKey as EncodedSizeUser>::EncodedSize::USIZE;
@@ -145,6 +146,15 @@ impl AsRef<SigningKey> for &SecKey {
     }
 }
 
+impl Drop for SecKey {
+    fn drop(&mut self) {
+        // both keys are zeroized on drop
+        self.seed.zeroize();
+    }
+}
+
+impl ZeroizeOnDrop for SecKey {}
+
 #[cfg(test)]
 mod tests {
     use rand::SeedableRng;
@@ -163,7 +173,7 @@ mod tests {
     #[test]
     fn pub_key_round_trip() {
         let rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let spk = SecKey::random(rng).pub_key;
+        let spk = SecKey::random(rng).pub_key.clone();
         let spk_p = PubKey::from_canonical_bytes(spk.encoded).expect("should deserialize");
         assert_eq!(spk, spk_p);
     }

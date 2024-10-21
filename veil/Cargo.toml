@@ -11,11 +11,12 @@ description = "Stupid crypto tricks."
 bs58 = "0.5.1"
 fips204 = { version = "0.4.3", default-features = false, features = ["ml-dsa-65"] }
 lockstitch = "0.25.1"
-ml-kem = { version = "0.2.1", features = ["deterministic"] }
+ml-kem = { version = "0.2.1", features = ["deterministic", "zeroize"] }
 num-bigint = "0.4.6"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 thiserror = "1.0.64"
 typenum = "1.17.0"
+zeroize = "1.8.1"
 
 [dev-dependencies]
 assert_matches = "1.5.0"
