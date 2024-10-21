@@ -134,8 +134,8 @@ impl Debug for SecKey {
         f.debug_struct("SecKey")
             .field("dk", &"[redacted]")
             .field("sk", &"[redacted]")
+            .field("seed", &"[redacted]")
             .field("pub_key", &self.pub_key)
-            .field("encoded", &"[redacted]")
             .finish()
     }
 }
