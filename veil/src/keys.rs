@@ -1,19 +1,20 @@
 use std::fmt::{Debug, Formatter};
 
+use fips203::{
+    ml_kem_768,
+    traits::{KeyGen as _, SerDes as _},
+};
 use fips204::{
-    ml_dsa_65::{self},
+    ml_dsa_65,
     traits::{KeyGen as _, SerDes as _},
 };
 use lockstitch::Protocol;
-use ml_kem::{EncodedSizeUser, KemCore};
 use rand::{CryptoRng, Rng, RngCore};
-use typenum::Unsigned;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-pub(crate) const ML_KEM_PK_LEN: usize =
-    <<ml_kem::MlKem768 as KemCore>::EncapsulationKey as EncodedSizeUser>::EncodedSize::USIZE;
-pub(crate) const ML_KEM_CT_LEN: usize = <ml_kem::MlKem768 as KemCore>::CiphertextSize::USIZE;
-pub(crate) const ML_KEM_SS_LEN: usize = <ml_kem::MlKem768 as KemCore>::SharedKeySize::USIZE;
+pub(crate) const ML_KEM_PK_LEN: usize = ml_kem_768::EK_LEN;
+pub(crate) const ML_KEM_CT_LEN: usize = ml_kem_768::CT_LEN;
+pub(crate) const ML_KEM_SS_LEN: usize = 32;
 
 pub const PK_LEN: usize = ML_KEM_PK_LEN + ml_dsa_65::PK_LEN;
 
@@ -23,9 +24,9 @@ pub type SigningKey = ml_dsa_65::PrivateKey;
 
 pub type VerifyingKey = ml_dsa_65::PublicKey;
 
-pub type EncapsulationKey = ml_kem::kem::EncapsulationKey<ml_kem::MlKem768Params>;
+pub type EncapsulationKey = ml_kem_768::EncapsKey;
 
-pub type DecapsulationKey = ml_kem::kem::DecapsulationKey<ml_kem::MlKem768Params>;
+pub type DecapsulationKey = ml_kem_768::DecapsKey;
 
 /// A public key, including its canonical encoded form.
 #[derive(Clone)]
@@ -46,7 +47,8 @@ impl PubKey {
     pub fn from_canonical_bytes(b: impl AsRef<[u8]>) -> Option<PubKey> {
         let encoded = <[u8; PK_LEN]>::try_from(b.as_ref()).ok()?;
         let (ek, vk) = encoded.split_at(ML_KEM_PK_LEN);
-        let ek = EncapsulationKey::from_bytes(ek.try_into().expect("should be 1184 bytes"));
+        let ek =
+            EncapsulationKey::try_from_bytes(ek.try_into().expect("should be 1184 bytes")).ok()?;
         let vk = VerifyingKey::try_from_bytes(vk.try_into().expect("should be 1952 bytes")).ok()?;
         Some(PubKey { ek: ek.into(), vk: vk.into(), encoded })
     }
@@ -54,7 +56,7 @@ impl PubKey {
     fn from_parts(ek: EncapsulationKey, vk: VerifyingKey) -> PubKey {
         let mut encoded = [0u8; PK_LEN];
         let (enc_ek, enc_vk) = encoded.split_at_mut(ML_KEM_PK_LEN);
-        enc_ek.copy_from_slice(&ek.as_bytes());
+        enc_ek.copy_from_slice(&ek.clone().into_bytes());
         enc_vk.copy_from_slice(&vk.clone().into_bytes());
 
         PubKey { ek: ek.into(), vk: vk.into(), encoded }
@@ -113,7 +115,7 @@ impl SecKey {
 
         let dk_d = key.derive_array::<32>("ml-kem-768-d");
         let dk_z = key.derive_array::<32>("ml-kem-768-z");
-        let (dk, ek) = ml_kem::MlKem768::generate_deterministic(&dk_d.into(), &dk_z.into());
+        let (ek, dk) = ml_kem_768::KG::keygen_from_seed(dk_d, dk_z);
         let sk_x = key.derive_array::<32>("ml-dsa-65-x");
         let (vk, sk) = ml_dsa_65::KG::keygen_from_seed(&sk_x);
 

@@ -2,7 +2,10 @@
 //!
 //! <https://eprint.iacr.org/2024/1086.pdf>
 
-use ml_kem::kem::{Decapsulate as _, Encapsulate as _};
+use fips203::{
+    ml_kem_768::CipherText,
+    traits::{Decaps as _, Encaps as _, SerDes},
+};
 use num_bigint::BigUint;
 use rand::{CryptoRng, Rng};
 
@@ -15,16 +18,16 @@ pub fn encapsulate(
     mut rng: impl CryptoRng + Rng,
 ) -> ([u8; ENC_CT_LEN], [u8; ML_KEM_SS_LEN]) {
     loop {
-        let (kem_ct, kem_ss) = ek.encapsulate(&mut rng).expect("should encapsulate");
-        if let Some(kem_ect) = encode_ct(&mut rng, kem_ct.into()) {
-            return (kem_ect, kem_ss.into());
+        let (kem_ss, kem_ct) = ek.try_encaps_with_rng(&mut rng).expect("should encapsulate");
+        if let Some(kem_ect) = encode_ct(&mut rng, kem_ct.into_bytes()) {
+            return (kem_ect, kem_ss.into_bytes());
         }
     }
 }
 
 pub fn decapsulate(dk: &DecapsulationKey, ect: [u8; ENC_CT_LEN]) -> [u8; ML_KEM_SS_LEN] {
-    let ct = decode_ct(ect);
-    dk.decapsulate(&ct.into()).expect("should decapsulate").into()
+    let ct = CipherText::try_from_bytes(decode_ct(ect)).expect("should decode");
+    dk.try_decaps(&ct).expect("should decapsulate").into_bytes()
 }
 
 fn encode_ct(mut rng: impl CryptoRng + Rng, c: [u8; ML_KEM_CT_LEN]) -> Option<[u8; ENC_CT_LEN]> {
@@ -253,7 +256,7 @@ fn ring_decode_and_decompress10(b: [u8; 320]) -> RingElement {
 
 #[cfg(test)]
 mod tests {
-    use ml_kem::KemCore as _;
+    use fips203::{ml_kem_768, traits::KeyGen};
     use rand::rngs::OsRng;
 
     use super::*;
@@ -261,7 +264,8 @@ mod tests {
     #[test]
     fn round_trip() {
         for _ in 0..10 {
-            let (dk, ek) = ml_kem::kem::Kem::<ml_kem::MlKem768Params>::generate(&mut OsRng);
+            let (ek, dk) =
+                ml_kem_768::KG::try_keygen_with_rng(&mut OsRng).expect("should generate");
             let (ect, sk) = encapsulate(&ek, OsRng);
             let sk_p = decapsulate(&dk, ect);
             assert_eq!(sk, sk_p);
