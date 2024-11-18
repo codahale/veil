@@ -20,7 +20,7 @@ veil = { path = "../veil" }
 
 [dev-dependencies]
 anyhow = "1.0.93"
-xshell = "0.2.6"
+xshell = "0.2.7"
 
 [[bin]]
 name = "veil"
