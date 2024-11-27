@@ -140,9 +140,9 @@ dependencies = [
 
 [[package]]
 name = "bolero"
-version = "0.11.1"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "449a08ce58d0325f2a1df902aa326a84ab49c6aa2844f1a88fe5e0fc23c75010"
+checksum = "3c8110b2b4255b16c25af45c2351fa26a391f899239703522995600b5eabb1f8"
 dependencies = [
  "bolero-afl",
  "bolero-engine",
@@ -156,9 +156,9 @@ dependencies = [
 
 [[package]]
 name = "bolero-afl"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73c04ea97df540ec2224453cb006f4ab6cacc99636f9f6660b381970448bbaac"
+checksum = "7152db647a5df11b8d9bc6f17916b6fbf7e8303632d1855e67939439ba26a798"
 dependencies = [
  "bolero-engine",
  "cc",
@@ -166,9 +166,9 @@ dependencies = [
 
 [[package]]
 name = "bolero-engine"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "564c4ee2986f91774e481b578d4a2b62b1a98eba4426112c7e4f2a8c565e016c"
+checksum = "cfa8aec1ff59a515462a473c56a428e8d9d7ea15df49151820dfbd63ef364b4a"
 dependencies = [
  "anyhow",
  "backtrace",
@@ -181,20 +181,22 @@ dependencies = [
 
 [[package]]
 name = "bolero-generator"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e73cb9bcf03aa9502341f6d2c47de7d0ffd99e40f8e3418b469a87163f4e390"
+checksum = "6e85be107ff475ca58de17db3f6f5d6e53a6f429f54e8b25e34d235ed2cf47e6"
 dependencies = [
  "bolero-generator-derive",
  "either",
+ "getrandom",
  "rand_core",
+ "rand_xoshiro",
 ]
 
 [[package]]
 name = "bolero-generator-derive"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bea8182a94fa5c6d0db1666969d0094e79d6b93eb68689325a375b1d8804a12b"
+checksum = "c613c51da2e38c264682ab4e64db57f17fbcdcf83045779c5a0c20faa2fb9ec0"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -204,27 +206,27 @@ dependencies = [
 
 [[package]]
 name = "bolero-honggfuzz"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b744c6bda3711a1c88ab7cbd5053b53daca1c7380d05cfa3af39c99d0ec52c0"
+checksum = "afeb0b293298dcbc70e3c0980a6588217180b83f6ef96e7684e1d3ea8a2cf522"
 dependencies = [
  "bolero-engine",
 ]
 
 [[package]]
 name = "bolero-kani"
-version = "0.11.1"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8cfa0e74269f88db02bb267de4bdbd4b5f337a4775dd82ad3ef98c46c9c013f3"
+checksum = "cb0bb91187b113a3daf85ad86a0ac0db6ef7856b2bf15f4ac90fb8c60a641718"
 dependencies = [
  "bolero-engine",
 ]
 
 [[package]]
 name = "bolero-libfuzzer"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aae3b3751a4b0dc94696063eace32fd9d3ddea904ae9e18d87c81de787023508"
+checksum = "67e73a17841837494a19e574289cc9e7c185de51fd4287a0e15e440bae1ca366"
 dependencies = [
  "bolero-engine",
  "cc",
