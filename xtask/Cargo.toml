@@ -5,7 +5,7 @@ publish = false
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.93"
+anyhow = "1.0.94"
 clap = { version = "4.5.22", features = ["deprecated", "derive"] }
 xshell = "0.2.7"
 
