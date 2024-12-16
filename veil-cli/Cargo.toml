@@ -12,7 +12,7 @@ default-run = "veil"
 bunt = "0.2.8"
 clap = { version = "4.5.23", features = ["deprecated", "derive"] }
 clap_complete = "4.5.38"
-console = "0.15.8"
+console = "0.15.10"
 num_cpus = "1.16.0"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 thiserror = "2.0.7"
