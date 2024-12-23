@@ -224,7 +224,7 @@ fn ring_compress_and_encode10(f: RingElement) -> [u8; 320] {
         x |= (compress(f[1], 10) as u64) << 10;
         x |= (compress(f[2], 10) as u64) << 20;
         x |= (compress(f[3], 10) as u64) << 30;
-        b[0] = (x) as u8;
+        b[0] = x as u8;
         b[1] = (x >> 8) as u8;
         b[2] = (x >> 16) as u8;
         b[3] = (x >> 24) as u8;
