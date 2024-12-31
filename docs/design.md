@@ -299,7 +299,7 @@ order:
 
 ```text
 function HPKE(d_E, Q_R, p):
-  state ← Initialize("com.example.hpke")       // Initialize a Lockstitch protocol with a domain string. 
+  state ← Initialize("com.example.hpke")       // Initialize a Lockstitch protocol with a domain string.
   state ← Mix(state, "ecdh", X25519(d_E, Q_R)) // Mix the ECDH shared secret into the protocol's state.
   (state, c) ← Seal(state, "message", p)       // Seal the plaintext.
   return c                                     // Return ciphertext.
@@ -660,7 +660,7 @@ function HashBlock(C, [B_0..B_n], N, p):
     state ← Mix(state, "block", B_i)
 
   (_, out) ← Derive(state, "output", N)          // Derive N bytes of output.
-  return C, out                                  // Return the counter and the output. 
+  return C, out                                  // Return the counter and the output.
 
 function ExpandKey(P, S, N_T, N_S, p):
   C ← 0                                                          // Initialize a counter.
@@ -683,10 +683,10 @@ function ExpandKey(P, S, N_T, N_S, p):
 
 function InitFromPassphrase(P, S, N_T, N_S, N_P)
   state ← Initialize("veil.pbenc")          // Initialize a protocol.
-  k ← ∅ 
+  k ← ∅
   for p in 1..N_P in parallel:
     k[p] ← ExpandKey(P, S, N_T, N_S, p)     // Expand all sub-keys in parallel.
-  for k_n in k: 
+  for k_n in k:
     state ← Mix(state, "expanded-key", k_n) // Mix sub-keys in ascending order.
   return state
 ```
