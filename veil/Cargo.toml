@@ -14,7 +14,7 @@ fips204 = { version = "0.4.6", default-features = false, features = ["ml-dsa-65"
 lockstitch = { version = "0.25.3", features = ["zeroize"] }
 num-bigint = "0.4.6"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
-thiserror = "2.0.9"
+thiserror = "2.0.10"
 zeroize = "1.8.1"
 
 [dev-dependencies]
