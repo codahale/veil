@@ -32,10 +32,10 @@ pub type DecapsulationKey = ml_kem_768::DecapsKey;
 #[derive(Clone)]
 pub struct PubKey {
     /// The ML-KEM-768 encapsulation key.
-    pub ek: Box<EncapsulationKey>,
+    pub ek: EncapsulationKey,
 
     /// The ML-DSA-65 verifying key.
-    pub vk: Box<VerifyingKey>,
+    pub vk: VerifyingKey,
 
     /// The public key's canonical encoded form.
     pub encoded: [u8; PK_LEN],
@@ -50,7 +50,7 @@ impl PubKey {
         let ek =
             EncapsulationKey::try_from_bytes(ek.try_into().expect("should be 1184 bytes")).ok()?;
         let vk = VerifyingKey::try_from_bytes(vk.try_into().expect("should be 1952 bytes")).ok()?;
-        Some(PubKey { ek: ek.into(), vk: vk.into(), encoded })
+        Some(PubKey { ek, vk, encoded })
     }
 
     fn from_parts(ek: EncapsulationKey, vk: VerifyingKey) -> PubKey {
@@ -59,7 +59,7 @@ impl PubKey {
         enc_ek.copy_from_slice(&ek.clone().into_bytes());
         enc_vk.copy_from_slice(&vk.clone().into_bytes());
 
-        PubKey { ek: ek.into(), vk: vk.into(), encoded }
+        PubKey { ek, vk, encoded }
     }
 }
 
@@ -86,10 +86,10 @@ impl AsRef<VerifyingKey> for &PubKey {
 /// A secret key, including its public key.
 pub struct SecKey {
     /// The ML-KEM-768 decapsulation key.
-    pub dk: Box<DecapsulationKey>,
+    pub dk: DecapsulationKey,
 
     /// The ML-DSA-65 signing key.
-    pub sk: Box<SigningKey>,
+    pub sk: SigningKey,
 
     /// The corresponding [`PubKey`] for the secret key.
     pub pub_key: PubKey,
@@ -119,7 +119,7 @@ impl SecKey {
         let sk_x = key.derive_array::<32>("ml-dsa-65-x");
         let (vk, sk) = ml_dsa_65::KG::keygen_from_seed(&sk_x);
 
-        Some(SecKey { dk: dk.into(), sk: sk.into(), pub_key: PubKey::from_parts(ek, vk), seed })
+        Some(SecKey { dk, sk, pub_key: PubKey::from_parts(ek, vk), seed })
     }
 }
 
