@@ -96,7 +96,7 @@ fn expand_key(passphrase: &[u8], salt: &[u8], time_cost: u8, memory_cost: u8, p:
             let mut h = $h.clone();
 
             // Mix the counter a right-encoded value into the protocol.
-            h.mix_int("counter", $ctr);
+            h.mix("counter", &$ctr.to_le_bytes());
 
             // Increment the counter by one.
             $ctr = $ctr.wrapping_add(1);
@@ -116,7 +116,7 @@ fn expand_key(passphrase: &[u8], salt: &[u8], time_cost: u8, memory_cost: u8, p:
     let mut buf = vec![[0u8; N]; 1usize << memory_cost];
     let buf_len = u64::try_from(buf.len()).expect("usize should be <= u64");
     let mut h = Protocol::new("veil.pbenc.iter");
-    h.mix_int("thread", p as u64);
+    h.mix("thread", &(p as u64).to_le_bytes());
 
     // Step 1: Expand input into buffer.
     hash!(h, ctr, &mut buf[0], passphrase, salt);
