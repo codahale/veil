@@ -11,9 +11,10 @@ description = "Stupid crypto tricks."
 bs58 = "0.5.1"
 fips203 = { version = "0.4.2", default-features = false, features = ["ml-kem-768"] }
 fips204 = { version = "0.4.6", default-features = false, features = ["ml-dsa-65"] }
-lockstitch = { version = "0.26.0", features = ["zeroize"] }
+lockstitch = "0.29.0"
 num-bigint = "0.4.6"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
+subtle = "2.6.1"
 thiserror = "2.0.11"
 zeroize = "1.8.1"
 

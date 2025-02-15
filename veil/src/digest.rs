@@ -1,6 +1,7 @@
 use std::{fmt, io, io::Read, str::FromStr};
 
 use lockstitch::Protocol;
+use subtle::ConstantTimeEq;
 
 use crate::ParseDigestError;
 
@@ -65,7 +66,7 @@ impl fmt::Display for Digest {
 
 impl PartialEq for Digest {
     fn eq(&self, other: &Self) -> bool {
-        lockstitch::ct_eq(&self.0, &other.0)
+        self.0.ct_eq(&other.0).into()
     }
 }
 
