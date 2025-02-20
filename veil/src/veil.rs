@@ -9,11 +9,12 @@ use std::{
     str::FromStr,
 };
 
-use rand::{prelude::SliceRandom, CryptoRng, Rng};
+use rand::{CryptoRng, Rng, prelude::SliceRandom};
 
 use crate::{
-    keys::{PubKey, SecKey, PK_LEN, SK_LEN},
-    message, pbenc, sig, DecryptError, EncryptError, ParsePublicKeyError, Signature, VerifyError,
+    DecryptError, EncryptError, ParsePublicKeyError, Signature, VerifyError,
+    keys::{PK_LEN, PubKey, SK_LEN, SecKey},
+    message, pbenc, sig,
 };
 
 /// A secret key, used to encrypt, decrypt, and sign messages.

@@ -2,7 +2,7 @@ use std::io::{self, Cursor};
 
 use bolero::TypeGenerator;
 use rand::SeedableRng;
-use rand_chacha::{rand_core::OsRng, ChaChaRng};
+use rand_chacha::{ChaChaRng, rand_core::OsRng};
 use veil::{SecretKey, Signature};
 
 #[test]

@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::Result;
 use clap::{ArgAction, Parser, Subcommand, ValueEnum};
-use xshell::{cmd, Shell};
+use xshell::{Shell, cmd};
 
 #[derive(Debug, Parser)]
 struct XTask {
@@ -113,23 +113,39 @@ fn bench_cli(sh: &Shell, target: BenchmarkTarget, no_stash: bool, size: u64) -> 
 
     match target {
         BenchmarkTarget::Encrypt => {
-            let control = format!("head -c {size} /dev/zero | ./target/release/veil-control encrypt --passphrase-fd=3 -k /tmp/secret-key-control -i - -o /dev/null -r /tmp/public-key-control --fakes 9 3< <(echo -n secret)");
-            let experiment = format!("head -c {size} /dev/zero | ./target/release/veil-experiment encrypt --passphrase-fd=3 -k /tmp/secret-key-experiment -i - -o /dev/null -r /tmp/public-key-experiment --fakes 9 3< <(echo -n secret)");
+            let control = format!(
+                "head -c {size} /dev/zero | ./target/release/veil-control encrypt --passphrase-fd=3 -k /tmp/secret-key-control -i - -o /dev/null -r /tmp/public-key-control --fakes 9 3< <(echo -n secret)"
+            );
+            let experiment = format!(
+                "head -c {size} /dev/zero | ./target/release/veil-experiment encrypt --passphrase-fd=3 -k /tmp/secret-key-experiment -i - -o /dev/null -r /tmp/public-key-experiment --fakes 9 3< <(echo -n secret)"
+            );
             cmd!(sh, "hyperfine --warmup 10 -S /bin/bash -n control {control} -n experimental {experiment}").run()?;
         }
         BenchmarkTarget::Sign => {
-            let control = format!("head -c {size} /dev/zero | ./target/release/veil-control sign --passphrase-fd=3 -k /tmp/secret-key-control -i - -o /dev/null 3< <(echo -n secret)");
-            let experiment = format!("head -c {size} /dev/zero | ./target/release/veil-experiment sign --passphrase-fd=3 -k /tmp/secret-key-experiment -i - -o /dev/null 3< <(echo -n secret)");
+            let control = format!(
+                "head -c {size} /dev/zero | ./target/release/veil-control sign --passphrase-fd=3 -k /tmp/secret-key-control -i - -o /dev/null 3< <(echo -n secret)"
+            );
+            let experiment = format!(
+                "head -c {size} /dev/zero | ./target/release/veil-experiment sign --passphrase-fd=3 -k /tmp/secret-key-experiment -i - -o /dev/null 3< <(echo -n secret)"
+            );
             cmd!(sh, "hyperfine --warmup 10 -S /bin/bash -n control {control} -n experimental {experiment}").run()?;
         }
         BenchmarkTarget::Verify => {
-            let control_sig = format!("head -c {size} /dev/zero | ./target/release/veil-control sign --passphrase-fd=3 -k /tmp/secret-key-control -i - 3< <(echo -n secret)");
+            let control_sig = format!(
+                "head -c {size} /dev/zero | ./target/release/veil-control sign --passphrase-fd=3 -k /tmp/secret-key-control -i - 3< <(echo -n secret)"
+            );
             let control_sig = cmd!(sh, "bash -c {control_sig}").read()?;
-            let experiment_sig = format!("head -c {size} /dev/zero | ./target/release/veil-experiment sign --passphrase-fd=3 -k /tmp/secret-key-experiment -i - 3< <(echo -n secret)");
+            let experiment_sig = format!(
+                "head -c {size} /dev/zero | ./target/release/veil-experiment sign --passphrase-fd=3 -k /tmp/secret-key-experiment -i - 3< <(echo -n secret)"
+            );
             let experiment_sig = cmd!(sh, "bash -c {experiment_sig}").read()?;
 
-            let control = format!("head -c {size} /dev/zero | ./target/release/veil-control verify --signer /tmp/public-key-control -i - --signature {control_sig}");
-            let experiment = format!("head -c {size} /dev/zero | ./target/release/veil-experiment verify --signer /tmp/public-key-experiment -i - --signature {experiment_sig}");
+            let control = format!(
+                "head -c {size} /dev/zero | ./target/release/veil-control verify --signer /tmp/public-key-control -i - --signature {control_sig}"
+            );
+            let experiment = format!(
+                "head -c {size} /dev/zero | ./target/release/veil-experiment verify --signer /tmp/public-key-experiment -i - --signature {experiment_sig}"
+            );
             cmd!(sh, "hyperfine --warmup 10 -S /bin/bash -n control {control} -n experimental {experiment}").run()?;
         }
         BenchmarkTarget::Digest => {

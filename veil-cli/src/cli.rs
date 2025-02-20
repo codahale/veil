@@ -7,7 +7,7 @@ use std::{
 };
 
 use clap::{ArgAction, CommandFactory, Parser, Subcommand, ValueHint};
-use clap_complete::{generate_to, Shell};
+use clap_complete::{Shell, generate_to};
 use console::Term;
 use rand::rngs::OsRng;
 use thiserror::Error;

@@ -3,7 +3,7 @@ use std::{
     io::{Cursor, Read},
 };
 
-use criterion::{criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
 use veil::{Digest, SecretKey};

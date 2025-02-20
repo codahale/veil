@@ -6,9 +6,10 @@ use lockstitch::{Protocol, TAG_LEN};
 use rand::{CryptoRng, Rng, RngCore};
 
 use crate::{
+    DecryptError, EncryptError,
     kemeleon::{self, ENC_CT_LEN},
     keys::{PubKey, SecKey},
-    sig, DecryptError, EncryptError,
+    sig,
 };
 
 /// The length of a plaintext block header. The first byte signifies the block type, the next three
