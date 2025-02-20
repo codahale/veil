@@ -168,8 +168,8 @@ const fn compress(x: FieldElement, d: u8) -> u16 {
     //
     // Note that if remainder > x, then ⌊x⌋ - remainder underflows, and the top
     // bit of the difference will be set.
-    quotient = quotient.wrapping_add((Q as u32 / 2).wrapping_sub(remainder) >> 31 & 1);
-    quotient += (Q as u32 + (Q as u32) / 2 - remainder) >> 31 & 1;
+    quotient = quotient.wrapping_add(((Q as u32 / 2).wrapping_sub(remainder) >> 31) & 1);
+    quotient += ((Q as u32 + (Q as u32) / 2 - remainder) >> 31) & 1;
 
     // quotient might have overflowed at this point, so reduce it by masking.
     let mask = (1u32 << d) - 1;
@@ -242,14 +242,14 @@ fn ring_decode_and_decompress10(b: [u8; 320]) -> RingElement {
     let mut f = [0; N];
     for (f, b) in f.chunks_exact_mut(4).zip(b.chunks_exact(5)) {
         let x = (b[0] as u64)
-            | (b[1] as u64) << 8
-            | (b[2] as u64) << 16
-            | (b[3] as u64) << 24
-            | (b[4] as u64) << 32;
+            | ((b[1] as u64) << 8)
+            | ((b[2] as u64) << 16)
+            | ((b[3] as u64) << 24)
+            | ((b[4] as u64) << 32);
         f[0] = decompress((x & 0b11_1111_1111) as u16, 10);
-        f[1] = decompress((x >> 10 & 0b11_1111_1111) as u16, 10);
-        f[2] = decompress((x >> 20 & 0b11_1111_1111) as u16, 10);
-        f[3] = decompress((x >> 30 & 0b11_1111_1111) as u16, 10);
+        f[1] = decompress(((x >> 10) & 0b11_1111_1111) as u16, 10);
+        f[2] = decompress(((x >> 20) & 0b11_1111_1111) as u16, 10);
+        f[3] = decompress(((x >> 30) & 0b11_1111_1111) as u16, 10);
     }
     f
 }
