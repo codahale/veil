@@ -3,7 +3,7 @@
 use std::fs;
 
 use anyhow::Result;
-use xshell::{cmd, Shell};
+use xshell::{Shell, cmd};
 
 const VEIL_PATH: &str = env!("CARGO_BIN_EXE_veil");
 

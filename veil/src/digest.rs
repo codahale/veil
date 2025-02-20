@@ -82,9 +82,9 @@ mod tests {
     #[test]
     fn round_trip() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let message = rng.gen::<[u8; 64]>();
-        let md_one = rng.gen::<[u8; 16]>();
-        let md_two = rng.gen::<[u8; 16]>();
+        let message = rng.r#gen::<[u8; 64]>();
+        let md_one = rng.r#gen::<[u8; 16]>();
+        let md_two = rng.r#gen::<[u8; 16]>();
 
         let a = Digest::new(&[&md_one, &md_two], Cursor::new(&message))
             .expect("cursor reads should be infallible");
@@ -97,9 +97,9 @@ mod tests {
     #[test]
     fn different_metadata() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let message = rng.gen::<[u8; 64]>();
-        let md_one = rng.gen::<[u8; 16]>();
-        let md_two = rng.gen::<[u8; 16]>();
+        let message = rng.r#gen::<[u8; 64]>();
+        let md_one = rng.r#gen::<[u8; 16]>();
+        let md_two = rng.r#gen::<[u8; 16]>();
 
         let a = Digest::new(&[&md_one, &md_two], Cursor::new(&message))
             .expect("cursor reads should be infallible");
@@ -112,10 +112,10 @@ mod tests {
     #[test]
     fn different_messages() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let message = rng.gen::<[u8; 64]>();
-        let md_one = rng.gen::<[u8; 16]>();
-        let md_two = rng.gen::<[u8; 16]>();
-        let different_message = rng.gen::<[u8; 64]>();
+        let message = rng.r#gen::<[u8; 64]>();
+        let md_one = rng.r#gen::<[u8; 16]>();
+        let md_two = rng.r#gen::<[u8; 16]>();
+        let different_message = rng.r#gen::<[u8; 64]>();
 
         let a = Digest::new(&[&md_one, &md_two], Cursor::new(&message))
             .expect("cursor reads should be infallible");
@@ -128,7 +128,7 @@ mod tests {
     #[test]
     fn encoding() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let sig = Digest(rng.gen());
+        let sig = Digest(rng.r#gen());
 
         assert_eq!(
             "9tKd8hrpibubFKGV6QELAQ9q5if5fWuGH2rfHML4vZyL",

@@ -2,7 +2,7 @@
 name = "benchmarks"
 version = "0.0.0"
 publish = false
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 criterion = "0.5.1"

@@ -74,7 +74,7 @@ fn encode_ct(mut rng: impl CryptoRng + Rng, c: [u8; ML_KEM_CT_LEN]) -> Option<[u
     out[..bits.len()].copy_from_slice(&bits);
 
     // Mask the top five bits of the encoded vector.
-    let mask = BIT_MASK & rng.gen::<u8>();
+    let mask = BIT_MASK & rng.r#gen::<u8>();
     out[ENC_CT_LEN - 128 - 1] |= mask;
 
     // Perform rejection sampling based on the second part.

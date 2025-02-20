@@ -102,7 +102,7 @@ impl SecKey {
     /// Generates a random secret key.
     #[must_use]
     pub fn random(mut rng: impl CryptoRng + RngCore) -> SecKey {
-        Self::from_canonical_bytes(rng.gen::<[u8; SK_LEN]>()).expect("should parse")
+        Self::from_canonical_bytes(rng.r#gen::<[u8; SK_LEN]>()).expect("should parse")
     }
 
     /// Decodes the given slice as a secret key, if possible.

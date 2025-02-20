@@ -183,7 +183,7 @@ mod tests {
     #[test]
     fn wrong_passphrase() {
         let (mut rng, _, _, mut ciphertext) = setup();
-        let wrong_passphrase = rng.gen::<[u8; 32]>();
+        let wrong_passphrase = rng.r#gen::<[u8; 32]>();
         assert_eq!(
             None,
             decrypt(&wrong_passphrase, &mut ciphertext),
@@ -228,8 +228,8 @@ mod tests {
 
     fn setup() -> (ChaChaRng, [u8; 32], [u8; 64], Vec<u8>) {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
-        let passphrase = rng.gen::<[u8; 32]>();
-        let plaintext = rng.gen::<[u8; 64]>();
+        let passphrase = rng.r#gen::<[u8; 32]>();
+        let plaintext = rng.r#gen::<[u8; 64]>();
 
         let mut ciphertext = vec![0u8; plaintext.len() + OVERHEAD];
         encrypt(&mut rng, &passphrase, 1, 6, 4, &plaintext, &mut ciphertext);

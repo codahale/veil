@@ -157,7 +157,7 @@ mod tests {
     #[test]
     fn modified_message() {
         let (mut rng, signer, _, sig) = setup();
-        let wrong_message = rng.gen::<[u8; 64]>();
+        let wrong_message = rng.r#gen::<[u8; 64]>();
         assert_matches!(
             verify(&signer.pub_key, Cursor::new(wrong_message), &sig),
             Err(VerifyError::InvalidSignature)
@@ -210,7 +210,7 @@ mod tests {
     fn setup() -> (ChaChaRng, SecKey, Vec<u8>, Signature) {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let signer = SecKey::random(&mut rng);
-        let message = rng.gen::<[u8; 64]>();
+        let message = rng.r#gen::<[u8; 64]>();
         let sig = sign(&mut rng, &signer, Cursor::new(message)).expect("signing should be ok");
         (rng, signer, message.to_vec(), sig)
     }

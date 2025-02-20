@@ -44,7 +44,7 @@ pub fn encrypt(
     message.mix("sender", &sender.pub_key.encoded);
 
     // Generate a random DEK.
-    let dek = rng.gen::<[u8; DEK_LEN]>();
+    let dek = rng.r#gen::<[u8; DEK_LEN]>();
 
     // Encode a header with the DEK and receiver count.
     let header = Header::new(dek, receivers.len()).encode();

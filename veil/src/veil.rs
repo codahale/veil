@@ -289,7 +289,7 @@ mod tests {
     fn sign_and_verify() {
         let mut rng = ChaChaRng::seed_from_u64(0xDEADBEEF);
         let key = SecretKey::random(&mut rng);
-        let message = rng.gen::<[u8; 64]>();
+        let message = rng.r#gen::<[u8; 64]>();
 
         let sig = key.sign(&mut rng, Cursor::new(message)).expect("signing should be ok");
 
