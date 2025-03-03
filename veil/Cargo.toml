@@ -9,7 +9,7 @@ description = "Stupid crypto tricks."
 
 [dependencies]
 bs58 = "0.5.1"
-fips203 = { version = "0.4.2", default-features = false, features = ["ml-kem-768"] }
+fips203 = { version = "0.4.3", default-features = false, features = ["ml-kem-768"] }
 fips204 = { version = "0.4.6", default-features = false, features = ["ml-dsa-65"] }
 lockstitch = "0.29.0"
 num-bigint = "0.4.6"
