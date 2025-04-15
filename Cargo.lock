@@ -151,9 +151,9 @@ dependencies = [
 
 [[package]]
 name = "bolero"
-version = "0.13.0"
+version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eeae9bae5224be9a368c3b4f8cc83451473d55bcc1aa522cf56a48828dcf7f6e"
+checksum = "0910c6acd6fae5a1b4b8b9f972e7642ac93c2946204588d25e1d945772268353"
 dependencies = [
  "bolero-afl",
  "bolero-engine",
