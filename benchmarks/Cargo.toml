@@ -5,7 +5,7 @@ publish = false
 edition = "2024"
 
 [dependencies]
-criterion = "0.5.1"
+criterion = "0.6.0"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 veil = { path = "../veil" }

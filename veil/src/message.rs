@@ -354,7 +354,7 @@ impl Header {
 
     #[inline]
     #[must_use]
-    fn encode(&self) -> [u8; HEADER_LEN] {
+    const fn encode(&self) -> [u8; HEADER_LEN] {
         let mut header = [0u8; HEADER_LEN];
         let (hdr_dek, hdr_recv_count) = header.split_at_mut(DEK_LEN);
         hdr_dek.copy_from_slice(&self.dek);
