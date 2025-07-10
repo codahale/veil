@@ -10,7 +10,7 @@ default-run = "veil"
 
 [dependencies]
 bunt = "0.2.8"
-clap = { version = "4.5.40", features = ["deprecated", "derive"] }
+clap = { version = "4.5.41", features = ["deprecated", "derive"] }
 clap_complete = "4.5.55"
 console = "0.16.0"
 num_cpus = "1.17.0"
